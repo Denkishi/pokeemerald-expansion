@@ -47,7 +47,7 @@ static const u16 sRedInterface_Pal[]    = INCGFX_U16("graphics/interface/red.pal
 static const u32 sArrowCursor_Gfx[]     = INCGFX_U32("graphics/interface/arrow_cursor.png", ".4bpp.smol");
 
 static const struct SpritePalette sArrowCursorSpritePal = { sRedInterface_Pal, TAG_RENTAL_ARROW_CURSOR };
-static const struct CompressedSpriteSheet sArrowCursorSpriteSheet = { (const u8 *)sArrowCursor_Gfx, 0x80, TAG_RENTAL_ARROW_CURSOR };
+static const struct CompressedSpriteSheet sArrowCursorSpriteSheet = { sArrowCursor_Gfx, 0x80, TAG_RENTAL_ARROW_CURSOR };
 
 static const struct OamData sOamData_ArrowCursor =
 {
