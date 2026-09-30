@@ -201,7 +201,8 @@ static void UpdateTeamPreview(s32 itemIndex)
 
 static void RentalTeams_MoveCursor(s32 itemIndex, bool8 onInit, struct ListMenu *list)
 {
-    PlaySE(SE_SELECT);
+    if (!onInit)
+        PlaySE(SE_SELECT);
     UpdateTeamPreview(itemIndex);
 }
 
@@ -227,6 +228,8 @@ static void Task_RentalTeams_FadeOutAndExit(u8 taskId)
         FreeMonIconPalettes();
         FreeRentalTeamsResources();
         DestroyTask(taskId);
+        gFieldCallback = FieldCB_ContinueScriptHandleMusic;
+        gMain.state = 0;
         SetMainCallback2(CB2_ReturnToField);
     }
 }
@@ -336,98 +339,86 @@ static void BuildRentalTeamsList(void)
 
 static void CB2_InitRentalTeams(void)
 {
-    switch (gMain.state)
+    SetGpuReg(REG_OFFSET_DISPCNT, 0);
+    SetVBlankCallback(NULL);
+    ResetVramOamAndBgCntRegs();
+    ResetBgsAndClearDma3BusyFlags(0);
+    DeactivateAllTextPrinters();
+    ResetPaletteFade();
+    ResetTasks();
+    ResetSpriteData();
+    FreeAllSpritePalettes();
+    ClearScheduledBgCopiesToVram();
+
+    InitBgsFromTemplates(0, sRentalTeamsBgTemplates, ARRAY_COUNT(sRentalTeamsBgTemplates));
+    ResetAllBgsCoordinates();
+
+    InitWindows(sRentalTeamsWindowTemplates);
+    LoadUserWindowBorderGfx(0, 0x0200, BG_PLTT_ID(14));
+    LoadPalette(gStandardMenuPalette, BG_PLTT_ID(15), PLTT_SIZE_4BPP);
+
+    DrawStdFrameWithCustomTileAndPalette(WIN_HEADER, FALSE, 0x0200, 14);
+    DrawStdFrameWithCustomTileAndPalette(WIN_TEAM_LIST, FALSE, 0x0200, 14);
+    DrawStdFrameWithCustomTileAndPalette(WIN_PREVIEW, FALSE, 0x0200, 14);
+
+    PutWindowTilemap(WIN_HEADER);
+    PutWindowTilemap(WIN_TEAM_LIST);
+    PutWindowTilemap(WIN_PREVIEW);
+
+    FillWindowPixelBuffer(WIN_HEADER, PIXEL_FILL(1));
+    FillWindowPixelBuffer(WIN_TEAM_LIST, PIXEL_FILL(1));
+    FillWindowPixelBuffer(WIN_PREVIEW, PIXEL_FILL(1));
+
     {
-    case 0:
-        ResetSpriteData();
-        FreeAllSpritePalettes();
-        ResetTasks();
-        ClearScheduledBgCopiesToVram();
-        SetVBlankCallback(VBlankCB_RentalTeams);
-        gMain.state++;
-        break;
-    case 1:
-        ResetVramOamAndBgCntRegs();
-        ResetBgsAndClearDma3BusyFlags(0);
-        InitBgsFromTemplates(0, sRentalTeamsBgTemplates, ARRAY_COUNT(sRentalTeamsBgTemplates));
-        ResetAllBgsCoordinates();
-        SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_MODE_0 | DISPCNT_OBJ_1D_MAP | DISPCNT_OBJ_ON);
-        ShowBg(0);
-        ShowBg(1);
-        SetGpuReg(REG_OFFSET_BLDCNT, 0);
+        u8 titleBuf[64];
+        const u8 *catName;
+        if (sRentalTeamsData->category == CATEGORY_ALL)
+            catName = sText_AllTeamsCategory;
+        else
+            catName = sRentalCategories[sRentalTeamsData->category].name;
 
-        InitWindows(sRentalTeamsWindowTemplates);
-        DeactivateAllTextPrinters();
-        LoadUserWindowBorderGfx(0, 0x0200, BG_PLTT_ID(14));
-        LoadPalette(gStandardMenuPalette, BG_PLTT_ID(15), PLTT_SIZE_4BPP);
-
-        DrawStdFrameWithCustomTileAndPalette(WIN_HEADER, FALSE, 0x0200, 14);
-        DrawStdFrameWithCustomTileAndPalette(WIN_TEAM_LIST, FALSE, 0x0200, 14);
-        DrawStdFrameWithCustomTileAndPalette(WIN_PREVIEW, FALSE, 0x0200, 14);
-
-        PutWindowTilemap(WIN_HEADER);
-        PutWindowTilemap(WIN_TEAM_LIST);
-        PutWindowTilemap(WIN_PREVIEW);
-
-        FillWindowPixelBuffer(WIN_HEADER, PIXEL_FILL(1));
-        FillWindowPixelBuffer(WIN_TEAM_LIST, PIXEL_FILL(1));
-        FillWindowPixelBuffer(WIN_PREVIEW, PIXEL_FILL(1));
-
-        {
-            u8 titleBuf[64];
-            const u8 *catName;
-            if (sRentalTeamsData->category == CATEGORY_ALL)
-                catName = sText_AllTeamsCategory;
-            else
-                catName = sRentalCategories[sRentalTeamsData->category].name;
-
-            StringCopy(titleBuf, sText_HeaderPrefix);
-            StringAppend(titleBuf, catName);
-            AddTextPrinterParameterized(WIN_HEADER, FONT_NORMAL, titleBuf, 6, 2, TEXT_SKIP_DRAW, NULL);
-        }
-
-        CopyWindowToVram(WIN_HEADER, COPYWIN_FULL);
-        CopyWindowToVram(WIN_TEAM_LIST, COPYWIN_FULL);
-        CopyWindowToVram(WIN_PREVIEW, COPYWIN_FULL);
-        ScheduleBgCopyTilemapToVram(0);
-
-        gMain.state++;
-        break;
-    case 2:
-        LoadMonIconPalettes();
-        gMain.state++;
-        break;
-    case 3:
-        BuildRentalTeamsList();
-        sRentalTeamsData->listTaskId = ListMenuInit(&gMultiuseListMenuTemplate, 0, 0);
-
-        sRentalTeamsData->scrollArrowsTaskId = AddScrollIndicatorArrowPairParameterized(
-            SCROLL_ARROW_UP,
-            76,
-            26,
-            148,
-            (sRentalTeamsData->numItems > 7) ? (sRentalTeamsData->numItems - 7) : 0,
-            TAG_RENTAL_SCROLL_ARROW,
-            TAG_RENTAL_SCROLL_ARROW,
-            &sRentalTeamsData->scrollOffset
-        );
-
-        UpdateTeamPreview(sRentalTeamsData->menuItems[0].id);
-        gMain.state++;
-        break;
-    case 4:
-        SetBackdropFromColor(RGB(8, 12, 18));
-        BeginNormalPaletteFade(PALETTES_ALL, 0, 16, 0, RGB_BLACK);
-        CreateTask(Task_RentalTeams_HandleInput, 10);
-        SetMainCallback2(CB2_RentalTeamsMain);
-        break;
+        StringCopy(titleBuf, sText_HeaderPrefix);
+        StringAppend(titleBuf, catName);
+        AddTextPrinterParameterized(WIN_HEADER, FONT_NORMAL, titleBuf, 6, 2, TEXT_SKIP_DRAW, NULL);
     }
+
+    CopyWindowToVram(WIN_HEADER, COPYWIN_FULL);
+    CopyWindowToVram(WIN_TEAM_LIST, COPYWIN_FULL);
+    CopyWindowToVram(WIN_PREVIEW, COPYWIN_FULL);
+    ScheduleBgCopyTilemapToVram(0);
+
+    LoadMonIconPalettes();
+    BuildRentalTeamsList();
+    sRentalTeamsData->listTaskId = ListMenuInit(&gMultiuseListMenuTemplate, 0, 0);
+
+    sRentalTeamsData->scrollArrowsTaskId = AddScrollIndicatorArrowPairParameterized(
+        SCROLL_ARROW_UP,
+        76,
+        26,
+        148,
+        (sRentalTeamsData->numItems > 7) ? (sRentalTeamsData->numItems - 7) : 0,
+        TAG_RENTAL_SCROLL_ARROW,
+        TAG_RENTAL_SCROLL_ARROW,
+        &sRentalTeamsData->scrollOffset
+    );
+
+    SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_MODE_0 | DISPCNT_OBJ_1D_MAP | DISPCNT_OBJ_ON);
+    ShowBg(0);
+    ShowBg(1);
+    SetBackdropFromColor(RGB(8, 12, 18));
+    BeginNormalPaletteFade(PALETTES_ALL, 0, 16, 0, RGB_BLACK);
+    CreateTask(Task_RentalTeams_HandleInput, 10);
+
+    SetVBlankCallback(VBlankCB_RentalTeams);
+    SetMainCallback2(CB2_RentalTeamsMain);
 }
 
 static void Task_RentalTeams_WaitForFadeOut(u8 taskId)
 {
     if (!gPaletteFade.active)
     {
+        CleanupOverworldWindowsAndTilemaps();
+        SetMainCallback1(NULL);
         SetMainCallback2(CB2_InitRentalTeams);
         gFieldCallback = FieldCB_ContinueScriptHandleMusic;
         DestroyTask(taskId);
@@ -491,6 +482,8 @@ void GiveSelectedRentalTeam(void)
         template.level = rMon->level;
         template.ball = ITEM_POKE_BALL;
         template.nature = rMon->nature;
+        template.gender = MON_GENDER_RANDOM;
+        template.origin = GIFTMON_ORIGIN;
         template.isShiny = rMon->isShiny;
         template.doNotUseDefaultShinyness = TRUE;
         template.abilityNum = rMon->abilityNum;
