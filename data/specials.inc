@@ -641,4 +641,5 @@ gSpecials::
 	def_special OpenRentalTeamBrowser, waitstate=1
 	def_special ChooseRandomRentalTeam
 	def_special GiveSelectedRentalTeam
+	def_special OpenCustomTeamBuilder, waitstate=1
 	def_special BufferRentalTeamName

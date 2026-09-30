@@ -244,7 +244,8 @@ LittlerootTown_EventScript_FatMan::
 	end
 
 LittlerootTown_EventScript_CustomTeamHold::
-	msgbox LittlerootTown_Text_CustomTeamUnavailable, MSGBOX_DEFAULT
+	special OpenCustomTeamBuilder
+	waitstate
 	release
 	end
 
@@ -1163,4 +1164,8 @@ LittlerootTown_Text_ReceivedTeam:
 LittlerootTown_Text_GoodLuckInBattle:
 	.string "La tua squadra è al completo e in piena\n"
 	.string "salute. Buona fortuna in battaglia!$"
+
+LittlerootTown_Text_CustomTeamConfirm:
+	.string "Vuoi usare questo team\n"
+	.string "custom?$"
 
