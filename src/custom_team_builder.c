@@ -142,7 +142,7 @@ static const u8 sText_Header_IVs[]       = _("SETT. IV");
 static const u8 sText_AddPokemon[]       = _("+ Aggiungi Pokemon");
 static const u8 sText_Confirm[]          = _("CONFERMA TEAM");
 static const u8 sText_Cancel[]           = _("Annulla");
-static const u8 sText_Empty[]            = sText_MovePotNone;
+static const u8 sText_Empty[]            = sText_Empty;
 static const u8 sText_Nessuno[]          = _("Nessuno");
 static const u8 sText_PressStart[]       = _("START:Conferma  B:Esci");
 static const u8 sText_PressA[]           = _("A:Scegli  B:Torna");
@@ -164,11 +164,10 @@ static const u8 sText_TotalEV[]          = _("Tot EV:");
 static const u8 sText_Lv50[]             = _("Lv.50");
 static const u8 sText_Filter[]           = _("Filtro:");
 static const u8 sText_HiddenAbil[]       = _("(H)");
-static const u8 sText_ChooseMoveHeader[] = sText_ChooseMoveHeader;
-static const u8 sText_MovePotLbl[]       = sText_MovePotLbl;
-static const u8 sText_MovePotNone[]      = sText_MovePotNone;
-static const u8 sText_MovePPLbl[]        = sText_MovePPLbl;
-static const u8 sText_EV510[]            = sText_EV510;
+static const u8 sText_ChooseMoveHeader[] = _("-- Scegli mossa --");
+static const u8 sText_MovePotLbl[]       = _("Pot:");
+static const u8 sText_MovePPLbl[]        = _("PP:");
+static const u8 sText_EV510[]            = _("/510");
 
 static const u8 *const sStatNames[NUM_STATS] = {
     sText_Stat_HP,
@@ -292,7 +291,7 @@ void OpenCustomTeamBuilder(void)
     ResetAllBgsCoordinates();
 
     // Load palettes
-    FillBgTilemapBufferRect_Palette0(0, 0, 0, 0, 30, 20, 0);
+    FillBgTilemapBufferRect_Palette0(0, 0, 0, 0, 30, 20);
     LoadUserWindowBorderGfx(0, 0x0200, BG_PLTT_ID(14));
     LoadPalette(gStandardMenuPalette, BG_PLTT_ID(15), PLTT_SIZEOF(1));
 
@@ -661,6 +660,7 @@ static void CTB_DrawSpeciesList(void)
 {
     u8 i;
     u8 buf[32];
+    u8 numStr[8];
 
     CTB_DrawHeader(sText_Header_Species);
     CTB_ClampCursor();
@@ -794,7 +794,7 @@ static void CTB_DrawMoveList(void)
             u32 power = GetMovePower(moveId);
             StringCopy(buf, sText_MovePotLbl);
             if (power == 0)
-                StringAppend(buf, sText_MovePotNone);
+                StringAppend(buf, sText_Empty);
             else
             {
                 ConvertIntToDecimalStringN(numStr, power, STR_CONV_MODE_LEFT_ALIGN, 3);
@@ -844,7 +844,6 @@ static void CTB_DrawNatureList(void)
         enum Stat statDown = gNaturesInfo[nat].statDown;
         u8 y = 0;
         u8 s;
-        const u8 *arrows[NUM_STATS];
 
         AddTextPrinterParameterized(sData->winIds[WIN_RIGHT], FONT_NORMAL,
             gNaturesInfo[nat].name, 4, y, TEXT_SKIP_DRAW, NULL);
