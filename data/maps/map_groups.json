@@ -249,7 +249,8 @@
     "RustboroCity_Flat2_1F",
     "RustboroCity_Flat2_2F",
     "RustboroCity_Flat2_3F",
-    "RustboroCity_House3"
+    "RustboroCity_House3",
+    "gamb_int1"
   ],
   "gMapGroup_IndoorFortree": [
     "FortreeCity_House1",
@@ -1163,6 +1164,7 @@
     "SevenIsland_SevaultCanyon_House_Frlg"
   ],
   "gMapGroup_GAMP": [
+    "GambEsterno",
     "gamb_int1_2"
   ]
 }

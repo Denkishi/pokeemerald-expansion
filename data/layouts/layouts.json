@@ -9334,6 +9334,28 @@
       "border_filepath": "data/layouts/gamb_int1_2/border.bin",
       "blockdata_filepath": "data/layouts/gamb_int1_2/map.bin",
       "layout_version": "emerald"
+    },
+    {
+      "id": "LAYOUT_GAMB_ESTERNO",
+      "name": "GambEsterno_Layout",
+      "width": 20,
+      "height": 20,
+      "primary_tileset": "gTileset_General",
+      "secondary_tileset": "gTileset_Petalburg",
+      "border_filepath": "data/layouts/GambEsterno/border.bin",
+      "blockdata_filepath": "data/layouts/GambEsterno/map.bin",
+      "layout_version": "emerald"
+    },
+    {
+      "id": "LAYOUT_GAMB_INT1",
+      "name": "gamb_int1_Layout",
+      "width": 19,
+      "height": 9,
+      "primary_tileset": "gTileset_Building",
+      "secondary_tileset": "gTileset_Facility",
+      "border_filepath": "data/layouts/gamb_int1/border.bin",
+      "blockdata_filepath": "data/layouts/gamb_int1/map.bin",
+      "layout_version": "emerald"
     }
   ]
 }

@@ -28,7 +28,6 @@
       "flag": "0"
     },
     {
-      "local_id": "LOCALID_DEVON_CORP_3F_EMPLOYEE",
       "graphics_id": "OBJ_EVENT_GFX_MAN_2",
       "x": 26,
       "y": -5,
@@ -68,7 +67,7 @@
       "y": 8,
       "elevation": 0,
       "dest_map": "MAP_GAMB_ESTERNO",
-      "dest_warp_id": "1"
+      "dest_warp_id": "0"
     }
   ],
   "coord_events": [],
