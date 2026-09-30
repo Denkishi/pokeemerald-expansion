@@ -9,7 +9,7 @@
 #include "constants/abilities.h"
 #include "constants/pokemon.h"
 
-struct RentalMon
+struct PresetRentalMon
 {
     u16 species;
     u16 item;
@@ -28,7 +28,7 @@ struct RentalTeam
     const u8 name[48];
     const u8 listName[24];
     const u8 category[24];
-    struct RentalMon mons[6];
+    struct PresetRentalMon mons[6];
 };
 
 #define TOTAL_RENTAL_TEAMS 76

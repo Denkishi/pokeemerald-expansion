@@ -16,6 +16,7 @@
 #include "random.h"
 #include "rental_teams.h"
 #include "scanline_effect.h"
+#include "script.h"
 #include "sound.h"
 #include "sprite.h"
 #include "string_util.h"
@@ -40,6 +41,15 @@ enum {
     WIN_PREVIEW,
     WIN_COUNT
 };
+
+static const u8 sText_CasualeHeader[] = _("CASUALE");
+static const u8 sText_CasualeDescription[] = _("Premendo A\nriceverai un\nteam a sorpresa\ntra quelli di\nquesta lista!");
+static const u8 sText_KeyHelp[] = _("A:Scegli  B:Esci");
+static const u8 sText_AnteprimaHeader[] = _("ANTEPRIMA");
+static const u8 sText_RandomTeamOption[] = _("  Team Casuale");
+static const u8 sText_AllTeamsCategory[] = _("TUTTI I TEAM (76)");
+static const u8 sText_HeaderPrefix[] = _("TEAM A NOLEGGIO - ");
+static const u8 sText_UnknownTeam[] = _("Team Sconosciuto");
 
 struct RentalTeamsMenuData
 {
@@ -155,13 +165,13 @@ static void UpdateTeamPreview(s32 itemIndex)
 
     if (itemIndex == ITEM_ID_RANDOM)
     {
-        AddTextPrinterParameterized(WIN_PREVIEW, FONT_NORMAL, _("CASUALE"), 16, 2, TEXT_SKIP_DRAW, NULL);
-        AddTextPrinterParameterized(WIN_PREVIEW, FONT_SMALL, _("Premendo A\nriceverai un\nteam a sorpresa\ntra quelli di\nquesta lista!"), 4, 36, TEXT_SKIP_DRAW, NULL);
-        AddTextPrinterParameterized(WIN_PREVIEW, FONT_SMALL, _("A:Scegli  B:Esci"), 4, 114, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(WIN_PREVIEW, FONT_NORMAL, sText_CasualeHeader, 16, 2, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(WIN_PREVIEW, FONT_SMALL, sText_CasualeDescription, 4, 36, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(WIN_PREVIEW, FONT_SMALL, sText_KeyHelp, 4, 114, TEXT_SKIP_DRAW, NULL);
     }
     else if (itemIndex >= 0 && itemIndex < TOTAL_RENTAL_TEAMS)
     {
-        AddTextPrinterParameterized(WIN_PREVIEW, FONT_NORMAL, _("ANTEPRIMA"), 12, 2, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(WIN_PREVIEW, FONT_NORMAL, sText_AnteprimaHeader, 12, 2, TEXT_SKIP_DRAW, NULL);
 
         static const s16 sIconCoords[6][2] = {
             { 176, 46 }, { 208, 46 },
@@ -183,7 +193,7 @@ static void UpdateTeamPreview(s32 itemIndex)
             }
         }
 
-        AddTextPrinterParameterized(WIN_PREVIEW, FONT_SMALL, _("A:Scegli  B:Esci"), 4, 114, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(WIN_PREVIEW, FONT_SMALL, sText_KeyHelp, 4, 114, TEXT_SKIP_DRAW, NULL);
     }
 
     CopyWindowToVram(WIN_PREVIEW, COPYWIN_GFX);
@@ -289,7 +299,7 @@ static void BuildRentalTeamsList(void)
     sRentalTeamsData->menuItems = AllocZeroed(sizeof(struct ListMenuItem) * (sRentalTeamsData->numItems + 1));
 
     // First item is always Random Team
-    sRentalTeamsData->menuItems[0].name = _("  Team Casuale");
+    sRentalTeamsData->menuItems[0].name = sText_RandomTeamOption;
     sRentalTeamsData->menuItems[0].id = ITEM_ID_RANDOM;
 
     for (i = 0; i < count; i++)
@@ -367,11 +377,11 @@ static void CB2_InitRentalTeams(void)
             u8 titleBuf[64];
             const u8 *catName;
             if (sRentalTeamsData->category == CATEGORY_ALL)
-                catName = _("TUTTI I TEAM (76)");
+                catName = sText_AllTeamsCategory;
             else
                 catName = sRentalCategories[sRentalTeamsData->category].name;
 
-            StringCopy(titleBuf, _("TEAM A NOLEGGIO - "));
+            StringCopy(titleBuf, sText_HeaderPrefix);
             StringAppend(titleBuf, catName);
             AddTextPrinterParameterized(WIN_HEADER, FONT_NORMAL, titleBuf, 6, 2, TEXT_SKIP_DRAW, NULL);
         }
@@ -456,7 +466,7 @@ void BufferRentalTeamName(void)
     if (teamId < TOTAL_RENTAL_TEAMS)
         StringCopy(gStringVar1, sRentalTeams[teamId].name);
     else
-        StringCopy(gStringVar1, _("Team Sconosciuto"));
+        StringCopy(gStringVar1, sText_UnknownTeam);
 }
 
 void GiveSelectedRentalTeam(void)
@@ -471,7 +481,7 @@ void GiveSelectedRentalTeam(void)
 
     for (i = 0; i < 6; i++)
     {
-        const struct RentalMon *rMon = &sRentalTeams[teamId].mons[i];
+        const struct PresetRentalMon *rMon = &sRentalTeams[teamId].mons[i];
         if (rMon->species == SPECIES_NONE)
             continue;
 
