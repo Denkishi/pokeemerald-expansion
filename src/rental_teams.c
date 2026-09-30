@@ -302,9 +302,9 @@ static void UpdatePreviewText(s32 itemIndex)
         u8 str[32];
 
         ConvertIntToDecimalStringN(gStringVar1, monIdx + 1, STR_CONV_MODE_LEFT_ALIGN, 1);
-        StringCopy(str, _("["));
+        StringCopy(str, _("("));
         StringAppend(str, gStringVar1);
-        StringAppend(str, _("/6] "));
+        StringAppend(str, _("/6) "));
         StringAppend(str, GetSpeciesName(rMon->species));
         AddTextPrinterParameterized(WIN_PREVIEW, FONT_SMALL, str, 2, 0, TEXT_SKIP_DRAW, NULL);
 
