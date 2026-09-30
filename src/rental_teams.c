@@ -63,6 +63,8 @@ static const u8 sText_HeaderPrefix[] = _("TEAM A NOLEGGIO - ");
 static const u8 sText_UnknownTeam[] = _("Team Sconosciuto");
 static const u8 sText_StrNone[] = _("Str: Nessuno");
 static const u8 sText_StrPrefix[] = _("Str: ");
+static const u8 sText_MonIdxOpen[] = _("(");
+static const u8 sText_MonIdxSep[] = _("/6) ");
 
 struct RentalTeamsMenuData
 {
@@ -302,9 +304,9 @@ static void UpdatePreviewText(s32 itemIndex)
         u8 str[32];
 
         ConvertIntToDecimalStringN(gStringVar1, monIdx + 1, STR_CONV_MODE_LEFT_ALIGN, 1);
-        StringCopy(str, _("("));
+        StringCopy(str, sText_MonIdxOpen);
         StringAppend(str, gStringVar1);
-        StringAppend(str, _("/6) "));
+        StringAppend(str, sText_MonIdxSep);
         StringAppend(str, GetSpeciesName(rMon->species));
         AddTextPrinterParameterized(WIN_PREVIEW, FONT_SMALL, str, 2, 0, TEXT_SKIP_DRAW, NULL);
 
