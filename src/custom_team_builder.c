@@ -307,9 +307,10 @@ static void CB2_InitCustomTeamBuilder(void)
         LoadMonIconPalettes();
 
         // Create windows
-        sData->winIds[WIN_HEADER] = AddWindow(&sWinTemplates[WIN_HEADER]);
-        sData->winIds[WIN_LEFT]   = AddWindow(&sWinTemplates[WIN_LEFT]);
-        sData->winIds[WIN_RIGHT]  = AddWindow(&sWinTemplates[WIN_RIGHT]);
+        InitWindows(sWinTemplates);
+        sData->winIds[WIN_HEADER] = WIN_HEADER;
+        sData->winIds[WIN_LEFT]   = WIN_LEFT;
+        sData->winIds[WIN_RIGHT]  = WIN_RIGHT;
 
         // Draw frames
         DrawStdFrameWithCustomTileAndPalette(sData->winIds[WIN_HEADER], FALSE, 0x0200, 14);

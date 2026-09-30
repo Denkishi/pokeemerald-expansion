@@ -321,6 +321,19 @@ static void UpdatePreviewText(s32 itemIndex)
             StringCopy(str, sText_StrNone);
         }
         AddTextPrinterParameterized(WIN_PREVIEW, FONT_SMALL, str, 2, 100, TEXT_SKIP_DRAW, NULL);
+
+        // Draw arrow next to the selected sprite
+        {
+            static const s16 sIconCoords[6][2] = {
+                { 168, 58 }, { 206, 58 },
+                { 168, 86 }, { 206, 86 },
+                { 168, 114 }, { 206, 114 },
+            };
+            static const u8 sText_RightArrow[] = _("{RIGHT_ARROW}");
+            u32 arrowX = (sIconCoords[monIdx][0] - 136) - 16;
+            u32 arrowY = (sIconCoords[monIdx][1] - 24) - 8;
+            AddTextPrinterParameterized(WIN_PREVIEW, FONT_NORMAL, sText_RightArrow, arrowX, arrowY, TEXT_SKIP_DRAW, NULL);
+        }
     }
     else
     {

@@ -245,6 +245,8 @@ LittlerootTown_EventScript_FatMan::
 
 LittlerootTown_EventScript_CustomTeamHold::
 	special OpenCustomTeamBuilder
+	setflag FLAG_SYS_POKEMON_GET
+	setflag FLAG_SYS_POKEDEX_GET
 	waitstate
 	release
 	end
@@ -326,7 +328,7 @@ LittlerootTown_EventScript_BrowseAllTeams::
 	end
 
 LittlerootTown_EventScript_HandleBrowserResult::
-	goto_if_eq VAR_RESULT, 0xFFFF, LittlerootTown_EventScript_RentalMenu
+	goto_if_eq VAR_RESULT, 0xFFFF, LittlerootTown_EventScript_Cancel
 	special BufferRentalTeamName
 	goto LittlerootTown_EventScript_ConfirmTeam
 	end
@@ -337,6 +339,8 @@ LittlerootTown_EventScript_ConfirmTeam::
 	case NO, LittlerootTown_EventScript_RentalMenu
 	case MULTI_B_PRESSED, LittlerootTown_EventScript_RentalMenu
 	special GiveSelectedRentalTeam
+	setflag FLAG_SYS_POKEMON_GET
+	setflag FLAG_SYS_POKEDEX_GET
 	playfanfare MUS_OBTAIN_ITEM
 	msgbox LittlerootTown_Text_ReceivedTeam, MSGBOX_DEFAULT
 	waitfanfare
