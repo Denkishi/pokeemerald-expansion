@@ -269,7 +269,8 @@ static void CB2_InitCustomTeamBuilder(void)
     case 0:
         SetVBlankCallback(NULL);
         ResetVramOamAndBgCntRegs();
-        ResetBgsAndClearDma3BusyFlags(TRUE);
+	FreeAllWindowBuffers();
+        ResetBgsAndClearDma3BusyFlags(0);
         InitBgsFromTemplates(0, sBgTemplates, ARRAY_COUNT(sBgTemplates));
         ResetAllBgsCoordinates();
         gMain.state++;

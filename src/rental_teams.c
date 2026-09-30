@@ -70,6 +70,7 @@ struct RentalTeamsMenuData
 {
     u8 listTaskId;
     u8 scrollArrowsTaskId;
+    u8 arrowSpriteId;
     u16 scrollOffset;
     u16 selectedRow;
     u8 monIconSpriteIds[6];
@@ -347,6 +348,8 @@ static void UpdatePreviewText(s32 itemIndex)
 static void UpdateTeamPreview(s32 itemIndex)
 {
     u8 i;
+    if (sRentalTeamsData->focusMode == FOCUS_TEAM_LIST && sRentalTeamsData->arrowSpriteId < MAX_SPRITES)
+        gSprites[sRentalTeamsData->arrowSpriteId].invisible = TRUE;
     FreePreviewSprites();
 
     FillWindowPixelBuffer(WIN_PREVIEW, PIXEL_FILL(1));
@@ -434,6 +437,7 @@ static void Task_RentalTeams_FadeOutAndExit(u8 taskId)
         {
             RemoveScrollIndicatorArrowPair(sRentalTeamsData->scrollArrowsTaskId);
             sRentalTeamsData->scrollArrowsTaskId = TASK_NONE;
+    sRentalTeamsData->arrowSpriteId = MAX_SPRITES;
         }
         DestroyListMenuTask(sRentalTeamsData->listTaskId, NULL, NULL);
         FreeMonIconPalettes();
@@ -497,6 +501,7 @@ static void Task_RentalTeams_FadeOutToSummary(u8 taskId)
         {
             RemoveScrollIndicatorArrowPair(sRentalTeamsData->scrollArrowsTaskId);
             sRentalTeamsData->scrollArrowsTaskId = TASK_NONE;
+    sRentalTeamsData->arrowSpriteId = MAX_SPRITES;
         }
         DestroyListMenuTask(sRentalTeamsData->listTaskId, NULL, NULL);
         FreeMonIconPalettes();
@@ -580,6 +585,8 @@ static void Task_RentalTeams_HandleInput(u8 taskId)
             PlaySE(SE_SELECT);
             SetPreviewMonBouncing(sRentalTeamsData->previewMonIdx, FALSE);
             sRentalTeamsData->focusMode = FOCUS_TEAM_LIST;
+            if (sRentalTeamsData->arrowSpriteId < MAX_SPRITES)
+                gSprites[sRentalTeamsData->arrowSpriteId].invisible = TRUE;
             UpdatePreviewText(teamId);
             return;
         }
@@ -776,7 +783,14 @@ static void CB2_InitRentalTeams(void)
     CopyBgTilemapBufferToVram(0);
     CopyBgTilemapBufferToVram(1);
 
+    
     InitWindows(sRentalTeamsWindowTemplates);
+
+    LoadCompressedSpriteSheet(&sArrowCursorSpriteSheet);
+    LoadSpritePalette(&sArrowCursorSpritePal);
+    sRentalTeamsData->arrowSpriteId = CreateSprite(&sSpriteTemplate_ArrowCursor, 0, 0, 0);
+    gSprites[sRentalTeamsData->arrowSpriteId].invisible = TRUE;
+
     LoadUserWindowBorderGfx(WIN_HEADER, 0x0200, BG_PLTT_ID(14));
     LoadPalette(gStandardMenuPalette, BG_PLTT_ID(15), PLTT_SIZE_4BPP);
 
@@ -865,6 +879,7 @@ void OpenRentalTeamBrowser(void)
     sRentalTeamsData = AllocZeroed(sizeof(struct RentalTeamsMenuData));
     sRentalTeamsData->category = cat;
     sRentalTeamsData->scrollArrowsTaskId = TASK_NONE;
+    sRentalTeamsData->arrowSpriteId = MAX_SPRITES;
     sRentalTeamsData->currentTeamId = ITEM_ID_RANDOM;
     sRentalTeamsData->focusMode = FOCUS_TEAM_LIST;
     sRentalTeamsData->previewMonIdx = 0;

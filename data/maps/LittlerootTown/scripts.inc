@@ -244,6 +244,7 @@ LittlerootTown_EventScript_FatMan::
 	end
 
 LittlerootTown_EventScript_CustomTeamHold::
+	closemessage
 	special OpenCustomTeamBuilder
 	setflag FLAG_SYS_POKEMON_GET
 	setflag FLAG_SYS_POKEDEX_GET
@@ -287,6 +288,7 @@ LittlerootTown_EventScript_RandomRentalTeam::
 
 LittlerootTown_EventScript_BrowseAnythingGoes::
 	setvar VAR_0x8004, 0
+	closemessage
 	special OpenRentalTeamBrowser
 	waitstate
 	goto LittlerootTown_EventScript_HandleBrowserResult
@@ -294,6 +296,7 @@ LittlerootTown_EventScript_BrowseAnythingGoes::
 
 LittlerootTown_EventScript_BrowseChampionsMeta::
 	setvar VAR_0x8004, 1
+	closemessage
 	special OpenRentalTeamBrowser
 	waitstate
 	goto LittlerootTown_EventScript_HandleBrowserResult
@@ -301,6 +304,7 @@ LittlerootTown_EventScript_BrowseChampionsMeta::
 
 LittlerootTown_EventScript_BrowseSVOverused::
 	setvar VAR_0x8004, 2
+	closemessage
 	special OpenRentalTeamBrowser
 	waitstate
 	goto LittlerootTown_EventScript_HandleBrowserResult
@@ -308,6 +312,7 @@ LittlerootTown_EventScript_BrowseSVOverused::
 
 LittlerootTown_EventScript_BrowseSVUbers::
 	setvar VAR_0x8004, 3
+	closemessage
 	special OpenRentalTeamBrowser
 	waitstate
 	goto LittlerootTown_EventScript_HandleBrowserResult
@@ -315,6 +320,7 @@ LittlerootTown_EventScript_BrowseSVUbers::
 
 LittlerootTown_EventScript_BrowseSVRarelyUsed::
 	setvar VAR_0x8004, 4
+	closemessage
 	special OpenRentalTeamBrowser
 	waitstate
 	goto LittlerootTown_EventScript_HandleBrowserResult
@@ -322,6 +328,7 @@ LittlerootTown_EventScript_BrowseSVRarelyUsed::
 
 LittlerootTown_EventScript_BrowseAllTeams::
 	setvar VAR_0x8004, 5
+	closemessage
 	special OpenRentalTeamBrowser
 	waitstate
 	goto LittlerootTown_EventScript_HandleBrowserResult
