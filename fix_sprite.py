@@ -1,7 +1,10 @@
+import re
+
 with open('src/rental_teams.c', 'r') as f:
     text = f.read()
 
-sprite_code = '''
+sprite_code = '''#include "decompress.h"
+
 #define TAG_RENTAL_ARROW_CURSOR 2002
 
 static const u16 sRedInterface_Pal[]    = INCGFX_U16("graphics/interface/red.pal", ".gbapal");
@@ -39,6 +42,7 @@ static const struct SpriteTemplate sSpriteTemplate_ArrowCursor =
 };
 '''
 
-text = text.replace('static const u8 sText_Cancel[]', sprite_code + '\nstatic const u8 sText_Cancel[]')
+text = text.replace('enum {\n    WIN_HEADER,', sprite_code + '\n\nenum {\n    WIN_HEADER,')
+
 with open('src/rental_teams.c', 'w') as f:
     f.write(text)
