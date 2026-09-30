@@ -576,7 +576,6 @@ static void CTB_DrawOverview(void)
     {
         CTB_ScrolledLine(sData->winIds[WIN_LEFT], FONT_SMALL, sText_Confirm, lineIdx,
             (sData->listCursor == sData->teamCount + (sData->teamCount < MAX_TEAM_SIZE ? 1 : 0)));
-        lineIdx++;
     }
 
     AddTextPrinterParameterized(sData->winIds[WIN_LEFT], FONT_SMALL, sText_PressStart,
@@ -622,7 +621,7 @@ static void CTB_DrawOverview(void)
                     : sText_Empty;
                 AddTextPrinterParameterized(sData->winIds[WIN_RIGHT], FONT_SMALL,
                     moveName, 4, 64 + y, TEXT_SKIP_DRAW, NULL);
-                y += LIST_LINE_H;
+                if (m < MAX_MON_MOVES - 1) y += LIST_LINE_H;
             }
         }
     }
@@ -906,7 +905,7 @@ static void CTB_DrawAbilityList(void)
 
     // Right: ability description
     {
-        u8 abilIdx = 0;
+        u16 abilIdx = 0;
         u8 lineIdx = 0;
         for (i = 0; i < NUM_ABILITY_SLOTS; i++)
         {
@@ -914,7 +913,7 @@ static void CTB_DrawAbilityList(void)
             if (ab == ABILITY_NONE) continue;
             if (lineIdx == sData->listCursor)
             {
-                abilIdx = ab;
+                abilIdx = (u16)ab;
                 break;
             }
             lineIdx++;
