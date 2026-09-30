@@ -142,7 +142,7 @@ static const u8 sText_Header_IVs[]       = _("SETT. IV");
 static const u8 sText_AddPokemon[]       = _("+ Aggiungi Pokemon");
 static const u8 sText_Confirm[]          = _("CONFERMA TEAM");
 static const u8 sText_Cancel[]           = _("Annulla");
-static const u8 sText_Empty[]            = _("---");
+static const u8 sText_Empty[]            = sText_MovePotNone;
 static const u8 sText_Nessuno[]          = _("Nessuno");
 static const u8 sText_PressStart[]       = _("START:Conferma  B:Esci");
 static const u8 sText_PressA[]           = _("A:Scegli  B:Torna");
@@ -163,7 +163,12 @@ static const u8 sText_Space[]            = _(" ");
 static const u8 sText_TotalEV[]          = _("Tot EV:");
 static const u8 sText_Lv50[]             = _("Lv.50");
 static const u8 sText_Filter[]           = _("Filtro:");
-static const u8 sText_HiddenAbil[]       = _("[H]");
+static const u8 sText_HiddenAbil[]       = _("(H)");
+static const u8 sText_ChooseMoveHeader[] = sText_ChooseMoveHeader;
+static const u8 sText_MovePotLbl[]       = sText_MovePotLbl;
+static const u8 sText_MovePotNone[]      = sText_MovePotNone;
+static const u8 sText_MovePPLbl[]        = sText_MovePPLbl;
+static const u8 sText_EV510[]            = sText_EV510;
 
 static const u8 *const sStatNames[NUM_STATS] = {
     sText_Stat_HP,
@@ -754,7 +759,7 @@ static void CTB_DrawMoveList(void)
 
     // Separator line
     AddTextPrinterParameterized(sData->winIds[WIN_LEFT], FONT_SMALL,
-        _("-- Scegli mossa --"), 4, 4 * LIST_LINE_H + 4, TEXT_SKIP_DRAW, NULL);
+        sText_ChooseMoveHeader, 4, 4 * LIST_LINE_H + 4, TEXT_SKIP_DRAW, NULL);
 
     // Move list
     for (i = 0; i < 7 && (sData->listScroll + i) < sData->moveCount; i++)
@@ -787,9 +792,9 @@ static void CTB_DrawMoveList(void)
         // Power
         {
             u32 power = GetMovePower(moveId);
-            StringCopy(buf, _("Pot:"));
+            StringCopy(buf, sText_MovePotLbl);
             if (power == 0)
-                StringAppend(buf, _("---"));
+                StringAppend(buf, sText_MovePotNone);
             else
             {
                 ConvertIntToDecimalStringN(numStr, power, STR_CONV_MODE_LEFT_ALIGN, 3);
@@ -801,7 +806,7 @@ static void CTB_DrawMoveList(void)
 
         // PP
         {
-            StringCopy(buf, _("PP:"));
+            StringCopy(buf, sText_MovePPLbl);
             ConvertIntToDecimalStringN(numStr, GetMovePP(moveId), STR_CONV_MODE_LEFT_ALIGN, 2);
             StringAppend(buf, numStr);
             AddTextPrinterParameterized(sData->winIds[WIN_RIGHT], FONT_SMALL, buf, 4, y, TEXT_SKIP_DRAW, NULL);
@@ -1049,7 +1054,7 @@ static void CTB_DrawStatScreen(bool8 isEV)
         StringCopy(buf, sText_TotalEV);
         ConvertIntToDecimalStringN(numStr, totalEV, STR_CONV_MODE_LEFT_ALIGN, 3);
         StringAppend(buf, numStr);
-        StringAppend(buf, _("/510"));
+        StringAppend(buf, sText_EV510);
         AddTextPrinterParameterized(sData->winIds[WIN_LEFT], FONT_SMALL, buf, 4, 7 * LIST_LINE_H, TEXT_SKIP_DRAW, NULL);
     }
 
