@@ -638,3 +638,7 @@ gSpecials::
 	def_special UpdateTrainerCardPhotoIcons
 	def_special StickerManGetBragFlags
 	def_special CheckAddCoins
+	def_special OpenRentalTeamBrowser, waitstate=1
+	def_special ChooseRandomRentalTeam
+	def_special GiveSelectedRentalTeam
+	def_special BufferRentalTeamName

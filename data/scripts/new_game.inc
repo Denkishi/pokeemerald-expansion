@@ -275,6 +275,7 @@ EventScript_ResetAllMapFlags::
 	@ === STORY SKIP: Set flags to bypass all intro events ===
 	@ Make Birch visible in his lab
 	clearflag FLAG_HIDE_LITTLEROOT_TOWN_BIRCHS_LAB_BIRCH
+	clearflag FLAG_HIDE_LITTLEROOT_TOWN_FAT_MAN
 	@ Hide story NPCs in Littleroot
 	setflag FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_TRUCK
 	setflag FLAG_HIDE_LITTLEROOT_TOWN_MAYS_HOUSE_TRUCK

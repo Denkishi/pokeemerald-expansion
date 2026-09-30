@@ -228,7 +228,113 @@ LittlerootTown_EventScript_SetRivalBirchPosForDexUpgradeFemale::
 	end
 
 LittlerootTown_EventScript_FatMan::
-	msgbox LittlerootTown_Text_CanUsePCToStoreItems, MSGBOX_NPC
+	lock
+	faceplayer
+	msgbox LittlerootTown_Text_ChooseRentalOrCustom, MSGBOX_DEFAULT
+	dynmultipush LittlerootTown_Text_RentalTeam, 0
+	dynmultipush LittlerootTown_Text_CustomTeam, 1
+	dynmultipush LittlerootTown_Text_Cancel, 2
+	dynmultistack 0, 0, FALSE, 3, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	switch VAR_RESULT
+	case 0, LittlerootTown_EventScript_RentalMenu
+	case 1, LittlerootTown_EventScript_CustomTeamHold
+	case 2, LittlerootTown_EventScript_Cancel
+	case MULTI_B_PRESSED, LittlerootTown_EventScript_Cancel
+	release
+	end
+
+LittlerootTown_EventScript_CustomTeamHold::
+	msgbox LittlerootTown_Text_CustomTeamUnavailable, MSGBOX_DEFAULT
+	release
+	end
+
+LittlerootTown_EventScript_Cancel::
+	msgbox LittlerootTown_Text_ComeBackAnytime, MSGBOX_DEFAULT
+	release
+	end
+
+LittlerootTown_EventScript_RentalMenu::
+	msgbox LittlerootTown_Text_SelectCategoryPrompt, MSGBOX_DEFAULT
+	dynmultipush LittlerootTown_Text_RandomTeamAll, 0
+	dynmultipush LittlerootTown_Text_CatAnythingGoes, 1
+	dynmultipush LittlerootTown_Text_CatChampionsMeta, 2
+	dynmultipush LittlerootTown_Text_CatSVOverused, 3
+	dynmultipush LittlerootTown_Text_CatSVUbers, 4
+	dynmultipush LittlerootTown_Text_CatSVRarelyUsed, 5
+	dynmultipush LittlerootTown_Text_CatAllTeams, 6
+	dynmultipush LittlerootTown_Text_Cancel, 7
+	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	switch VAR_RESULT
+	case 0, LittlerootTown_EventScript_RandomRentalTeam
+	case 1, LittlerootTown_EventScript_BrowseAnythingGoes
+	case 2, LittlerootTown_EventScript_BrowseChampionsMeta
+	case 3, LittlerootTown_EventScript_BrowseSVOverused
+	case 4, LittlerootTown_EventScript_BrowseSVUbers
+	case 5, LittlerootTown_EventScript_BrowseSVRarelyUsed
+	case 6, LittlerootTown_EventScript_BrowseAllTeams
+	case 7, LittlerootTown_EventScript_Cancel
+	case MULTI_B_PRESSED, LittlerootTown_EventScript_Cancel
+	release
+	end
+
+LittlerootTown_EventScript_RandomRentalTeam::
+	special ChooseRandomRentalTeam
+	goto LittlerootTown_EventScript_ConfirmTeam
+	end
+
+LittlerootTown_EventScript_BrowseAnythingGoes::
+	setvar VAR_0x8004, 0
+	special OpenRentalTeamBrowser
+	goto LittlerootTown_EventScript_HandleBrowserResult
+	end
+
+LittlerootTown_EventScript_BrowseChampionsMeta::
+	setvar VAR_0x8004, 1
+	special OpenRentalTeamBrowser
+	goto LittlerootTown_EventScript_HandleBrowserResult
+	end
+
+LittlerootTown_EventScript_BrowseSVOverused::
+	setvar VAR_0x8004, 2
+	special OpenRentalTeamBrowser
+	goto LittlerootTown_EventScript_HandleBrowserResult
+	end
+
+LittlerootTown_EventScript_BrowseSVUbers::
+	setvar VAR_0x8004, 3
+	special OpenRentalTeamBrowser
+	goto LittlerootTown_EventScript_HandleBrowserResult
+	end
+
+LittlerootTown_EventScript_BrowseSVRarelyUsed::
+	setvar VAR_0x8004, 4
+	special OpenRentalTeamBrowser
+	goto LittlerootTown_EventScript_HandleBrowserResult
+	end
+
+LittlerootTown_EventScript_BrowseAllTeams::
+	setvar VAR_0x8004, 5
+	special OpenRentalTeamBrowser
+	goto LittlerootTown_EventScript_HandleBrowserResult
+	end
+
+LittlerootTown_EventScript_HandleBrowserResult::
+	goto_if_eq VAR_RESULT, 0xFFFF, LittlerootTown_EventScript_RentalMenu
+	special BufferRentalTeamName
+	goto LittlerootTown_EventScript_ConfirmTeam
+	end
+
+LittlerootTown_EventScript_ConfirmTeam::
+	msgbox LittlerootTown_Text_ConfirmTeamChoice, MSGBOX_YESNO
+	switch VAR_RESULT
+	case NO, LittlerootTown_EventScript_RentalMenu
+	case MULTI_B_PRESSED, LittlerootTown_EventScript_RentalMenu
+	special GiveSelectedRentalTeam
+	playfanfare MUS_OBTAIN_ITEM
+	msgbox LittlerootTown_Text_ReceivedTeam, MSGBOX_DEFAULT
+	waitfanfare
+	msgbox LittlerootTown_Text_GoodLuckInBattle, MSGBOX_DEFAULT
+	release
 	end
 
 LittlerootTown_EventScript_Boy::
@@ -999,4 +1105,62 @@ LittlerootTown_Text_BirchSomethingToShowYouAtLab:
 	.string "I gave you?\p"
 	.string "I have something to show you.\n"
 	.string "Let's go to my LAB.$"
+
+LittlerootTown_Text_ChooseRentalOrCustom:
+	.string "Ciao! Vuoi un team a noleggio\n"
+	.string "o un team custom?$"
+
+LittlerootTown_Text_RentalTeam:
+	.string "Team a noleggio$"
+
+LittlerootTown_Text_CustomTeam:
+	.string "Team custom$"
+
+LittlerootTown_Text_Cancel:
+	.string "Annulla$"
+
+LittlerootTown_Text_CustomTeamUnavailable:
+	.string "La funzione per costruire un Team\n"
+	.string "Custom sarà disponibile prossimamente!$"
+
+LittlerootTown_Text_ComeBackAnytime:
+	.string "Torna pure se cambi idea!$"
+
+LittlerootTown_Text_SelectCategoryPrompt:
+	.string "Che tipo di team vorresti?$"
+
+LittlerootTown_Text_RandomTeamAll:
+	.string "Team Casuale (Tutti)$"
+
+LittlerootTown_Text_CatAnythingGoes:
+	.string "Anything Goes (9)$"
+
+LittlerootTown_Text_CatChampionsMeta:
+	.string "Champions Meta (23)$"
+
+LittlerootTown_Text_CatSVOverused:
+	.string "SV Overused (21)$"
+
+LittlerootTown_Text_CatSVUbers:
+	.string "SV Ubers (9)$"
+
+LittlerootTown_Text_CatSVRarelyUsed:
+	.string "SV Rarely Used (14)$"
+
+LittlerootTown_Text_CatAllTeams:
+	.string "Tutti i Team (76)$"
+
+LittlerootTown_Text_ConfirmTeamChoice:
+	.string "Hai scelto il team:\n"
+	.string "{STR_VAR_1}!\p"
+	.string "Vuoi ricevere questo team nella tua\n"
+	.string "squadra?$"
+
+LittlerootTown_Text_ReceivedTeam:
+	.string "{PLAYER} ha ricevuto il team\n"
+	.string "{STR_VAR_1}!$"
+
+LittlerootTown_Text_GoodLuckInBattle:
+	.string "La tua squadra è al completo e in piena\n"
+	.string "salute. Buona fortuna in battaglia!$"
 
