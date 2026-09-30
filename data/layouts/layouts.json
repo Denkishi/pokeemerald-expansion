@@ -9323,6 +9323,17 @@
       "border_height": 2,
       "border_width": 2,
       "layout_version": "frlg"
+    },
+    {
+      "id": "LAYOUT_GAMB_INT1_2",
+      "name": "gamb_int1_2_Layout",
+      "width": 19,
+      "height": 9,
+      "primary_tileset": "gTileset_Building",
+      "secondary_tileset": "gTileset_Facility",
+      "border_filepath": "data/layouts/gamb_int1_2/border.bin",
+      "blockdata_filepath": "data/layouts/gamb_int1_2/map.bin",
+      "layout_version": "emerald"
     }
   ]
 }
