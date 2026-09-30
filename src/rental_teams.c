@@ -951,7 +951,7 @@ void BufferRentalTeamName(void)
         for (i = 0; i < 47; i++)
         {
             gStringVar1[i] = sRentalTeams[teamId].name[i];
-            if (gStringVar1[i] == EOS)
+            if (gStringVar1[i] == EOS || gStringVar1[i] == 0x00)
                 break;
         }
         gStringVar1[i] = EOS;

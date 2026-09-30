@@ -246,6 +246,7 @@ LittlerootTown_EventScript_FatMan::
 LittlerootTown_EventScript_CustomTeamHold::
 	closemessage
 	special OpenCustomTeamBuilder
+	waitstate
 	setflag FLAG_SYS_POKEMON_GET
 	setflag FLAG_SYS_POKEDEX_GET
 	waitstate

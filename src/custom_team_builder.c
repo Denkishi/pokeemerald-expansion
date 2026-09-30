@@ -495,17 +495,22 @@ static void CTB_ClampCursor(void)
 #define LIST_LINE_H 16
 static void CTB_ScrolledLine(u8 winId, u8 fontId, const u8 *str, u8 lineIdx, bool8 selected)
 {
+    u8 color[3];
     u8 y = lineIdx * LIST_LINE_H;
+    
     if (selected)
     {
-        // Draw a highlight bar
-        FillWindowPixelRect(winId, PIXEL_FILL(2), 0, y, 0x88, LIST_LINE_H);
-        AddTextPrinterParameterized(winId, fontId, str, 4, y + 2, TEXT_SKIP_DRAW, NULL);
+        color[0] = TEXT_COLOR_TRANSPARENT;
+        color[1] = TEXT_COLOR_RED;
+        color[2] = TEXT_COLOR_LIGHT_RED;
     }
     else
     {
-        AddTextPrinterParameterized(winId, fontId, str, 4, y + 2, TEXT_SKIP_DRAW, NULL);
+        color[0] = TEXT_COLOR_TRANSPARENT;
+        color[1] = TEXT_COLOR_DARK_GRAY;
+        color[2] = TEXT_COLOR_LIGHT_GRAY;
     }
+    AddTextPrinterParameterized4(winId, fontId, 4, y + 2, 0, 0, color, TEXT_SKIP_DRAW, str);
 }
 
 // ---------------------------------------------------------------------------
@@ -691,8 +696,9 @@ static void CTB_DrawSpeciesList(void)
             StringAppend(buf, sText_Empty);
         else
         {
-            buf[StringLength(buf)] = 0xBB + (sData->filterLetter - 1);
-            buf[StringLength(buf)] = EOS;
+            u16 len = StringLength(buf);
+            buf[len] = 0xBB + (sData->filterLetter - 1);
+            buf[len + 1] = EOS;
         }
         AddTextPrinterParameterized(sData->winIds[WIN_LEFT], FONT_SMALL, buf, 4, 0, TEXT_SKIP_DRAW, NULL);
     }
@@ -968,8 +974,9 @@ static void CTB_DrawItemList(void)
             StringAppend(buf, sText_Empty);
         else
         {
-            buf[StringLength(buf)] = 0xBB + (sData->filterLetter - 1);
-            buf[StringLength(buf)] = EOS;
+            u16 len = StringLength(buf);
+            buf[len] = 0xBB + (sData->filterLetter - 1);
+            buf[len + 1] = EOS;
         }
         AddTextPrinterParameterized(sData->winIds[WIN_LEFT], FONT_SMALL, buf, 4, 0, TEXT_SKIP_DRAW, NULL);
     }
@@ -1362,16 +1369,57 @@ static void Task_CTB_Main(u8 taskId)
         }
         PlaySE(SE_SELECT);
     }
-    // --- DPAD_LEFT on move screen: switch move slot ---
-    else if (JOY_NEW(DPAD_LEFT) && sData->screen == SCREEN_SELECT_MOVES)
+    // --- DPAD_LEFT ---
+    else if (JOY_NEW(DPAD_LEFT) || (JOY_HELD(DPAD_LEFT) && sData->screen >= SCREEN_SET_EVS))
     {
-        if (sData->curMoveSlot > 0) sData->curMoveSlot--;
+        if (sData->screen == SCREEN_SELECT_MOVES)
+        {
+            if (sData->curMoveSlot > 0) sData->curMoveSlot--;
+        }
+        else if (sData->screen == SCREEN_SET_EVS)
+        {
+            struct CustomBuilderMon *cm = &sData->team[sData->curTeamSlot];
+            if (cm->evs[sData->curStatIdx] >= 4) cm->evs[sData->curStatIdx] -= 4;
+            else cm->evs[sData->curStatIdx] = 0;
+        }
+        else if (sData->screen == SCREEN_SET_IVS)
+        {
+            struct CustomBuilderMon *cm = &sData->team[sData->curTeamSlot];
+            if (cm->ivs[sData->curStatIdx] > 0) cm->ivs[sData->curStatIdx]--;
+        }
+        else if (sData->screen == SCREEN_TEAM_OVERVIEW)
+        {
+            // Do nothing
+            return;
+        }
         CTB_DrawScreen();
         PlaySE(SE_SELECT);
     }
-    else if (JOY_NEW(DPAD_RIGHT) && sData->screen == SCREEN_SELECT_MOVES)
+    // --- DPAD_RIGHT ---
+    else if (JOY_NEW(DPAD_RIGHT) || (JOY_HELD(DPAD_RIGHT) && sData->screen >= SCREEN_SET_EVS))
     {
-        if (sData->curMoveSlot < MAX_MON_MOVES - 1) sData->curMoveSlot++;
+        if (sData->screen == SCREEN_SELECT_MOVES)
+        {
+            if (sData->curMoveSlot < MAX_MON_MOVES - 1) sData->curMoveSlot++;
+        }
+        else if (sData->screen == SCREEN_SET_EVS)
+        {
+            struct CustomBuilderMon *cm = &sData->team[sData->curTeamSlot];
+            u16 total = 0;
+            u8 s;
+            for (s = 0; s < NUM_STATS; s++) total += cm->evs[s];
+            if (total + 4 <= EV_MAX_TOTAL && cm->evs[sData->curStatIdx] + 4 <= EV_MAX_PER_STAT)
+                cm->evs[sData->curStatIdx] += 4;
+        }
+        else if (sData->screen == SCREEN_SET_IVS)
+        {
+            struct CustomBuilderMon *cm = &sData->team[sData->curTeamSlot];
+            if (cm->ivs[sData->curStatIdx] < 31) cm->ivs[sData->curStatIdx]++;
+        }
+        else if (sData->screen == SCREEN_TEAM_OVERVIEW)
+        {
+            return;
+        }
         CTB_DrawScreen();
         PlaySE(SE_SELECT);
     }
@@ -1426,8 +1474,11 @@ static void Task_CTB_Main(u8 taskId)
                     u8 next = sData->curMoveSlot + 1;
                     if (next < MAX_MON_MOVES)
                         sData->curMoveSlot = next;
+                    else
+                        CTB_EnterScreen(SCREEN_SELECT_NATURE);
                 }
-                CTB_DrawScreen();
+                if (sData->screen == SCREEN_SELECT_MOVES)
+                    CTB_DrawScreen();
                 PlaySE(SE_SELECT);
             }
             break;
@@ -1529,14 +1580,9 @@ static void Task_CTB_Main(u8 taskId)
             break;
 
         case SCREEN_SELECT_MOVES:
-            // Go to nature selection if species is set, or back to overview
-            if (sData->team[sData->curTeamSlot].species != SPECIES_NONE)
-                CTB_EnterScreen(SCREEN_SELECT_NATURE);
-            else
-            {
-                sData->listCursor = sData->curTeamSlot;
-                CTB_EnterScreen(SCREEN_TEAM_OVERVIEW);
-            }
+            sData->filterLetter = 0;
+            CTB_PopulateSpecies();
+            CTB_EnterScreen(SCREEN_SELECT_SPECIES);
             PlaySE(SE_SELECT);
             break;
 
