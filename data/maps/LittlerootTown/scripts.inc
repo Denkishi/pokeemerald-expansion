@@ -286,36 +286,42 @@ LittlerootTown_EventScript_RandomRentalTeam::
 LittlerootTown_EventScript_BrowseAnythingGoes::
 	setvar VAR_0x8004, 0
 	special OpenRentalTeamBrowser
+	waitstate
 	goto LittlerootTown_EventScript_HandleBrowserResult
 	end
 
 LittlerootTown_EventScript_BrowseChampionsMeta::
 	setvar VAR_0x8004, 1
 	special OpenRentalTeamBrowser
+	waitstate
 	goto LittlerootTown_EventScript_HandleBrowserResult
 	end
 
 LittlerootTown_EventScript_BrowseSVOverused::
 	setvar VAR_0x8004, 2
 	special OpenRentalTeamBrowser
+	waitstate
 	goto LittlerootTown_EventScript_HandleBrowserResult
 	end
 
 LittlerootTown_EventScript_BrowseSVUbers::
 	setvar VAR_0x8004, 3
 	special OpenRentalTeamBrowser
+	waitstate
 	goto LittlerootTown_EventScript_HandleBrowserResult
 	end
 
 LittlerootTown_EventScript_BrowseSVRarelyUsed::
 	setvar VAR_0x8004, 4
 	special OpenRentalTeamBrowser
+	waitstate
 	goto LittlerootTown_EventScript_HandleBrowserResult
 	end
 
 LittlerootTown_EventScript_BrowseAllTeams::
 	setvar VAR_0x8004, 5
 	special OpenRentalTeamBrowser
+	waitstate
 	goto LittlerootTown_EventScript_HandleBrowserResult
 	end
 

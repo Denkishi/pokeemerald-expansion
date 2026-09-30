@@ -259,75 +259,92 @@ static void VBlankCB_CTB(void)
 // ---------------------------------------------------------------------------
 // Entry point called from script
 // ---------------------------------------------------------------------------
-void OpenCustomTeamBuilder(void)
+static void CB2_InitCustomTeamBuilder(void)
 {
     u8 taskId;
     u8 i;
 
-    // Allocate state
-    sData = AllocZeroed(sizeof(struct CustomBuilderData));
-    if (sData == NULL)
-        return;
-
-    sData->screen       = SCREEN_TEAM_OVERVIEW;
-    sData->teamCount    = 0;
-    sData->iconSpriteId = ICON_SPRITE_NONE;
-    for (i = 0; i < MAX_TEAM_SIZE; i++)
+    switch (gMain.state)
     {
-        sData->teamIconIds[i] = ICON_SPRITE_NONE;
-        // Default IVs to 31
+    case 0:
+        SetVBlankCallback(NULL);
+        ResetVramOamAndBgCntRegs();
+        ResetBgsAndClearDma3BusyFlags(TRUE);
+        InitBgsFromTemplates(0, sBgTemplates, ARRAY_COUNT(sBgTemplates));
+        ResetAllBgsCoordinates();
+        gMain.state++;
+        break;
+
+    case 1:
+        // Allocate state
+        sData = AllocZeroed(sizeof(struct CustomBuilderData));
+        if (sData == NULL)
         {
-            u8 s;
-            for (s = 0; s < NUM_STATS; s++)
-                sData->team[i].ivs[s] = 31;
+            SetMainCallback2(CB2_ReturnToField);
+            return;
         }
+
+        sData->screen       = SCREEN_TEAM_OVERVIEW;
+        sData->teamCount    = 0;
+        sData->iconSpriteId = ICON_SPRITE_NONE;
+        for (i = 0; i < MAX_TEAM_SIZE; i++)
+        {
+            sData->teamIconIds[i] = ICON_SPRITE_NONE;
+            // Default IVs to 31
+            {
+                u8 s;
+                for (s = 0; s < NUM_STATS; s++)
+                    sData->team[i].ivs[s] = 31;
+            }
+        }
+
+        // Load palettes
+        FillBgTilemapBufferRect_Palette0(0, 0, 0, 0, 30, 20);
+        LoadUserWindowBorderGfx(0, 0x0200, BG_PLTT_ID(14));
+        LoadPalette(gStandardMenuPalette, BG_PLTT_ID(15), PLTT_SIZEOF(1));
+
+        // Load mon icon palettes
+        LoadMonIconPalettes();
+
+        // Create windows
+        sData->winIds[WIN_HEADER] = AddWindow(&sWinTemplates[WIN_HEADER]);
+        sData->winIds[WIN_LEFT]   = AddWindow(&sWinTemplates[WIN_LEFT]);
+        sData->winIds[WIN_RIGHT]  = AddWindow(&sWinTemplates[WIN_RIGHT]);
+
+        // Draw frames
+        DrawStdFrameWithCustomTileAndPalette(sData->winIds[WIN_HEADER], FALSE, 0x0200, 14);
+        DrawStdFrameWithCustomTileAndPalette(sData->winIds[WIN_LEFT],   FALSE, 0x0200, 14);
+        DrawStdFrameWithCustomTileAndPalette(sData->winIds[WIN_RIGHT],  FALSE, 0x0200, 14);
+
+        PutWindowTilemap(sData->winIds[WIN_HEADER]);
+        PutWindowTilemap(sData->winIds[WIN_LEFT]);
+        PutWindowTilemap(sData->winIds[WIN_RIGHT]);
+
+        ShowBg(0);
+
+        SetVBlankCallback(VBlankCB_CTB);
+        SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_OBJ_ON | DISPCNT_OBJ_1D_MAP | DISPCNT_BG0_ON);
+        
+        // Build initial species and item lists
+        CTB_PopulateSpecies();
+        CTB_PopulateItems();
+
+        CTB_DrawScreen();
+
+        taskId = CreateTask(Task_CTB_Main, 0);
+        (void)taskId;
+
+        PlaySE(SE_SELECT);
+        SetMainCallback2(CB2_CTB_Main);
+        break;
     }
+}
 
-    // Setup GBA hardware
-    SetVBlankCallback(NULL);
-    ResetVramOamAndBgCntRegs();
-    ResetBgsAndClearDma3BusyFlags(TRUE);
-    InitBgsFromTemplates(0, sBgTemplates, ARRAY_COUNT(sBgTemplates));
-    ResetAllBgsCoordinates();
-
-    // Load palettes
-    FillBgTilemapBufferRect_Palette0(0, 0, 0, 0, 30, 20);
-    LoadUserWindowBorderGfx(0, 0x0200, BG_PLTT_ID(14));
-    LoadPalette(gStandardMenuPalette, BG_PLTT_ID(15), PLTT_SIZEOF(1));
-
-    // Load mon icon palettes
-    LoadMonIconPalettes();
-
-    // Create windows
-    sData->winIds[WIN_HEADER] = AddWindow(&sWinTemplates[WIN_HEADER]);
-    sData->winIds[WIN_LEFT]   = AddWindow(&sWinTemplates[WIN_LEFT]);
-    sData->winIds[WIN_RIGHT]  = AddWindow(&sWinTemplates[WIN_RIGHT]);
-
-    // Draw frames
-    DrawStdFrameWithCustomTileAndPalette(sData->winIds[WIN_HEADER], FALSE, 0x0200, 14);
-    DrawStdFrameWithCustomTileAndPalette(sData->winIds[WIN_LEFT],   FALSE, 0x0200, 14);
-    DrawStdFrameWithCustomTileAndPalette(sData->winIds[WIN_RIGHT],  FALSE, 0x0200, 14);
-
-    PutWindowTilemap(sData->winIds[WIN_HEADER]);
-    PutWindowTilemap(sData->winIds[WIN_LEFT]);
-    PutWindowTilemap(sData->winIds[WIN_RIGHT]);
-
-    ShowBg(0);
-
-    SetVBlankCallback(VBlankCB_CTB);
-    SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_OBJ_ON | DISPCNT_OBJ_1D_MAP | DISPCNT_BG0_ON);
-    SetMainCallback2(CB2_CTB_Main);
-
-    // Build initial species and item lists
-    CTB_PopulateSpecies();
-    CTB_PopulateItems();
-
-    CTB_DrawScreen();
-
-    taskId = CreateTask(Task_CTB_Main, 0);
-    (void)taskId;
-
-    PlaySE(SE_SELECT);
+void OpenCustomTeamBuilder(void)
+{
+    CleanupOverworldWindowsAndTilemaps();
+    gMain.state = 0;
+    SetMainCallback2(CB2_InitCustomTeamBuilder);
 }
 
 // ---------------------------------------------------------------------------
@@ -1150,7 +1167,9 @@ static void CTB_BuildAndExitTeam(u8 taskId)
     sData = NULL;
 
     DestroyTask(taskId);
-    ScriptContext_Enable();
+    SetMainCallback1(NULL);
+    gFieldCallback = FieldCB_ContinueScriptHandleMusic;
+    gMain.state = 0;
     SetMainCallback2(CB2_ReturnToField);
 }
 
@@ -1493,7 +1512,9 @@ static void Task_CTB_Main(u8 taskId)
             Free(sData);
             sData = NULL;
             DestroyTask(taskId);
-            ScriptContext_Enable();
+            SetMainCallback1(NULL);
+            gFieldCallback = FieldCB_ContinueScriptHandleMusic;
+            gMain.state = 0;
             SetMainCallback2(CB2_ReturnToField);
             return;
 

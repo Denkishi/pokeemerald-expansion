@@ -879,9 +879,20 @@ void BufferRentalTeamName(void)
 {
     u16 teamId = gSpecialVar_Result;
     if (teamId < TOTAL_RENTAL_TEAMS)
-        StringCopy(gStringVar1, sRentalTeams[teamId].name);
+    {
+        u8 i;
+        for (i = 0; i < 47; i++)
+        {
+            gStringVar1[i] = sRentalTeams[teamId].name[i];
+            if (gStringVar1[i] == EOS)
+                break;
+        }
+        gStringVar1[i] = EOS;
+    }
     else
+    {
         StringCopy(gStringVar1, sText_UnknownTeam);
+    }
 }
 
 void GiveSelectedRentalTeam(void)
