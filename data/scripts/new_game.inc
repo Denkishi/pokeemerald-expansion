@@ -272,6 +272,23 @@ EventScript_ResetAllMapFlags::
 	setflag FLAG_HIDE_EVER_GRANDE_POKEMON_CENTER_1F_SCOTT
 	setflag FLAG_HIDE_SKY_PILLAR_WALLACE
 	setflag FLAG_HIDE_SKY_PILLAR_TOP_RAYQUAZA_STILL
+	@ === STORY SKIP: Set flags to bypass all intro events ===
+	@ Make Birch visible in his lab
+	clearflag FLAG_HIDE_LITTLEROOT_TOWN_BIRCHS_LAB_BIRCH
+	@ Hide story NPCs in Littleroot
+	setflag FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_TRUCK
+	setflag FLAG_HIDE_LITTLEROOT_TOWN_MAYS_HOUSE_TRUCK
+	@ Enable running and set clock as done
+	setflag FLAG_SYS_B_DASH
+	setflag FLAG_RECEIVED_RUNNING_SHOES
+	setflag FLAG_SET_WALL_CLOCK
+	setflag FLAG_VISITED_LITTLEROOT_TOWN
+	@ Set intro state to completed so no cutscenes trigger
+	setvar VAR_LITTLEROOT_INTRO_STATE, 7
+	setvar VAR_LITTLEROOT_TOWN_STATE, 4
+	setvar VAR_BIRCH_LAB_STATE, 0
+	setvar VAR_LITTLEROOT_RIVAL_STATE, 4
+	setvar VAR_DEX_UPGRADE_JOHTO_STARTER_STATE, 0
 	call EventScript_ResetAllBerries
 	end
 
