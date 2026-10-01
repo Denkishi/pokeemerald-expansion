@@ -272,7 +272,6 @@ static void CB2_InitCustomTeamBuilder(void)
         ResetVramOamAndBgCntRegs();
 	FreeAllWindowBuffers();
         ResetBgsAndClearDma3BusyFlags(0);
-        ClearScheduledBgCopiesToVram();
         InitBgsFromTemplates(0, sBgTemplates, ARRAY_COUNT(sBgTemplates));
         ResetAllBgsCoordinates();
         gMain.state++;
@@ -1208,7 +1207,6 @@ static void CTB_BuildAndExitTeam(u8 taskId)
     gFieldCallback = FieldCB_ContinueScriptHandleMusic;
     gMain.state = 0;
     ResetBgsAndClearDma3BusyFlags(0);
-        ClearScheduledBgCopiesToVram();
     SetMainCallback2(CB2_ReturnToField);
 }
 
@@ -1600,7 +1598,6 @@ static void Task_CTB_Main(u8 taskId)
             gFieldCallback = FieldCB_ContinueScriptHandleMusic;
             gMain.state = 0;
             ResetBgsAndClearDma3BusyFlags(0);
-        ClearScheduledBgCopiesToVram();
             SetMainCallback2(CB2_ReturnToField);
             return;
 
