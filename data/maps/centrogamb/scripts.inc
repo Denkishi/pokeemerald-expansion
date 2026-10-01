@@ -763,7 +763,8 @@ Centrogamb_Text_StatCurrentVal:
 	.string "Come vuoi intervenire?$"
 
 Centrogamb_Text_EVStatCurrentVal:
-	.string "{STR_VAR_1}: {STR_VAR_2} | Totale EV: {STR_VAR_3}/510\n"
+	.string "{STR_VAR_1}: {STR_VAR_2}\n"
+	.string "Totale EV: {STR_VAR_3}/510\n"
 	.string "Come vuoi intervenire?$"
 
 Centrogamb_Text_StatHP:
