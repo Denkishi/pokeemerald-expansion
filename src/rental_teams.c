@@ -491,6 +491,7 @@ static void Task_RentalTeams_FadeOutAndExit(u8 taskId)
         gFieldCallback = FieldCB_ContinueScriptHandleMusic;
         gMain.state = 0;
         ResetBgsAndClearDma3BusyFlags(0);
+        ClearScheduledBgCopiesToVram();
         SetMainCallback2(CB2_ReturnToField);
     }
 }
@@ -810,6 +811,7 @@ static void CB2_InitRentalTeams(void)
     SetVBlankCallback(NULL);
     ResetVramOamAndBgCntRegs();
     ResetBgsAndClearDma3BusyFlags(0);
+        ClearScheduledBgCopiesToVram();
     DeactivateAllTextPrinters();
     ResetPaletteFade();
     ResetTasks();
