@@ -1049,7 +1049,7 @@ void GiveRandomMonOfSpecies(void)
     template.nature = NATURE_RANDOM;
     template.gender = MON_GENDER_RANDOM;
     template.origin = GIFTMON_ORIGIN;
-    template.isShiny = SHINY_MODE_RANDOM;
+    template.doNotUseDefaultShinyness = FALSE;
     template.abilityNum = 0;
     template.moves[0] = MOVE_RANDOM_TEACHABLE;
     template.moves[1] = MOVE_RANDOM_TEACHABLE;

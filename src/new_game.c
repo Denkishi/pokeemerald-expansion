@@ -122,9 +122,9 @@ static void InitPlayerStartingMon(void)
     template.level = 100;
     template.heldItem = ITEM_ABILITY_CAPSULE;
     template.nature = NATURE_BRAVE;
-    template.gender = MON_GENDER_MALE;
+    template.gender = MON_MALE;
     template.origin = GIFTMON_ORIGIN;
-    template.isShiny = SHINY_MODE_ALWAYS;
+    template.isShiny = TRUE;
     template.doNotUseDefaultShinyness = TRUE;
     template.abilityNum = 1; // Oblivious
     template.doNotUseDefaultAbility = TRUE;
