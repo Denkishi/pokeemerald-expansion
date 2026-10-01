@@ -434,7 +434,7 @@ static void CTB_PopulateItems(void)
     sData->itemList[sData->itemCount++] = ITEM_NONE;
     for (i = 1; i < ITEMS_COUNT && sData->itemCount < MAX_ITEM_LIST; i++)
     {
-        if (ItemId_GetPocket(i) != POCKET_BERRIES && ItemId_GetHoldEffect(i) == 0)
+        if (GetItemPocket(i) != POCKET_BERRIES && GetItemHoldEffect(i) == 0)
             continue;
 
         // Filter by letter
