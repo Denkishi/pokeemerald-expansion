@@ -82,6 +82,13 @@
   ],
   "warp_events": [
     {
+      "x": 13,
+      "y": 8,
+      "elevation": 0,
+      "dest_map": "MAP_GAMB_INT1_2",
+      "dest_warp_id": "0"
+    },
+    {
       "x": 14,
       "y": 8,
       "elevation": 0,
@@ -89,10 +96,10 @@
       "dest_warp_id": "1"
     },
     {
-      "x": 13,
-      "y": 8,
+      "x": 4,
+      "y": 12,
       "elevation": 0,
-      "dest_map": "MAP_GAMB_INT1_2",
+      "dest_map": "MAP_CENTROGAMB",
       "dest_warp_id": "0"
     }
   ],

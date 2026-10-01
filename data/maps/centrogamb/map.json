@@ -1,7 +1,7 @@
 {
-  "id": "MAP_OLDALE_TOWN_POKEMON_CENTER_1F",
-  "name": "OldaleTown_PokemonCenter_1F",
-  "layout": "LAYOUT_POKEMON_CENTER_1F",
+  "id": "MAP_CENTROGAMB",
+  "name": "centrogamb",
+  "layout": "LAYOUT_CENTROGAMB",
   "music": "MUS_POKE_CENTER",
   "region_map_section": "MAPSEC_OLDALE_TOWN",
   "requires_flash": false,
@@ -9,8 +9,8 @@
   "map_type": "MAP_TYPE_INDOOR",
   "allow_cycling": false,
   "allow_escaping": false,
-  "allow_running": false,
-  "show_map_name": false,
+  "allow_running": true,
+  "show_map_name": true,
   "battle_scene": "MAP_BATTLE_SCENE_NORMAL",
   "connections": null,
   "object_events": [
@@ -29,16 +29,16 @@
       "flag": "0"
     },
     {
-      "graphics_id": "OBJ_EVENT_GFX_GENTLEMAN",
-      "x": 4,
-      "y": 4,
+      "graphics_id": "OBJ_EVENT_GFX_GIRL_3",
+      "x": 3,
+      "y": 7,
       "elevation": 3,
-      "movement_type": "MOVEMENT_TYPE_FACE_DOWN",
-      "movement_range_x": 0,
-      "movement_range_y": 0,
+      "movement_type": "MOVEMENT_TYPE_FACE_RIGHT",
+      "movement_range_x": 1,
+      "movement_range_y": 1,
       "trainer_type": "TRAINER_TYPE_NONE",
       "trainer_sight_or_berry_tree_id": "0",
-      "script": "OldaleTown_PokemonCenter_1F_EventScript_Gentleman",
+      "script": "OldaleTown_PokemonCenter_1F_EventScript_Girl",
       "flag": "0"
     },
     {
@@ -55,16 +55,16 @@
       "flag": "0"
     },
     {
-      "graphics_id": "OBJ_EVENT_GFX_GIRL_3",
-      "x": 3,
-      "y": 7,
+      "graphics_id": "OBJ_EVENT_GFX_GENTLEMAN",
+      "x": 4,
+      "y": 4,
       "elevation": 3,
-      "movement_type": "MOVEMENT_TYPE_FACE_RIGHT",
-      "movement_range_x": 1,
-      "movement_range_y": 1,
+      "movement_type": "MOVEMENT_TYPE_FACE_DOWN",
+      "movement_range_x": 0,
+      "movement_range_y": 0,
       "trainer_type": "TRAINER_TYPE_NONE",
       "trainer_sight_or_berry_tree_id": "0",
-      "script": "OldaleTown_PokemonCenter_1F_EventScript_Girl",
+      "script": "OldaleTown_PokemonCenter_1F_EventScript_Gentleman",
       "flag": "0"
     }
   ],
@@ -73,22 +73,15 @@
       "x": 7,
       "y": 8,
       "elevation": 3,
-      "dest_map": "MAP_OLDALE_TOWN",
+      "dest_map": "MAP_GAMB_ESTERNO",
       "dest_warp_id": "2"
     },
     {
       "x": 6,
       "y": 8,
       "elevation": 3,
-      "dest_map": "MAP_OLDALE_TOWN",
+      "dest_map": "MAP_GAMB_ESTERNO",
       "dest_warp_id": "2"
-    },
-    {
-      "x": 1,
-      "y": 6,
-      "elevation": 4,
-      "dest_map": "MAP_OLDALE_TOWN_POKEMON_CENTER_2F",
-      "dest_warp_id": "0"
     }
   ],
   "coord_events": [],

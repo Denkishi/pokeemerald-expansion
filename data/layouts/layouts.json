@@ -9341,7 +9341,7 @@
       "width": 20,
       "height": 20,
       "primary_tileset": "gTileset_General",
-      "secondary_tileset": "gTileset_Lilycove",
+      "secondary_tileset": "gTileset_PokemonCenter",
       "border_filepath": "data/layouts/GambEsterno/border.bin",
       "blockdata_filepath": "data/layouts/GambEsterno/map.bin",
       "layout_version": "emerald"
@@ -9355,6 +9355,17 @@
       "secondary_tileset": "gTileset_Facility",
       "border_filepath": "data/layouts/gamb_int1/border.bin",
       "blockdata_filepath": "data/layouts/gamb_int1/map.bin",
+      "layout_version": "emerald"
+    },
+    {
+      "id": "LAYOUT_CENTROGAMB",
+      "name": "centrogamb_Layout",
+      "width": 14,
+      "height": 9,
+      "primary_tileset": "gTileset_Building",
+      "secondary_tileset": "gTileset_PokemonCenter",
+      "border_filepath": "data/layouts/centrogamb/border.bin",
+      "blockdata_filepath": "data/layouts/centrogamb/map.bin",
       "layout_version": "emerald"
     }
   ]
