@@ -16877,3 +16877,75 @@ Double Battle: No
 Kyogre
 Level: 5
 IVs: 0 HP / 0 Atk / 0 Def / 0 SpA / 0 SpD / 0 Spe
+
+=== TRAINER_ENZO ===
+Name: ENZO
+Class: PKMN Trainer 1
+Pic: Enzo
+Gender: Male
+Music: Intense
+Double Battle: No
+AI: Smart Trainer
+
+Annihilape @ Choice Scarf
+Ability: Defiant
+Tera Type: Ghost
+EVs: 252 Atk / 4 Def / 252 Spe
+Jolly Nature
+- Close Combat
+- Shadow Claw
+- Ice Punch
+- U Turn
+
+Smeargle @ Focus Sash
+Ability: Own Tempo
+Tera Type: Grass
+EVs: 252 HP / 4 Def / 252 Spe
+Jolly Nature
+IVs: 0 Spe
+- Spore
+- Follow Me
+- Fake Out
+- Protect
+
+Rillaboom @ Eject Button
+Ability: Grassy Surge
+Tera Type: Grass
+EVs: 252 HP / 252 Atk / 4 SpD
+Adamant Nature
+- Fake Out
+- Grassy Glide
+- Wood Hammer
+- U Turn
+
+Infernape @ Life Orb
+Ability: Blaze
+Tera Type: Fighting
+EVs: 4 Def / 252 SpA / 252 Spe
+Modest Nature
+- Heat Wave
+- Aura Sphere
+- Overheat
+- Protect
+
+Gengar @ Choice Specs
+Ability: Cursed Body
+Tera Type: Ghost
+EVs: 4 Def / 252 SpA / 252 Spe
+Timid Nature
+IVs: 0 Atk
+- Shadow Ball
+- Sludge Bomb
+- Icy Wind
+- Dazzling Gleam
+
+Golisopod @ Golisopite
+Ability: Emergency Exit
+Tera Type: Ground
+EVs: 2 HP / 252 Atk / 252 Spe
+Adamant Nature
+- Drill Run
+- Iron Head
+- Leech Life
+- Protect
+

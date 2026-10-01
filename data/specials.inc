@@ -652,3 +652,13 @@ gSpecials::
 	def_special GiveRandomMonOfSpecies
 	def_special ChooseRandomMonSpecies
 	def_special PopulateGenerationSpecies
+	def_special BufferMonEVs
+	def_special BufferMonIVs
+	def_special BufferSingleStatInfo
+	def_special SetSingleStatEV
+	def_special AdjustSingleStatEV
+	def_special SetSingleStatIV
+	def_special AdjustSingleStatIV
+	def_special PopulateEVValues
+	def_special PopulateIVValues
+

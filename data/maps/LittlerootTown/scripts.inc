@@ -308,6 +308,7 @@ LittlerootTown_EventScript_ShowCategoryTeams::
 	switch VAR_RESULT
 	case 0xFFFF, LittlerootTown_EventScript_RentalMenu
 	case MULTI_B_PRESSED, LittlerootTown_EventScript_RentalMenu
+	copyvar VAR_0x8005, VAR_RESULT
 	special BufferRentalTeamPreview
 	goto LittlerootTown_EventScript_ConfirmTeam
 	end
@@ -351,7 +352,7 @@ LittlerootTown_EventScript_ReceivePokemonMenu::
 	copyvar VAR_0x8004, VAR_RESULT
 	special PopulateGenerationSpecies
 	dynmultipush LittlerootTown_Text_Cancel, 0
-	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_SHOW_PKMN
 	switch VAR_RESULT
 	case 0, LittlerootTown_EventScript_ReceivePokemonMenu
 	case MULTI_B_PRESSED, LittlerootTown_EventScript_ReceivePokemonMenu

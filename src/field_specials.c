@@ -4661,6 +4661,265 @@ void SetMonTeraTypeSpecial(void)
     SetMonData(&gParties[B_TRAINER_PLAYER][slot], MON_DATA_TERA_TYPE, &teraType);
 }
 
+static const u8 sItalianStatNames[][14] = {
+    _("PS"),
+    _("Attacco"),
+    _("Difesa"),
+    _("Velocità"),
+    _("Att. Sp."),
+    _("Dif. Sp.")
+};
+
+static const u8 sEVDataFields[] = {
+    MON_DATA_HP_EV,
+    MON_DATA_ATK_EV,
+    MON_DATA_DEF_EV,
+    MON_DATA_SPEED_EV,
+    MON_DATA_SPATK_EV,
+    MON_DATA_SPDEF_EV
+};
+
+static const u8 sIVDataFields[] = {
+    MON_DATA_HP_IV,
+    MON_DATA_ATK_IV,
+    MON_DATA_DEF_IV,
+    MON_DATA_SPEED_IV,
+    MON_DATA_SPATK_IV,
+    MON_DATA_SPDEF_IV
+};
+
+void BufferMonEVs(void)
+{
+    u8 slot = gSpecialVar_0x8004;
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][slot];
+    u8 evHp = GetMonData(mon, MON_DATA_HP_EV, NULL);
+    u8 evAtk = GetMonData(mon, MON_DATA_ATK_EV, NULL);
+    u8 evDef = GetMonData(mon, MON_DATA_DEF_EV, NULL);
+    u8 evSpe = GetMonData(mon, MON_DATA_SPEED_EV, NULL);
+    u8 evSpA = GetMonData(mon, MON_DATA_SPATK_EV, NULL);
+    u8 evSpD = GetMonData(mon, MON_DATA_SPDEF_EV, NULL);
+
+    ConvertIntToDecimalStringN(gStringVar3, evHp, STR_CONV_MODE_LEFT_ALIGN, 3);
+    StringCopy(gStringVar1, COMPOUND_STRING("PS: "));
+    StringAppend(gStringVar1, gStringVar3);
+
+    ConvertIntToDecimalStringN(gStringVar3, evAtk, STR_CONV_MODE_LEFT_ALIGN, 3);
+    StringAppend(gStringVar1, COMPOUND_STRING("  Att: "));
+    StringAppend(gStringVar1, gStringVar3);
+
+    ConvertIntToDecimalStringN(gStringVar3, evDef, STR_CONV_MODE_LEFT_ALIGN, 3);
+    StringAppend(gStringVar1, COMPOUND_STRING("  Dif: "));
+    StringAppend(gStringVar1, gStringVar3);
+
+    ConvertIntToDecimalStringN(gStringVar3, evSpe, STR_CONV_MODE_LEFT_ALIGN, 3);
+    StringCopy(gStringVar2, COMPOUND_STRING("Vel: "));
+    StringAppend(gStringVar2, gStringVar3);
+
+    ConvertIntToDecimalStringN(gStringVar3, evSpA, STR_CONV_MODE_LEFT_ALIGN, 3);
+    StringAppend(gStringVar2, COMPOUND_STRING("  SpA: "));
+    StringAppend(gStringVar2, gStringVar3);
+
+    ConvertIntToDecimalStringN(gStringVar3, evSpD, STR_CONV_MODE_LEFT_ALIGN, 3);
+    StringAppend(gStringVar2, COMPOUND_STRING("  SpD: "));
+    StringAppend(gStringVar2, gStringVar3);
+}
+
+void BufferMonIVs(void)
+{
+    u8 slot = gSpecialVar_0x8004;
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][slot];
+    u8 ivHp = GetMonData(mon, MON_DATA_HP_IV, NULL);
+    u8 ivAtk = GetMonData(mon, MON_DATA_ATK_IV, NULL);
+    u8 ivDef = GetMonData(mon, MON_DATA_DEF_IV, NULL);
+    u8 ivSpe = GetMonData(mon, MON_DATA_SPEED_IV, NULL);
+    u8 ivSpA = GetMonData(mon, MON_DATA_SPATK_IV, NULL);
+    u8 ivSpD = GetMonData(mon, MON_DATA_SPDEF_IV, NULL);
+
+    ConvertIntToDecimalStringN(gStringVar3, ivHp, STR_CONV_MODE_LEFT_ALIGN, 2);
+    StringCopy(gStringVar1, COMPOUND_STRING("PS: "));
+    StringAppend(gStringVar1, gStringVar3);
+
+    ConvertIntToDecimalStringN(gStringVar3, ivAtk, STR_CONV_MODE_LEFT_ALIGN, 2);
+    StringAppend(gStringVar1, COMPOUND_STRING("  Att: "));
+    StringAppend(gStringVar1, gStringVar3);
+
+    ConvertIntToDecimalStringN(gStringVar3, ivDef, STR_CONV_MODE_LEFT_ALIGN, 2);
+    StringAppend(gStringVar1, COMPOUND_STRING("  Dif: "));
+    StringAppend(gStringVar1, gStringVar3);
+
+    ConvertIntToDecimalStringN(gStringVar3, ivSpe, STR_CONV_MODE_LEFT_ALIGN, 2);
+    StringCopy(gStringVar2, COMPOUND_STRING("Vel: "));
+    StringAppend(gStringVar2, gStringVar3);
+
+    ConvertIntToDecimalStringN(gStringVar3, ivSpA, STR_CONV_MODE_LEFT_ALIGN, 2);
+    StringAppend(gStringVar2, COMPOUND_STRING("  SpA: "));
+    StringAppend(gStringVar2, gStringVar3);
+
+    ConvertIntToDecimalStringN(gStringVar3, ivSpD, STR_CONV_MODE_LEFT_ALIGN, 2);
+    StringAppend(gStringVar2, COMPOUND_STRING("  SpD: "));
+    StringAppend(gStringVar2, gStringVar3);
+}
+
+void BufferSingleStatInfo(void)
+{
+    u8 slot = gSpecialVar_0x8004;
+    u8 stat = gSpecialVar_0x8005;
+    u8 isIV = gSpecialVar_Result;
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][slot];
+    u32 val;
+
+    if (stat >= 6)
+        stat = 0;
+
+    StringCopy(gStringVar1, sItalianStatNames[stat]);
+
+    if (!isIV)
+        val = GetMonData(mon, sEVDataFields[stat], NULL);
+    else
+        val = GetMonData(mon, sIVDataFields[stat], NULL);
+
+    ConvertIntToDecimalStringN(gStringVar2, val, STR_CONV_MODE_LEFT_ALIGN, 3);
+}
+
+void SetSingleStatEV(void)
+{
+    u8 slot = gSpecialVar_0x8004;
+    u8 stat = gSpecialVar_0x8005;
+    u16 val = gSpecialVar_Result;
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][slot];
+    u8 ev;
+
+    if (stat >= 6)
+        return;
+    if (val > 252)
+        val = 252;
+    ev = val;
+
+    SetMonData(mon, sEVDataFields[stat], &ev);
+    CalculateMonStats(mon);
+}
+
+void AdjustSingleStatEV(void)
+{
+    u8 slot = gSpecialVar_0x8004;
+    u8 stat = gSpecialVar_0x8005;
+    u8 mode = gSpecialVar_Result;
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][slot];
+    s32 curVal;
+
+    if (stat >= 6)
+        return;
+
+    curVal = GetMonData(mon, sEVDataFields[stat], NULL);
+
+    switch (mode)
+    {
+    case 1: curVal += 1; break;
+    case 2: curVal += 4; break;
+    case 3: curVal += 10; break;
+    case 4: curVal -= 1; break;
+    case 5: curVal -= 4; break;
+    case 6: curVal -= 10; break;
+    default: break;
+    }
+
+    if (curVal < 0) curVal = 0;
+    if (curVal > 252) curVal = 252;
+
+    {
+        u8 ev = curVal;
+        SetMonData(mon, sEVDataFields[stat], &ev);
+        CalculateMonStats(mon);
+    }
+}
+
+void SetSingleStatIV(void)
+{
+    u8 slot = gSpecialVar_0x8004;
+    u8 stat = gSpecialVar_0x8005;
+    u16 val = gSpecialVar_Result;
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][slot];
+    u8 iv;
+
+    if (stat >= 6)
+        return;
+    if (val > 31)
+        val = 31;
+    iv = val;
+
+    SetMonData(mon, sIVDataFields[stat], &iv);
+    CalculateMonStats(mon);
+}
+
+void AdjustSingleStatIV(void)
+{
+    u8 slot = gSpecialVar_0x8004;
+    u8 stat = gSpecialVar_0x8005;
+    u8 mode = gSpecialVar_Result;
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][slot];
+    s32 curVal;
+
+    if (stat >= 6)
+        return;
+
+    curVal = GetMonData(mon, sIVDataFields[stat], NULL);
+
+    switch (mode)
+    {
+    case 1: curVal += 1; break;
+    case 2: curVal -= 1; break;
+    default: break;
+    }
+
+    if (curVal < 0) curVal = 0;
+    if (curVal > 31) curVal = 31;
+
+    {
+        u8 iv = curVal;
+        SetMonData(mon, sIVDataFields[stat], &iv);
+        CalculateMonStats(mon);
+    }
+}
+
+static const u8 sCommonEVValues[] = {
+    252, 248, 244, 240, 236, 232, 228, 224, 220, 216,
+    212, 208, 204, 200, 196, 192, 188, 184, 180, 176,
+    172, 168, 164, 160, 156, 152, 148, 144, 140, 136,
+    132, 128, 124, 120, 116, 112, 108, 104, 100, 96,
+    92, 88, 84, 80, 76, 72, 68, 64, 60, 56,
+    52, 48, 44, 40, 36, 32, 28, 24, 20, 16,
+    12, 8, 4, 0
+};
+
+void PopulateEVValues(void)
+{
+    u32 i;
+    for (i = 0; i < ARRAY_COUNT(sCommonEVValues); i++)
+    {
+        struct ListMenuItem item;
+        u8 *nameBuf = Alloc(16);
+        ConvertIntToDecimalStringN(nameBuf, sCommonEVValues[i], STR_CONV_MODE_LEFT_ALIGN, 3);
+        item.name = nameBuf;
+        item.id = sCommonEVValues[i];
+        MultichoiceDynamic_PushElement(item);
+    }
+}
+
+void PopulateIVValues(void)
+{
+    s32 i;
+    for (i = 31; i >= 0; i--)
+    {
+        struct ListMenuItem item;
+        u8 *nameBuf = Alloc(16);
+        ConvertIntToDecimalStringN(nameBuf, i, STR_CONV_MODE_LEFT_ALIGN, 2);
+        item.name = nameBuf;
+        item.id = i;
+        MultichoiceDynamic_PushElement(item);
+    }
+}
+
+
 void DaisyMassageServices(void)
 {
     AdjustFriendship(&gParties[B_TRAINER_PLAYER][gSpecialVar_0x8004], FRIENDSHIP_EVENT_MASSAGE);

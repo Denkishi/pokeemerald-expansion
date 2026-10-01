@@ -113,6 +113,31 @@ Centrogamb_EventScript_BoyStatMenu:
 	end
 
 Centrogamb_EventScript_ModifyEVs::
+	special BufferMonEVs
+	msgbox Centrogamb_Text_CurrentEVs, MSGBOX_DEFAULT
+	dynmultipush Centrogamb_Text_OptionCustomStat, 0
+	dynmultipush Centrogamb_Text_OptionPresets, 1
+	dynmultipush Centrogamb_Text_EV_ResetZero, 2
+	dynmultipush Centrogamb_Text_Cancel, 3
+	dynmultistack 0, 0, FALSE, 4, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	switch VAR_RESULT
+	case 0, Centrogamb_EventScript_EVPickStat
+	case 1, Centrogamb_EventScript_EVPresetMenu
+	case 2, Centrogamb_EventScript_EVResetAll
+	case 3, Centrogamb_EventScript_BoyStatMenu
+	case MULTI_B_PRESSED, Centrogamb_EventScript_BoyStatMenu
+	end
+
+Centrogamb_EventScript_EVResetAll::
+	setvar VAR_RESULT, 7
+	special SetMonEVSpread
+	playse SE_EXP
+	waitse
+	msgbox Centrogamb_Text_StatsUpdated, MSGBOX_DEFAULT
+	goto Centrogamb_EventScript_ModifyEVs
+	end
+
+Centrogamb_EventScript_EVPresetMenu::
 	msgbox Centrogamb_Text_ChooseEVSpread, MSGBOX_DEFAULT
 	dynmultipush Centrogamb_Text_EV_FastPhysical, 0
 	dynmultipush Centrogamb_Text_EV_FastSpecial, 1
@@ -121,20 +146,178 @@ Centrogamb_EventScript_ModifyEVs::
 	dynmultipush Centrogamb_Text_EV_PhysicalWall, 4
 	dynmultipush Centrogamb_Text_EV_SpecialWall, 5
 	dynmultipush Centrogamb_Text_EV_FastSupport, 6
-	dynmultipush Centrogamb_Text_EV_ResetZero, 7
-	dynmultipush Centrogamb_Text_Cancel, 8
+	dynmultipush Centrogamb_Text_Cancel, 7
 	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
 	switch VAR_RESULT
-	case 8, Centrogamb_EventScript_BoyStatMenu
-	case MULTI_B_PRESSED, Centrogamb_EventScript_BoyStatMenu
+	case 7, Centrogamb_EventScript_ModifyEVs
+	case MULTI_B_PRESSED, Centrogamb_EventScript_ModifyEVs
 	special SetMonEVSpread
 	playse SE_EXP
 	waitse
 	msgbox Centrogamb_Text_StatsUpdated, MSGBOX_DEFAULT
-	goto Centrogamb_EventScript_BoyStatMenu
+	goto Centrogamb_EventScript_ModifyEVs
 	end
 
+Centrogamb_EventScript_EVPickStat::
+	msgbox Centrogamb_Text_PickStatPrompt, MSGBOX_DEFAULT
+	dynmultipush Centrogamb_Text_StatHP, 0
+	dynmultipush Centrogamb_Text_StatAtk, 1
+	dynmultipush Centrogamb_Text_StatDef, 2
+	dynmultipush Centrogamb_Text_StatSpe, 3
+	dynmultipush Centrogamb_Text_StatSpA, 4
+	dynmultipush Centrogamb_Text_StatSpD, 5
+	dynmultipush Centrogamb_Text_Cancel, 6
+	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	switch VAR_RESULT
+	case 6, Centrogamb_EventScript_ModifyEVs
+	case MULTI_B_PRESSED, Centrogamb_EventScript_ModifyEVs
+	copyvar VAR_0x8005, VAR_RESULT
+Centrogamb_EventScript_EVStatEditLoop:
+	setvar VAR_RESULT, 0
+	special BufferSingleStatInfo
+	msgbox Centrogamb_Text_StatCurrentVal, MSGBOX_DEFAULT
+	dynmultipush Centrogamb_Text_SetExactValue, 0
+	dynmultipush Centrogamb_Text_Max252, 1
+	dynmultipush Centrogamb_Text_Zero, 2
+	dynmultipush Centrogamb_Text_Add10, 3
+	dynmultipush Centrogamb_Text_Add4, 4
+	dynmultipush Centrogamb_Text_Add1, 5
+	dynmultipush Centrogamb_Text_Sub10, 6
+	dynmultipush Centrogamb_Text_Sub4, 7
+	dynmultipush Centrogamb_Text_Sub1, 8
+	dynmultipush Centrogamb_Text_Cancel, 9
+	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	switch VAR_RESULT
+	case 0, Centrogamb_EventScript_EVExactList
+	case 1, Centrogamb_EventScript_EVSetMax
+	case 2, Centrogamb_EventScript_EVSetZero
+	case 3, Centrogamb_EventScript_EVAdd10
+	case 4, Centrogamb_EventScript_EVAdd4
+	case 5, Centrogamb_EventScript_EVAdd1
+	case 6, Centrogamb_EventScript_EVSub10
+	case 7, Centrogamb_EventScript_EVSub4
+	case 8, Centrogamb_EventScript_EVSub1
+	case 9, Centrogamb_EventScript_EVPickStat
+	case MULTI_B_PRESSED, Centrogamb_EventScript_EVPickStat
+	end
+
+Centrogamb_EventScript_EVExactList::
+	special PopulateEVValues
+	dynmultipush Centrogamb_Text_Cancel, 0xFFFF
+	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	switch VAR_RESULT
+	case 0xFFFF, Centrogamb_EventScript_EVStatEditLoop
+	case MULTI_B_PRESSED, Centrogamb_EventScript_EVStatEditLoop
+	special SetSingleStatEV
+	playse SE_EXP
+	waitse
+	goto Centrogamb_EventScript_EVStatEditLoop
+	end
+
+Centrogamb_EventScript_EVSetMax::
+	setvar VAR_RESULT, 252
+	special SetSingleStatEV
+	playse SE_EXP
+	waitse
+	goto Centrogamb_EventScript_EVStatEditLoop
+	end
+
+Centrogamb_EventScript_EVSetZero::
+	setvar VAR_RESULT, 0
+	special SetSingleStatEV
+	playse SE_EXP
+	waitse
+	goto Centrogamb_EventScript_EVStatEditLoop
+	end
+
+Centrogamb_EventScript_EVAdd10::
+	setvar VAR_RESULT, 3
+	special AdjustSingleStatEV
+	playse SE_EXP
+	waitse
+	goto Centrogamb_EventScript_EVStatEditLoop
+	end
+
+Centrogamb_EventScript_EVAdd4::
+	setvar VAR_RESULT, 2
+	special AdjustSingleStatEV
+	playse SE_EXP
+	waitse
+	goto Centrogamb_EventScript_EVStatEditLoop
+	end
+
+Centrogamb_EventScript_EVAdd1::
+	setvar VAR_RESULT, 1
+	special AdjustSingleStatEV
+	playse SE_EXP
+	waitse
+	goto Centrogamb_EventScript_EVStatEditLoop
+	end
+
+Centrogamb_EventScript_EVSub10::
+	setvar VAR_RESULT, 6
+	special AdjustSingleStatEV
+	playse SE_EXP
+	waitse
+	goto Centrogamb_EventScript_EVStatEditLoop
+	end
+
+Centrogamb_EventScript_EVSub4::
+	setvar VAR_RESULT, 5
+	special AdjustSingleStatEV
+	playse SE_EXP
+	waitse
+	goto Centrogamb_EventScript_EVStatEditLoop
+	end
+
+Centrogamb_EventScript_EVSub1::
+	setvar VAR_RESULT, 4
+	special AdjustSingleStatEV
+	playse SE_EXP
+	waitse
+	goto Centrogamb_EventScript_EVStatEditLoop
+	end
+
+// ===========================================================================
+// MODIFICA IV
+// ===========================================================================
 Centrogamb_EventScript_ModifyIVs::
+	special BufferMonIVs
+	msgbox Centrogamb_Text_CurrentIVs, MSGBOX_DEFAULT
+	dynmultipush Centrogamb_Text_OptionCustomStat, 0
+	dynmultipush Centrogamb_Text_OptionPresets, 1
+	dynmultipush Centrogamb_Text_IV_All31, 2
+	dynmultipush Centrogamb_Text_IV_All0, 3
+	dynmultipush Centrogamb_Text_Cancel, 4
+	dynmultistack 0, 0, FALSE, 5, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	switch VAR_RESULT
+	case 0, Centrogamb_EventScript_IVPickStat
+	case 1, Centrogamb_EventScript_IVPresetMenu
+	case 2, Centrogamb_EventScript_IVSetAll31
+	case 3, Centrogamb_EventScript_IVSetAll0
+	case 4, Centrogamb_EventScript_BoyStatMenu
+	case MULTI_B_PRESSED, Centrogamb_EventScript_BoyStatMenu
+	end
+
+Centrogamb_EventScript_IVSetAll31::
+	setvar VAR_RESULT, 0
+	special SetMonIVSpread
+	playse SE_EXP
+	waitse
+	msgbox Centrogamb_Text_StatsUpdated, MSGBOX_DEFAULT
+	goto Centrogamb_EventScript_ModifyIVs
+	end
+
+Centrogamb_EventScript_IVSetAll0::
+	setvar VAR_RESULT, 4
+	special SetMonIVSpread
+	playse SE_EXP
+	waitse
+	msgbox Centrogamb_Text_StatsUpdated, MSGBOX_DEFAULT
+	goto Centrogamb_EventScript_ModifyIVs
+	end
+
+Centrogamb_EventScript_IVPresetMenu::
 	msgbox Centrogamb_Text_ChooseIVSpread, MSGBOX_DEFAULT
 	dynmultipush Centrogamb_Text_IV_All31, 0
 	dynmultipush Centrogamb_Text_IV_NoAtk, 1
@@ -144,13 +327,93 @@ Centrogamb_EventScript_ModifyIVs::
 	dynmultipush Centrogamb_Text_Cancel, 5
 	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
 	switch VAR_RESULT
-	case 5, Centrogamb_EventScript_BoyStatMenu
-	case MULTI_B_PRESSED, Centrogamb_EventScript_BoyStatMenu
+	case 5, Centrogamb_EventScript_ModifyIVs
+	case MULTI_B_PRESSED, Centrogamb_EventScript_ModifyIVs
 	special SetMonIVSpread
 	playse SE_EXP
 	waitse
 	msgbox Centrogamb_Text_StatsUpdated, MSGBOX_DEFAULT
-	goto Centrogamb_EventScript_BoyStatMenu
+	goto Centrogamb_EventScript_ModifyIVs
+	end
+
+Centrogamb_EventScript_IVPickStat::
+	msgbox Centrogamb_Text_PickStatPrompt, MSGBOX_DEFAULT
+	dynmultipush Centrogamb_Text_StatHP, 0
+	dynmultipush Centrogamb_Text_StatAtk, 1
+	dynmultipush Centrogamb_Text_StatDef, 2
+	dynmultipush Centrogamb_Text_StatSpe, 3
+	dynmultipush Centrogamb_Text_StatSpA, 4
+	dynmultipush Centrogamb_Text_StatSpD, 5
+	dynmultipush Centrogamb_Text_Cancel, 6
+	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	switch VAR_RESULT
+	case 6, Centrogamb_EventScript_ModifyIVs
+	case MULTI_B_PRESSED, Centrogamb_EventScript_ModifyIVs
+	copyvar VAR_0x8005, VAR_RESULT
+Centrogamb_EventScript_IVStatEditLoop:
+	setvar VAR_RESULT, 1
+	special BufferSingleStatInfo
+	msgbox Centrogamb_Text_StatCurrentVal, MSGBOX_DEFAULT
+	dynmultipush Centrogamb_Text_SetExactValue, 0
+	dynmultipush Centrogamb_Text_Max31, 1
+	dynmultipush Centrogamb_Text_Zero, 2
+	dynmultipush Centrogamb_Text_Add1, 3
+	dynmultipush Centrogamb_Text_Sub1, 4
+	dynmultipush Centrogamb_Text_Cancel, 5
+	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	switch VAR_RESULT
+	case 0, Centrogamb_EventScript_IVExactList
+	case 1, Centrogamb_EventScript_IVSetMax
+	case 2, Centrogamb_EventScript_IVSetZero
+	case 3, Centrogamb_EventScript_IVAdd1
+	case 4, Centrogamb_EventScript_IVSub1
+	case 5, Centrogamb_EventScript_IVPickStat
+	case MULTI_B_PRESSED, Centrogamb_EventScript_IVPickStat
+	end
+
+Centrogamb_EventScript_IVExactList::
+	special PopulateIVValues
+	dynmultipush Centrogamb_Text_Cancel, 0xFFFF
+	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	switch VAR_RESULT
+	case 0xFFFF, Centrogamb_EventScript_IVStatEditLoop
+	case MULTI_B_PRESSED, Centrogamb_EventScript_IVStatEditLoop
+	special SetSingleStatIV
+	playse SE_EXP
+	waitse
+	goto Centrogamb_EventScript_IVStatEditLoop
+	end
+
+Centrogamb_EventScript_IVSetMax::
+	setvar VAR_RESULT, 31
+	special SetSingleStatIV
+	playse SE_EXP
+	waitse
+	goto Centrogamb_EventScript_IVStatEditLoop
+	end
+
+Centrogamb_EventScript_IVSetZero::
+	setvar VAR_RESULT, 0
+	special SetSingleStatIV
+	playse SE_EXP
+	waitse
+	goto Centrogamb_EventScript_IVStatEditLoop
+	end
+
+Centrogamb_EventScript_IVAdd1::
+	setvar VAR_RESULT, 1
+	special AdjustSingleStatIV
+	playse SE_EXP
+	waitse
+	goto Centrogamb_EventScript_IVStatEditLoop
+	end
+
+Centrogamb_EventScript_IVSub1::
+	setvar VAR_RESULT, 2
+	special AdjustSingleStatIV
+	playse SE_EXP
+	waitse
+	goto Centrogamb_EventScript_IVStatEditLoop
 	end
 
 Centrogamb_EventScript_ModifyFriendship::
@@ -473,3 +736,77 @@ Centrogamb_Text_Tera_Fairy:
 
 Centrogamb_Text_Tera_Stellar:
 	.string "Stellare$"
+
+Centrogamb_Text_CurrentEVs:
+	.string "EV attuali:\n"
+	.string "{STR_VAR_1}\n"
+	.string "{STR_VAR_2}\p"
+	.string "Cosa desideri fare?$"
+
+Centrogamb_Text_CurrentIVs:
+	.string "IV attuali:\n"
+	.string "{STR_VAR_1}\n"
+	.string "{STR_VAR_2}\p"
+	.string "Cosa desideri fare?$"
+
+Centrogamb_Text_OptionCustomStat:
+	.string "Personalizza Singola Stat$"
+
+Centrogamb_Text_OptionPresets:
+	.string "Preset Rapidi$"
+
+Centrogamb_Text_PickStatPrompt:
+	.string "Quale statistica vuoi modificare?$"
+
+Centrogamb_Text_StatCurrentVal:
+	.string "{STR_VAR_1} attuale: {STR_VAR_2}\n"
+	.string "Come vuoi intervenire?$"
+
+Centrogamb_Text_StatHP:
+	.string "Punti Salute (PS)$"
+
+Centrogamb_Text_StatAtk:
+	.string "Attacco$"
+
+Centrogamb_Text_StatDef:
+	.string "Difesa$"
+
+Centrogamb_Text_StatSpe:
+	.string "Velocità$"
+
+Centrogamb_Text_StatSpA:
+	.string "Attacco Speciale$"
+
+Centrogamb_Text_StatSpD:
+	.string "Difesa Speciale$"
+
+Centrogamb_Text_SetExactValue:
+	.string "Scegli Valore Esatto...$"
+
+Centrogamb_Text_Max252:
+	.string "Massimizza (252)$"
+
+Centrogamb_Text_Max31:
+	.string "Massimizza (31)$"
+
+Centrogamb_Text_Zero:
+	.string "Azzera (0)$"
+
+Centrogamb_Text_Add10:
+	.string "+10$"
+
+Centrogamb_Text_Add4:
+	.string "+4$"
+
+Centrogamb_Text_Add1:
+	.string "+1$"
+
+Centrogamb_Text_Sub10:
+	.string "-10$"
+
+Centrogamb_Text_Sub4:
+	.string "-4$"
+
+Centrogamb_Text_Sub1:
+	.string "-1$"
+

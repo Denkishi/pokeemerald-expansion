@@ -971,7 +971,7 @@ void BufferRentalTeamName(void)
 
 void GiveSelectedRentalTeam(void)
 {
-    u16 teamId = gSpecialVar_Result;
+    u16 teamId = gSpecialVar_0x8005;
     u32 i;
 
     if (teamId >= TOTAL_RENTAL_TEAMS)
@@ -1001,7 +1001,9 @@ void PopulateRentalCategoryTeams(void)
     {
         u16 teamId = sRentalCategories[category].teamIndices[i];
         struct ListMenuItem item;
-        item.name = sRentalTeams[teamId].name;
+        u8 *nameBuf = Alloc(100);
+        StringCopy(nameBuf, sRentalTeams[teamId].name);
+        item.name = nameBuf;
         item.id = teamId;
         MultichoiceDynamic_PushElement(item);
     }
@@ -1009,7 +1011,7 @@ void PopulateRentalCategoryTeams(void)
 
 void BufferRentalTeamPreview(void)
 {
-    u16 teamId = gSpecialVar_Result;
+    u16 teamId = gSpecialVar_0x8005;
     u8 *ptr;
     u32 i;
 
@@ -1097,7 +1099,9 @@ void PopulateGenerationSpecies(void)
         if (IsSpeciesEnabled(i))
         {
             struct ListMenuItem item;
-            item.name = GetSpeciesName(i);
+            u8 *nameBuf = Alloc(POKEMON_NAME_LENGTH + 1);
+            StringCopy(nameBuf, GetSpeciesName(i));
+            item.name = nameBuf;
             item.id = i;
             MultichoiceDynamic_PushElement(item);
         }
