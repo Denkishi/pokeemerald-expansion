@@ -227,21 +227,21 @@ LittlerootTown_EventScript_SetRivalBirchPosForDexUpgradeFemale::
 	setobjectxy LOCALID_LITTLEROOT_BIRCH, 14, 10
 	end
 
-LittlerootTown_EventScript_FatMan::  
-    lock  
-    faceplayer  
-    msgbox LittlerootTown_Text_ChooseRentalOrCustom, MSGBOX_DEFAULT  
-    dynmultipush LittlerootTown_Text_RentalTeam, 0  
-    dynmultipush LittlerootTown_Text_CustomTeam, 1  
-    dynmultipush LittlerootTown_Text_Cancel, 2  
-    dynmultistack 0, 0, FALSE, 3, FALSE, 0, DYN_MULTICHOICE_CB_NONE  
-    switch VAR_RESULT  
-    case 0, LittlerootTown_EventScript_RentalMenu  
-    case 1, LittlerootownTown_EventScript_CustomTeamHold  
-    case 2, LittlerootTown_EventScript_Cancel  
-    case MULTI_B_PRESSED, LittlerootTown_EventScript_Cancel  
-    release  
-    end
+LittlerootTown_EventScript_FatMan::
+	lock
+	faceplayer
+	msgbox LittlerootTown_Text_ChooseRentalOrCustom, MSGBOX_DEFAULT
+	dynmultipush LittlerootTown_Text_RentalTeam, 0
+	dynmultipush LittlerootTown_Text_CustomTeam, 1
+	dynmultipush LittlerootTown_Text_Cancel, 2
+	dynmultistack 0, 0, FALSE, 3, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	switch VAR_RESULT
+	case 0, LittlerootTown_EventScript_RentalMenu
+	case 1, LittlerootTown_EventScript_CustomTeamHold
+	case 2, LittlerootTown_EventScript_Cancel
+	case MULTI_B_PRESSED, LittlerootTown_EventScript_Cancel
+	release
+	end
 
 LittlerootTown_EventScript_CustomTeamHold::
 	closemessage
