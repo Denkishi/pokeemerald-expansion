@@ -175,7 +175,7 @@ Centrogamb_EventScript_EVPickStat::
 Centrogamb_EventScript_EVStatEditLoop:
 	setvar VAR_RESULT, 0
 	special BufferSingleStatInfo
-	msgbox Centrogamb_Text_StatCurrentVal, MSGBOX_DEFAULT
+	msgbox Centrogamb_Text_EVStatCurrentVal, MSGBOX_DEFAULT
 	dynmultipush Centrogamb_Text_SetExactValue, 0
 	dynmultipush Centrogamb_Text_Max252, 1
 	dynmultipush Centrogamb_Text_Zero, 2
@@ -760,6 +760,10 @@ Centrogamb_Text_PickStatPrompt:
 
 Centrogamb_Text_StatCurrentVal:
 	.string "{STR_VAR_1} attuale: {STR_VAR_2}\n"
+	.string "Come vuoi intervenire?$"
+
+Centrogamb_Text_EVStatCurrentVal:
+	.string "{STR_VAR_1}: {STR_VAR_2} | Totale EV: {STR_VAR_3}/510\n"
 	.string "Come vuoi intervenire?$"
 
 Centrogamb_Text_StatHP:

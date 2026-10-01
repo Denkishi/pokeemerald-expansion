@@ -969,6 +969,13 @@ void BufferRentalTeamName(void)
     }
 }
 
+u16 GetRentalTeamMonSpecies(u16 teamId, u8 monIndex)
+{
+    if (teamId >= TOTAL_RENTAL_TEAMS || monIndex >= 6)
+        return SPECIES_NONE;
+    return sRentalTeams[teamId].mons[monIndex].species;
+}
+
 void GiveSelectedRentalTeam(void)
 {
     u16 teamId = gSpecialVar_0x8005;

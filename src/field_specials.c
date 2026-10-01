@@ -4774,9 +4774,19 @@ void BufferSingleStatInfo(void)
     StringCopy(gStringVar1, sItalianStatNames[stat]);
 
     if (!isIV)
+    {
+        u32 totalEV = 0;
+        int i;
+        for (i = 0; i < 6; i++)
+            totalEV += GetMonData(mon, sEVDataFields[i], NULL);
+
         val = GetMonData(mon, sEVDataFields[stat], NULL);
+        ConvertIntToDecimalStringN(gStringVar3, totalEV, STR_CONV_MODE_LEFT_ALIGN, 3);
+    }
     else
+    {
         val = GetMonData(mon, sIVDataFields[stat], NULL);
+    }
 
     ConvertIntToDecimalStringN(gStringVar2, val, STR_CONV_MODE_LEFT_ALIGN, 3);
 }
@@ -4787,12 +4797,31 @@ void SetSingleStatEV(void)
     u8 stat = gSpecialVar_0x8005;
     u16 val = gSpecialVar_Result;
     struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][slot];
+    u32 totalOtherEVs = 0;
+    u32 maxAllowed;
+    int i;
     u8 ev;
 
     if (stat >= 6)
         return;
-    if (val > 252)
-        val = 252;
+
+    for (i = 0; i < 6; i++)
+    {
+        if (i != stat)
+            totalOtherEVs += GetMonData(mon, sEVDataFields[i], NULL);
+    }
+
+    if (totalOtherEVs >= 510)
+        maxAllowed = 0;
+    else
+        maxAllowed = 510 - totalOtherEVs;
+
+    if (maxAllowed > 252)
+        maxAllowed = 252;
+
+    if (val > maxAllowed)
+        val = maxAllowed;
+
     ev = val;
 
     SetMonData(mon, sEVDataFields[stat], &ev);
@@ -4806,9 +4835,26 @@ void AdjustSingleStatEV(void)
     u8 mode = gSpecialVar_Result;
     struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][slot];
     s32 curVal;
+    u32 totalOtherEVs = 0;
+    u32 maxAllowed;
+    int i;
 
     if (stat >= 6)
         return;
+
+    for (i = 0; i < 6; i++)
+    {
+        if (i != stat)
+            totalOtherEVs += GetMonData(mon, sEVDataFields[i], NULL);
+    }
+
+    if (totalOtherEVs >= 510)
+        maxAllowed = 0;
+    else
+        maxAllowed = 510 - totalOtherEVs;
+
+    if (maxAllowed > 252)
+        maxAllowed = 252;
 
     curVal = GetMonData(mon, sEVDataFields[stat], NULL);
 
@@ -4824,7 +4870,7 @@ void AdjustSingleStatEV(void)
     }
 
     if (curVal < 0) curVal = 0;
-    if (curVal > 252) curVal = 252;
+    if (curVal > (s32)maxAllowed) curVal = maxAllowed;
 
     {
         u8 ev = curVal;
@@ -4893,15 +4939,48 @@ static const u8 sCommonEVValues[] = {
 
 void PopulateEVValues(void)
 {
-    u32 i;
-    for (i = 0; i < ARRAY_COUNT(sCommonEVValues); i++)
+    u8 slot = gSpecialVar_0x8004;
+    u8 stat = gSpecialVar_0x8005;
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][slot];
+    u32 totalOtherEVs = 0;
+    u32 maxAllowed;
+    int i;
+
+    for (i = 0; i < 6; i++)
+    {
+        if (i != stat)
+            totalOtherEVs += GetMonData(mon, sEVDataFields[i], NULL);
+    }
+
+    if (totalOtherEVs >= 510)
+        maxAllowed = 0;
+    else
+        maxAllowed = 510 - totalOtherEVs;
+
+    if (maxAllowed > 252)
+        maxAllowed = 252;
+
+    if (maxAllowed < 252 && maxAllowed > 0 && (maxAllowed % 4 != 0))
     {
         struct ListMenuItem item;
         u8 *nameBuf = Alloc(16);
-        ConvertIntToDecimalStringN(nameBuf, sCommonEVValues[i], STR_CONV_MODE_LEFT_ALIGN, 3);
+        ConvertIntToDecimalStringN(nameBuf, maxAllowed, STR_CONV_MODE_LEFT_ALIGN, 3);
         item.name = nameBuf;
-        item.id = sCommonEVValues[i];
+        item.id = maxAllowed;
         MultichoiceDynamic_PushElement(item);
+    }
+
+    for (i = 0; i < ARRAY_COUNT(sCommonEVValues); i++)
+    {
+        if (sCommonEVValues[i] <= maxAllowed)
+        {
+            struct ListMenuItem item;
+            u8 *nameBuf = Alloc(16);
+            ConvertIntToDecimalStringN(nameBuf, sCommonEVValues[i], STR_CONV_MODE_LEFT_ALIGN, 3);
+            item.name = nameBuf;
+            item.id = sCommonEVValues[i];
+            MultichoiceDynamic_PushElement(item);
+        }
     }
 }
 

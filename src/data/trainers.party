@@ -16884,8 +16884,9 @@ Class: PKMN Trainer 1
 Pic: Enzo
 Gender: Male
 Music: Intense
-Double Battle: No
-AI: Smart Trainer
+Double Battle: Yes
+Mugshot: Purple
+AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Powerful Status / Prefer Highest Damage Move
 
 Annihilape @ Choice Scarf
 Ability: Defiant
@@ -16941,7 +16942,6 @@ IVs: 0 Atk
 
 Golisopod @ Golisopite
 Ability: Emergency Exit
-Tera Type: Ground
 EVs: 2 HP / 252 Atk / 252 Spe
 Adamant Nature
 - Drill Run

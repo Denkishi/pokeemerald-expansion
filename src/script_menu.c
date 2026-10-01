@@ -18,6 +18,7 @@
 #include "util.h"
 #include "item_icon.h"
 #include "pokemon_icon.h"
+#include "rental_teams.h"
 #include "constants/field_specials.h"
 #include "constants/items.h"
 #include "constants/script_menu.h"
@@ -70,6 +71,9 @@ static void MultichoiceDynamicEventShowSprite_OnInit(struct DynamicListMenuEvent
 static void MultichoiceDynamicEventShowItem_OnSelectionChanged(struct DynamicListMenuEventArgs *eventArgs);
 static void MultichoiceDynamicEventShowPkmn_OnSelectionChanged(struct DynamicListMenuEventArgs *eventArgs);
 static void MultichoiceDynamicEventShowSprite_OnDestroy(struct DynamicListMenuEventArgs *eventArgs);
+static void MultichoiceDynamicEventShowRentalTeam_OnInit(struct DynamicListMenuEventArgs *eventArgs);
+static void MultichoiceDynamicEventShowRentalTeam_OnSelectionChanged(struct DynamicListMenuEventArgs *eventArgs);
+static void MultichoiceDynamicEventShowRentalTeam_OnDestroy(struct DynamicListMenuEventArgs *eventArgs);
 
 static const struct DynamicListMenuEventCollection sDynamicListMenuEventCollections[] =
 {
@@ -90,6 +94,12 @@ static const struct DynamicListMenuEventCollection sDynamicListMenuEventCollecti
         .OnInit = MultichoiceDynamicEventShowSprite_OnInit,
         .OnSelectionChanged = MultichoiceDynamicEventShowPkmn_OnSelectionChanged,
         .OnDestroy = MultichoiceDynamicEventShowSprite_OnDestroy
+    },
+    [DYN_MULTICHOICE_CB_SHOW_RENTAL_TEAM] =
+    {
+        .OnInit = MultichoiceDynamicEventShowRentalTeam_OnInit,
+        .OnSelectionChanged = MultichoiceDynamicEventShowRentalTeam_OnSelectionChanged,
+        .OnDestroy = MultichoiceDynamicEventShowRentalTeam_OnDestroy
     }
 };
 
@@ -234,6 +244,92 @@ static void MultichoiceDynamicEventShowSprite_OnDestroy(struct DynamicListMenuEv
     }
 }
 
+#define TAG_CB_RENTAL_ICON 3100
+
+static void FreeRentalSpritesIfUsed(void)
+{
+    u32 i;
+    if (sDynamicMenuEventScratchPad == NULL)
+        return;
+
+    for (i = 0; i < 6; i++)
+    {
+        u16 spriteId = sDynamicMenuEventScratchPad[1 + i];
+        if (spriteId < MAX_SPRITES)
+        {
+            FreeSpriteTilesByTag(TAG_CB_RENTAL_ICON + 10 + i);
+            DestroySprite(&gSprites[spriteId]);
+            sDynamicMenuEventScratchPad[1 + i] = MAX_SPRITES;
+        }
+    }
+    for (i = 0; i < 6; i++)
+    {
+        FreeSpritePaletteByTag(TAG_CB_RENTAL_ICON + i);
+    }
+}
+
+static void MultichoiceDynamicEventShowRentalTeam_OnInit(struct DynamicListMenuEventArgs *eventArgs)
+{
+    struct WindowTemplate *template = &gWindows[eventArgs->windowId].window;
+    u8 auxLeft = template->tilemapLeft + template->width + 1;
+    u32 baseBlock = template->baseBlock + template->width * template->height;
+    u32 auxWindowId;
+    u32 i;
+
+    if (auxLeft < 19)
+        auxLeft = 19;
+    if (auxLeft + 10 > 30)
+        auxLeft = 20;
+
+    struct WindowTemplate auxTemplate = CreateWindowTemplate(0, auxLeft, 1, 10, 14, 15, baseBlock);
+    auxWindowId = AddWindow(&auxTemplate);
+    SetStandardWindowBorderStyle(auxWindowId, FALSE);
+    FillWindowPixelBuffer(auxWindowId, 0x11);
+    CopyWindowToVram(auxWindowId, COPYWIN_FULL);
+    sAuxWindowId = auxWindowId;
+    for (i = 0; i < 6; i++)
+        sDynamicMenuEventScratchPad[1 + i] = MAX_SPRITES;
+}
+
+static void MultichoiceDynamicEventShowRentalTeam_OnSelectionChanged(struct DynamicListMenuEventArgs *eventArgs)
+{
+    u32 i;
+    FreeRentalSpritesIfUsed();
+
+    if (eventArgs->selectedItem >= TOTAL_RENTAL_TEAMS)
+        return;
+
+    for (i = 0; i < 6; i++)
+    {
+        u16 species = GetRentalTeamMonSpecies(eventArgs->selectedItem, i);
+        if (species != SPECIES_NONE && species < NUM_SPECIES)
+        {
+            u8 palIndex = gSpeciesInfo[SanitizeSpeciesId(species)].iconPalIndex;
+            u8 spriteId = CreateTaggedMonIcon(TAG_CB_RENTAL_ICON + 10 + i, TAG_CB_RENTAL_ICON + palIndex, species);
+            sDynamicMenuEventScratchPad[1 + i] = spriteId;
+            if (spriteId != MAX_SPRITES)
+            {
+                struct WindowTemplate *auxTemplate = &gWindows[sAuxWindowId].window;
+                u32 winLeft = auxTemplate->tilemapLeft * 8;
+                u32 winTop = auxTemplate->tilemapTop * 8;
+                u32 col = i % 2;
+                u32 row = i / 2;
+                gSprites[spriteId].oam.priority = 0;
+                gSprites[spriteId].x = winLeft + 24 + (col * 32);
+                gSprites[spriteId].y = winTop + 24 + (row * 32);
+            }
+        }
+    }
+}
+
+static void MultichoiceDynamicEventShowRentalTeam_OnDestroy(struct DynamicListMenuEventArgs *eventArgs)
+{
+    ClearStdWindowAndFrame(sAuxWindowId, TRUE);
+    RemoveWindow(sAuxWindowId);
+    FreeRentalSpritesIfUsed();
+}
+
+#undef TAG_CB_RENTAL_ICON
 #undef sAuxWindowId
 #undef sSpriteId
 #undef TAG_CB_SPRITE_ICON

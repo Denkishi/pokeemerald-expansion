@@ -31,7 +31,9 @@ struct RentalTeam
     struct PresetRentalMon mons[6];
 };
 
+#ifndef TOTAL_RENTAL_TEAMS
 #define TOTAL_RENTAL_TEAMS 76
+#endif
 #define NUM_RENTAL_CATEGORIES 5
 #define CATEGORY_ANYTHING_GOES 0
 #define CATEGORY_CHAMPIONS_META 1
