@@ -5624,6 +5624,9 @@ u32 GetBattleMoveTarget(enum Move move, enum MoveTarget moveTarget)
 
 enum Obedience GetAttackerObedienceForAction(void)
 {
+    // Obedience mechanic fully disabled: all Pokémon always obey.
+    return OBEYS;
+
     s32 rnd;
     s32 calc;
     u8 obedienceLevel = 0;
