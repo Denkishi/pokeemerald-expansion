@@ -643,3 +643,12 @@ gSpecials::
 	def_special GiveSelectedRentalTeam
 	def_special OpenCustomTeamBuilder, waitstate=1
 	def_special BufferRentalTeamName
+	def_special SetMonEVSpread
+	def_special SetMonIVSpread
+	def_special SetMonFriendshipDirect
+	def_special SetMonTeraTypeSpecial
+	def_special PopulateRentalCategoryTeams
+	def_special BufferRentalTeamPreview
+	def_special GiveRandomMonOfSpecies
+	def_special ChooseRandomMonSpecies
+	def_special PopulateGenerationSpecies

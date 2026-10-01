@@ -230,27 +230,16 @@ LittlerootTown_EventScript_SetRivalBirchPosForDexUpgradeFemale::
 LittlerootTown_EventScript_FatMan::
 	lock
 	faceplayer
-	msgbox LittlerootTown_Text_ChooseRentalOrCustom, MSGBOX_DEFAULT
+	msgbox LittlerootTown_Text_ChooseRentalOrReceive, MSGBOX_DEFAULT
 	dynmultipush LittlerootTown_Text_RentalTeam, 0
-	dynmultipush LittlerootTown_Text_CustomTeam, 1
+	dynmultipush LittlerootTown_Text_ReceivePokemon, 1
 	dynmultipush LittlerootTown_Text_Cancel, 2
 	dynmultistack 0, 0, FALSE, 3, FALSE, 0, DYN_MULTICHOICE_CB_NONE
 	switch VAR_RESULT
 	case 0, LittlerootTown_EventScript_RentalMenu
-	case 1, LittlerootTown_EventScript_CustomTeamHold
+	case 1, LittlerootTown_EventScript_ReceivePokemonMenu
 	case 2, LittlerootTown_EventScript_Cancel
 	case MULTI_B_PRESSED, LittlerootTown_EventScript_Cancel
-	release
-	end
-
-LittlerootTown_EventScript_CustomTeamHold::
-	closemessage
-	special OpenCustomTeamBuilder
-	waitstate
-	bufferstring STR_VAR_1, LittlerootTown_Text_CustomTeamName
-	msgbox LittlerootTown_Text_ReceivedTeam, MSGBOX_DEFAULT
-	setflag FLAG_SYS_POKEMON_GET
-	setflag FLAG_SYS_POKEDEX_GET
 	release
 	end
 
@@ -267,83 +256,64 @@ LittlerootTown_EventScript_RentalMenu::
 	dynmultipush LittlerootTown_Text_CatSVOverused, 3
 	dynmultipush LittlerootTown_Text_CatSVUbers, 4
 	dynmultipush LittlerootTown_Text_CatSVRarelyUsed, 5
-	dynmultipush LittlerootTown_Text_CatAllTeams, 6
-	dynmultipush LittlerootTown_Text_Cancel, 7
+	dynmultipush LittlerootTown_Text_Cancel, 6
 	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
 	switch VAR_RESULT
 	case 0, LittlerootTown_EventScript_RandomRentalTeam
-	case 1, LittlerootTown_EventScript_BrowseAnythingGoes
-	case 2, LittlerootTown_EventScript_BrowseChampionsMeta
-	case 3, LittlerootTown_EventScript_BrowseSVOverused
-	case 4, LittlerootTown_EventScript_BrowseSVUbers
-	case 5, LittlerootTown_EventScript_BrowseSVRarelyUsed
-	case 6, LittlerootTown_EventScript_BrowseAllTeams
-	case 7, LittlerootTown_EventScript_Cancel
+	case 1, LittlerootTown_EventScript_CategoryAnythingGoes
+	case 2, LittlerootTown_EventScript_CategoryChampionsMeta
+	case 3, LittlerootTown_EventScript_CategorySVOverused
+	case 4, LittlerootTown_EventScript_CategorySVUbers
+	case 5, LittlerootTown_EventScript_CategorySVRarelyUsed
+	case 6, LittlerootTown_EventScript_Cancel
 	case MULTI_B_PRESSED, LittlerootTown_EventScript_Cancel
 	release
 	end
 
 LittlerootTown_EventScript_RandomRentalTeam::
 	special ChooseRandomRentalTeam
+	special BufferRentalTeamPreview
 	goto LittlerootTown_EventScript_ConfirmTeam
 	end
 
-LittlerootTown_EventScript_BrowseAnythingGoes::
+LittlerootTown_EventScript_CategoryAnythingGoes::
 	setvar VAR_0x8004, 0
-	closemessage
-	special OpenRentalTeamBrowser
-	waitstate
-	goto LittlerootTown_EventScript_HandleBrowserResult
+	goto LittlerootTown_EventScript_ShowCategoryTeams
 	end
 
-LittlerootTown_EventScript_BrowseChampionsMeta::
+LittlerootTown_EventScript_CategoryChampionsMeta::
 	setvar VAR_0x8004, 1
-	closemessage
-	special OpenRentalTeamBrowser
-	waitstate
-	goto LittlerootTown_EventScript_HandleBrowserResult
+	goto LittlerootTown_EventScript_ShowCategoryTeams
 	end
 
-LittlerootTown_EventScript_BrowseSVOverused::
+LittlerootTown_EventScript_CategorySVOverused::
 	setvar VAR_0x8004, 2
-	closemessage
-	special OpenRentalTeamBrowser
-	waitstate
-	goto LittlerootTown_EventScript_HandleBrowserResult
+	goto LittlerootTown_EventScript_ShowCategoryTeams
 	end
 
-LittlerootTown_EventScript_BrowseSVUbers::
+LittlerootTown_EventScript_CategorySVUbers::
 	setvar VAR_0x8004, 3
-	closemessage
-	special OpenRentalTeamBrowser
-	waitstate
-	goto LittlerootTown_EventScript_HandleBrowserResult
+	goto LittlerootTown_EventScript_ShowCategoryTeams
 	end
 
-LittlerootTown_EventScript_BrowseSVRarelyUsed::
+LittlerootTown_EventScript_CategorySVRarelyUsed::
 	setvar VAR_0x8004, 4
-	closemessage
-	special OpenRentalTeamBrowser
-	waitstate
-	goto LittlerootTown_EventScript_HandleBrowserResult
+	goto LittlerootTown_EventScript_ShowCategoryTeams
 	end
 
-LittlerootTown_EventScript_BrowseAllTeams::
-	setvar VAR_0x8004, 5
-	closemessage
-	special OpenRentalTeamBrowser
-	waitstate
-	goto LittlerootTown_EventScript_HandleBrowserResult
-	end
-
-LittlerootTown_EventScript_HandleBrowserResult::
-	goto_if_eq VAR_RESULT, 0xFFFF, LittlerootTown_EventScript_Cancel
-	special BufferRentalTeamName
+LittlerootTown_EventScript_ShowCategoryTeams::
+	special PopulateRentalCategoryTeams
+	dynmultipush LittlerootTown_Text_Cancel, 0xFFFF
+	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	switch VAR_RESULT
+	case 0xFFFF, LittlerootTown_EventScript_RentalMenu
+	case MULTI_B_PRESSED, LittlerootTown_EventScript_RentalMenu
+	special BufferRentalTeamPreview
 	goto LittlerootTown_EventScript_ConfirmTeam
 	end
 
 LittlerootTown_EventScript_ConfirmTeam::
-	msgbox LittlerootTown_Text_ConfirmTeamChoice, MSGBOX_YESNO
+	msgbox LittlerootTown_Text_ConfirmTeamPreview, MSGBOX_YESNO
 	switch VAR_RESULT
 	case NO, LittlerootTown_EventScript_RentalMenu
 	case MULTI_B_PRESSED, LittlerootTown_EventScript_RentalMenu
@@ -354,6 +324,54 @@ LittlerootTown_EventScript_ConfirmTeam::
 	msgbox LittlerootTown_Text_ReceivedTeam, MSGBOX_DEFAULT
 	waitfanfare
 	msgbox LittlerootTown_Text_GoodLuckInBattle, MSGBOX_DEFAULT
+	release
+	end
+
+// ===========================================================================
+// RICEVI POKÉMON (Livello 100 nel Box PC)
+// ===========================================================================
+LittlerootTown_EventScript_ReceivePokemonMenu::
+	msgbox LittlerootTown_Text_ReceivePokemonPrompt, MSGBOX_DEFAULT
+	dynmultipush LittlerootTown_Text_RecGen1, 1
+	dynmultipush LittlerootTown_Text_RecGen2, 2
+	dynmultipush LittlerootTown_Text_RecGen3, 3
+	dynmultipush LittlerootTown_Text_RecGen4, 4
+	dynmultipush LittlerootTown_Text_RecGen5, 5
+	dynmultipush LittlerootTown_Text_RecGen6, 6
+	dynmultipush LittlerootTown_Text_RecGen7, 7
+	dynmultipush LittlerootTown_Text_RecGen8, 8
+	dynmultipush LittlerootTown_Text_RecGen9, 9
+	dynmultipush LittlerootTown_Text_RecRandom, 10
+	dynmultipush LittlerootTown_Text_Cancel, 11
+	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	switch VAR_RESULT
+	case 10, LittlerootTown_EventScript_ReceiveRandomMon
+	case 11, LittlerootTown_EventScript_Cancel
+	case MULTI_B_PRESSED, LittlerootTown_EventScript_Cancel
+	copyvar VAR_0x8004, VAR_RESULT
+	special PopulateGenerationSpecies
+	dynmultipush LittlerootTown_Text_Cancel, 0
+	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	switch VAR_RESULT
+	case 0, LittlerootTown_EventScript_ReceivePokemonMenu
+	case MULTI_B_PRESSED, LittlerootTown_EventScript_ReceivePokemonMenu
+	special GiveRandomMonOfSpecies
+	setflag FLAG_SYS_POKEMON_GET
+	setflag FLAG_SYS_POKEDEX_GET
+	playfanfare MUS_OBTAIN_ITEM
+	msgbox LittlerootTown_Text_ReceivedSingleMon, MSGBOX_DEFAULT
+	waitfanfare
+	release
+	end
+
+LittlerootTown_EventScript_ReceiveRandomMon::
+	special ChooseRandomMonSpecies
+	special GiveRandomMonOfSpecies
+	setflag FLAG_SYS_POKEMON_GET
+	setflag FLAG_SYS_POKEDEX_GET
+	playfanfare MUS_OBTAIN_ITEM
+	msgbox LittlerootTown_Text_ReceivedSingleMon, MSGBOX_DEFAULT
+	waitfanfare
 	release
 	end
 
@@ -1126,22 +1144,18 @@ LittlerootTown_Text_BirchSomethingToShowYouAtLab:
 	.string "I have something to show you.\n"
 	.string "Let's go to my LAB.$"
 
-LittlerootTown_Text_ChooseRentalOrCustom:
+LittlerootTown_Text_ChooseRentalOrReceive:
 	.string "Ciao! Vuoi un team a noleggio\n"
-	.string "o un team custom?$"
+	.string "o ricevere un Pokémon a scelta?$"
 
 LittlerootTown_Text_RentalTeam:
 	.string "Team a noleggio$"
 
-LittlerootTown_Text_CustomTeam:
-	.string "Team custom$"
+LittlerootTown_Text_ReceivePokemon:
+	.string "Ricevi Pokémon (Lv. 100)$"
 
 LittlerootTown_Text_Cancel:
 	.string "Annulla$"
-
-LittlerootTown_Text_CustomTeamUnavailable:
-	.string "La funzione per costruire un Team\n"
-	.string "Custom sarà disponibile prossimamente!$"
 
 LittlerootTown_Text_ComeBackAnytime:
 	.string "Torna pure se cambi idea!$"
@@ -1167,12 +1181,11 @@ LittlerootTown_Text_CatSVUbers:
 LittlerootTown_Text_CatSVRarelyUsed:
 	.string "SV Rarely Used (14)$"
 
-LittlerootTown_Text_CatAllTeams:
-	.string "Tutti i Team (76)$"
-
-LittlerootTown_Text_ConfirmTeamChoice:
+LittlerootTown_Text_ConfirmTeamPreview:
 	.string "Hai scelto il team:\n"
 	.string "{STR_VAR_1}!\p"
+	.string "Membri della squadra:\n"
+	.string "{STR_VAR_2}\p"
 	.string "Vuoi ricevere questo team nei tuoi\n"
 	.string "Box PC?$"
 
@@ -1184,10 +1197,40 @@ LittlerootTown_Text_GoodLuckInBattle:
 	.string "La tua squadra è al completo e in piena\n"
 	.string "salute. Buona fortuna in battaglia!$"
 
-LittlerootTown_Text_CustomTeamConfirm:
-	.string "Vuoi usare questo team\n"
-	.string "custom?$"
+LittlerootTown_Text_ReceivePokemonPrompt:
+	.string "Scegli la Generazione o un Pokémon casuale:$"
 
-LittlerootTown_Text_CustomTeamName:
-	.string "Team Custom$"
+LittlerootTown_Text_RecGen1:
+	.string "Gen 1 (Kanto)$"
+
+LittlerootTown_Text_RecGen2:
+	.string "Gen 2 (Johto)$"
+
+LittlerootTown_Text_RecGen3:
+	.string "Gen 3 (Hoenn)$"
+
+LittlerootTown_Text_RecGen4:
+	.string "Gen 4 (Sinnoh)$"
+
+LittlerootTown_Text_RecGen5:
+	.string "Gen 5 (Unova)$"
+
+LittlerootTown_Text_RecGen6:
+	.string "Gen 6 (Kalos)$"
+
+LittlerootTown_Text_RecGen7:
+	.string "Gen 7 (Alola)$"
+
+LittlerootTown_Text_RecGen8:
+	.string "Gen 8 (Galar/Hisui)$"
+
+LittlerootTown_Text_RecGen9:
+	.string "Gen 9 (Paldea)$"
+
+LittlerootTown_Text_RecRandom:
+	.string "Pokémon Casuale (Lv. 100)$"
+
+LittlerootTown_Text_ReceivedSingleMon:
+	.string "{PLAYER} ha ricevuto {STR_VAR_1} (Lv. 100)\n"
+	.string "direttamente nel Box PC!$"
 

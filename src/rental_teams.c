@@ -20,6 +20,7 @@
 #include "rental_teams.h"
 #include "scanline_effect.h"
 #include "script.h"
+#include "script_menu.h"
 #include "sound.h"
 #include "sprite.h"
 #include "string_util.h"
@@ -985,5 +986,120 @@ void GiveSelectedRentalTeam(void)
 
         BuildRentalPokemon(&mon, rMon);
         CopyMonToPC(&mon);
+    }
+}
+
+void PopulateRentalCategoryTeams(void)
+{
+    u8 category = gSpecialVar_0x8004;
+    u32 i;
+
+    if (category >= NUM_RENTAL_CATEGORIES)
+        return;
+
+    for (i = 0; i < sRentalCategories[category].count; i++)
+    {
+        u16 teamId = sRentalCategories[category].teamIndices[i];
+        struct ListMenuItem item;
+        item.name = sRentalTeams[teamId].name;
+        item.id = teamId;
+        MultichoiceDynamic_PushElement(item);
+    }
+}
+
+void BufferRentalTeamPreview(void)
+{
+    u16 teamId = gSpecialVar_Result;
+    u8 *ptr;
+    u32 i;
+
+    if (teamId >= TOTAL_RENTAL_TEAMS)
+        return;
+
+    StringCopy(gStringVar1, sRentalTeams[teamId].name);
+
+    ptr = gStringVar2;
+    *ptr = EOS;
+
+    for (i = 0; i < 6; i++)
+    {
+        u16 species = sRentalTeams[teamId].mons[i].species;
+        if (species != SPECIES_NONE)
+        {
+            ptr = StringAppend(ptr, COMPOUND_STRING("- "));
+            ptr = StringAppend(ptr, GetSpeciesName(species));
+            if (i < 5 && sRentalTeams[teamId].mons[i + 1].species != SPECIES_NONE)
+                ptr = StringAppend(ptr, COMPOUND_STRING("\n"));
+        }
+    }
+}
+
+void GiveRandomMonOfSpecies(void)
+{
+    u16 species = gSpecialVar_Result;
+    struct Pokemon mon;
+    struct PokemonTemplate template = {0};
+
+    if (species == SPECIES_NONE || species >= NUM_SPECIES)
+        species = SPECIES_PIKACHU;
+
+    template.species = species;
+    template.level = 100;
+    template.heldItem = ITEM_NONE;
+    template.nature = NATURE_RANDOM;
+    template.gender = MON_GENDER_RANDOM;
+    template.origin = GIFTMON_ORIGIN;
+    template.isShiny = SHINY_MODE_RANDOM;
+    template.abilityNum = 0;
+    template.moves[0] = MOVE_RANDOM_TEACHABLE;
+    template.moves[1] = MOVE_RANDOM_TEACHABLE;
+    template.moves[2] = MOVE_RANDOM_TEACHABLE;
+    template.moves[3] = MOVE_RANDOM_TEACHABLE;
+
+    CreateMonFromTemplate(&mon, &template);
+    CopyMonToPC(&mon);
+    StringCopy(gStringVar1, GetSpeciesName(species));
+}
+
+void ChooseRandomMonSpecies(void)
+{
+    enum Species species;
+    do
+    {
+        species = (Random() % (NUM_SPECIES - 1)) + 1;
+    } while (!IsSpeciesEnabled(species) || species == SPECIES_NONE || species == SPECIES_EGG);
+
+    gSpecialVar_Result = species;
+}
+
+void PopulateGenerationSpecies(void)
+{
+    u8 gen = gSpecialVar_0x8004;
+    u16 startSpecies = 1;
+    u16 endSpecies = 151;
+    u16 i;
+
+    switch (gen)
+    {
+    case 1: startSpecies = SPECIES_BULBASAUR; endSpecies = SPECIES_MEW; break;
+    case 2: startSpecies = SPECIES_CHIKORITA; endSpecies = SPECIES_CELEBI; break;
+    case 3: startSpecies = SPECIES_TREECKO;   endSpecies = SPECIES_DEOXYS; break;
+    case 4: startSpecies = SPECIES_TURTWIG;   endSpecies = SPECIES_ARCEUS; break;
+    case 5: startSpecies = SPECIES_VICTINI;   endSpecies = SPECIES_GENESECT; break;
+    case 6: startSpecies = SPECIES_CHESPIN;   endSpecies = SPECIES_VOLCANION; break;
+    case 7: startSpecies = SPECIES_ROWLET;    endSpecies = SPECIES_MELMETAL; break;
+    case 8: startSpecies = SPECIES_GROOKEY;   endSpecies = SPECIES_ENAMORUS; break;
+    case 9: default: startSpecies = SPECIES_SPRIGATITO; endSpecies = 1025; break;
+    }
+
+    for (i = startSpecies; i <= endSpecies; i++)
+    {
+        if (IsSpeciesEnabled(i))
+        {
+            struct ListMenuItem item;
+            item.name = GetSpeciesName(i);
+            item.id = i;
+            MultichoiceDynamic_PushElement(item);
+        }
     }
 }

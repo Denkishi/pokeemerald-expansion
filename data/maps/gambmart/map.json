@@ -1,7 +1,7 @@
 {
-  "id": "MAP_OLDALE_TOWN_MART",
-  "name": "OldaleTown_Mart",
-  "layout": "LAYOUT_MART",
+  "id": "MAP_GAMBMART",
+  "name": "gambmart",
+  "layout": "LAYOUT_GAMBMART",
   "music": "MUS_POKE_MART",
   "region_map_section": "MAPSEC_OLDALE_TOWN",
   "requires_flash": false,
@@ -9,7 +9,7 @@
   "map_type": "MAP_TYPE_INDOOR",
   "allow_cycling": false,
   "allow_escaping": false,
-  "allow_running": false,
+  "allow_running": true,
   "show_map_name": false,
   "battle_scene": "MAP_BATTLE_SCENE_NORMAL",
   "connections": null,
@@ -25,7 +25,7 @@
       "movement_range_y": 0,
       "trainer_type": "TRAINER_TYPE_NONE",
       "trainer_sight_or_berry_tree_id": "0",
-      "script": "OldaleTown_Mart_EventScript_Clerk",
+      "script": "GambMart_EventScript_Clerk",
       "flag": "0"
     },
     {
@@ -38,7 +38,7 @@
       "movement_range_y": 0,
       "trainer_type": "TRAINER_TYPE_NONE",
       "trainer_sight_or_berry_tree_id": "0",
-      "script": "OldaleTown_Mart_EventScript_Woman",
+      "script": "GambMart_EventScript_Woman",
       "flag": "0"
     },
     {
@@ -51,7 +51,7 @@
       "movement_range_y": 1,
       "trainer_type": "TRAINER_TYPE_NONE",
       "trainer_sight_or_berry_tree_id": "0",
-      "script": "OldaleTown_Mart_EventScript_Boy",
+      "script": "GambMart_EventScript_Boy",
       "flag": "0"
     }
   ],
@@ -60,14 +60,14 @@
       "x": 3,
       "y": 7,
       "elevation": 0,
-      "dest_map": "MAP_OLDALE_TOWN",
+      "dest_map": "MAP_GAMB_ESTERNO",
       "dest_warp_id": "3"
     },
     {
       "x": 4,
       "y": 7,
       "elevation": 0,
-      "dest_map": "MAP_OLDALE_TOWN",
+      "dest_map": "MAP_GAMB_ESTERNO",
       "dest_warp_id": "3"
     }
   ],

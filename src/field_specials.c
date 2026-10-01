@@ -4594,6 +4594,73 @@ void SetAbility(void)
     SetMonData(&gParties[B_TRAINER_PLAYER][gSpecialVar_0x8004], MON_DATA_ABILITY_NUM, &ability);
 }
 
+void SetMonEVSpread(void)
+{
+    u8 slot = gSpecialVar_0x8004;
+    u8 choice = gSpecialVar_Result;
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][slot];
+    u8 evHp = 0, evAtk = 0, evDef = 0, evSpe = 0, evSpA = 0, evSpD = 0;
+
+    switch (choice)
+    {
+    case 0: evAtk = 252; evSpe = 252; evHp = 4; break;
+    case 1: evSpA = 252; evSpe = 252; evHp = 4; break;
+    case 2: evHp = 252; evAtk = 252; evDef = 4; break;
+    case 3: evHp = 252; evSpA = 252; evSpD = 4; break;
+    case 4: evHp = 252; evDef = 252; evSpD = 4; break;
+    case 5: evHp = 252; evSpD = 252; evDef = 4; break;
+    case 6: evHp = 252; evSpe = 252; evDef = 4; break;
+    case 7: default: break;
+    }
+
+    SetMonData(mon, MON_DATA_HP_EV, &evHp);
+    SetMonData(mon, MON_DATA_ATK_EV, &evAtk);
+    SetMonData(mon, MON_DATA_DEF_EV, &evDef);
+    SetMonData(mon, MON_DATA_SPEED_EV, &evSpe);
+    SetMonData(mon, MON_DATA_SPATK_EV, &evSpA);
+    SetMonData(mon, MON_DATA_SPDEF_EV, &evSpD);
+    CalculateMonStats(mon);
+}
+
+void SetMonIVSpread(void)
+{
+    u8 slot = gSpecialVar_0x8004;
+    u8 choice = gSpecialVar_Result;
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][slot];
+    u8 ivHp = 31, ivAtk = 31, ivDef = 31, ivSpe = 31, ivSpA = 31, ivSpD = 31;
+
+    switch (choice)
+    {
+    case 0: break;
+    case 1: ivAtk = 0; break;
+    case 2: ivSpe = 0; break;
+    case 3: ivAtk = 0; ivSpe = 0; break;
+    case 4: ivHp = 0; ivAtk = 0; ivDef = 0; ivSpe = 0; ivSpA = 0; ivSpD = 0; break;
+    }
+
+    SetMonData(mon, MON_DATA_HP_IV, &ivHp);
+    SetMonData(mon, MON_DATA_ATK_IV, &ivAtk);
+    SetMonData(mon, MON_DATA_DEF_IV, &ivDef);
+    SetMonData(mon, MON_DATA_SPEED_IV, &ivSpe);
+    SetMonData(mon, MON_DATA_SPATK_IV, &ivSpA);
+    SetMonData(mon, MON_DATA_SPDEF_IV, &ivSpD);
+    CalculateMonStats(mon);
+}
+
+void SetMonFriendshipDirect(void)
+{
+    u8 slot = gSpecialVar_0x8004;
+    u8 friendship = (gSpecialVar_Result == 0) ? 255 : 0;
+    SetMonData(&gParties[B_TRAINER_PLAYER][slot], MON_DATA_FRIENDSHIP, &friendship);
+}
+
+void SetMonTeraTypeSpecial(void)
+{
+    u8 slot = gSpecialVar_0x8004;
+    u8 teraType = gSpecialVar_Result;
+    SetMonData(&gParties[B_TRAINER_PLAYER][slot], MON_DATA_TERA_TYPE, &teraType);
+}
+
 void DaisyMassageServices(void)
 {
     AdjustFriendship(&gParties[B_TRAINER_PLAYER][gSpecialVar_0x8004], FRIENDSHIP_EVENT_MASSAGE);

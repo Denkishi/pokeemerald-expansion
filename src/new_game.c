@@ -97,15 +97,56 @@ static void InitPlayerTrainerId(void)
     SetTrainerId(trainerId, gSaveBlock2Ptr->playerTrainerId);
 }
 
+#include "constants/moves.h"
+#include "constants/abilities.h"
+
 // L=A isnt set here for some reason.
 static void SetDefaultOptions(void)
 {
-    gSaveBlock2Ptr->optionsTextSpeed = OPTIONS_TEXT_SPEED_MID;
+    gSaveBlock2Ptr->optionsTextSpeed = OPTIONS_TEXT_SPEED_FAST;
     gSaveBlock2Ptr->optionsWindowFrameType = 0;
-    gSaveBlock2Ptr->optionsSound = OPTIONS_SOUND_MONO;
-    gSaveBlock2Ptr->optionsBattleStyle = OPTIONS_BATTLE_STYLE_SHIFT;
+    gSaveBlock2Ptr->optionsSound = OPTIONS_SOUND_STEREO;
+    gSaveBlock2Ptr->optionsBattleStyle = OPTIONS_BATTLE_STYLE_SET;
     gSaveBlock2Ptr->optionsBattleSceneOff = FALSE;
     gSaveBlock2Ptr->regionMapZoom = FALSE;
+}
+
+static void InitPlayerStartingMon(void)
+{
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][0];
+    struct PokemonTemplate template = {0};
+    static const u8 sNicknameELIA[] = _("ELIA");
+    u32 i;
+
+    template.species = SPECIES_LICKITUNG;
+    template.level = 100;
+    template.heldItem = ITEM_ABILITY_CAPSULE;
+    template.nature = NATURE_BRAVE;
+    template.gender = MON_GENDER_MALE;
+    template.origin = GIFTMON_ORIGIN;
+    template.isShiny = SHINY_MODE_ALWAYS;
+    template.doNotUseDefaultShinyness = TRUE;
+    template.abilityNum = 1; // Oblivious
+    template.doNotUseDefaultAbility = TRUE;
+    template.teraType = TYPE_NORMAL;
+    template.doNotUseDefaultTeraType = TRUE;
+    template.ignoreTotalEvCheck = TRUE;
+    template.evs[STAT_HP] = 248;
+    template.evs[STAT_ATK] = 252;
+    template.evs[STAT_DEF] = 0;
+    template.evs[STAT_SPEED] = 0;
+    template.evs[STAT_SPATK] = 8;
+    template.evs[STAT_SPDEF] = 0;
+    for (i = 0; i < NUM_STATS; i++)
+        template.ivs[i] = 31;
+    template.moves[0] = MOVE_LICK;
+    template.moves[1] = MOVE_REST;
+    template.moves[2] = MOVE_FLING;
+    template.moves[3] = MOVE_CONFUSION;
+
+    CreateMonFromTemplate(mon, &template);
+    SetMonData(mon, MON_DATA_NICKNAME, sNicknameELIA);
+    gPartiesCount[B_TRAINER_PLAYER] = 1;
 }
 
 static void ClearPokedexFlags(void)
@@ -201,10 +242,14 @@ void NewGameInitData(void)
     InitLotadSizeRecord();
     gPartiesCount[B_TRAINER_PLAYER] = 0;
     ZeroPlayerPartyMons();
+    InitPlayerStartingMon();
     ResetPokemonStorageSystem();
     DeactivateAllRoamers();
     gSaveBlock1Ptr->registeredItem = ITEM_NONE;
     ClearBag();
+    AddBagItem(ITEM_MEGA_RING, 1);
+    AddBagItem(ITEM_Z_POWER_RING, 1);
+    AddBagItem(ITEM_DYNAMAX_BAND, 1);
     NewGameInitPCItems();
     ClearPokeblocks();
     ClearDecorationInventories();

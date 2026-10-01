@@ -9367,6 +9367,17 @@
       "border_filepath": "data/layouts/centrogamb/border.bin",
       "blockdata_filepath": "data/layouts/centrogamb/map.bin",
       "layout_version": "emerald"
+    },
+    {
+      "id": "LAYOUT_GAMBMART",
+      "name": "gambmart_Layout",
+      "width": 11,
+      "height": 8,
+      "primary_tileset": "gTileset_Building",
+      "secondary_tileset": "gTileset_Shop",
+      "border_filepath": "data/layouts/gambmart/border.bin",
+      "blockdata_filepath": "data/layouts/gambmart/map.bin",
+      "layout_version": "emerald"
     }
   ]
 }
