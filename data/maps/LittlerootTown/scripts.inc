@@ -1173,8 +1173,8 @@ LittlerootTown_Text_CatAllTeams:
 LittlerootTown_Text_ConfirmTeamChoice:
 	.string "Hai scelto il team:\n"
 	.string "{STR_VAR_1}!\p"
-	.string "Vuoi ricevere questo team nella tua\n"
-	.string "squadra?$"
+	.string "Vuoi ricevere questo team nei tuoi\n"
+	.string "Box PC?$"
 
 LittlerootTown_Text_ReceivedTeam:
 	.string "{PLAYER} ha ricevuto il team\n"

@@ -1132,11 +1132,9 @@ static void CTB_BuildAndExitTeam(u8 taskId)
 {
     u8 i;
 
-    ZeroPlayerPartyMons();
-    gPartiesCount[B_TRAINER_PLAYER] = sData->teamCount;
-
     for (i = 0; i < sData->teamCount; i++)
     {
+        struct Pokemon mon;
         struct CustomBuilderMon *cm = &sData->team[i];
         struct PokemonTemplate tmpl = {0};
 
@@ -1166,7 +1164,8 @@ static void CTB_BuildAndExitTeam(u8 taskId)
                 tmpl.moves[s] = cm->moves[s];
         }
 
-        CreateMonFromTemplate(&gParties[B_TRAINER_PLAYER][i], &tmpl);
+        CreateMonFromTemplate(&mon, &tmpl);
+        CopyMonToPC(&mon);
     }
 
     gSpecialVar_Result = sData->teamCount;

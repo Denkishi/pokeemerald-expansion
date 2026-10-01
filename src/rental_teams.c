@@ -973,17 +973,14 @@ void GiveSelectedRentalTeam(void)
     if (teamId >= TOTAL_RENTAL_TEAMS)
         return;
 
-    ZeroPlayerPartyMons();
-
     for (i = 0; i < 6; i++)
     {
+        struct Pokemon mon;
         const struct PresetRentalMon *rMon = &sRentalTeams[teamId].mons[i];
         if (rMon->species == SPECIES_NONE)
             continue;
 
-        BuildRentalPokemon(&gParties[B_TRAINER_PLAYER][i], rMon);
+        BuildRentalPokemon(&mon, rMon);
+        CopyMonToPC(&mon);
     }
-
-    CalculatePlayerPartyCount();
-    HealPlayerParty();
 }
