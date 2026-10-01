@@ -1165,9 +1165,26 @@ static void CTB_BuildAndExitTeam(u8 taskId)
             for (s = 0; s < MAX_MON_MOVES; s++)
             {
                 if (cm->moves[s] != MOVE_NONE)
-                    tmpl.moves[s] = cm->moves[s];
+                {
+                    bool32 isDuplicate = FALSE;
+                    u8 j;
+                    for (j = 0; j < s; j++)
+                    {
+                        if (tmpl.moves[j] == cm->moves[s])
+                        {
+                            isDuplicate = TRUE;
+                            break;
+                        }
+                    }
+                    if (isDuplicate)
+                        tmpl.moves[s] = MOVE_RANDOM_TEACHABLE;
+                    else
+                        tmpl.moves[s] = cm->moves[s];
+                }
                 else
+                {
                     tmpl.moves[s] = MOVE_RANDOM_TEACHABLE;
+                }
             }
         }
 
@@ -1184,6 +1201,7 @@ static void CTB_BuildAndExitTeam(u8 taskId)
     Free(sData);
     sData = NULL;
 
+    SetVBlankCallback(NULL);
     DestroyTask(taskId);
     SetMainCallback1(CB1_Overworld);
     gFieldCallback = FieldCB_ContinueScriptHandleMusic;
@@ -1574,6 +1592,7 @@ static void Task_CTB_Main(u8 taskId)
             FreeAllWindowBuffers();
             Free(sData);
             sData = NULL;
+            SetVBlankCallback(NULL);
             DestroyTask(taskId);
             SetMainCallback1(CB1_Overworld);
             gFieldCallback = FieldCB_ContinueScriptHandleMusic;

@@ -484,6 +484,7 @@ static void Task_RentalTeams_FadeOutAndExit(u8 taskId)
         FreeSpritePaletteByTag(TAG_RENTAL_HELD_ITEM);
         FreeSpriteTilesByTag(TAG_RENTAL_ARROW_CURSOR);
         FreeSpritePaletteByTag(TAG_RENTAL_ARROW_CURSOR);
+        SetVBlankCallback(NULL);
         FreeRentalTeamsResources();
         DestroyTask(taskId);
         SetMainCallback1(CB1_Overworld);
