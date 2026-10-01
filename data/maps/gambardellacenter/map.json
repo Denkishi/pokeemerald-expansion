@@ -34,14 +34,14 @@
       "x": 7,
       "y": 8,
       "elevation": 3,
-      "dest_map": "MAP_GAMBARDELLACENTER",
+      "dest_map": "MAP_GAMB_ESTERNO",
       "dest_warp_id": "2"
     },
     {
       "x": 6,
       "y": 8,
       "elevation": 3,
-      "dest_map": "MAP_GAMBARDELLACENTER",
+      "dest_map": "MAP_GAMB_ESTERNO",
       "dest_warp_id": "2"
     }
   ],
