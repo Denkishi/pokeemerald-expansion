@@ -491,6 +491,7 @@ static void Task_RentalTeams_FadeOutAndExit(u8 taskId)
         gFieldCallback = FieldCB_ContinueScriptHandleMusic;
         gMain.state = 0;
         ResetBgsAndClearDma3BusyFlags(0);
+        ClearScheduledBgCopiesToVram();
         SetMainCallback2(CB2_ReturnToField);
     }
 }
@@ -602,9 +603,8 @@ static void CB2_ReturnToRentalTeamsFromSummary(void)
     }
     if (sRentalTeamsData != NULL)
     {
-        // Fix: Set focusMode to FOCUS_TEAM_LIST when returning from preview
-        // This prevents crashes when navigating back from non-casual team categories
-        sRentalTeamsData->focusMode = FOCUS_TEAM_LIST;
+        sRentalTeamsData->previewMonIdx = gLastViewedMonIndex;
+        sRentalTeamsData->focusMode = FOCUS_PREVIEW_MONS;
     }
     SetMainCallback2(CB2_InitRentalTeams);
 }
@@ -811,6 +811,7 @@ static void CB2_InitRentalTeams(void)
     SetVBlankCallback(NULL);
     ResetVramOamAndBgCntRegs();
     ResetBgsAndClearDma3BusyFlags(0);
+        ClearScheduledBgCopiesToVram();
     DeactivateAllTextPrinters();
     ResetPaletteFade();
     ResetTasks();
