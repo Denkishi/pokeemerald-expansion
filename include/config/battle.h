@@ -12,7 +12,7 @@
 #define B_PARALYSIS_CHANCE          GEN_LATEST // In Champions, paralysis has a 12.5% chance of not moving, instead of 25%.
 
 // Experience settings
-#define B_EXP_CATCH                 GEN_0      // In Gen6+, the party gains experience when the player catches another Pokémon.
+#define B_EXP_CATCH                 GEN_5      // In Gen6+, the party gains experience when the player catches another Pokémon.
 #define B_TRAINER_EXP_MULTIPLIER    GEN_LATEST // In Gen7+, Trainer battles no longer increase total experience by 1.5x.
 #define B_SPLIT_EXP                 GEN_LATEST // In Gen6+, all Pokémon that participate in a battle gain full experience. In Gen5 and earlier, the total experience would be evenly split across them.
 #define B_SCALED_EXP                GEN_LATEST // In Gen5 and Gen7+, experience gain is weighted by the difference between the levels of the player's Pokémon and the target.
