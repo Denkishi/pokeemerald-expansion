@@ -119,7 +119,7 @@ static void InitPlayerStartingMon(void)
     u32 i;
 
     template.species = SPECIES_LICKITUNG;
-    template.level = 100;
+    template.level = 50;
     template.heldItem = ITEM_ABILITY_CAPSULE;
     template.nature = NATURE_BRAVE;
     template.gender = MON_MALE;

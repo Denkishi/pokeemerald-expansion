@@ -16,12 +16,41 @@
 
 #include "data/gimmicks.h"
 
+// Returns whether a trainer has used ANY gimmick during a battle.
+bool32 HasTrainerUsedAnyGimmick(enum BattlerId battler)
+{
+    enum Gimmick g;
+    for (g = 1; g < GIMMICKS_COUNT; ++g)
+    {
+        if (gBattleStruct->gimmick.activated[battler][g])
+            return TRUE;
+        if (IsDoubleBattle() && (IsPartnerMonFromSameTrainer(battler) || (g == GIMMICK_DYNAMAX)))
+        {
+            enum BattlerId partner = GetPartnerBattler(battler);
+            if (gBattleStruct->gimmick.activated[partner][g]
+             || ((gBattleStruct->gimmick.toActivate & (1u << partner)) && gBattleStruct->gimmick.usableGimmick[partner] == g))
+                return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+
+// Returns whether a trainer has used a gimmick during a battle (only 1 gimmick allowed per battle).
+bool32 HasTrainerUsedGimmick(enum BattlerId battler, enum Gimmick gimmick)
+{
+    return HasTrainerUsedAnyGimmick(battler);
+}
+
 // Populates gBattleStruct->gimmick.usableGimmick for each battler.
 void AssignUsableGimmicks(void)
 {
     for (enum BattlerId battler = 0; battler < gBattlersCount; ++battler)
     {
         gBattleStruct->gimmick.usableGimmick[battler] = GIMMICK_NONE;
+        if (HasTrainerUsedAnyGimmick(battler))
+            continue;
+
         for (enum Gimmick gimmick = 0; gimmick < GIMMICKS_COUNT; ++gimmick)
         {
             if (CanActivateGimmick(battler, gimmick))
@@ -36,6 +65,9 @@ void AssignUsableGimmicks(void)
 // Returns whether a battler is able to use a gimmick. Checks consumption and gimmick specific functions.
 bool32 CanActivateGimmick(enum BattlerId battler, enum Gimmick gimmick)
 {
+    if (HasTrainerUsedAnyGimmick(battler))
+        return FALSE;
+
     return gGimmicksInfo[gimmick].CanActivate != NULL && gGimmicksInfo[gimmick].CanActivate(battler);
 }
 
@@ -62,6 +94,51 @@ enum Gimmick GetActiveGimmick(enum BattlerId battler)
     return gBattleStruct->gimmick.activeGimmick[GetBattlerTrainer(battler)][gBattlerPartyIndexes[battler]];
 }
 
+static bool32 CanMonMegaEvolve(struct Pokemon *mon)
+{
+    enum Species species = GetMonData(mon, MON_DATA_SPECIES);
+    enum Item item = GetMonData(mon, MON_DATA_HELD_ITEM);
+    const struct FormChange *formChanges = gSpeciesInfo[species].formChangeTable;
+    u32 i;
+
+    if (formChanges == NULL)
+        return FALSE;
+
+    for (i = 0; formChanges[i].method != FORM_CHANGE_TERMINATOR; i++)
+    {
+        if (formChanges[i].method == FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM && formChanges[i].param1 == item)
+            return TRUE;
+        if (formChanges[i].method == FORM_CHANGE_BATTLE_MEGA_EVOLUTION_MOVE)
+        {
+            u32 m;
+            for (m = 0; m < MAX_MON_MOVES; m++)
+            {
+                if (GetMonData(mon, MON_DATA_MOVE1 + m) == formChanges[i].param1)
+                    return TRUE;
+            }
+        }
+    }
+    return FALSE;
+}
+
+static bool32 DoesTrainerHaveAvailableMegaMon(enum BattlerId battler)
+{
+    enum BattleTrainer trainer = GetBattlerTrainer(battler);
+    u32 i;
+    for (i = 0; i < PARTY_SIZE; i++)
+    {
+        struct Pokemon *mon = &gParties[trainer][i];
+        if (GetMonData(mon, MON_DATA_SPECIES) != SPECIES_NONE
+            && !GetMonData(mon, MON_DATA_IS_EGG)
+            && GetMonData(mon, MON_DATA_HP) > 0
+            && CanMonMegaEvolve(mon))
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
 // Returns whether a trainer mon is intended to use an unrestrictive gimmick via .useGimmick (i.e Tera).
 bool32 ShouldTrainerBattlerUseGimmick(enum BattlerId battler, enum Gimmick gimmick)
 {
@@ -75,6 +152,12 @@ bool32 ShouldTrainerBattlerUseGimmick(enum BattlerId battler, enum Gimmick gimmi
 
     // When reading trainer party data, we load invalid values in struct Pokemon to indicate the gimmick should not be used
     struct Pokemon *mon = GetBattlerMon(battler);
+
+    // If the trainer has a Mega Evolution mon available on their team and this mon cannot Mega Evolve,
+    // save the team's single gimmick for Mega Evolution instead of using Tera or Dynamax.
+    if (gimmick != GIMMICK_MEGA && DoesTrainerHaveAvailableMegaMon(battler) && !CanMonMegaEvolve(mon))
+        return FALSE;
+
     if (gimmick == GIMMICK_TERA && GetMonData(mon, MON_DATA_TERA_TYPE) != TYPE_MYSTERY)
         return TRUE;
     if (gimmick == GIMMICK_DYNAMAX && GetMonData(mon, MON_DATA_DYNAMAX_LEVEL) != BLOCK_AI_DYNAMAX)
@@ -82,20 +165,6 @@ bool32 ShouldTrainerBattlerUseGimmick(enum BattlerId battler, enum Gimmick gimmi
     #endif
 
     return FALSE;
-}
-
-// Returns whether a trainer has used a gimmick during a battle.
-bool32 HasTrainerUsedGimmick(enum BattlerId battler, enum Gimmick gimmick)
-{
-    if (IsDoubleBattle() && (IsPartnerMonFromSameTrainer(battler) || (gimmick == GIMMICK_DYNAMAX)))
-    {
-        enum BattlerId partner = GetPartnerBattler(battler);
-        if (gBattleStruct->gimmick.activated[partner][gimmick]
-         || ((gBattleStruct->gimmick.toActivate & (1u << partner)) && gBattleStruct->gimmick.usableGimmick[partner] == gimmick))
-            return TRUE;
-    }
-
-    return gBattleStruct->gimmick.activated[battler][gimmick];
 }
 
 // Sets a gimmick as used by a trainer with checks for Multi Battles.

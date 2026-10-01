@@ -589,6 +589,26 @@ static void CB2_InitBattleInternal(void)
     gMain.inBattle = TRUE;
     gSaveBlock2Ptr->frontier.disableRecordBattle = FALSE;
 
+    for (enum BattleTrainer trainer = B_TRAINER_PLAYER; trainer < MAX_BATTLE_TRAINERS; trainer++)
+    {
+        for (i = 0; i < PARTY_SIZE; i++)
+        {
+            struct Pokemon *mon = &gParties[trainer][i];
+            enum Species species = GetMonData(mon, MON_DATA_SPECIES);
+            if (species != SPECIES_NONE && !GetMonData(mon, MON_DATA_IS_EGG))
+            {
+                u8 growthRate = gSpeciesInfo[species].growthRate;
+                u32 exp = gExperienceTables[growthRate][50];
+                SetMonData(mon, MON_DATA_EXP, &exp);
+                CalculateMonStats(mon);
+                u32 maxHp = GetMonData(mon, MON_DATA_MAX_HP);
+                u32 curHp = GetMonData(mon, MON_DATA_HP);
+                if (curHp > 0)
+                    SetMonData(mon, MON_DATA_HP, &maxHp);
+            }
+        }
+    }
+
     for (i = 0; i < PARTY_SIZE; i++)
     {
         AdjustFriendship(&gParties[B_TRAINER_PLAYER][i], FRIENDSHIP_EVENT_LEAGUE_BATTLE);
@@ -2748,7 +2768,7 @@ static void ClearSetBScriptingStruct(void)
     #if TESTING
     gBattleScripting.battleStyle = OPTIONS_BATTLE_STYLE_SET;
     #endif
-    gBattleScripting.expOnCatch = (GetConfig(B_EXP_CATCH) >= GEN_6);
+    gBattleScripting.expOnCatch = FALSE;
     gBattleScripting.specialTrainerBattleType = specialBattleType;
 }
 

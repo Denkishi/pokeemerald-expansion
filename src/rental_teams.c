@@ -503,7 +503,7 @@ static void BuildRentalPokemon(struct Pokemon *mon, const struct PresetRentalMon
     struct PokemonTemplate template = {0};
     template.species = rMon->species;
     template.heldItem = rMon->item;
-    template.level = rMon->level;
+    template.level = 50;
     template.ball = ITEM_POKE_BALL;
     template.nature = rMon->nature;
     template.gender = MON_GENDER_RANDOM;
@@ -1053,7 +1053,7 @@ void GiveRandomMonOfSpecies(void)
         species = SPECIES_PIKACHU;
 
     template.species = species;
-    template.level = 100;
+    template.level = 50;
     template.heldItem = ITEM_NONE;
     template.nature = NATURE_RANDOM;
     template.gender = MON_GENDER_RANDOM;
