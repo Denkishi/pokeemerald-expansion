@@ -402,7 +402,7 @@ static void CTB_PopulateMoves(u16 species)
     while (learnset[i].move != LEVEL_UP_MOVE_END && sData->moveCount < MAX_LEARNSET_MOVES)
     {
         m = learnset[i].move;
-        if (learnset[i].level <= 50 && m != MOVE_NONE)
+        if (m != MOVE_NONE)
         {
             // Deduplicate
             alreadyHave = FALSE;
@@ -434,6 +434,9 @@ static void CTB_PopulateItems(void)
     sData->itemList[sData->itemCount++] = ITEM_NONE;
     for (i = 1; i < ITEMS_COUNT && sData->itemCount < MAX_ITEM_LIST; i++)
     {
+        if (ItemId_GetPocket(i) != POCKET_BERRIES && ItemId_GetHoldEffect(i) == 0)
+            continue;
+
         // Filter by letter
         if (sData->filterLetter > 0)
         {
@@ -1179,6 +1182,7 @@ static void CTB_BuildAndExitTeam(u8 taskId)
     SetMainCallback1(NULL);
     gFieldCallback = FieldCB_ContinueScriptHandleMusic;
     gMain.state = 0;
+    ResetBgsAndClearDma3BusyFlags(0);
     SetMainCallback2(CB2_ReturnToField);
 }
 
@@ -1568,6 +1572,7 @@ static void Task_CTB_Main(u8 taskId)
             SetMainCallback1(NULL);
             gFieldCallback = FieldCB_ContinueScriptHandleMusic;
             gMain.state = 0;
+            ResetBgsAndClearDma3BusyFlags(0);
             SetMainCallback2(CB2_ReturnToField);
             return;
 
@@ -1580,10 +1585,19 @@ static void Task_CTB_Main(u8 taskId)
             break;
 
         case SCREEN_SELECT_MOVES:
-            sData->filterLetter = 0;
-            CTB_PopulateSpecies();
-            CTB_EnterScreen(SCREEN_SELECT_SPECIES);
-            PlaySE(SE_SELECT);
+            if (sData->curMoveSlot > 0)
+            {
+                sData->curMoveSlot--;
+                CTB_DrawScreen();
+                PlaySE(SE_SELECT);
+            }
+            else
+            {
+                sData->filterLetter = 0;
+                CTB_PopulateSpecies();
+                CTB_EnterScreen(SCREEN_SELECT_SPECIES);
+                PlaySE(SE_SELECT);
+            }
             break;
 
         case SCREEN_SELECT_NATURE:

@@ -247,9 +247,10 @@ LittlerootTown_EventScript_CustomTeamHold::
 	closemessage
 	special OpenCustomTeamBuilder
 	waitstate
+	bufferstring STR_VAR_1, LittlerootTown_Text_CustomTeamName
+	msgbox LittlerootTown_Text_ReceivedTeam, MSGBOX_DEFAULT
 	setflag FLAG_SYS_POKEMON_GET
 	setflag FLAG_SYS_POKEDEX_GET
-	waitstate
 	release
 	end
 
@@ -1186,4 +1187,7 @@ LittlerootTown_Text_GoodLuckInBattle:
 LittlerootTown_Text_CustomTeamConfirm:
 	.string "Vuoi usare questo team\n"
 	.string "custom?$"
+
+LittlerootTown_Text_CustomTeamName:
+	.string "Team Custom$"
 

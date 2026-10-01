@@ -482,12 +482,14 @@ static void Task_RentalTeams_FadeOutAndExit(u8 taskId)
         FreeMonIconPalettes();
         FreeSpriteTilesByTag(TAG_RENTAL_HELD_ITEM);
         FreeSpritePaletteByTag(TAG_RENTAL_HELD_ITEM);
+        FreeSpriteTilesByTag(TAG_RENTAL_ARROW_CURSOR);
+        FreeSpritePaletteByTag(TAG_RENTAL_ARROW_CURSOR);
         FreeRentalTeamsResources();
         DestroyTask(taskId);
-        CleanupOverworldWindowsAndTilemaps();
         SetMainCallback1(NULL);
         gFieldCallback = FieldCB_ContinueScriptHandleMusic;
         gMain.state = 0;
+        ResetBgsAndClearDma3BusyFlags(0);
         SetMainCallback2(CB2_ReturnToField);
     }
 }
@@ -829,6 +831,7 @@ static void CB2_InitRentalTeams(void)
     LoadSpritePalette(&sArrowCursorSpritePal);
     sRentalTeamsData->arrowSpriteId = CreateSprite(&sSpriteTemplate_ArrowCursor, 0, 0, 0);
     gSprites[sRentalTeamsData->arrowSpriteId].invisible = TRUE;
+    gSprites[sRentalTeamsData->arrowSpriteId].subpriority = 0;
 
     LoadUserWindowBorderGfx(WIN_HEADER, 0x0200, BG_PLTT_ID(14));
     LoadPalette(gStandardMenuPalette, BG_PLTT_ID(15), PLTT_SIZE_4BPP);
