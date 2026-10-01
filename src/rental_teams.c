@@ -486,7 +486,7 @@ static void Task_RentalTeams_FadeOutAndExit(u8 taskId)
         FreeSpritePaletteByTag(TAG_RENTAL_ARROW_CURSOR);
         FreeRentalTeamsResources();
         DestroyTask(taskId);
-        SetMainCallback1(NULL);
+        SetMainCallback1(CB1_Overworld);
         gFieldCallback = FieldCB_ContinueScriptHandleMusic;
         gMain.state = 0;
         ResetBgsAndClearDma3BusyFlags(0);
@@ -905,7 +905,7 @@ static void Task_RentalTeams_WaitForFadeOut(u8 taskId)
     if (!gPaletteFade.active)
     {
         CleanupOverworldWindowsAndTilemaps();
-        SetMainCallback1(NULL);
+        SetMainCallback1(CB1_Overworld);
         SetMainCallback2(CB2_InitRentalTeams);
         gFieldCallback = FieldCB_ContinueScriptHandleMusic;
         DestroyTask(taskId);

@@ -32,6 +32,7 @@
 #include "constants/songs.h"
 #include "constants/rgb.h"
 #include "constants/pokemon.h"
+#include "constants/pokeball.h"
 #include "constants/items.h"
 #include "constants/moves.h"
 #include "constants/global.h"
@@ -1141,7 +1142,7 @@ static void CTB_BuildAndExitTeam(u8 taskId)
         tmpl.species             = cm->species;
         tmpl.level               = 50;
         tmpl.heldItem            = cm->item;
-        tmpl.ball                = ITEM_POKE_BALL;
+        tmpl.ball                = BALL_RANDOM;
         tmpl.nature              = cm->nature;
         tmpl.gender              = MON_GENDER_RANDOM;
         tmpl.origin              = GIFTMON_ORIGIN;
@@ -1149,6 +1150,7 @@ static void CTB_BuildAndExitTeam(u8 taskId)
         tmpl.teraType            = cm->teraType;
         tmpl.isShiny             = FALSE;
         tmpl.doNotUseDefaultShinyness  = TRUE;
+        tmpl.doNotUseDefaultBall       = TRUE;
         tmpl.doNotUseDefaultAbility    = TRUE;
         tmpl.doNotUseDefaultTeraType   = (cm->teraType != TYPE_NONE);
         tmpl.ignoreTotalEvCheck        = TRUE;
@@ -1161,7 +1163,12 @@ static void CTB_BuildAndExitTeam(u8 taskId)
                 tmpl.ivs[s] = cm->ivs[s];
             }
             for (s = 0; s < MAX_MON_MOVES; s++)
-                tmpl.moves[s] = cm->moves[s];
+            {
+                if (cm->moves[s] != MOVE_NONE)
+                    tmpl.moves[s] = cm->moves[s];
+                else
+                    tmpl.moves[s] = MOVE_RANDOM_TEACHABLE;
+            }
         }
 
         CreateMonFromTemplate(&mon, &tmpl);
@@ -1178,7 +1185,7 @@ static void CTB_BuildAndExitTeam(u8 taskId)
     sData = NULL;
 
     DestroyTask(taskId);
-    SetMainCallback1(NULL);
+    SetMainCallback1(CB1_Overworld);
     gFieldCallback = FieldCB_ContinueScriptHandleMusic;
     gMain.state = 0;
     ResetBgsAndClearDma3BusyFlags(0);
@@ -1209,7 +1216,7 @@ static void CTB_StartAddingPokemon(void)
     u8 slot = sData->teamCount;
     // Initialize with defaults
     sData->team[slot].species    = SPECIES_NONE;
-    sData->team[slot].nature     = NATURE_HARDY;
+    sData->team[slot].nature     = NATURE_RANDOM;
     sData->team[slot].abilityNum = 0;
     sData->team[slot].item       = ITEM_NONE;
     sData->team[slot].teraType   = TYPE_NONE;
@@ -1568,7 +1575,7 @@ static void Task_CTB_Main(u8 taskId)
             Free(sData);
             sData = NULL;
             DestroyTask(taskId);
-            SetMainCallback1(NULL);
+            SetMainCallback1(CB1_Overworld);
             gFieldCallback = FieldCB_ContinueScriptHandleMusic;
             gMain.state = 0;
             ResetBgsAndClearDma3BusyFlags(0);
