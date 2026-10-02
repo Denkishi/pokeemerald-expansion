@@ -1,0 +1,2058 @@
+ [/plan](slashCommand;plan) quando termina la lotta contro trainer enzo il gioco si riavvia
+ora le prossime feature sono: rimuovere Tera e Giga e lasciare solo le MEGA
+implementare un modo che faccia vedere nella selezione della mossa durante la battaglia che quella mossa è superefficace (x2) o iperefficace (x4) su un pokemon (mentre stai scegliendo la mossa) e poi quando la mossa è selezionata e si sta scegliendo il bersaglio in lotta in doppio ci dovrebbe essere un indicatore che mostra su quale pokemon è superefficace o iperefficace e su quale magari non lo è o immunità con X
+un tasto come L che si usa per vedere le info della mossa, dovrebbe farti vedere anche le info sul terreno ad esempio (quanti turni di grassy surge, quanti di trickroom, meteo, schermi) 
+poi va implementata la team preview che teoricamente nel gioco è già in parte presente, 
+in pratica quando si inizia una lotta contro un allenatore da un lato si avrà la nostra squadra con la possibilità di scorrerla e quando si passa su un pokemon, su ogni pokemon della squadra avversaria appare una freccetta che indica superefficacia, iperefficacia, non molta efficacia o una X per immunità al in base ai typing dei pokemon
+e dal lato opposto la squadra dell'avversario senza poter scorrere
+si possono selezionare solo 4 pokemon, infatti cliccandone uno appare la classica selezione multipla info scegli o annulla, i pokemon scelti poi in base all'ordine scelto avranno accando un numeretto 1-2-3-4 che indica l'ordine (importante per la lead) 
+e lo stesso farà l'ai avversaria che dovrà scegliere i suoi 4 del team CON INTELLIGENZA è importante che l'ai avversaria scelga bene i suoi 4 pokemon, la lead è fondamentale ("C:\Users\Vincenzo\Desktop\Trainer AI.txt") 
+
+
+
+
+
+
+What are AI Flags?
+AI flags alter the behavior of AI controlled trainers. These flags affect what moves the AI chooses to use, what Pokémon the AI sends out and when they decide to switch, overarching strategic choices the AI prefers to make, and more.
+
+The AI flags can be found in include/constants/battle_ai.h. Some flags have their own dedicated functions that affect how the AI scores its options when choosing what to do in battle, and those functions can be found in src/battle_ai_main.c. Other flags are used in conditional checks to gate certain behaviour behind certain flags, which you can typically find by searching the codebase for the flag name and browsing from there.
+
+What flags should you use?
+When adding new AI flags it is recommended to use AI_FLAG_CHECK_BAD_MOVE, AI_FLAG_CHECK_VIABILITY, AI_FLAG_TRY_TO_FAINT to make sure the AI makes good decisions. It is especially important to use AI_FLAG_CHECK_BAD_MOVE in combination with any added flags otherwise the AI will use moves that can fail.
+
+Other flags should be used with consideration to the circumstances.
+
+How do you use them?
+Adding an AI flag to a trainer is straightforward, but the process is different depending on how trainers are being defined.
+
+COMPETITIVE_PARTY_SYNTAX == TRUE
+If you are using competitive syntax parties, navigate to the trainer data in src/data/trainers.party, find the trainer you’d like to change, and add flags like so: AI: Check Bad Move / Try to Faint / Check Viability. The name of each flag is just the constant, but without AI_FLAG at the beginning. For example, to add AI_FLAG_SEQUENCE_SWITCHING, any of the following will work:
+
+AI_FLAG_SEQUENCE_SWITCHING
+SEQUENCE_SWITCHING
+SEQUENCE SWITCHING
+Sequence_Switching
+Sequence Switching
+COMPETITIVE_PARTY_SYNTAX != TRUE / Not Found
+If you are not using competitive syntax parties, instead access the trainer data directly in src/data/trainers.h, and add flags like so, typed exactly the same as the flag names themselves: .aiFlags = AI_FLAG_CHECK_BAD_MOVE | AI_FLAG_TRY_TO_FAINT | AI_FLAG_CHECK_VIABILITY
+
+What AI Flags does pokeemerald-expansion have?
+This section lists all of expansion’s AI Flags and briefly describes the effect they have on the AI’s behaviour. In all cases, please check the corresponding function or surrounding code around their implementation for more details. Some of these functions are vanilla, some share a name with vanilla but have been modified to varying degrees, and some are completely new.
+
+Composite AI Flags
+Expansion has a few “composite” AI flags. This means that these flags have no unique functionality themselves, and can instead be thought of as groups of other flags that are all enabled when this flag is enabled. The idea behind these flags is that if you don’t care to manage the detailed behaviour of a particular trainer, you can use these as a baseline instead, and expansion will keep them updated for you.
+
+AI_FLAG_BASIC_TRAINER is expansion’s version of generic, normal AI behaviour. It includes AI_FLAG_CHECK_BAD_MOVE (don’t use bad moves), AI_FLAG_TRY_TO_FAINT (faint the player where possible), and AI_FLAG_CHECK_VIABILITY (choose the most effective move to use in the current context). Trainers with this flag will still be smarter than they are in vanilla as there have been dramatic improvements made to move selection, but not incredibly so. Trainers with this flag should feel like normal trainers. In general we recommend these three flags be used in all cases, unless you specifically want a trainer who makes obvious mistakes in battle.
+
+AI_FLAG_SMART_TRAINER is expansion’s version of a “smart AI”. It includes everything in AI_FLAG_BASIC_TRAINER along with AI_FLAG_SMART_SWITCHING (make smart decisions about when to switch), AI_FLAG_SMART_MON_CHOICES (make smart decisions about what mon to send in after a switch / KO), AI_FLAG_OMNISCIENT (awareness of what moves, items, and abilities the player’s mons have to better inform decisions), and AI_FLAG_SMART_TERA (make smart decisions about when to terastalize). Expansion will keep this updated to represent the most objectively intelligent behaviour our flags are capable of producing.
+
+AI_FLAG_PREDICTION will enable all of the prediction flags at once, so the AI can perform as well as possible. It is best paired with the flags in AI_FLAG_SMART_TRAINER for optimal behaviour. This currently includes AI_FLAG_PREDICT_SWITCH and AI_FLAG_PREDICT_INCOMING_MON, but will likely be expanded in the future.
+
+Expansion has LOADS of flags, which will be covered in the rest of this guide. If you don’t want to engage with detailed trainer AI tuning though, you can just use these two composite flags, and trust that expansion will keep their contents updated to always represent the most standard and the smartest behaviour we can.
+
+AI_FLAG_CHECK_BAD_MOVE
+The AI will avoid using moves that are likely to fail in the current situation. This flag helps prevent the AI from making ineffective choices, such as using moves into immunities, into invulnerable states, or when the moves are otherwise hindered by abilities, terrain, or status conditions.
+
+AI_FLAG_TRY_TO_FAINT
+AI will prioritize KOing the player if able rather than using status moves. Will prioritize using a move that can OHKO the player. If the player can KO the AI’s mon and the AI’s mon is slower, prioritize priority moves (this does not prevent the AI from switching out instead).
+
+This flag handles scoring for OHKOs but does not handle 2HKOs at all, AI_FLAG_STRONGEST_MOVE should be used for 2HKO scoring.
+
+AI_FLAG_CHECK_VIABILITY
+This flag is divided into two components to calculate the best available move for the current context:
+
+AI_CompareDamagingMoves: This function compares damaging moves against each other and picks the best one.
+AI_CalcMoveEffectScore: This function checks every move effect (status or damaging move effect) and increases the score accordingly.
+This is different to AI_FLAG_CHECK_BAD_MOVE as it calculates how poor a move is and not whether it will fail or not.
+
+AI_FLAG_ATTACKS_PARTNER
+This flag is meant for double battles where both of the opponents hate each other. They prioritize damage to their ‘partner’ over the player.
+
+AI_FLAG_FORCE_SETUP_FIRST_TURN
+AI will prioritize using setup moves on the first turn at the expense of all else. These include stat buffs, field effects, status moves, etc. AI_FLAG_CHECK_VIABILITY will instead do this when the AI determines it makes sense.
+
+This is just a flat increase without any consideration of whether it makes sense to use the move or not. For better move choice quality for those moves, AI_FLAG_CHECK_VIABILITY should be used.
+
+AI_FLAG_RISKY
+AI will generally behave more recklessly. This AI enables the following behaviour:
+
+Always assume the highest damage roll when scoring moves
+Blindly Mirror Coat / Counter based on the player mon’s species higher attacking stat
+Moves with Recoil if they miss are not treated differently even if accuracy is lowered
+Prioritize maximizing damage from moves at the cost of accuracy
+Prioritize moves with low change strong effects (Ancient Power etc., check AI_Risky function for full list)
+Switch offensively mid battle rather than defensively (if using AI_FLAG_SMART_MON_CHOICES)
+Prioritize Explosion moves
+AI_FLAG_TRY_TO_2HKO
+Adds score bonus to any move the AI has that either OHKOs or 2HKOs the player.
+
+Keep in mind that this is a weaker form of AI_FLAG_TRY_TO_FAINT at scoring OHKOs as it does not take into account who is attacking first, it does however handle 2HKOs.
+
+AI_FLAG_PREFER_BATON_PASS
+AI prefers raising its own stats if it has >= 60% HP, as well as Ingrain, Aqua Ring, and Protect. Prioritizes Baton Bass if the mon is rooted (Ingrain) or has the Aqua Ring effect, and doesn’t if it has been Leech Seeded.
+
+AI_FLAG_DOUBLE_BATTLE
+This flag is automatically set in double battles, and controls much of the doubles-specific scoring. I’ll summarize some of its scoring as follows:
+
+Don’t use Helping Hand if partner is, don’t Perish Trap your partner, don’t change the weather if they are, don’t buff stats if partner will trigger Anger Point for us
+Collaborate with partner to Perish Trap opponent, Magnet Rise to protect partner, Dragon Cheer partner if applicable
+Prioritize using weather move if it benefits partner
+Prioritize triggering partner’s good abilities if possible (Motor Drive, Storm Drain, Beat Up -> Justified, etc.)
+Handle Skill Swap smartly, both with the partner and against the player
+AI_FLAG_HP_AWARE
+Lets the AI make decisions based on how much remaining HP its mon(s) and the player’s mon(s) have.
+
+With respect to the AI’s mons, in doubles:
+
+Allows the AI to attack its partner with a move it can absorb if its low on HP (ie. Electric move on partner with Volt Absorb)
+Prioritizes healing its partner if its HP is <= 50% if able
+In both singles and doubles:
+
+Prioritizes not using moves that require the user fainting (Destiny Bond, Explosion etc.) and healing moves while on >= 70% HP.
+Prioritize not using moves that require the user fainting or losing significant HP (Belly Drum etc) while between 30% and 70% HP
+Prioritize not using setup moves (Light Screen etc.) and Bide while on <= 30% HP
+With respect to the player’s mons:
+
+Prioritize not using many status moves (stat buffs, Poison, Pain Split) if the player has between 30% and 70% HP
+Prioritize not using any status moves if the player is has <= 30% HP
+AI_FLAG_POWERFUL_STATUS
+AI prioritizes setting up field effects (Trick Room, Rain Dance, etc.) and side statuses (Tailwind, Spikes, etc.), even if it could faint the target.
+
+AI_FLAG_NEGATE_UNAWARE
+AI does not understand ability suppression (Mold Breaker etc., weather suppression (Air Lock etc.), redirection abilities (Lightningrod etc.) being temporarily removed due to move effects (Sky Drop etc.), or item suppression (Magic Room etc.) and will ignore them. This is a handicap flag.
+
+AI_FLAG_WILL_SUICIDE
+AI prioritizes self destruction moves (Explosion, Memento).
+
+AI_FLAG_PREFER_STATUS_MOVES
+AI gets a score bonus for status moves. This should be combined with AI_FLAG_CHECK_BAD_MOVE to prevent using only status moves.
+
+AI_FLAG_STALL
+AI prefers simple classically “stalling” behaviour. It will prioritize:
+
+Mean Look, Fairy Lock, and Wrap for trapping
+Increasing its defense and special defense
+Moves that inflict Poison if it also has a Protect move
+Copying defense and special defense buffs
+AI_FLAG_SMART_SWITCHING
+Affects when the AI chooses to switch. AI will make smarter decisions about when to switch out mid-battle. Automatically enables AI_FLAG_SMART_MON_CHOICES, which is required as the vanilla mon selection AI is not smart enough to handle several switch-triggering situations appropriately, leading to bizarre behaviour. Many of these checks have intentional failure rates, so the AI won’t switch out 100% of the time in these cases to keep the player from being able to predict perfectly. Some of these also only apply to singles, and many of them are being simplified for the sake of brevity. This flag lets the AI trigger switches when:
+
+It can’t hit Wonder Guard and has another mon in the party that can (switch that mon in)
+It’s going to die to Perish Song, can’t KO the player and is affected by Yawn, is being severely affected by a status condition that switching helps (Curse, Toxic, Leech Seed)
+It has a mon that can trap the player’s mon and win the 1v1 (switch that mon in)
+It has a mon in the party that can absorb the player’s next expected attack (switch that mon in)
+It will not switch if the current mon will die to hazards on re-entry and it has no means of clearing them in its party
+All its moves are bad
+It can take advantage of Natural Cure or Regenerator
+Its Encore’d into something bad
+Its primary attacking stats are sufficiently lowered
+Its “odds are bad”, which is a generic “try to make smart, player-like decisions generally speaking” check. Switches can be triggered if the player has a good switchin candidate (AI_FLAG_SMART_MON_CHOICES), and:
+The current mon has a bad type matchup and doesn’t have a super effective move and has at least ½ HP, or ¼ HP and Regenerator, or
+The current mon loses the 1v1 quickly and has at least ½ HP, or ¼ and Regenerator
+AI_FLAG_ACE_POKEMON
+Marks the last Pokemon in the party as the Ace Pokemon. It will not be used unless it is the last one remaining, or is forced to be switched in (Roar, U-Turn with 1 mon remaining, etc.). If you are challenged by two different trainers at the same time, only the ones with this flag will have Ace Pokémon. For example vs one trainer with AI_FLAG_ACE_POKEMONand the other without, there will be a total of 1 Ace Pokémon.
+
+AI_FLAG_DOUBLE_ACE_POKEMON
+Marks the last two Pokémon in the party as Ace Pokémon, with the same behaviour as AI_FLAG_ACE_POKEMON. Intented for double battles where you battle one trainer id that represents two trainers, ie Twins, Couples. If you apply this flag to trainers outside of double battles or in cases where two trainers can challenge you at the same time, it has the same behaviour. For example vs two trainers with AI_FLAG_DOUBLE_ACE_POKEMON there will be a total of 4 Ace Pokémon.
+
+AI_FLAG_OMNISCIENT
+AI has full knowledge of player moves, abilities, and hold items, and can use this knowledge when making decisions. More modular omniscience settings are included in the flags AI_FLAG_ABILITY_OMNISCIENCE, AI_FLAG_ITEM_OMNISCIENCE, and AI_FLAG_MOVE_OMNISCIENCE .
+
+AI_FLAG_KNOW_OPPONENT_PARTY
+AI has full knowledge of the species in the player’s party, as well as their fainted status; no other omniscient knowledge is included. Functions similarly to a team preview.
+
+AI_FLAG_ASSUME_STAB
+A significantly more restricted version of AI_FLAG_OMNISCIENT, the AI only knows the player’s STAB moves, as their existence would be reasonable to assume in almost any case.
+
+AI_FLAG_ASSUME_STATUS_MOVES
+A more restricted version of AI_FLAG_OMNISCIENT. The AI has a chance to know what status moves the player has, plus additionally Fake Out and fixed percentage moves like Super Fang. The intention is so that if the AI has a counterplay implemented, it will seem to have guessed if the player’s pokemon has a move, without giving the AI perfect information. For example, with Omniscient set, the AI will not usually put a pokemon to sleep if it has Sleep Talk; with neither Assume Powerful Status nor Omniscient set, the AI will always assume the pokemon does not have Sleep Talk.
+
+By default, there are three groups of higher likelihood status moves defined in include/config/ai.h under ASSUME_STATUS_HIGH_ODDS, ASSUME_STATUS_MEDIUM_ODDS, and ASSUME_STATUS_LOW_ODDS. Moves are sorted in src/battle_ai_util.c within ShouldRecordStatusMove().
+
+Any move that is not special cased is then potentially caught by ASSUME_ALL_STATUS_ODDS.
+
+AI_FLAG_SMART_MON_CHOICES
+Affects what the AI chooses to send out after a switch. AI will make smarter decisions when choosing which mon to send out mid-battle and after a KO, which are handled separately. Automatically included when AI_FLAG_SMART_SWITCHING is enabled.
+
+With this flag enabled, the AI will prioritize choosing mons after a KO prioritizing the following criteria:
+
+Trapper (can trap the player’s mon and win the 1v1)
+Revenge killer (outspeeds an OHKOs / is outsped and OHKOs, is not OHKOd/ outspeeds and 2HKOs, is not OHKOd / is outsped and 2HKOs, is not 2HKOd)
+Has good type matchup and a super effective move
+Has good type matchup and does not have a super effective move
+Has Baton Pass
+If no mons meet any of the above criteria, choose the one that does the most damage
+And will choose mons after a mid-battle switch prioritizing the following criteria:
+
+Trapper (can trap the player’s mon and win the 1v1)
+Has good type matchup and a super effective move
+Has good type matchup and does not have a super effective move
+Is not 3HKO’d by the player
+Has Baton Pass
+AI_FLAG_CONSERVATIVE
+AI always assumes it will roll the lowest possible result when comparing damage in scoring.
+
+AI_FLAG_SEQUENCE_SWITCHING
+AI will always switch out after a KO in exactly party order as defined in the trainer data (ie. slot 1, then 2, then 3, etc.). The AI will never switch out mid-battle unless forced to (Roar etc.). If the AI uses a move that requires a switch where it makes a decision about what to send in (U-Turn etc.), it will always switch out into the lowest available party index.
+
+AI_FLAG_WEIGH_ABILITY_PREDICTION
+AI will predict the player’s ability based to its aiRating. Without this flag the AI randomly assumes an ability with an even distribution between all possible abilities until one is confirmed. With this flag, it instead guesses proportionally to each ability’s aiRating, making it far more likely to guess an ability like Water Absorb than Damp if both are options.
+
+AI_FLAG_PREFER_HIGHEST_DAMAGE_MOVE
+AI will add score to its highest damaging move, regardless of accuracy or secondary effects. Replaces deprecated AI_FLAG_PREFER_STRONGEST_MOVE.
+
+AI_FLAG_PREDICT_SWITCH
+AI will determine whether it would switch out in the player’s situation or not, and predict the player to switch accordingly. In any case where the AI would consider switching, it will assume the player will switch. This is modulated by a 50% failure rate, so the behaviour is non-deterministic and can change from turn to turn to emulate the inconsistency in human predictions. This behaviour is improved significantly by using AI_FLAG_SMART_SWITCHING and AI_FLAG_SMART_MON_CHOICES as they improve the AI’s ability to determine good situations to switch, and also by AI_FLAG_OMNISCIENT so the AI can use all its knowledge of the player’s team to make the decision.
+
+AI_FLAG_PREDICT_INCOMING_MON
+This flag requires AI_FLAG_PREDICT_SWITCH to function. If the AI predicts that the player will switch, this flag allows the AI to run its move scoring calculation against the Pokémon it expects the player to switch into, instead of the Pokémon that it expects to switch out.
+
+AI_FLAG_SMART_TERA
+AI will make smarter decisions about when to terastalize (over the default behaviour to always tera when available). This considers factors such as whether tera allows the AI to KO the opponent, whether it can save itself from a KO or a big hit, and how many remaining pokemon could terastalize. This behavior is not currently supported in double battles.
+
+AI_FLAG_PREDICT_MOVE
+AI will predict what move the player is going to use based on what move it would use in the same situation. Generally works best if also using AI_FLAG_OMNISCIENT.
+
+AI_FLAG_PP_STALL_PREVENTION
+This flag aims to prevent the player from PP stalling the AI by switching between immunities. The AI mon’s move scores will slowly decay for absorbed moves over time, eventually making its moves unpredictable. More detailed control for this behaviour can be customized in the ai.h config file.
+
+AI_FLAG_RANDOMIZE_SWITCHIN
+AI will randomly choose between eligible switchin candidates rather than always picking the last one in the party. For example, if the AI has two mons that can revenge kill the player’s mon after a KO, by default the AI will only track the most recent eligible candidate, and will always send in the last one in party order as a result. With this flag, it will instead track all of the eligible mons, and randomly choose between them when deciding which to send out.
+
+AI_FLAG_RANDOMIZE_PARTY_INDICES
+AI will randomize the order of the mons in their party before battle starts. This means that lead choice is randommized, but so is the last mon for things like Illusion or the Ace flag, so be mindful when using it.
+
+How to add new AI Flags
+The battle engine upgrade has rewritten the AI battle scripts to C functions to easily add new logic. This tutorial explains how to add a new AI logic flag.
+
+1. Define your flag
+Open include/constants/battle_ai.h. We have many unused flags, but you can add a new one after AI_FLAG_SMART_SWITCHING like so:
+
+#define AI_FLAG_SUPPORT (1 << 16)
+
+2. Make your new function
+Open src/battle_ai_main.c. Search for the array static s16 (*const sBattleAiFuncTable[])(u8, u8, enum Move, s16). We want to add our new function to this table. Since we have defined our flag as (1 << 16), find the 16th entry in the table (identifiable by the initializer, [16]), and replace it with:
+
+[16] = AI_Support, // AI_FLAG_SUPPORT
+
+Define your function above the table as static s16 AI_Support(u8 battlerAtk, u8 battlerDef, enum Move move, s16 score);
+
+Make your function do something
+at the bottom of the file, add:
+
+static s16 AI_Support(u8 battlerAtk, u8 battlerDef, enum Move move, s16 score)
+{
+    // Add your logic here!
+}
+Give your trainer the correct AI flag!
+And that’s it!
+
+
+What are Dynamic AI Functions?
+Dynamic AI functions enable AI behaviour to be controlled on a per-battle basis by being set directly ahead of a particular battle when scripting. They allow for unique move scoring or switching decisions that are not applied at scale to multiple trainers or the entire AI as a whole.
+
+As such they’re really useful for one-shot battle setups like boss fights or totem Pokemon or narrative tie-ins like switch happy Jugglers that would benefit from specialized AI that only applies during those specific fights.
+
+There are currently two different types of dynamic AI functions, one that affects move scoring and one that affects switching.
+
+How do I use the dynamic move scoring function?
+There are a few steps involved:
+
+Be sure to set AI_FLAG_DYNAMIC_FUNC on the trainer you’ll be using your unique behaviour for
+Write your custom AI logic. Our example for this is AI_TagBattlePreferFoe, and you should match its arguments and return structure in your own custom function.
+In the script the triggers the battle, add a call to setdynamicaifunc specifying your function, as in:
+setdynamicaifunc AI_TagBattlePreferFoe
+multi_2_vs_2 TRAINER_SIRIUS_NOVA_HYPERION_TAG, Text_NovaInsurgence_Arrival_Hyperion_Loss, TRAINER_SIRIUS_NOVA_DEIMOS_RECRUIT_TAG, Text_NovaInsurgence_Arrival_DeimosRecruit_Loss, TRAINER_SIRIUS_WHARF_TRITON_PARTNER, TRAINER_PIC_BACK_TRITON
+That’s it! The scoring function will be used in the battle immediately following it, and automatically cleared at the end of the battle. You can then use setdynamicaifunc with the same or a different AI scoring function as you see fit.
+
+How do I use the dynamic switching function?
+There are a few steps involved:
+
+Write your custom AI logic. Our example for this is ShouldSwitchDynFuncExample, and you should match its arguments and return structure in your own custom function.
+In the script that triggers the battle, add a call to setdynamicswitchaifunc specifying your function, as in:
+setdynamicswitchaifunc ShouldSwitchDynFuncExample
+trainerbattle_single TRAINER_TIANA, Route102_Text_TianaIntro, Route102_Text_TianaDefeated
+That’s it! The switching function will be used in the battle immediately following it, and automatically cleared at the end of the battle. You can then use setdynamicswitchaifunc with the same or a different AI scoring function as you see fit.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Battling / Introduction
+
+People often dismiss competitive Pokémon because of the luck that is associated with it - critical hits, misses, flinches, freezes, etc. While luck, or “RNG” (random number generator, which people often use synonymously), is undoubtedly a component of competitive Pokémon, it actually plays a less significant role than people think. The reality is that the best players in the world are able to consistently maneuver themselves in a way to “maximize” their own luck, both during the team-building process and the battling process. They also understand when they may need to rely on some luck to win. 
+
+Competitive Pokémon, in many ways, is like poker. While there’s a fair amount of variance, the best players are able to win consistently over a long period of time. This is especially important if you are interested in climbing the ladder or competing in a tournament - in these scenarios, you’ll be playing a lot of Pokémon.
+
+I’m writing this article because I think it’s important for players to acknowledge the role that luck plays in competitive Pokémon. It’s certainly a part of the game, but you can reduce how luck manifests itself. One common pitfall I see players fall into when starting out is using bad luck as an excuse for their losses. I did this a lot when I first started as a player, and it definitely held me back. Rather than look at my games from an objective point of view, I’d get emotional and simply focus on the fact that I would have won if I didn’t get unlucky. While this may be the case, it prevented me from finding other opportunities where I could have improved my play. Getting out of this mindset was a major step in my development as a player.
+
+So, with all of that said now, let’s highlight some ways luck can appear in competitive Pokémon and how you can optimize for it!
+
+Accuracy: Missing an attack can have severe consequences in Pokémon as it essentially wastes a turn. You need to think about accuracy, both during the team-building process and while you’re actually battling. 
+
+Team Building: When you opt to put a lower accuracy attack on a Pokémon, you have to consider that you WILL miss that attack at points. Every time you use any move that’s not 100% accurate, you have to ask yourself what the consequences of missing that move are. Can you afford missing the attack, or will missing it generally lead directly to losses? If missing does lead to losses, is it worth using? 
+
+EXAMPLE
+In 2014, I used Mega Lucario at the 2014 US National Championships as a counter to Mega Charizard-Y, which I expected to be popular at the event. I knew I could get a one-hit KO onto Charizard with Stone Edge, a move that is 80% accurate. In the tournament, I faced four Charizards and only hit one Stone Edge. While frustrating at the time, in reflection, I realized why this was a sub-optimal strategy: the risk vs. reward was huge, and missing a Stone Edge effectively led to an immediate loss since Charizard could just knock out my Lucario in return. Relying on an 80% chance to immediately win/lose a match isn’t a consistent strategy, especially when you’re playing in a 9 round tournament.
+
+Battling: When you’re in a battle, you always need to consider the consequences of missing an attack, especially in end-game scenarios. You generally want to go for lower accuracy attacks when 1) they can gain you a major advantage 2) you don’t have a significantly better option 3) missing won’t lead to major consequences. 
+
+*Note: One reason why it’s so important to learn damage calcs in competitive Pokémon is so you know when you can rely on 100% accurate attacks to finish off games, rather than inaccurate moves!
+
+
+
+Critical Hits: While rare, critical hits have the ability to drastically swing a battle. There are multiple ways in which your team-selection & play can lead to fewer/more critical hits:
+
+Attacking First: When you move before your opponent, you give yourself the opportunity to get potential luck/RNG before they get a chance to attack. Thus, if you’re using a team that generally moves after your opponent, you’ll often be more vulnerable to critical hits and other secondary effects. This is one reason why speed control is so crucial in competitive VGC.
+
+Defensive Pokémon/Teams: Using defensive Pokémon that rely heavily on setup, such as Calm Mind Tapu Fini or Iron Defense Ferrothorn, can lead to more critical hits as games will generally last longer given the lack of damage output.  
+
+Status Conditions: Sleep, paralysis, and freeze all add another layer of variance in competitive Pokémon, so it’s important that you have ways to properly deal with them. 
+
+Teambuilding: Top teams will often have multiple ways to shut down Pokémon that like to inflict status conditions. Some examples include using certain items (e.g. Safety Goggles, Lum Berry), certain moves (e.g. Taunt), or Pokémon that are immune to certain moves (e.g. Grass-type Pokémon for Spore/Sleep Powder). Sleep, in particular, is common regardless of the year, so having answers to the common sleep inducing Pokémon is essential. 
+
+EXAMPLE
+In 2016, Dark Void Smeargle was incredibly common. To counter this, some players used Crafty Shield Smeargle to completely nullify Dark Void.
+
+EXAMPLE
+Lum Berry is a common item on Charizard in Series 12 VGC. It prevents Charizard from getting paralyzed by Thunder Wave and allows it to demolish sets like Focus Sash Venusaur and Amoonguss.
+
+Battling: When playing Pokémon that can inflict status conditions (e.g. Grimmsnarl, Thundurus, Amoonguss, Venusaur), you can reduce variance by eliminating these Pokémon quickly, preventing them from getting multiple conditions off. Conversely, ignoring these Pokémon can allow them to disrupt your entire team, making you have to deal with more luck/RNG each turn. 
+
+EXAMPLE
+In 2013, I lost in the semi-finals of the World Championships. In that set, Thundurus was a major problem as it was able to spread paralysis via Thunder Wave and confusion via Swagger. Because I failed to eliminate Thundurus early on, I allowed it to induce much more variance than I should have. 
+
+These are just a couple of ways that you can see luck appear in competitive Pokémon, but as you can see, you can actually control each way to a certain degree.
+
+Before we finish, I want to briefly talk about the idea of tilt, which is a concept that originated from poker. "Going on tilt" is when a player becomes enraged about something and starts making ill-advised plays based purely on emotion. I see players go on tilt in Pokémon all the time, either midway through a match or throughout the course of a tournament. 
+
+Being able to not tilt is an essential skill in competitive Pokémon - you will undoubtedly get unlucky at some point throughout the course of a tournament or laddering session. Pokémon is a highly mental game, and you want to do everything in your power to stay on top of your game. Here are some ways that I’ve personally dealt with bad luck in Pokémon:
+
+While Laddering / Practicing
+
+Try out a brand new team & shake things up a bit
+
+Take a break and step away from the game for a while
+
+Reaffirm good plays that you’ve made - e.g. “I’m proud of how I played that game. Even though I lost to a 10% miss, I put myself in a great position to win” rather than “I can’t believe I lost to such a small percentage”
+
+
+
+At Tournaments
+
+During a Game
+
+Stop focusing on what could have happened, start thinking about how I have to adjust my gameplan and what my new path to victory is
+
+After a Game
+
+Find a place in the venue where I can be alone & collect my thoughts
+
+Listen to music that calms me down / puts me in a good mood
+
+Drink some water, take a deep breathe, and close my eyes briefly
+
+Conclusion
+At the end of the day, Pokémon is a game that inherently has luck/RNG. You’ll undoubtedly face some bad luck in your competitive Pokémon career -- that’s part of the journey. I hope that by reading this article though, you can see that there’s a lot more depth to competitive Pokémon than meets the eye, and it’s a lot less about luck than people generally think. 
+
+Competitive Pokémon is a tough game because you are often playing with imperfect information. As a game progresses, you learn more about your opponent’s team, but you will typically start a battle with a blank slate. This can be daunting, especially for newer players, since it feels like high-level players often read into what their opponent may do before the game even starts. How are they able to accomplish that, and how can you build up that knowledge base? 
+
+First of all, I think one of the keys to winning in Pokémon is to identify every single option your opponent has and come up with a play that beats all of those options. This is really difficult to do, and a lot of it comes from the team that you are using. For now, let’s first focus on the first step - identifying every single play your opponent can make. 
+
+To be able to identify your opponent’s possible plays, you first have to understand what their Pokémon do. This can feel overwhelming because there are so many Pokémon in the format. I recommend players who are starting out to focus on the ~20 most common Pokémon. 
+
+One great resource for this is Pikalytics, which has usage stats on every single Pokémon in the format. Pikalytics conveniently has information on both Battle Stadium & Showdown stats, and you can toggle between the two with this drop-down menu:
+
+
+(note that “Series 12 VGC 2022” = Showdown, and “Stadium 12 Battle Stadium Doubles” = in-game ladder)
+
+For Showdown, you can also toggle between rating cut-offs!
+
+Let me walk you through an example of how you can use this resource to identify what a Pokémon may do. Generally, the most important parts I’d focus on learning are the following:
+
+Most common attacks
+
+Most common items
+
+How it’s generally trained (nature/EV spread)
+
+Take, for example, Kyogre - one of the most common Pokémon in Series 12 VGC. What can we learn from its Pikalytics page? 
+
+
+Attacks
+I generally divide attacks into the following buckets:
+
+Attacks that a Pokémon will very likely carry (>25% usage rate)
+
+Attacks that a Pokémon may carry but are not very common (<25% usage rate, remaining moves listed on Pikalytics)
+
+Attacks that a Pokémon rarely carries (moves that aren’t even on Pikalytics) 
+
+Attacks that a Pokémon will likely carry: From this, we can see that the most common attacks, by far, are Water Spout, Origin Pulse, Ice Beam, Thunder, and Protect. (44%+ usage on all). Given this, I’ll normally assume that opposing Kyogres have all of these attacks until I see otherwise. 
+
+Attacks that a Pokémon may carry but are not very common: If you scroll down to the rest of the moves, you’ll also see that occasionally, moves like Scald, Blizzard, Calm Mind, Hyper Beam, and Hydro Pump are run, but at a far less frequent rate (all <10% usage). Since these moves are far less common, I won’t go out of my way to try to play around them but I’ll still keep them in mind if I’m in a scenario where the moves could give my opponent a significant advantage.
+
+Attacks that a Pokémon rarely carries: At this point, Pikalytics doesn’t list any more attacks. Examples of rare options on Kyogre include Icy Wind, Psych Up, Rest, Thunder Wave, etc. These are moves that I will never cover for as they are so uncommon. When you face moves in this bucket, you’ll have to rely a bit more on your ability to adapt.
+
+The 25% usage rate benchmark is relatively arbitrary, so use your best judgment. Generally, if you want to make things easier, I’d just learn the top 6 moves for each Pokémon. As you battle, also keep in mind that a Pokémon can only have four moves -- as a result, if it’s using a uncommon/rare attack, that also means it’s often giving up one of the common attacks -- you can utilize this to your advantage!
+
+Items
+Generally, there are not too many items that an individual Pokémon will frequently run, but it’s important to learn the most common ones as they often dictate how the Pokémon is used. In this example, we see that 10% of Kyogre have an Assault Vest, 34% have a Mystic Water, 15% have a Choice Scarf, and 21% have a Life Orb. 
+
+My general rule of thumb here is to cover all items with >10% usage -- that is, when I face Kyogre, I’ll immediately assume it has AV/Mystic Water/Life Orb until I can confirm the actual item. As for other items, I’ll keep them in mind but won’t go out of my way to play around them until I’ve confirmed them. 
+
+
+
+How it’s Trained
+This section on Pikalytics is a little more complicated, since it gives you the breakdown for each individual EV spread/nature combination. I’d generally focus a bit more on the big picture here and look at the following:
+
+How much speed investment are players generally putting in?
+
+Are there any common trends among the most used spreads?
+
+Are there different types of spreads that I should look out for (e.g. all offensive & no bulk vs. lots of bulk & no speed)
+
+In this example, we can see that the most used Kyogre spreads all have a significant amount of speed investment (212+ EVs). As a result, I’ll generally assume that Kyogre is Timid 252 EVs when I fight against it until I can confirm that it is slower. The common trend for Kyogre here is that the top spreads all generally invest very heavily in special attack and speed. However, that doesn’t mean all Kyogres are trained like that - as you scroll down, you’ll also see some builds that are very bulky and have little speed investment. Overall, it appears that the majority of popular spreads are either very offensive/fast or very offensive/bulky 
+
+
+
+Conclusion
+This guide is not exhaustive by any means - rather, it’s meant to teach you how you can absorb valuable information and have a general idea of what to expect when you face any Pokémon. The general goal is for you to see a Pokémon and be able to identify 1) what moves it will most likely carry 2) what items it may carry & 3) how it’s generally trained.
+
+A big caveat here is that creative team-building is a valuable element of Pokémon. Sometimes, your opponent may have a surprise Pokémon, move, item, EV spread, or strategy that you just can’t expect, no matter how much you’ve practiced or studied. Part of what makes the best players stand out is their ability to adapt to an unfamiliar scenario. At the end of the day though, you want to make sure you are at least prepared for the common sets/Pokémon in the format.
+
+Between learning from practice battles and using Pikalytics as a resource, you should be able to build up a knowledge base & understand what the most common Pokémon do and how they are trained. The better you build up this knowledge base, the more informed decisions you’ll be able to make during a battle!
+
+
+Introduction
+In VGC, it’s important to learn how to approach both best-of-1 and best-of-3. The in-game ladder and International Challenges (online Wi-Fi tournaments) use the best-of-1 format, while most major IRL tournaments use the best-of-3 format. My goal is to break down various components of the game (team building, team preview, battling) and help you think about how you should approach each. 
+
+
+Best of 1
+Team Building
+
+Note: Wolfe covered the difference between teambuilding for best of 1 and best of 3 in this article.
+
+If you are team building explicitly for best-of-1, the element of surprise can give you huge advantages during a battle. It’s no surprise that many of the #1 teams in best-of-1 tournaments feature unique sets that are generally difficult to predict. You don’t necessarily need any surprises to succeed in best-of-1, but they can give you some major advantages & swing the battle heavily in your favor from just one turn. Examples of surprises include the following:
+
+Taking a conventional Pokémon and running it in an unconventional way (e.g. offensive Dynamax Porygon 2)
+
+Using attacks or items that your opponents generally would not expect (e.g. Iron Defense/Babiri Berry Calyrex-I)
+
+Using an unpopular Pokémon that players will likely have little experience battling against
+
+Using an unconventional EV spread to catch opponents off guard (e.g. max speed Incineroar + Tailwind to outspeed Zacian)
+
+Taking a popular team and slightly modifying the moves/EV spreads
+
+EXAMPLE
+Japanese player kogepannachan won the Global Challenge Winter tournament, an online qualifier for Players Cup III, using a team with several surprises. Most notably, his team had a Porygon 2 with max Attack and Special Attack investment & four offensive attacks. This Porygon set deviated significantly from the standard set at the time, often featuring lots of bulk and Trick Room/Recover, and was a strong choice as most players do not expect Porygon 2 to Dynamax and normally try to stop it by using moves such as Fake Out or Taunt.
+
+Another factor to think about is the context for which you are building for. For example, if you expect to grind out lots of games because you are playing in an online International Challenge, which can give Championship Points towards Worlds, you’ll want to think about the pace of your team and how quickly you can win battles. I generally value teams that can win quickly and have fast paced offense, rather than slow paced teams that are more vulnerable to critical hits/secondary effects, for these kinds of events.
+
+EXAMPLE
+European player marcofiero won the February 2022 International Challenge, an online tournament that had over 300K+ players, using a hyper offense team centered around Barraskewda & Kyogre. This team was an excellent pick for the tournament as it 1) featured Barraskewda, a Pokemon that had not seen much play until then & 2) had lots of Pokemon that could deal huge amounts of damage in a short amount of time.
+
+One last area you may want to think about for best-of-1 is your general comfort and knowledge with a team, especially as you’ll often be playing against unorthodox Pokémon/teams. Best-of-3 events generally are a bit more centralized, while best-of-1 ladder/tournaments can feature a much more diverse pool of Pokémon & strategies. If you understand your team deeply, you’ll be able to adapt & improvise as you go up against surprising Pokémon/strategies. 
+
+Team Preview
+When approaching team preview in best-of-1, you have to be extra cautious as games can often be decided solely from a bad lead match-up/turn 1, especially in a Dynamax format. Our team preview guide covers principals you’ll want to think about, but here are the main rules I generally try to follow:
+
+Pick risk-averse leads: Falling behind quickly due to a bad lead match-up is incredibly stressful in best-of-1, so I generally try to find a lead that doesn’t gamble the game away on turn 1 (the one exception to this is when I recognize my team just matches up poorly vs. my opponent’s)
+
+Cover for your opponent’s strongest combinations: I generally try to highlight the most overwhelming offensive combinations on my opponent’s team (e.g. Weezing + Regigigas, Charizard + Groudon) and make sure they can’t just win the game off a strong turn 1
+
+Have answers against all 6 of your opponent’s Pokémon: I try to ensure that between the four Pokémon I’ve selected, I can deal reliable damage to each of my opponent’s six Pokémon to make sure I’m not super weak to any certain Pokémon
+
+When lost, go with comfort: I play towards my team’s core strengths/leads rather than trying something that I’m unconfident in when I don’t really know what to pick
+
+Battling
+When battling in best-of-1 specifically, here are some general principles you may want to consider:
+
+You’re often working with very limited knowledge of your opponent’s team (e.g. sets, EV spreads, items). As a result, try to assume they have all their strongest attacks (generally, their top 6 most common attacks, as seen on Pikalytics) until they reveal otherwise. 
+
+It’s especially good to lean into any surprises that your team may have in best-of-1 as your opponents will often not be prepared for them, and subsequently, not be able to adequately predict your moves.
+
+Understand the dynamic between how your teams match up and play accordingly. If you feel like you have a neutral or positive match-up, you can afford to play a bit more risk averse. If you feel like you have a bad match-up, you’ll probably have to make more predictions throughout the course of the battle.
+
+It’s very possible that you essentially win, or lose, the game from just a single turn. Always try to identify what the worst case scenario is on each given turn and do your best to prevent that scenario from happening. In Sword/Shield, be extra wary of ways that your opponent can one-hit KO your Dynamax Pokémon. 
+
+Accept that best-of-1 is very volatile (especially in Sword/Shield) and be ok with losing. Pokémon is unique as a competitive game in that team-building adds a whole layer of depth - a single smart teambuilding choice can lead to a quick victory in best-of-1. You are going to lose to lots of unexpected Pokémon & strategies throughout your VGC journey, and that’s totally OK. What’s important is learning from these losses.
+
+Best of 3
+Note: This section is generally meant for closed team sheet tournaments (you are not given any information about their team), which is the standard for IRL events. Some online tournaments use an open team sheet format (you are given your opponent’s six Pokémon & their respective moves/items). 
+
+Team Building
+One thing that we’ve emphasized throughout our guide is the idea of consistency, and that concept is especially relevant for best-of-3 teams. As Wolfe highlighted in his article, strong teams for best-of-3 generally feature:
+
+Multiple modes, forcing your opponent to guess what threats you will bring (and on that note, multiple consistent lead options) 
+
+Strong options that don’t rely solely on surprises: even if your opponent knows about your team’s sets/strategies, you shouldn’t be at a major disadvantage
+
+It’s important to point out that surprises can still be extremely valuable in a best-of-3 team. Here are some examples of some different types of surprises & why they were effective:
+
+Meta Call Example: In 2014, Sejun Park won the World Championships with Pachirisu, a Pokémon that did not see much play before the tournament. Sejun chose Pachirisu because it was an effective redirection user. Amoonguss was the most popular redirection user going into Worlds, but since it was common, many players went out of their way to counter it. Pachirisu, on the other hand, was a great call given the metagame as few people had reliable answers for it. Even once everyone figured out what Sejun’s Pachirisu set was during the tournament, they still struggled against it as few players had actually prepared for it during the team-building process. 
+
+Move Set Example: Chongjun Peng won the 2022 Salt Lake City Regional Championships using Charti Berry Ancient Power Charizard and Light Clay Dual Screens Grimmsnarl. The team he used was originally popularized by Rinya Kobayashi, who had Lum Berry Heat Wave Charizard and Iron Ball Grimmsnarl. Many of Chongjun’s opponents likely expected Rinya’s version of the Sun team, and were subsequently caught off guard by the slight modifications Chongjun had made. Chongjun was also one of the first players to use both Ancient Power and Charti Berry on his Charizard, giving him a major advantage against opposing Sun teams. This is an example of a strong surprise - Chongjun didn’t lose very much by giving up Lum Berry + Heat Wave on Charizard, and even if players knew about Charti + Ancient Power, they still couldn’t reliably deal with it. 
+
+Team Preview
+Team preview in best-of-3 is a different beast than best-of-1. You and your opponents will make adjustments based on how the previous games went. Our team preview guide covers principals you’ll want to think about, but here are the main rules I generally try to follow:
+
+In a best-of-3, you have more room to take risks, especially with your lead choice. You also have more time to gather information about your opponent’s team, which you can use in subsequent games. 
+
+Predicting one specific lead from your opponent and countering that lead is much more frequent in best-of-3s, especially in games two and three. This approach is a riskier strategy on best-of-1 since it can be highly volatile, but is a key strategy in best-of-3s once you’ve learned about your opponent’s team & playstyle. 
+
+It’s especially common for a player who lost a game to find a new lead combination that matches up well against what their opponent just led against them
+
+During each battle, I constantly think about my opponent’s Pokémon selection - did they have any Pokémon that I struggled to deal with? If so, is there a Pokémon that I didn’t bring or exposed too early that could be useful for me in the next game?
+
+If I win a game, I ask myself whether or not my opponent brought their best answer to my team selection. If they did, then it may be ok to just go with the same core in the next game. If they didn’t, I’ll start thinking about ways to counter new Pokémon/leads that they may bring.
+
+Conserving information is also critical in a best-of-3 - you want to focus on winning while not revealing unnecessary information. Even a single surprise move or item can lead to major victories, especially on a Pokémon that you haven’t brought out very much during a set. 
+
+You can’t always predict what your opponent is going to do - team preview for best-of-3 is one of the most difficult parts of competitive battling. Sometimes, your opponent will switch things up when you don’t expect them to, and other times, they won’t adjust even when you think they will. You should still try your best during team preview, but you can make up for a bad team preview phase by playing well. 
+
+Battling
+Best-of-3 battles are a lot more dynamic than best-of-1 as both players will make adjustments and use what they’ve learned from previous games to inform their decision making. When you’re approaching best of 3 battles, you should think about the following:
+
+You’ll be able to gather a lot more information in a best-of-3 set as opposed to a best-of-1 game - use that to your advantage. One key skill in VGC is being able to make good decisions based on all the information you have available to you. 
+
+You have to be willing to adjust your strategy. Being able to adapt to your opponent’s play & come up with solutions to strategies they’ve previously shown is critical in best-of-3 play. Thinking on the fly & improvising is a skill that you’ll have to develop, and comes with practice. 
+
+When you’re up a game, you have more room to work with. This doesn’t mean you should just mix things up for the sake of mixing things up, especially if your winning strategy was consistent. However, it does mean you can play a bit riskier in game 2 (e.g. try to predict your opponent’s specific lead & counter them, take calculated risks that can immediately win you the match).
+
+Example: At the 2022 Salt Lake City Regional Championships, I played against Chongjun Peng in the Top 8. In Game 2, Chongjun goes for a play that gives him a chance at winning the game immediately (link) by going for Blast Burn + Max Rockfall. In order for the play to work out, he needs to 1) win a speed tie between our Charizards (50%) 2) connect on Blast Burn (90%) 3) pick up the OHKO onto Indeedee with it (62.5%). All three conditions happen, allowing him to essentially win the game on turn 1 as I’ve lost far too many resources.
+
+Consider the mental aspect of the game. Best-of-3s can be grueling and can last up to an hour. Stay focused on your overall goals/strategy, even when things don’t necessarily go your way early on. 
+
+In general, best-of-3s reward the stronger player more frequently as they reduce the amount of variance, whether it be from unexpected strategies or luck/RNG. Before we finish, I also want to highlight that as you prepare for events, it’s valuable to get multiple best-of-3 sets in so you understand how you can make adjustments with your team between games. Online laddering is generally valuable for testing an idea & making sure it can win consistently against a wide variety of teams, but since it’s only best-of-1, it won’t teach you how to make proper adjustments. 
+
+One powerful skill in VGC is the ability to analyze your opponents’ teams and break it down into different components. You’ll generally want to think about a team’s key strengths and draw from your experience & knowledge of the format/metagame. This is something that comes with practice - knowing how the most common Pokemon are generally used will help you a lot here.
+
+This article will focus on some of the key things you’ll want to think about as you look at opposing teams. Keep in mind that these areas are relevant to any VGC format, not just the current one, but some areas will be more crucial to the current format (e.g. in Series 12 VGC, each player is allowed two “Restricted” Pokemon, so teams will generally center very heavily around those two Pokemon).
+
+Strong Pokemon: What Pokemon on my opponent’s team are the primary offensive options? How can my opponent get these Pokemon to move before mine?
+
+These are typically Pokemon that get access to very powerful attacks & have good base Attack/Special Attack
+
+Also pay attention to Pokemon that can boost their stats (e.g. Swords Dance Landorus-T, Iron Defense Ferrothorn)
+
+In Sword/Shield specifically, think about which Pokemon are likely to Dynamax
+
+Speed Control: Does my opponent have any way to control the speed? 
+
+Common methods include Trick Room, Tailwind, Electroweb, Icy Wind, Thunder Wave, Scary Face, and Max Moves 
+
+Think particularly about how your opponent can use these attacks to immediately give their partners an advantage -- e.g. Whimsicott + Kyogre (Tailwind allows Kyogre to immediately outspeed everything and use Water Spout)
+
+Pace and playstyle of their team: What is the pace at which the opponent will play the game? See here for more tips for defining and identifying this. 
+
+General speed of my opponent’s team: What are the base speeds of all of my opponent’s Pokemon? Do my key Pokemon outspeed theirs without any speed control?
+
+Typing: Are there any types that can hit the majority of my opponent’s team for neutral or super-effective damage? Are they very weak to any specific type? 
+
+Pairs of Pokemon: Are there any duos that specifically synergize well with each other while on the field together? Which work particularly well as leads?
+
+Support vs Offense: How many of my opponent’s Pokemon are supportive vs. offensive? If they have too many of one or the other, can I take advantage of that?
+
+Note: Support Pokemon are those that typically don’t focus on dealing damage (e.g. Whimsicott, Incineroar, Grimmsnarl, Dusclops)
+
+Item Choice: What items are my opponent likely to be running on each Pokemon? Are there any multiple Pokemon that normally like to run the same item, and if so, which one do I think is actually carrying said item?
+
+Now, let’s take some of the concepts we’ve described & take a look at some examples.
+
+
+EXAMPLE 1
+In this example, the opposing team is a fast-paced team centering around multiple offensive options in Kyogre, Kingdra, Zacian, and Landorus-T. The general goal of the team is to overwhelm you with offense before you can attack. My main observations, as I look at the team, are as follows:
+
+Strong Pokemon: The team has four powerful attackers in Kyogre, Kingdra, Zacian, and Landorus-T. Kingdra/Landorus-T are significantly stronger when Dynamaxed, so I expect one of those two to Max most of the time. I also have to make sure I have answers to Shedinja, both in the early and late game.
+
+Speed Control: The team can increase Kingdra’s speed via the Rain. Kingdra and Landorus-T both can use Max Airstream to boost their partner’s speeds. Choice Scarf Kyogre is also a likely item to consider here.
+
+Pace & Playstyle: This team generally feels like a hyper offense team. I wouldn’t expect too much bulk on any Pokemon other than Indeedee, and I would expect an early (turn 1 or 2) Dynamax.
+
+
+General Speed of their Team: The team is fast paced, and Kingdra in the rain can outspeed almost everything in the format.
+
+Pairs: There are some clear duos here: Kingdra + Kyogre allows Kingdra to be fast via Swift Swim immediately, and Indeedee + Landorus-T allows Landorus to potentially set up a Swords Dance early on.
+
+Support vs Offense: The team indexes heavily on offense. Indeedee is one of the few support options, while Shedinja serves as a potential switch-in thanks to Wonder Guard.
+
+Here are some of my general thoughts when I see this team: 
+This team is super fast faced and centers really heavily around KOing your opponent before they can move. However, as a result, the Pokemon are generally more frail.
+Shedinja can be a nightmare to deal with and can be a strong late game win-condition for my opponent. I want to make sure that I have multiple ways to deal with it in the endgame.
+Kingdra and Landorus-T are both super strong Dynamax options for my opponent. They’re also a lot weaker if NOT Dynamaxed, so I expect one of the two to Max in the majority of games.
+
+EXAMPLE 2
+In this example, the opposing team centers around Palkia and Calyrex-I as the primary attackers. It’s a slower paced team that can utilize Trick Room effectively. My main observations, as I look at the team, are as follows:
+
+Strong Pokemon: The team will generally rely on Palkia and Calyrex-I for damage output. I expect one of those two to Dynamax in the majority of games.
+
+Speed Control: The team has three potential Trick Room users in Palkia, Porygon 2, and Calyrex-I. I don’t think it’s likely that all 3 will run it, but that’s going to be their main means of speed control. Regieleki can also Electroweb, allowing my opponent to play with a faster mode of their team (e.g. Regieleki + Palkia lead)
+
+Pace & Playstyle: Palkia and Calyrex-I generally feel like a bulky offense core. I generally expect my opponent to play a bit slower, but I also want to be wary of a turn 1 Dynamax from Palkia in particular.
+
+General Speed of their Team: Calyrex-I and Palkia are likely to be slower given the Trick Room component of the team. Max Speed Palkia, however, is still a possibility.
+
+Pairs: If my opponent wants to set up Trick Room, I really have to look out for Incineroar + a Trick Room user or Amoonguss + a Trick Room user as their lead.
+
+Support vs Offense: Palkia and Calyrex will deal the majority of damage generally. Porygon 2 also can be annoying to deal with - it’s incredibly bulky & can heal itself with Recover but also gets access to solid attacking moves like Foul Play and Tri-Attack.
+
+Here are some of my general thoughts when I see this team:
+
+The team, generally, is on the slower end with Porygon 2/Calyrex-I/Amoonguss/Incineroar. I think they’ll generally look to set up Trick Room, but they don’t need to 100% depend on it as Regieleki and Palkia can be fast.
+It’s difficult to outright deny my opponent Trick Room in the early game since 1) they have both Incineroar + Amoonguss to support the Trick Room users 2) they have three potential Trick Room options. I should expect it to go up - can I look towards either reversing it or stalling it out?
+The Palkia + Calyrex-I core is scary as both are great Dynamax options. If I can get one to Dynamax early, it means the other cannot Dynamax, limiting its options.
+
+EXAMPLE
+In this example, the opposing team is a fast paced team generally centered around Yveltal and Zacian as the primary attackers. My main observations, as I look at the team, are as follows:
+
+Strong Pokemon: The team will generally rely on Yveltal, Zacian, and Regieleki for damage output. I expect Yveltal or Regieleki to Dynamax the majority of the time in this composition, but there’s a chance Incineroar is also trained offensively.
+
+Speed Control: The team has a Whimsicott, so I have to watch out for Tailwind. Regieleki also potentially has Electroweb and Yveltal can Max Airstream while Dynamaxed.
+
+Pace & Playstyle: The team is generally very offensive, but I do have to watch out for more passive combos with Amoonguss, especially early on (e.g. Incineroar + Amoonguss lead)
+
+General Speed of their Team: Regieleki & Zacian are incredibly fast, while Yveltal is also decently speedy. They may not even need to use any speed control to outspeed many teams.
+
+Pairs: Any combination of Yveltal, Zacian, and Regieleki as a lead can be incredibly potent, with lots of damage potential early on. Whimsicott + any of the three and Incineroar + any of the three are all also viable leads.
+
+Support vs Offense: The majority of the offense on this team comes from Yveltal/Zacian/Regieleki, while Whimsicott and Amoonguss really lack damage output here.
+
+Here are some of my general thoughts when I see this team:
+
+
+The team has some of the fastest Pokemon in the format in Zacian and Regieleki and has Whimsicott as well. It may be difficult to outspeed my opponent consistently here.
+I think it’s likely they’ll want to Dynamax early on in the game since their team has so much damage. Since they’re fast as well, can I look to stall out my opponent’s Dynamax, then retaliate with a late game Dynamax of my own?
+Yveltal sticks out as the clear Dynamax option, with Regieleki as another likely option. Incineroar CAN be an option, but I think it’s far less likely than Yveltal/Regieleki.
+None of their main offensive trio (Yveltal/Regieleki/Zacian) resist Fire/Water-type attacks - do I have any of those that I can utilize effectively?
+Closing Words
+At the end of the day, you can only analyze your teams to the best of your ability, and you’re not always going to get everything right -- your opponents may be running an unexpected strategy, Pokemon, move, or even item. In fact, that first example is a popular team in Series 12 VGC that actually features physical Kingdra, which few players generally expect.
+
+The most important thing is to start training yourself to recognize key patterns. Ideally, you’ll be able to look at a team of six Pokemon and understand the overall goal of the team. As you further build up your ability to analyze your opponent’s team, you’ll be able to make better decisions both in team preview & during the battling process!
+
+
+Team Preview is one of the most important parts of a Pokemon battle. It plays a far more significant role in VGC than 6v6 formats as you have to not only have to identify a good lead - you also have to decide which two Pokemon won’t come into the battle. 
+
+One of the most common questions we hear from players is, “how do I pick the right Pokemon in team preview?” There’s a lot of depth to this question, and we wish we could give you an easy answer. Our goal with this article is to help you understand our personal approaches to team preview & help you ask the right questions as you approach it. 
+
+Before we get started, it’s important to point out a couple of things:
+
+Team preview is heavily influenced by the team you are using. This may seem like an obvious statement, but the main point is that stronger teams will allow you to have more options during team preview. Bad match-ups will lead to more difficult team preview phases, and you’ll occasionally be in situations where you don’t have any good leads. Selecting a strong team will make team preview easier for you.
+
+There are multiple ways you can approach team preview (e.g. finding the “safest” combination of four, predicting a specific lead combination from your opponent and countering that as much as possible, etc). This guide just lays out general principles that we look towards during team preview. 
+
+Team preview is one of the most difficult parts of the game, and it’s hard for even the best players to get it right 100% of the time. Even with a poor team preview phase, you still can win battles by outplaying your opponent. However, you should always aim to select the best possible Pokemon to make battles easier.
+
+Overall, we hope that by showing you how we fundamentally approach the topic, you can get a better understanding of how you should be thinking about team preview!
+
+Aaron Zheng’s Thoughts:
+There’s a lot to consider when approaching team preview, but ultimately, I have three main goals during the process:
+
+Identify a strong lead match-up that can help me set the pace of the battle & accomplish my overall goals
+
+Figure out which two Pokemon I should bring in the back
+
+Making sure that through the four Pokemon I’ve selected, I can adequately answer every single Pokemon on my opponent’s team
+
+In order to actually make sure I’ve accomplished these goals, I walk through a mental flowchart during the team preview phase. Please note that you don’t necessarily have to follow each step in the exact order listed! 
+
+Step 1: Understanding my opponent’s overall strategy
+Before I start thinking about my own Pokemon, I find it valuable to look at my opponent’s team of six and break down the overall strategy. We wrote an article that covers that here! Generally, these are the main things I think about while looking at my opponent’s team:
+
+What are the obvious combinations on my opponent’s team? What Pokemon synergize with each other & can enable each other to succeed? 
+
+These combinations are often particularly strong as lead options, so starting here helps me identify threatening leads immediately as you can lose games on turn 1 if you don’t cover for them
+
+Here are some common combinations you’ll want to consider:
+
+Ability based combos: These combinations rely on using one Pokemon’s ability to fully enable its partner. Examples include Charizard + Groudon, Kyogre + Kingdra, and Weezing + Regigigas.
+
+Fake Out + strong attacker: These combinations rely on using a Fake Out user to disrupt opposing teams on turn 1, while putting on pressure with a Pokemon that can deal lots of damage. Examples include Incineroar + Zacian and Rillaboom + Zapdos. 
+
+Speed control + strong attacker: These combinations rely on using one Pokemon to help its partner outspeed everything. Examples include Whimsicott (Tailwind) + Kyogre, Regieleki (Electroweb) + Yveltal, and Grimmsnarl (Thunder Wave) + Dialga. 
+
+Redirection + setup: These combinations rely on using a redirection user, such as Indeedee or Amoonguss, to protect a partner Pokemon as it uses a setup move. Setup can be defined as either a stat boosting move or speed control. Examples include Amoonguss + Dusclops (to get Trick Room up) and Indeedee + Xerneas (to set up Geomancy).
+
+Weakness Policy / Dynamax Setups: This is a bit more exclusive to Gen. 9 thanks to Dynamax, but these combinations rely on enabling Weakness Policy on a particularly strong Pokemon and sweeping with it. Examples include Mimikyu (Shadow Sneak) + Calyrex-I and Tornadus (Brutal Swing) + Solgaleo. 
+
+What is the overall speed of my opponent’s team? Do they generally use Pokemon that are slower or faster? How can they make their Pokemon move first?
+
+Are there any individual Pokemon on my opponent’s team that can cause major problems just by itself individually? These are Pokemon that have the potential to “1v4” a game, or win the game against your entire team.
+
+Examples include Shedinja, which can wall an entire team if you don’t bring super-effective damage to the battle, and defensively setup oriented Pokemon such as Iron Defense Ferrothorn and Bronzong. 
+
+Step 2: Thinking about what four Pokemon I should select
+Once I’ve gotten a good understanding of my opponent’s team composition, I start thinking about what Pokemon I want to bring into the battle. 
+
+What Pokemon do not contribute very much in the match-up for me?
+
+In VGC, you bring 6 Pokemon but only choose 4 for a battle. Thus, it’s often easier to work backwards and eliminate Pokemon that do not contribute very much in a game.
+
+Here are some ways you can identify these Pokemon:
+
+Offensive Typing: The Pokemon does not contribute very much damage with its attacks as a majority of my opponent’s team can resist its main attacks 
+
+Defensive Typing: The Pokemon takes neutral or super effective damage from a majority of my opponent’s team & also can’t contribute very much offensively (e.g. Ferrothorn into a Sun team with Charizard/Groudon/Zacian/Incineroar). 
+
+No Need for Specific Output: Certain Pokemon are used on teams for one primary reason, such as speed control. You may determine that you don’t need that primary output during the battle (e.g. Whimsicott with Tailwind into an opposing Trick Room Team).
+
+Part of a Combo: Some Pokemon are a lot stronger when they are together and a lot weaker when they are separated. There’ll often be times where you can’t bring both parts of a combination, thus resulting in you excluding both Pokemon from the battle 
+
+Speed Dynamic: The Pokemon does not match up well relative to your opponent’s speed control (e.g. Cinderace with four offensive attacks / no Protect or Max Guard into an opposing team with Trick Room)
+
+What Pokemon do you need to bring into the match-up?
+
+I first start with my primary attackers - are there any good reasons I need to exclude any of them from battle? 
+
+In Series 12 VGC in particular, you should first ask yourself whether or not you should drop either restricted Pokemon. 
+
+You may want to drop one of your main attackers because 1) it’s incredibly weak into your opponent’s main attackers 2) does not deal good damage to your opponent’s main attackers 3) gets KOed too easily
+
+I then look at the main threats on my opponent’s team - do I have a way to deal good damage to all of their Pokemon, especially their main attacker?
+
+During this, I also make sure to bring answers to the Pokemon with 1v4  potential that I mentioned earlier (e.g. Shedinja, Iron Defense Ferrothorn)
+
+Step 3: Putting it all together & figuring out a lead
+Now that I’ve thought about both my opponent’s team and mine, it’s time to decide what Pokemon I want to lead with. Leads are so important in VGC, especially in Gen. 8 where Dynamax can dictate the pace of the battle right from turn 1. 
+
+Before diving into my thought process, it’s important to stress again that the strongest teams will have reliable lead combinations. For example, when I placed 3rd at the 2013 World Championships, I used a team that could reliably lead Cresselia + Rotom-W or Cresselia + Landorus-T into almost any team in the format. A good team will make things easier for you as you select both your lead and team.
+
+Here’s how I think about choosing a lead: 
+
+What are my opponent’s most likely leads?
+
+Before picking my own lead, I always try to think about the strongest combinations from my opponent’s end, which we covered in Step 1. 
+
+As I identify these combinations, I think about how my potential leads can match up against each of these combos, especially on turn 1. 
+
+Note that some Pokemon are a lot stronger as a lead option rather than a secondary option (e.g. Grimmsnarl in Series 12 VGC), so take that into account.
+
+Can I go with one of the “obvious” combinations on my team?
+
+Generally, good teams in VGC will have strong combinations like I highlighted in Step 1. Many teams just won’t be equipped to deal with these combinations well, and if that’s the case, you can just lead it immediately. 
+
+If you can’t go with one of the obvious combinations, it’s often because your opponent has a direct counter to said combo. If that’s the case, start thinking about what other leads can beat that specific combo. 
+
+What am I trying to accomplish with this lead? How does it play into my team’s overall strategy?
+
+Your lead should have a purpose, whether it be setting up speed control for the rest of your team, putting on offensive pressure via Dynamax early, or playing defensively to stall out your opponent’s early pressure. 
+
+Think heavily about the balance between offense and setup when you lead. If you lead your strongest Pokemon immediately and lose them, that can set you behind significantly. Conversely, if you lead two support Pokemon, you may struggle to deal damage early and fall behind quickly. 
+
+How will the Pokemon that I have in the back support my lead? Can they save me from a potentially bad lead match-up?
+
+You won’t always get a favorable lead match-up, but that can sometimes be mitigated with the proper Pokemon in the back. Think about how the Pokemon in the back can be used to get you out of a tough position. 
+
+In these scenarios, you’ll often have one Pokemon use Protect while the other one switches out, so ideally, the Pokemon that’s switching in can unlock new options for you.
+
+You don’t necessarily need to start the team selection process with a lead, but I find that it’s a naturally good starting point. Once you’ve found a good lead, then use what you’ve thought about in Step 2 to bring it all together. 
+
+You won’t always have an obvious group of four Pokemon to bring - in fact, that’s rarely the case. Knowing that, I instead try my best to give myself enough options to win a battle (and conversely, focus on not losing the game immediately off a bad lead). 
+
+That’s it for my general approach for team preview! Before I finish things though, I want to highlight a couple of areas that I haven’t talked about yet.
+
+Post Game Analysis
+It’s always great to reflect after a battle and think about whether or not you made the best team preview decisions. I focus more on whether or not my logic was sound in the team preview process rather than purely analyzing the results of the game. Some questions I ask myself include:
+
+Did I anticipate my opponent’s lead combination? 
+
+If so, did I bring a lead that can adequately deal with it? What was my absolute best lead against their lead, and should I have brought it here? Is that absolute best lead significantly weaker against other lead combinations they have? 
+
+If not, why did I not expect that combination? 
+
+Could one of the Pokemon I left out contribute more to the battle?
+
+Did any of my Pokemon not do very much during the battle? If so, what was the reasoning? (Sometimes, you may have just not played towards the proper conditions for that Pokemon to succeed. Other times, you may have brought something to counter a specific Pokemon that your opponent didn’t bring)
+
+Did my opponent bring a Pokemon that I did not anticipate, and subsequently struggled against? 
+
+How do I think my opponent would adjust if we were playing again and I went with the exact same lead combination + back two Pokemon?
+
+That last point in particular brings me to my next topic, which is…
+
+Adjusting for Best of 3s
+
+Up until now, this guide has centered more around team preview for a best-of-1 battle. Most major tournaments are actually best-of-3, so it’s important to talk about how team preview changes in a best of 3. Let’s highlight a couple of key areas:
+
+For Game 1: In a best-of-3, you have a lot more room to take risks, meaning you can experiment with certain lead combinations & Pokemon that may not be as consistent in best-of-1. It’s totally fine to just follow the best-of-1 guide and apply it to game 1, but do note that some players like to play more aggressively with their leads to try and get into their opponent’s heads early on. Game 1 is also important as both players gain valuable knowledge of their opponent’s team and playstyle. 
+
+After each game: After each game, you’ll have much more knowledge of each other’s teams and playstyles. You’ll want to think about the following areas as you look towards picking your team for games 2 & 3:
+
+Overall Results of the Previous Game: Did I win or lose? How did the battle go overall?
+
+If I won, was it a comfortable win (e.g. didn’t need to make too many predictions, rely on any good luck)? If it wasn’t, why was that the case and was my strategy actually reliable / do I have a more consistent option?
+
+If I lost, why led to the loss? Was I caught off guard by any surprises? Did my opponent just execute their strategy better than me, and if so, can I mix things up to prevent them from executing their strategy? 
+
+Leads: How did the lead match-up from the previous game play out? Can I lead the same thing again?
+
+If my lead match-up was GOOD, how can my opponent change their lead to counter me? (Sometimes, the answer is that they simply can’t, meaning you can reliably lead the same thing in subsequent games) If they have a strong lead vs. what I just brought, do I have an answer against that? 
+
+If my lead match-up was BAD, how can I change my lead to better match up against their specific duo? Do I think my opponent will expect me to change my lead & try out something else?
+
+Pokemon Selection: You want to think about the role that each of your Pokemon served in the previous battle & whether or not you need to bring new Pokemon into the next game.
+
+Were there any Pokemon on my opponent’s team that I struggled with in particular? If so, could I have brought a Pokemon that I didn’t bring in the previous battle? What happens if my opponent doesn’t bring that specific Pokemon in the next game & I’ve given up a slot to counter it?
+
+Did I give up an important Pokemon too early on in the battle? How can I conserve said Pokemon better?
+
+Were there any Pokemon that did not do very much for me? Is it because I used it poorly, or is it just not as good into the match-up as I thought? Who would be a better replacement?
+
+Information Management: Now that I’ve seen my opponent’s team, can I use any of the information I gathered to give me a significant advantage? 
+
+Think especially about the moves you’ve seen - if they’ve revealed their entire moveset, you can now play against that Pokemon with much more confidence
+
+Example: If you’re using a Palkia team and your opponent’s Zacian has revealed that it is using Behemoth Blade / Sacred Sword / Quick Attack / Protect, you now know it does not have Play Rough, meaning that it does not apply nearly as much offensive pressure into Palkia.
+
+At the end of the day, team preview in best-of-3 is one of the most difficult parts of the game. No one is able to call things right 100% of the time. The goal here is to offer a framework so that you can see how players think about making adjustments as each game happens. 
+
+That’s it for my thoughts! Here’s how Aaron Traylor generally thinks about the team preview process.
+
+
+
+Aaron T. Process
+I think the goal during team preview is to arrive at a plan that you can execute during the battle. This plan can be as simple, complicated, rigid, or flexible as you want, but you need to be able to carry it out once the battle starts. 
+
+It’s important during team preview to know as much about your own team as possible, because when you go to make a game plan, you’ll know a lot more about how the Pokemon were designed to work together. 
+
+My main goal is to come up with a narrative: to imagine the events of the battle that might occur, to figure out what the important elements are on each team, and to think about how I can reach game states where I can win cleanly. Here is a rough sketch of how I think through the battle:
+
+First, I think about the pressure relationships between the Pokemon on each team. 
+
+What Pokemon of mine are most challenging for them to deal with? How can I position them to give my opponent as much trouble as possible?
+
+What Pokemon are most challenging to deal with for me on their team? How will they position in battle to be most challenging for me?
+
+I then think about how that pressure will be applied throughout the game, starting with the lead Pokemon. 
+
+What leads can I pick? I base this off of the pressure that each Pokemon applies. Can I apply pressure and act proactively in a way such that it’s challenging for my opponent to respond?  
+
+What leads could my opponent pick? Similarly, this is based on the pressure. I imagine my opponent asking themselves the same questions that I’m asking myself, but from their point of view. Are they particularly afraid of anything on my team, or capable of using a threatening Pokemon in their lead to make the early stages of battle as hard for me as possible?
+
+Are any of those leads really problematic for me or my chosen lead? Why? Can I make any changes? Do I have one lead that is strong against most of the candidate leads that they could make?
+
+It’s then time to think about the later parts of the game. It’s hard to imagine what endgames might look like in Pokemon for the most part, but if you’re able to think about them broadly, you can define some goals for yourself in battle.
+
+If you remove one of their Pokemon, does that remove pressure on one of yours? For example, if you remove their Fire-type Pokemon, does that mean that your Ferrothorn can win the battle on its own later in the game? Think about how you can remove that Fire-type early in the battle, then. 
+
+What Pokemon can you absolutely not afford to lose? If you lose a Pokemon, what Pokemon on their team are freed from its pressure? If your Kyogre goes down early, then can they use their Incineroar as much as they please to sow havoc on your team? Make note of that during team preview.
+
+The more games you play and reason through this thought process, the easier it will become. I suggest writing your thought process down during team preview of your practice games, and then reviewing it after the game is over. What did you want to happen? Why did you select the Pokemon that you did during team preview? What ended up happening? Why? What could you do better next time from the team preview stage?
+
+Here are some more things to consider during team preview:
+
+Ask yourself if your team has a built-in clear goal. For example, you might have two Pokemon that can be led together to achieve some combination or synergy. Examples include Politoed/Kingdra, Urshifu-Rapid-Strike/Gigantamax Coalossal, and Regigigas/Weezing. This is a potential game plan: try to execute the strategy.
+
+If you identify a built-in clear goal, then ask yourself: what tools does your opponent have to defend against you? A built-in clear goal is not only clear to you but often to your opponent– they probably know what your Pokemon are going to do. I ask myself: what tools does my opponent have to stop my strategy, and do I have to adjust or ditch my game plan to deal with it?
+
+You can also ask yourself if your opponent’s team has a built-in clear goal. Do they have a lead combination that you know will exert a lot of pressure if they lead it? What would happen if they lead it? What tools do you have to deal with that combination? 
+
+Do you open yourself up to anything else on their team by planning for one built-in clear goal that you can see? Many teams have more than one mode and will force you to choose to prepare for one of them. 
+
+Can you rule out any Pokemon on each side?
+
+What Pokemon do you not want to bring into their team? Maybe you have a Rillaboom on your team, but no Pokemon on their team is weak to its Grassy Glide, and they have several Pokemon that threaten to knock it out or weaken it. Reducing options on your own side can make it easier to assemble your game plan for the match.
+
+What Pokemon do you think they don’t want to bring versus you? If you can eliminate some of their potential options, you can get a better idea of what Pokemon they will actually bring. Be careful, though: opponents don’t always act how you think they will.
+
+Lastly:
+
+Do you and your opponent have most if not all of the same Pokemon? Mirror matches can be frightening– after all, your opponent has the same tools that you do. My first step during team preview in a mirror match is to identify what the differences actually are between the teams. If you and your opponent have 5 Pokemon of the same species, how does the 1 unique Pokemon on each side affect the match? Did you add a move or item that changes how a Pokemon functions? If so, how can you use that to your advantage?
+
+Overall Conclusion
+Team preview is an incredibly important aspect of the game, but it’s just one part of the equation. As we’ve stressed throughout the article, a good team preview phase can give you an early advantage, but you still have to play well during the battle to get the win. Conversely, you can maneuver out of a bad team preview phase, but it means you’ll generally have to work harder (e.g. make more predictions/risky plays). 
+
+You should still do your best to improve your team preview skills, and we hope that this article can help you better understand how competitive players approach it! 
+
+A game plan is a general approach to how you plan on winning a battle. They are helpful because they give you some sense of how you’re going to navigate the battle ahead, and what your goals and objectives are. 
+
+You will typically use a combination of the following in creating a successful game plan:
+
+Knowing the key strengths/strategies of your team: a good starting point for creating a game plan is focusing on your team’s primary strengths/strategies and modifying them based on your opponent’s team. 
+
+Knowing the nuances of your team: Sometimes, even just a single move choice or EV spread can be specifically designed to beat a Pokemon - the more you understand the team you are using, the easier it will be to create a game plan. This is why familiarity with a team is especially important!
+
+EXAMPLE
+The rental team you are using has Jolly 164 Speed EV Incineroar, and another Pokemon has Tailwind. This combination is designed specifically so that you can outspeed and OHKO Zacian-C with Flare Blitz under Tailwind. That may not be apparent when you just look at the team on paper, but knowing this fact can make thinking through the battle a lot easier for you.
+
+Analyzing your opponent’s teams: game plans need to take the opposing team into account. You’ll often start with your key strengths/strategies & ask yourself how your opponent can handle these strengths.
+
+Identifying your key win conditions: Being able to figure out what your best path to victory is - this could be from a variety of ways (e.g. identifying the main Dynamax Pokemon you need to play around, identifying a key Pokemon on their side you need to eliminate quickly, etc.)
+
+Team Preview: If you can figure out what four Pokemon (and lead selection) give you the best chance of victory, you can theory out what you think the first two turns of the battle will look like before it starts.
+
+Play around the strongest attackers/key strategies on your team
+Ask yourself how your opponent can beat these Pokemon (look for how they can knock out these Pokemon quickly, especially in one attack) 
+
+If they DON’T have a clear/viable solution, it’s often fine to just start with your strongest combos 
+
+If they DO have a clear/viable solution, think about the odds of your opponent identifying that solution & how you can potentially counter it
+
+Look for key weaknesses in your opponent’s team
+No team is perfect - observe your opponent’s team and look at what areas they may be weak in and how your team can take advantage of that.
+
+Examples:
+
+Typing: Your opponent does not have any Pokemon that resist or are immune to a certain type of attack you have on your team - this makes it more difficult for them to switch throughout a game, often reducing the amount of predictions you need to make. 
+
+Speed: Your opponent’s Pokemon generally revolve around one Speed bracket and rely heavily on certain types of Speed control. You can look towards denying them that Speed control, or how to stall that Speed control until it runs out. 
+
+Specific Pokemon: Your opponent struggles to deal large amounts of damage to a specific Pokemon on your team, making it harder for them to deal with that Pokemon. Pay particular attention to its positioning throughout the battle.
+
+Lack of Damage: Your opponent does not have too many Pokemon that are strong attackers, meaning they have to rely on a few options in order to actually pick up KOs and win games. Neutralize those threats early.
+
+Early Game vs. Late Game: Some teams rely heavily on dealing damage in the early game and fall off significantly after their Dynamax is over. Other teams rely on setting up early and struggle to deal damage in the early game. Try to identify how the opposing team wants to approach the game & play accordingly.
+
+The “Pace” of the Battle
+When you lead, are you going to have offensive pressure?
+
+If not, will you have a way to eventually get to that offensive pressure? If you only have defensive Pokemon, you’re not going to have the damage to finish the battle.
+
+If not, what opportunities will your opponent have to set up or take advantage of your defensive lead?
+
+What Pokemon on their team are going to be threatened by your lead? Which are not going to be threatened by your lead?
+
+What does the end of the battle look like in your head? What happens when Tailwind, Trick Room, or Dynamax run out? Can your Pokemon in the back close the battle out well? For example, if they don’t do very much damage, you might “run out of steam” after you lose a knockout (e.g. supportive Pokemon that have very little attack investment are less useful if they are the last Pokemon remaining). If you can get a Pokemon into a solid defensive position by removing Pokemon that threaten it, or reduce your opponent to Pokemon with weak attacks, you can close out tight endgames.
+
+Think about how turn 1 of the battle will play out
+The first turn of a battle often sets the scene for the rest of the game, especially if one player is able to gain a major advantage via a lead advantage– a lead that’s strong into their opponent’s choice.
+
+Try to play out the first turn in your head against a variety of lead combinations that you expect them to go with. Do you have a “safe” play that succeeds regardless of what your opponent goes for?
+
+When you come up with game plans, things can go south quickly if the early game does not play out how you expect it to. Do you have ways to come back from a bad turn 1?
+
+It’s important to point out that game plans are adaptive - you’ll often change and deviate from your main strategy as the game progresses. A key skill in VGC is being able to improvise & adapt in any given turn. However, it’s still important to think about the big picture & have some idea of what goals you want to accomplish during a game.
+
+Pokémon is not like other turn-based games, in which one player moves, and then the next; although you might not know for sure what your opponent will do next, you know what the state of the game will be after you finish your turn. In Pokémon battles, both players make their moves independently and simultaneously, and then watch the turn play out. Thus, very little of an upcoming Pokémon turn is set in stone, and you never know for sure what the board will look like after you both finish your moves. How, then, are you supposed to be informed when you make a move? You'll need to figure out two things:
+
+Which actions will get you closest to your goal (winning the game)? 
+
+Which actions will get your opponents closest to their goal of beating you?
+
+Proactive actions advance the goals of a player simply and straightforwardly. This means dealing damage, taking knockouts, setting up Speed control or boosts so that future turns are easier, giving enemy Pokémon status conditions such as sleep, et cetera. There are often few if any downsides to proactive action– it only fails if you don’t achieve your goals or if there is some inherent risk (you fail to knock out a Pokémon you thought you would, a move misses, etc). 
+
+Reactive actions are always in response to the threat of a specific proactive action. If a move from your opponent threatens to set you back in a big way– you're going to have to respond quickly, or lose the game. This can mean switching out, Protecting, or using a healing move.
+
+Because we act at the same time as our opponent, all we can do before deciding on a move is think about which moves are being threatened. When Pikachu fights Gyarados, Pikachu threatens to knock out Gyarados with Thunderbolt. The threat of proactive action is how I define pressure; i.e., Pikachu pressures Gyarados.
+
+In battle, understanding the pressure that Pokémon apply to each other lets you determine what your good moves are. Are your Pokémon pressuring your opponent? Do you have any proactive moves that are low-risk? Or, are your Pokémon threatened by your opponent's, and do you have to react? Furthermore, pressure is your guide to your opponent's thought process: what are they threatened by? What proactive moves are their safest path to victory? By doing so, you'll figure out which moves they are most likely to make– which lets you think about the future with much more certainty. 
+
+How do I know where the pressure is?
+Sometimes, the pressure relationship is intuitive– as in the Pikachu and Gyarados example. Even if you've never played a single competitive battle, you understand that the Gyarados is facing certain defeat, and if you're Gyarados’s trainer, you have to do something or you'll lose. Pokémon can either apply pressure to one enemy Pokémon (Pikachu pressures Gyarados), or to both enemy Pokémon (Venusaur is applying pressure with the threat of Sleep Powder). Here are some questions you can ask yourself:
+
+Which Pokémon is moving first this turn? What is it most likely to do, and how does that affect the field? Speed plays an important role in pressure.
+
+Which Pokémon are threatening knockouts? 
+
+Can both enemy Pokémon work together to secure a knockout?
+
+Are any Pokémon threatening status moves that disable their opponent? (e.g. Sleep)
+
+What does the next turn look like? Think about what's going to happen if every Pokémon accomplishes its main goal this turn-- try to imagine the most likely next turn. Which player is favored in this hypothetical next turn? Then work backwards– why is that the case? If you can find that reason, you've found which Pokémon is applying pressure.
+
+Other times, it may be less clear how pressure will play out in a turn. In fact, there may be many sources of pressure, and both players may have the opportunity to act proactively or reactively. In these scenarios, try your best to figure out what the most severe threats are and which actions are going to be the most likely to happen. 
+
+Next Steps: Taking Advantage of Pressure
+With this framework, it's easy to define a prediction, which is when a player wholeheartedly commits to an action purely based on the existing pressure and how they think their opponent will act or react. Making a prediction is always reactive, in some sense, because you're focusing on your opponent's state of mind, but the move you make can still be a proactive action. For instance, you could have multiple proactive actions available, and pick the one that is best against the course of action you think your opponent will take.
+
+Wrapping Up
+This topic is rather dense, and thanks for sticking with me: it's not easy to cleanly talk about how Pokémon interact in battle, because they can do so in many different and complex ways. But, by doing so, we've put this really abstract concept down on paper, and the relationship between the active Pokémon gives us concrete insight into what our opponents are thinking about during any given turn and which actions they are most likely to consider. In Pokémon, our actions can never be fully made separate from those of our opponents; which is why the pressure relationship must be first and foremost in your mind.
+
+What is your opponent focusing on? What threats do they notice first, and which might they overlook? The answers to these questions come with experience, as your opponents will all approach the battle differently and their decisions are rarely set in stone.
+One major skill in competitive Pokémon is the ability to “predict” what the opponent is going to do and react accordingly. An especially common mistake that newer players make is focusing too hard on trying to predict their opponent’s specific play each turn. It can feel satisfying to call out exactly what your opponent is going to do, but you have to ask yourself what you actually gain from it (as well as what you have to lose from it, if you get it wrong). 
+
+I generally divide “predicting” into two major areas:
+
+Your ability to anticipate every single possible combination of moves that your opponent can go for
+
+Your ability to anticipate a specific play that your opponent is going to go for & reacting accordingly
+
+Both of these are major skills that you will want to focus on as you play. The first one allows you to better find the best possible play each turn, while the second one allows you to gain major advantages and claw out of bad positions.
+
+Before we go any further, it’s important to note that everyone has different philosophies towards how they approach the game in regards to predictions. Some players are very read-focused and like to play very aggressively by trying to predict their opponent’s move each turn. Others are more conservative and aim to make as few predictions as possible. You’ll have to find a balance that works for you.
+
+Team-building/selection is critical in Pokémon because the best teams offer you more opportunities and reduce the amount of predicting that you need to do. As a result, keep in mind that the team you use directly influences how frequently you may want or need to predict in a game.
+
+One final note to leave you with: you won’t be able to predict everything in Pokémon, especially in best-of-1 games where surprise Pokémon, moves, items, and spreads can pay off heavily. As a result, relying only on predictions to win games in Pokémon can be dangerous.
+
+How can you anticipate every single possible combination of moves that your opponent can go for?
+In order to predict what your opponent is going to do, you’re going to have to rely on:
+
+Your general knowledge of the VGC metagame.
+
+Information your opponent has revealed to you throughout the course of the battle.
+
+If you don’t have a strong understanding of the most common Pokémon and how they are generally trained/used, it will be difficult to accurately predict your opponent’s plays. Thus, it’s important to build up your general knowledge of the VGC metagame. You can check out the linked article for a more in-depth break down, but I’d focus on a couple of key areas:
+
+Who are the most common Pokémon?
+
+What are the 3-4 most common items on that Pokémon?
+
+What are the ~10 most common attacks on that Pokémon?
+
+How is that Pokémon typically trained, especially in regards to speed?
+
+What do people commonly do with this Pokémon when I play against it?
+
+When do you go for a specific prediction (i.e. expect your opponent to make ONE play and react to that play accordingly)? 
+Here are some principles I have in regards to when you may want to go for a specific prediction. I’ve split it into three different categories, depending on the game state - your feeling about how the game is going. 
+
+From when you have a lead in the game:
+
+Getting a prediction right outright wins you the game, and getting it wrong does not immediately lose the game/throw your lead
+
+From when the game state is neutral:
+
+Getting a prediction right can swing the battle significantly into your favor
+
+From when you are behind:
+
+You don’t feel like you have a “safe” play that covers for all your opponent’s options - this normally comes from a bad match-up or falling behind too quickly
+
+You feel like you are going to lose if you don’t call out your opponent’s specific play
+
+You don’t think you can win if your opponent finds the “correct” play, so you look for opportunities where they may make a mistake
+As we covered in our breakdown about Protect in teambuilding, Protect is one of the most important moves in competitive VGC. This guide will cover a couple of key things, including when to use Protect, playing around your opponent using Protect, and more. 
+
+
+When should I use Protect?
+
+There are plenty of reasons as to why you may want to use Protect on a given turn. The most obvious reason is to prevent your Pokémon from getting knocked out, or taking significant damage, but there are several other ways that Protect can also help you. Here are just some examples/scenarios:
+
+Against a Fake Out user turn 1 of the game into a double-up
+
+To avoid getting hit by an attack that can KO you
+
+To keep a key Pokémon healthy
+
+To reposition safely
+
+Stalling out your opponent’s Dynamax
+
+Stalling out your opponent’s speed control (Trick Room, Tailwind)
+
+Stalling out field effects (Terrain, screens, weather) 
+
+Saving one Pokémon and letting its partner deal with a current threat (or switch)
+
+While using Protect can save your Pokémon, there are actually several potential drawbacks to using the move that you have to think about as well. When you use it, you give your opponent the opportunity to: 
+
+Switch out their Pokémon
+
+Set up Speed control
+
+Use a stat-boosting move or strategy
+
+Attack more confidently into that Pokémon the following turn since the odds of you getting a double Protect are very low
+
+Double target your other Pokémon
+
+Thus, a key skill in VGC is identifying when you NEED to Protect and when it’s unnecessary to Protect. Here’s a list of questions I ask myself when I’m deciding whether or not to use Protect:
+
+Is my Pokémon at risk of getting KOed this turn by my opponent? Is it at risk of being made “useless” (e.g. a physical attacker getting burnt or a Pokémon getting put to sleep”?
+
+If so, can I actually gain an advantage by Protecting? What will I do to make sure this threat does not exist next turn?
+
+What is my other Pokémon going to do during this turn? 
+
+Can it deal with the current threat that I am Protecting against, and if not, do I have something to switch into?
+
+Does my opponent have anything on their side of the field that I need to stall out? Is it absolutely necessary for me to stall it out?
+
+Common examples: Dual Screens, weather, Trick Room, Tailwind
+
+Does my opponent have any way to take advantage of me Protecting?
+
+Common examples: set-up (Swords Dance, Dragon Dance, Substitute), recovery, switching out for free, attacking into the partner Pokemon, setting up speed control
+
+Did I use Protect on the previous turn?
+
+If so, you’ll want to be very careful about using it again - the odds of consecutive Protects are only ⅓. If you fail to get the Protect off, then your Pokémon will be completely useless for the turn.
+
+If my Protect plan works, what does the next turn look like?
+
+As you use Protect, you’ll also want to think about the long-term consequences and the future rather than just the immediate turn. If your Pokémon is still at risk of getting knocked out the subsequent turn, Protect may not actually help with the root cause. 
+
+In this example, you can see how Protect was not very effective in actually advancing the board state:
+
+EXAMPLE
+Protect Extravaganza
+Author: Wolfe
+
+In the finals of the 2015 Massachusetts Regionals, I played against Ashton Cox. In game 2 Ashton finds his Terrakion and Landorus trapped in against my Scrafty and Gothitelle. Ashton goes for a double Protect and gets it, and then goes for a triple Protect and gets that too. After Trick Room goes back up, he gets another double Protect successfully, and then fails his second triple Protect attempt. Despite getting “lucky”, because his Choice Scarf Landorus is locked into Rock Slide and isn’t doing any damage, Ashton isn’t advancing his position at all. In this game, it might have been better for Ashton to let his Terrakion get knocked out to allow for a switch into something that had a bit more offensive pressure.
+
+Link to start of set here.
+Link to game 2 here.
+In this example, you can see how Protect is useful in stalling out field effects:
+
+EXAMPLE
+Stalling out Electric Terrain
+Author: Aaron Traylor
+
+In this set played at the North American International Championships, Diana Bros stalls out her own Electric Terrain so that she can set it again later in the game, allowing her Stakataka to attack without fear of being put to sleep by Amoonguss’ Spore.
+
+Link to beginning of set here.
+Link to beginning of game here.
+Link to Protect here.
+Link to set analysis here.
+How do I play around my opponent using Protect?
+In addition to knowing how to properly use Protect, it’s also important to understand how to play around your opponent using Protect.
+
+The first thing that I’d recommend learning is figuring out which Pokémon are more likely to Protect, and which Pokémon are less likely to carry it. (Reference articles: Wolfe’s Protect guide, Building Up a Knowledge Base to Predict Your Opponent's Plays). For example, in Series 12 VGC, only 5% of Incineroar run Protect, while 97% of Zacian run Protect.
+
+It’s important to learn this because it allows you to take advantage of those Pokémon that don’t frequently run Protect. Some common examples in Series 11 include the aforementioned Incineroar as well as Grimmsnarl, Thundurus, and Porygon 2. Thus, when you’re fighting against these Pokémon, you can generally launch attacks into them more confidently.
+
+One key mistake I often see beginners make is making hard predictions on when their opponent is going to Protect. Sometimes, players are extra confident that a Pokémon will Protect so they ignore it, just for that Pokémon to not actually use Protect and instead use an attack. Thus, you have to always consider the risk/reward of your opponent not using Protect when they seemingly should/have to.
+
+This leads me to the concept of “forcing” your opponent to Protect. Making your opponent use Protect will generally make their next turn substantially more difficult as they cannot use it again with much confidence. As a result, it can actually be useful to attack into something you think that is Protecting: if they don’t Protect, you can just get a large amount of damage off/KO them, and if they do Protect, you can pressure that slot a lot more the subsequent turn. 
+
+When do I go for consecutive Protects?
+The odds of you getting back-to-back Protects with a Pokémon is ⅓ - that means that ⅔ of the time, your move will fail completely. This not only leaves your Pokémon completely vulnerable for the turn, but it also denies it the option of going for any other attack. As a result, it’s extremely risky to attempt consecutive Protects, and it should generally be seen as a last resort option. 
+
+However, in the right situation, going for consecutive Protects can be game-defining if you get it off. Here are some examples of when you may want to consider it:
+
+You need to stall out speed control (e.g. Tailwind, Trick Room) & you do not have reliable switch options anymore
+
+You need to save one Pokémon that can win you the game, and the only way to save it is the KO an opposing threat 
+
+You have no better play to make with the Pokémon and don’t want a free switch-in to a Pokémon in the back
+
+Generally, a good principle is to only attempt consecutive Protects when you have absolutely no other options and will lose otherwise. 
+
+EXAMPLE
+Double Protecting when absolutely necessary
+Author: Aaron Traylor
+
+In this set played at the North American International Championships, Paul Chua’s double Protect took center stage. He was in a tough spot facing down an Encore Whimsicott and was able to find a path to victory.
+
+Link to beginning of set here.
+Link to beginning of game here.
+Link to double Protect here.
+Link to set analysis here.
+EXAMPLE
+Double Protecting… on accident?
+Author: Aaron Traylor
+
+Sometimes in the heat of a tournament you can forget that you used Protect on the turn prior, and inadvertently double Protect. This happened to me in Top 4 of a Regional, where I accidentally double Protected with my Bisharp– and Earthquaked with my Landorus! Luckily for me, the double Protect went off, and I got into a great position because of it– but that game could have been over instantly if it had gone the other way.
+
+Link to beginning of set here.
+Link to beginning of game here.
+Link to beginning of double Protect here.
+
+
+Conclusion 
+Protect is one of the most important moves in competitive VGC, so it’s important to understand how to use it properly and how to play against it. Here are some main takeaways from the article:
+
+Protect can be useful for a wide variety of reasons - in addition to preventing your Pokémon from taking any damage, you also can use it to avoid Fake Out, stall out field conditions, etc.
+
+There are drawbacks to using Protect as well - one of the most important factors to consider is what you are going to do on the subsequent turn after you use Protect, since the odds of going for a consecutive Protect is only ⅓.
+
+Going for consecutive Protects is incredibly risky - you generally want to avoid it unless you feel like you truly have no better options.
+
+It’s helpful to have a general idea of what Pokémon will frequently carry Protect (e.g. Zacian) and what Pokémon will rarely carry it (e.g. Grimmsnarl, Incineroar) 
+
+It can be worth it to attack into a seemingly obvious Protect to 1) deny that Pokémon from doing anything for a turn 2) make the subsequent turn harder for them since they don’t have a safe Protect to go for
+When you're playing through the Pokemon video games, switching isn't a focus of battles in the story– attacking is a much more direct path to victory. In competitive Pokemon, however, switching your Pokemon in at the right time can turn the battle on its head-- and your opponent switching in their Pokemon when you least expect it can be devastating.
+
+Why would you want to make a switch? 
+Survive an attack
+If an opposing Pokemon threatens a powerful attack on one of your Pokemon, you're going to have to Protect, switch it out, or risk being knocked out. The urge to switch happens instinctually for many players in this situation. 
+
+Improve next turn's positioning
+Think about how this turn is going to go, and what the situation next turn will look like. Then, think about if you can afford to switch a Pokemon in for some effect next turn. 
+
+Make the most of field conditions
+Certain field conditions only last for a set amount of turns (e.g. Trick Room, Tailwind, weather, terrain), and if your active Pokemon don't make full use of those conditions, they may be gone before you reap their benefits. You can switch in a Pokemon with high damage output that will take advantage of the condition while it lasts. 
+
+Save a Pokemon for later
+If one Pokemon is crucial to your plan for defeating your opponent, you can switch it out to preserve it for as long as possible. Then, once your opponent's resources for defeating it are weakened, you can use that crucial Pokemon to close out the battle.
+
+What are the risks of switching? 
+Some switches happen in the moment, as you instinctively rush to save a Pokemon from an attack. However, for the most part, switching is about setting up for success on a future turn. Because switching requires foresight, you'll need to be extra careful to think twice before you switch, and cautiously consider what will happen this turn and next turn.
+
+Your opponent could do something that you don't expect
+In most cases, a player will switch because they expect their opponent to make a particular move or play in a particular way. However, opponents don't always move in the way that you think they will. Before switching, consider what the risks of your switch are, and what the worst case action from your opponent will be– and then think about whether your opponent will actually make that move.
+
+“This reasoning doesn’t have to take the form of “making a prediction” per se. If you think about the future at all, you have to reason about your opponent’s actions to some extent– and your reasoning might be right or wrong.”
+— Aaron Traylor
+(link to predictions article)
+
+Switch-in could take too much damage
+Switching in is ultimately a risky move, and the Pokemon that switches in is entirely defenseless. Some of the time, you'll switch in a Pokemon and it'll take too much damage from 
+
+Furthermore, pay attention to your team's total health when you focus on switching. Switching doesn't do damage– that means that compared to attacking, switching doesn't immediately advance you towards knocking out all 4 of your opponent's Pokemon. There may be big payoffs in the future if you can switch into an advantageous position, but if you spend too much time switching, you might take too much damage to be able to make use of the positioning you get.
+
+
+Finally, switching into an attack can mean your switch-in Pokemon will be the victim of that attack's undesirable secondary effects– a crit, a burn, or even a freeze. This event is importantly linked to the fact that you get luckier when you have more chances to attack.
+
+Switch-in doesn't improve your next turn
+Your switch-in Pokemon has to be useful to some extent against your opponent's Pokemon and their attacks. If you switch out a Pokemon to save it, great– but if you've switched in a Pokemon that is just as weak in this situation, you may have actually harmed your position by giving your opponent an opportunity to attack without recompense. 
+
+Wrapping Up
+To make a switch successfully, you have to consider your opponent's Pokemon's capabilities, and think about how the next turn will end up in the best case-- or in the worst case. At the end of the day, the success of a switch usually depends on your opponent's actions, so there's no guarantee even the most well-thought-out switches will end up well. In fact, even the most expert competitive Pokemon battlers make switches that end up poorly for them. However, switching is a fundamental skill of Pokemon, and thinking about switches lets you make more complex plays that get you closer to victory.
+
+When facing a Trick Room setter, you should ask yourself two questions. 
+
+1) Can I stop Trick Room from going up?
+
+2) How bad for me is it if Trick Room goes up? 
+
+
+If you don’t explicitly want Trick Room up, it can be good to KO the setter, but there are many instances where that isn’t possible. So, if you can’t stop Trick Room from going up, what do you do? 
+
+The Basics
+Your goal is to minimize the amount of turns where your opponent can actually benefit from Trick Room. Trick Room only lasts for five turns (effectively four because the setting turn counts). The most straightforward way to stall Trick Room is to make use of Protect. Trick Room only provides four turns to attack, so in the most simple case you can waste half of those by Protecting both your Pokémon every other turn. Although double Protecting frequently is exploitable (setup moves, switching, etc), it’s a good starting place.
+
+Other methods of wasting your opponent’s time during Trick Room are making smart switches (switching Pokémon in defensively when you expect a move of a certain type), status moves, or finding opportunities to use Fake Out. The most effective way, however, is to pay attention to positioning.
+
+Positioning Against Trick Room
+Teams that want Trick Room up will frequently avoid leading with their Trick Room sweeper, as they either don’t want it to get focused with attacks immediately or they need some support for their setter. For that reason, a typical lead is Trick Room setter + Trick Room support. Let’s use the example of a bulky Trick Room setter like Dusclops, and a support Pokémon like Indeedee-Female. Many players will KO the Indeedee turn 1 as it uses Follow Me, Dusclops will set Trick Room, and now the Trick Room sweeper comes in and has four turns to exert pressure. But what happens if you DON’T knock out that Indeedee turn 1?
+
+Well, now it’s turn 2 and your opponent has a choice. Stay in with Indeedee and hope it gets KO’d, which is susceptible to a defensive play (like Protecting both Pokémon, switching, or setting up). This would mean your opponent only has 3 turns left of Trick Room which gives at most two for the sweeper to make use of. Their other option is to switch Indeedee out into the sweeper to make use of the remaining 3 turns, which is susceptible to the sweeper taking damage or even being knocked out as it comes in. Compare this choice to what happens if you knock out Indeedee turn 1- your opponent doesn’t have to make a difficult choice and instead can exert pressure immediately.
+
+Pokémon is in many ways a game about making your opponent make difficult decisions.
+
+This is an example of a situation where taking a KO is bad for you in the long run. If your opponent has led two defensive Pokémon, leaving them on the field to waste turns is extremely valuable when you want to stall out a field effect. 
+
+What Happens When Trick Room Ends?
+You want to be thinking ahead to the turn when Trick Room ends. Just because you stalled out Trick Room doesn’t mean you’ll win automatically. Identify what conditions have to be met in order to prevent a second Trick Room from being set up, and further consider which Pokémon you need to have in order to win the game once Trick Room expires. This isn’t an easy skill but it’s invaluable especially when playing against Trick Room.
+
+I’ll also throw a little note in here that Trick Room is the biggest reason why Hyper Offense (teams that focus entirely on their offensive capabilities and synergies and have little to no defensive capabilities) don’t often perform well. It’s very difficult to use smart defensive positioning without the proper defensive tools.
+
+Wrapping Up
+Playing against Trick Room can be challenging (and, at times, frustrating), but it will only get easier the more experience you have fighting in those twisted dimensions.
+
+If you’ve played through a Pokemon game, you’re probably familiar with the HP bar. It starts off green, changes to yellow when the Pokemon loses 50% of its maximum HP value, and changes to red once the remaining HP hits 25% of capacity. In a playthrough, a Pokemon hitting that red zone is bad news - in large part because the music becomes more stressful, though also because it means your Pokemon is probably about to get knocked out. Just like how someone playing through the game might want to save their beloved Pokemon from being knocked out, in competitive Pokemon you might want to preserve one of your Pokemon even when their health is low.
+
+All of your Pokemon will function in exactly the same way no matter how much health they have left - a Pokemon at low HP won’t do less damage than if it was fully healthy. Even with only 1 Hit Point remaining, Pokemon can sometimes be impactful on the battle. The goal of this article is to get you thinking about when a Pokemon is worth saving for later, and when they’ve earned a rest until your next match.
+
+When to preserve a low HP Pokemon
+Sometimes the correct move is to switch out one of your Pokemon that has taken damage in order to preserve them for later in the battle. While there’s no hard and fast rule for knowing when to do this, there are a few things to consider.
+
+Will You Be Able to Bring It in Later?
+There isn’t much point in saving one of your Pokemon now if you won’t be able to get it in safely later. Some ways of bringing Pokemon in without them taking damage include:
+
+After another one of your Pokemon gets KOed
+
+Moves such as Volt Switch, U-Turn, and Parting Shot used after the opponent has attacked
+
+Switching into a move that does little to no damage (think about moves your Pokemon might be immune to, like if it’s a Flying-type or Ghost-type)
+
+Switching a Pokemon in while its partner KOs the relevant opposing Pokemon
+
+Switching a Pokemon in by making a prediction (risky)
+
+If you don’t think you’ll have an opportunity to bring the Pokemon in later, it might be better to let it go down now rather than risk damage on your other team members.
+
+Will the Pokemon be able to have an impact later?
+If you’ve decided you’ll be able to bring your Pokemon in safely later, great! The next thing to assess is if the Pokemon will be able to impact the battle in a meaningful way once it has safely re-entered the field. Here are some things to consider:
+
+Will your Pokemon be able to move before your opponent’s Pokemon?
+
+Most Pokemon need to be able to attack in order to have an impact on the battle. For an attack to have value, it needs to actually be used, and a Pokemon that faints before using an attack won’t get value out of their attack.
+
+This isn’t always about the Speed stat - many impactful moves have increased priority. These can be both offensive moves (Grassy Glide, Aqua Jet) or support moves (Fake Out, Follow Me).
+
+Sometimes the reason your Pokemon is currently being outsped is because of some form of Speed control that your opponent has, like Tailwind or Trick Room. If you can outlast these effects, your currently vulnerable Pokemon may have more value.
+
+Your opponent may have one Pokemon in particular that is faster than your low HP Pokemon - if you focus on removing it, you might give your low HP Pokemon more breathing room.
+
+Does your Pokemon have an ability that will be useful later?
+
+Some abilities activate when switching in, and can be useful even if the Pokemon fails to attack. Notable examples include Intimidate and abilities that change the weather or the terrain.
+
+Even if your Pokemon doesn’t meet the above criteria, there may still be value in saving it as a sacrifice later in the game. Sacrificial Pokemon provide value to their teammates in a few ways typically.
+
+Allowing a teammate to reactivate an ability on switch in
+
+Letting a teammate switch in at the end of the turn safely
+
+Allowing a teammate to reset stat drops or other negative effects safely
+
+Stalling out an opponent’s field condition like Trick Room or Tailwind
+
+How much value a Pokemon can provide later depends largely on the context of the battle. In addition to the value, it’s important to consider the cost of switching out a Pokemon. It can be risky to switch, and if the turn doesn’t go in the way you anticipate you may end up in a worse position than if you’d simply sacrificed your Pokemon. When considering saving your Pokemon, try and assess whether the value you might get is worth whatever risks you have to take.
+
+One of the best ways to improve in VGC is to analyze your own battles. There can be a lot to break down in just one game, so I want to highlight some of the key areas I focus on when reviewing my matches.
+
+Lead Match Up 
+After seeing my opponent’s leads, I always like to ask myself what combination of Pokémon on my team can deal with their lead the best. If it’s not the lead I selected, I ask myself why I chose this specific lead.
+
+Your Pokémon Selection
+It’s helpful to reflect on each Pokémon you selected (leads and back) and ask how much they contributed to the battle. In the same vein, it’s also helpful to reflect on the two Pokémon you did NOT bring into the battle and ask if they could have replaced any of the four you brought.
+
+EXAMPLE
+I got swept by my opponent’s Rotom-W. The best counter I have to that is Venusaur, which I did not bring in this match. Why did I not bring Venusaur into the battle? 
+
+Any turn that involves luck/RNG
+Luck is undoubtedly an element of Pokémon, but the best players are able to mitigate it and reduce its impact on a match. It’s helpful to look at any turn that involves any luck/RNG & ask yourself how that turn would have played out if you remove that luck/RNG. [It’s also very important to think more about the BIG picture - not just that specific turn, but all the turns leading up to it as well]
+
+EXAMPLE
+If you missed a crucial attack and lost the game as a result, ask yourself if you could have used more accurate attacks to secure a victory.
+
+“ This should normally be your absolute last answer for why a turn went wrong. In Pokémon, luck is a skill, so getting bad luck normally means you made a mistake in teambuilding or playing”
+— Wolfe
+Damage Calculations
+In a battle, you’ll generally estimate a ton of different damage calculations throughout the match. I like to look back and ask myself 1) how accurate my “internal” calculations were 2) if there were any moves I potentially missed out on because I was unsure how much damage they would do.
+
+General Feeling
+Throughout a battle, I find that I generally feel good, neutral, or bad as each turn starts. I like to pay attention to when my feelings shift (e.g. neutral -> bad, good -> bad) & identify the cause of that. 
+
+Turn-by-turn analysis
+I like to walk through each individual turn and ask myself: 
+
+Did I make the best possible play, regardless of what my opponent could go for? If not, did I miss the best possible play? Why was I not able to recognize it at the moment?
+
+Did I anticipate my opponent’s move as an option? (Often, when the answer to this question is NO, it leads to big swings/surprises)
+
+If I knew my opponent was going to go for their specific play this turn, would I go for the same play I initially went for? 
+
+Was my play this turn unnecessarily risky? Even if it worked out, was there a way my opponent could have punished me that they missed?
+
+MOST IMPORTANT TURN - it’s more productive if you can find the most important turns (e.g. for me, these are turns that change my general feeling significantly / turns that feel like they essentially decide the game) & analyze those to the best of your ability
+
+Sometimes, it’s just a match-up/team issue
+There will be times where you feel helpless, even after evaluating all the above options. The team you select & how it matches up against your opponent’s is a big element to this game, which is why team-building is so important. It’s important to identify when you are at a significant disadvantage because of the team/match-up.
+
+How do you identify that it’s a match-up/team issue?
+
+You constantly feel the need to make predictions and make risky plays
+
+You can’t handle a specific Pokémon or group of Pokémon on your opponent’s team well (e.g. you have very little to hit your opponent’s strongest options)
+
+Your strongest Pokémon simply just don’t do enough damage (this often is tied to a Pokémon requiring too much effort to get going - e.g. it needs a turn to set-up, it needs a partner to enable it. Other issues include: the Pokémon has bad typing, it relies too heavily on one-two attacks
+
+You cannot figure out a neutral/strong lead option against the lead that your opponent brought
+
+You generally feel overwhelmed - even though you feel like you are playing well, you still cannot win games
+
+I will always try to analyze my battles as much as possible before concluding it’s a match-up/team issue.
+
+
+
+Conclusion
+As you can probably tell, there are a ton of different factors you can review after a battle. If I had to highlight the order in which I personally review games in, I’d go in the following order:
+
+The turn that decided the match (this doesn’t necessarily have to be the final turn - it’s the turn that I generally define as one player gaining an insurmountable lead over the other)
+
+Other specific turns where I felt like I did not make the best possible play / did not properly anticipate my opponent’s play 
+
+Overall Pokémon selection (could one of the two Pokémon I did not bring contribute more)
+
+Lead match-up (if I knew my opponent was going to lead with their lead, do I have a better lead combination to deal with it? Was it possible to anticipate my opponent’s specific lead?
+
+Overall match-up analysis
+
+There’s no right or wrong way to analyze games, but in my opinion, it’s good to thoroughly assess every part of the game, which is why I find it useful to break it down into a couple of key areas. Battles are deeply complex, and you can do a ton of reflection on even a singular turn. 
+
+I’d also like to remind you to not focus as much on results-based analysis - just because a play didn’t work out doesn’t necessarily make it incorrect (and vice versa: just because a play DID work out doesn’t necessarily make it good). If you focus too much solely on results, you’ll often miss ways to improve in the victories that you have.
+
+Overall, I think that being able to objectively analyze your games and highlight both your good and bad plays is a key skill in developing as a player! No one likes losing, but the great thing about losses is that you can learn so much from them. If you’re able to take your learnings and apply them to future games, you will surely increase your chance of success.
+
+This set features:
+
+Switching
+
+Best of 3 adjustments
+
+Double targeting
+
+Pressure
+
+Setup
+
+Surprise Factor
+
+Game link 
+
+This game is a late Worlds Swiss round between Will Tansley (GB) and Nils Dunlop (SE), two titans of the VGC 2017 season. VGC 2017 was marked by slow-paced games featuring heavy amounts of switching, in part due to the “50% berries” (Figy, Iapapa, Wiki, Aguav, and Mago Berry), which restored a large amount of health and could be held by multiple Pokemon per team. This set, conversely, plays at a breakneck pace: Nils sets up his Snorlax with Belly Drum and it’s up to Will to figure out how to stop it from running through his whole team.
+
+VGC 2017 specific information
+Only Pokemon native to the Alola Pokedex were allowed (Sun and Moon)
+
+Pokemon could Z-move (more details on what these were)
+
+Check out the usage statistics here to see what Pokemon and moves were popular.
+
+Figy, Iapapa, Wiki, Aguav, and Mago Berry restore 50% of a user’s lost HP instead of 33% when the user reaches 25% of its max health (50% with Gluttony)
+
+Game Analysis
+Game 1
+Team Preview
+Both teams are fairly standard (at first glance) for the VGC 2017 era, and they both have many options available to them. Nothing really leaps out to me by just looking at Team Preview as to how one player could gain an advantage over another. 
+
+Turn 1, Game 1 (2:00)
+The Snorlax mirror match is more dangerous than it looks at first glance – in VGC 2017, Snorlax could run either a Curse set (win condition over a long period of time) or a Belly Drum set (win condition over a shorter period of time). If one or both players’ Snorlax have Belly Drum, the situation could get dangerous fast, which is the risk that each player is considering at that moment. 
+
+(Note that because Nils’ Persian is faster than Will’s Togedemaru, its Fake Out will go first, so it can flinch Snorlax or Togedemaru. Togedemaru is forced to Fake Out Snorlax, because if Persian uses Fake Out on Snorlax, and Togedemaru uses Fake Out on Persian, Nils’ Snorlax gets a free move.)
+
+Turn 2, Game 1 (3:10)
+The situation has become much more precarious for Will, because Nils’ Snorlax is now ready to attack after Belly Drum– and worse, it’s assuredly faster after Will’s Snorlax’s Curse. Nils’ Snorlax is now threatening massive amounts of damage on both of Will’s Pokemon, and Will must respond to the pressure. 
+
+Both players learn that Will’s Snorlax survives a +6 Return after one Curse. That is incredibly important information that both players will make use of throughout the set. 
+
+Turn 3, Game 1 (4:55)
+Both players make relatively safe plays here. 
+
+Will realizes that if Snorlax targets Togedemaru, it won’t survive the +6 Return. However, he realizes that Celesteela can survive that attack (worst-case scenario):
++6 252+ Atk Snorlax Return vs. 252 HP / 4 Def Celesteela: 165-194 (80.8 - 95%) -- guaranteed 2HKO 
+And thus the switch to Celesteela is relatively free. It also covers High Horsepower in case Nils’ Snorlax runs that set.
+
+Nils realizes that Togedemaru can easily pick off his own Snorlax, so he Protects it. If Foul Play 2HKOs Togedemaru, Nils could pick up both Pokemon on the following turn.
+
+Turn 4, Game 1 (6:10)
+Trading Snorlax is the best case scenario for both players. 
+
+Turn 5, Game 1 (7:04)
+At this point Nils has run out of resources to deal with Will’s Tapu Fini and the game ends quickly and without event. Note that Will’s last Pokemon is not revealed, so Nils has less information about Will’s gameplan to work with for future games.
+
+
+
+Game 2
+Game 2 Team Preview
+It’s become clear to both players how central Snorlax is to the battle on each side. 
+
+Will’s Snorlax after Curse survives a +6 Return from Nils’ Snorlax
+
+Will’s Celesteela survives a +6 Return from Nils’ Snorlax
+
+Each player has to choose their Pokemon for Game 2. They have the option to make adjustments to their strategy based on Game 1. When you pick your Pokemon for Game 2 or 3 of a set, you can do one of several things:
+
+Change your strategy entirely to challenge your opponent in a new way
+
+Keep the same strategy, but change your moves slightly on a crucial turn
+
+If you won Game 1 or 2 soundly, or your opponent got extremely lucky to beat you, you can keep the same strategy and same moves and force your opponent to react to it or lose
+
+The players keep the same leads. This can be interpreted from Will as “I liked how Game 1 went and it’s up to Nils to change things up”, and from Nils as “I can see how a slight deviation in how Game 1 went could turn the game in my favor.” (Especially given the crit on Turn 2 Game 1!)
+
+Turn 1, Game 2 (12:20)
+A repeat of leads and moves means that Nils is going to try to change things up to turn the tide in his favor very shortly. 
+
+Turn 2, Game 2 (13:34)
+And here we see the crux of Nils’ plan: by chipping Will’s Snorlax with Foul Play, Will’s Snorlax is now in range to get knocked out by Nils’ Snorlax’s +6 Return. Even worse for Will is that he’s now blown the surprise of Encore on his Togedemaru. However, Nils may have been playing around this Encore as early as Turn 2, Game 1!
+
+Note that even if Will knew that this was coming, he would still be nearly powerless to stop it. He would have to switch in a Pokemon that could deal with Snorlax, and Persian is still in a commanding position. Furthermore, Nils’ Snorlax could have just as easily attacked either of Will’s Pokemon. Will has absolutely no pressure on the board. 
+
+Turn 3, Game 2 (14:20)
+A last-ditch switch from Will in an attempt to survive in this game for a little longer. Note that this turn plays out very predictably for Nils– he doesn’t have to do anything crazy to be in a commanding position here. 
+
+Turn 4, Game 2 (15:17)
+Will is trying desperately to save a lost game but Nils doesn’t have to overthink anything and can just attack.
+
+Turn 5-on, Game 2 (16:16-21:00)
+The rest of the game finishes without any error on Nils’ part and, while Will gets some of the luck he is fishing for (Muddy Water accuracy drops, critical hits), he’s still too far behind to bring it back. He does get to see that Nils’ last Pokemon has changed as a result of the luck, which is useful information. 
+
+
+
+Game 3
+Game 3 Team Preview
+Now that Nils has found a much more successful move on Turn 2, which Will has little way around, Will must adjust his game plan for Game 3. Will could continue down the same path as before, leading Togedemaru and Snorlax, but Turn 2 Game 2 was so decisive that he’s unlikely to consider that. What can Will do? He can either try to disrupt Snorlax with supportive moves (like Togedemaru’s Encore) or threaten it with high amounts of damage. 
+
+On the other hand, Nils is in a very solid position. He found a move that his opponent has very few solid options against. Furthermore, Persian outspeeds all of Will’s Pokemon. This means that if Nils’ Snorlax gets a Belly Drum up, any threat to knock it out in one hit or to disable it can be stopped with a Quash and +6 Return. With smart double targeting he has very little to worry about given what he’s seen on Will’s team so far. 
+
+At this point, Nils could switch up his game plan entirely if he thought he knew what Will was going to try and do to beat Snorlax. However, it’s not exactly clear how Will intends to do that. For example, if Will had a strong Fighting-type Pokemon that could knock out Snorlax in one shot (e.g. Pheromosa) he would probably lead it in Game 3, and Nils would maybe have to plan around that. But Will doesn’t, and Nils probably doesn’t know everything about Will’s team, so it’s much less obvious how Will can change things up. Better to stick to what works so far. 
+
+
+
+Leads, Game 3 (23:41)
+Nils has kept the same lead and Will has changed entirely to Garchomp and Celesteela. In VGC 2017, Garchomp often held Groundium Z for a powerful single-target Z-move. If I were Nils, this would send a plain and simple message: Will intends to Groundium Z the Snorlax to prevent it from setting up Belly Drum. Celesteela can run interference in the meantime with Leech Seed and Heavy Slam, and it generally cares less about Snorlax anyway.
+
+
+
+Turn 1, Game 3 (24:14)
+Now on this turn Will double switches! Double switching is a risky maneuver because you deal no damage and could take lots of damage. In this case, Will lets a Belly Drum happen for free. 
+
+But he has to have some motivation for doing so. Notice that the double switch gives Togedemaru Fake Out pressure on Persian. 
+
+From Nils’ perspective, it’s clear that Tapu Fini is about to Haze the boosts of Snorlax away. Tapu Fini wouldn’t have switched in for offensive purposes: Snorlax has huge Special Defense (maybe to knock out Persian, but it could just Parting Shot away). The only reason that Will would make a double switch is to Haze, thinking quickly through Tapu Fini’s moveset.  The surprise factor of Haze is thus blown by the knowledge that Nils has about the situation.
+
+Turn 2, Game 3 (25:33)
+Will gets the Haze off, but thanks to the Foul Play from Persian, he’s actually not in a great position. Persian threatens a knockout on Togedemaru and Will still can’t really stop Snorlax from doing what it wants, even though Belly Drum’s boosts are gone. Worse, he has no real path to clearing Persian. Togedemaru is forced to switch or Spiky Shield, meaning that Nils has the option to take some initiative: he can either go for the knockout on Togedemaru or Parting Shot off of Tapu Fini for relatively little downside. 
+
+
+
+Turn 3, Game 3 (26:25)
+Will double switches again. Typically double switching too often is a sign that you’re really in trouble, because you’re not doing any damage. 
+
+At this point, Nils has both an HP advantage (Togedemaru is low) and a positional advantage (Garchomp is at -2 attack, and Snorlax just recycled its berry). Will is definitely on a back foot. 
+
+
+
+Turn 4, Game 3 (27:53)
+Will cannot prevent the Belly Drum from happening once more, and Swords Dances and switches to Togedemaru in an attempt to Fake Out + Z-Move (Tectonic Rage, Ground-type) into Snorlax. 
+
+There are several reasons why the Arcanine could have switched out into Persian:
+
+Chiefly, if Nils had chosen to Flare Blitz into Celesteela with Arcanine, either Celesteela or Togedemaru likely would have been knocked out– but then Will could just switch in Tapu Fini and Haze while Garchomp deals massive amounts of damage. 
+
+If Celesteela Protects while Garchomp Swords Dances, both Arcanine and Snorlax face a good deal of damage.
+
+Trying to get Fake Out pressure for the turn after Belly Drum
+
+Dodging Earthquake + Flying combo (but Garchomp is at -2 Attack)
+
+In any case, it is a very nice play that shows a lot of foresight. 
+
+Turn 5, Game 3 (29:05)
+Nils once again makes a play that has zero risks. 
+
+Snorlax is always going to be safe from the double target (Fake Out + Tectonic Rage)
+
+Even if Will makes a prediction and targets Nils’ Persian with Fake Out and Tectonic Rage, thanks to the Fur Coat ability it will survive easily
+
+Persian’s Foul Play will always pressure both Garchomp and Togedemaru. Garchomp cannot Swords Dance again or risk a potential knockout
+
+After this point Will is unable to reenter the game. 
+
+Wrap-Up
+Nils used his Persian and Snorlax to their fullest effect and was able to create several zero-risk situations for himself throughout the course of the battle. Will is and was a very talented battler: however, his team did not have the tools to deal with Nils’ Pokemon when used in that way. It’s hard to say exactly what Will could have done better in this set: it’s challenging to play a very skilled player who has a team advantage on you and isn’t making any mistakes mid-battle. 
+
+Quash and Belly Drum are risky moves to select in the broader case (in metagames outside of VGC 2017). Indeed, after VGC 2018 both Alolan Persian and Snorlax were much less powerful. However, there are plenty of lessons to be learned from Nils’ play. 
+
+After Game 1 of a best of 3: are there any slight variations to how the game just went that can turn it on its head? (Turn 2, Game 2)
+
+How can you limit your opponent’s options as much as possible, so that even if they predict, they aren’t able to break through your strategy?
+
+If you’re going to use setup moves with your Pokemon– what are the risks? What is the payoff if things go your way?
+
+There are plenty of things to notice from Will’s play as well.
+
+If you find yourself double switching frequently– that’s a good sign that either you’re focusing too much on positioning, or your team is in trouble no matter what you do. Obviously, you can’t change your team during the World Championships. But if you’re testing on the ladder or in practice matches and you find yourself double switching too often, consider changing your team up, or focusing more on dealing damage. 
+
+Sometimes you can come up with a counter to your opponent’s plan (See Turns 1 and 2 of Game 3). But notice that even though the game played out exactly as Will planned, he was still at a major disadvantage. This isn’t easy to do, but if you can manage to think out the consequences of the plans you make mid-battle, you’ll be more informed.
+
+This set features:
+
+Momentum
+
+Protect and Double Protect
+
+Surprise factor
+
+Prediction
+
+Game link
+
+This is an early Swiss round at the North American International Championships between two strong American players. VGC 2019 Ultra Series was a year featuring restricted Pokemon, and games in that format were fast-paced and left little room for error. 
+
+VGC 2019 Ultra Series specific information
+Held on Pokemon Ultra Sun / Ultra Moon
+
+“GS Cup” format: two restricted Pokemon are allowed per team. 
+
+Pokemon could Z-move (more details on what these were)
+
+Pokemon could Mega Evolve (more details on what this is)
+
+Primal Groudon and Primal Kyogre exist (more details on what these and their weather are)
+
+Figy, Iapapa, Wiki, Aguav, and Mago Berry restore 50% of a user’s lost HP instead of 33% when the user reaches 25% of its max health (50% with Gluttony)
+
+Check out the usage statistics here to see what Pokemon and moves were popular.
+
+Game Analysis
+Game 1
+Team Preview
+These teams feature a classic matchup in VGC 2016 and 2019: Xerneas / Primal Groudon versus Rayquaza / Primal Kyogre. Xerneas and Primal Groudon are paired together because they are immensely strong in comparison to everything else in the format, and Rayquaza and Primal Kyogre are paired together because they reliably stop Groudon (and from there, you can target Xerneas). Diana has Stakataka, which is her only reliable way to knock out Xerneas in one hit, whether or not it has boosted using Geomancy. These Pokemon will be the centerpiece of the match. 
+
+Turn 1, Game 1
+Incineroar and Xerneas is a classic lead: Fake Out and Geomancy, and sweep from there. Paul puts it up to Diana to position well around this threat. 
+
+Before you watch this turn, think about what moves each Pokemon is likely to click, and into which targets. 
+
+–
+
+This is an extremely interesting turn for two reasons. First, Kyogre has one of the strongest Water-type attacks in the game, and Incineroar is a Fire-type: it’s obscenely clear to both players that Kyogre threatens to one-shot Incineroar. However, from Paul’s perspective, losing Incineroar may not actually be the worst thing. These games go lightning fast, and Incineroar fainting gives Paul a free switch to Groudon between turns 1 and 2, thus rendering Diana’s Kyogre unable to use Water-type moves on the following turn.
+
+Second, Diana switches out her Tapu Koko for Stakataka. This move is a big deal, because at first glance she could have used Volt Switch with Tapu Koko, which would have accomplished the same switch as well as put some important damage onto Xerneas. However, Diana responds to the same realization that Paul had: Kyogre taking the Incineroar knockout was actually what Paul could have wanted, so he was likely to Fake Out Tapu Koko! 
+
+Note that should Paul have clicked Fake Out into Kyogre (which I think many would call the more obvious move), she would still be in a great position with Kyogre and Stakataka on the field. Groudon has to manually switch, which is too little too late before Stakataka sets up Trick Room or outright knocks out Xerneas.
+
+Turn 2, Game 1
+Groudon threatens to knock out Stakataka. Stakataka threatens to knock out Xerneas (or set Trick Room). Kyogre cannot use Water-type moves in the extremely harsh sun. Diana’s Stakataka could switch out to Rayquaza for its Air Lock, which would negate the extremely harsh sun, but Xerneas applies massive pressure with its Geomancy-boosted Fairy-type attacks.
+
+–
+
+Look at the reaction from Paul once Dazzling Gleam fails to knock out Rayquaza! He did not expect for it to survive that attack. It’s just been revealed that Rayquaza is holding an Assault Vest– and is probably pretty bulky on top of that. This was a fairly common Rayquaza set at some points during the Ultra Series metagame but there’s no way that Paul could have known that Diana had the item– otherwise he may have doubled into Stakataka with Moonblast + Earth Power.
+
+Turn 3, Game 1
+It’s now challenging for Diana to reach the boosted Xerneas, but Stakataka should clean this game up without major problems regardless.
+
+–
+
+This is a nice prediction from Paul to regain a bit of ground. Note that, of course, this play lost to Dragon Ascent into Amoonguss and any attack by Kyogre. But that would be a prediction on Diana’s end as well, and now we’re getting ahead of ourselves. 
+
+Turn 4, Game 1
+Xerneas and Amoonguss will not be able to resist Stakataka’s onslaught, but Paul will do his best. Two Moonblasts from Xerneas should take out Stakataka. 
+
+–
+
+Tapu Koko Protects here for a very important reason: to reset Electric Terrain after Turn 5. The only way that this game spirals out of Diana’s control is if Stakataka falls asleep, which Electric Terrain prevents. By Protecting on Turn 4, she assures that she will at most lose one Pokemon that turn, leaving herself on Turn 5 with one Pokemon in the back to switch in for Tapu Koko on Turn 5 when the terrain expires. Then Tapu Koko can reset it any time it wants. Paul has no counterplay to this.
+
+Turn 5, Game 1
+–
+
+Diana successfully preserves Tapu Koko. Trick Room means that Stakataka will move before both Xerneas and Amoonguss. 
+
+Turn 6, Game 1
+–
+
+Stakataka cleanly takes the KO on Xerneas and that should be the game, as Amoonguss can’t win 1v3. 
+
+Note that two worlds exist in which Diana loses this game– first, another Protect/Spore play. Paul likely did not make this play because he doesn’t want Diana to take advantage of that pattern. Second, Amoonguss can Rage Powder away Gyro Ball, forcing Diana to Rock Slide, which can miss. However, this play invites an Origin Pulse as well (which can also miss, but the combined probability of one connecting with Xerneas is high). Paul respects Diana’s pattern recognition ability, as well as Kyogre’s attacking option on this turn, which Diana takes advantage of with her own ultimately successful prediction. 
+
+Turn 7, Game 1 
+The game concludes from here. 
+
+–
+
+Game 2
+Team Preview between Game 1 and 2
+The chief thing on both players’ minds is still the relationship between Xerneas/Groudon and Rayquaza/Kyogre/Stakataka. From Paul’s perspective, now that he knows that Rayquaza is Assault Vest, he can adjust and clear it with a Moonblast. He would not mind the game returning to the same state as it did on Turn 2 of Game 1. From Diana’s perspective, she had to play very well through some tough spots to reach that win. Of the two players, despite her victory, I think she’s more likely to switch things up for Game 2 given Game 1.
+
+
+
+Turn 1, Game 2
+Diana has substituted Whimsicott. Presumably, this means that Tapu Koko hit the bench– Stakataka and Rayquaza are too important. 
+
+Whimsicott is a chaotic Pokemon with access to many disruptive moves. Paul will have to tread lightly, as he likely has no idea what its moveset is. This is a dangerous position to be in down 0-1 of an important set.
+
+–
+
+Whimsicott preserves its Focus Sash. From Paul’s point of view, however, he probably doesn’t want to risk losing his Incineroar for free again. 
+
+Turn 2, Game 2
+This is another dangerous turn for both players, with Diana having a slight advantage thanks to that Focus Sash. Incineroar is still in a tricky position.
+
+–
+
+Whimsicott reveals Encore, but Paul plays around it! This cautious play saves his skin, as being trapped into Geomancy in front of an angry Kyogre and Rayquaza is almost certain doom. 
+
+Turn 3, Game 2
+However, Paul isn’t out of the woods yet, as Whimsicott could repeat Encore, this time trapping Xerneas into Protect. Diana is firmly in the driver’s seat.
+
+–
+
+Diana makes a risky play, but this time she is punished hard for it, as Groudon takes a firm knockout onto Rayquaza. 
+
+Diana could have made this play for many reasons, and although it went wrong for her there are some easy explanations. First– she could have expected Paul to double Protect with Xerneas, knowing that he knows he’s backed into a corner. This is almost certainly the case as she and Paul have respected each other’s abilities and decision making throughout the game. Second– she could have thought that Kyogre would move before Groudon anyway, as they could have been speed tying. Groudon is much more likely to be max Speed with a boosting nature than Kyogre is (especially if it’s the special attacking set), but it’s not out of the question that Groudon could be slower. 
+
+
+This turn has an enormous impact on the game. 
+
+Turn 4, Game 2
+Stakataka has no chance of surviving a double-up attack and the game ends soundly. 
+
+Game 3
+Team Preview between Game 2 and Game 3
+From Paul’s perspective, Diana’s Whimsicott is putting a major dent in the Xerneas setup that he has been aiming for. He needs to play around the play that Diana didn’t make moreso than the one that she did make: ultimately, what is stopping Whimsicott from Encoring Xerneas?
+
+Note that Incineroar needs to be positioned perfectly to use Fake Out to stop Encore from going off on the turn after a Geomancy. This means that he would either need to switch in Incineroar midturn or after a knockout. These maneuvers are generally dangerous and a lot can go wrong. Paul likely would like to find simpler solutions.
+
+From Diana’s perspective, she needs to figure out how to use Whimsicott to clear a path through Paul’s Pokemon. It’s applying a lot of pressure which is a nice position to be in, even though the last game ended up poorly. 
+
+Turn 1, Game 3
+Diana may have been cautious about leading Stakataka in games 1 and 2 because Groudon can knock it out rather easily, even with Shuca Berry. However, she has learned that Paul prefers the Incineroar / Xerneas and is unlikely to switch from it. Her strong position is a reward for making this call. 
+
+–
+
+Diana makes another strong play. Just as in Game 1, a blind Water Spout could mean that Groudon hits the field, which would repeat the game state of Turn 2 Game 1– but now Paul knows about Rayquaza’s Assault Vest. Furthermore, Paul could simply switch Incineroar out for Groudon on this turn for the same effect. By switching Whimsicott in for Kyogre, she checkmates Xerneas, preserves Whimsicott’s Focus Sash, and creates an extremely awkward situation for Paul on Turn 2.
+
+Even if Paul had seen this play coming, there’s not much he could have done for it. What’s more, this is a dangerous play to predict. If he predicts it (with a Fake Out / Moonblast into Xerneas), Stakataka does whatever it wants. If he only attacks with Xerneas, Whimsicott sets Tailwind for free, which means that Rayquaza and Kyogre will walk all over his team in the following turns. 
+
+Turn 2, Game 3
+Xerneas is checkmated by Encore. 
+
+Note that if Paul had Taunt on Incineroar, there’s not much that Diana could do to stay in this game. She has accepted that with her Turn 1 and 2 play. 
+
+–
+
+The Stakataka switch is interesting. It may be an attempt to play around an Amoonguss or Groudon switchin in the Incineroar slot. However, ultimately it makes her positioning more challenging. 
+
+Turn 3, Game 3
+We now have a near-exact replay of the Turn 2 Game 2 scenario. Diana is unlikely to make the same move as she did then, though.
+
+The weight of the double Protect hangs over both players. 
+
+–
+
+Paul secures the double Protect and thus a major advantage. There was only a 33% chance of this outcome happening– however, it was the best option for him, as he knows that Diana is probably not going to let a repeat of Game 2 happen. This is an example of a good player taking every chance necessary to stay in the game. 
+
+In the future, Diana can secure a victory 66% of the time by always double Encoring. (The Nash Equilibrium mixed strategy provides a slightly higher winrate– but note that the Nash Equilibrium is not useful as humans generally do not act game-theoretically in VGC.) 
+
+Turn 4, Game 3
+Because Stakataka hit the field, there is no counterplay to the Eruption + Dazzling Gleam play from Paul. If Rayquaza hit the field, Diana may have been able to overwrite the harsh sun by Mega Evolving Rayquaza– however, Paul likely has many outs (such as switching out Groudon for Incineroar and then getting in the extremely harsh sun after Rayquaza faints).  
+
+–
+
+The game concludes from here. 
+
+
+
+Wrapping Up
+VGC 2016 and 2019 games were fast-paced and extremely punishing. One small error in positioning or misprediction can end the game nearly instantly. Diana made strong plays throughout all 3 games– however, in Games 2 and 3, things went Paul’s way. Ultimately both players had a deep understanding of the options available to both them and their opponent, and made plays that both respected and capitalized on how their opponent would navigate that space. 
+
+There’s a lot to be learned from these games.
+
+Losing a Pokemon is not always the worst thing in the world– sometimes, the next turn can look very very good
+
+Surprising your opponent (even if it’s with a common set/item) can cause grave miscalculations and win you a game
+
+Protect enables you to stall through field effects (e.g. Electric Terrain) without your opponent having any counterplay 
+
+Players will generally change up their moves when similar game states to previous games are reached
+
+When your back is against the wall, take any move that can give you a chance at the win
+Concepts:
+
+Protect
+
+Momentum with Dynamax (Dynamax stalling)
+
+Double Targeting
+
+Pressure
+
+Series 5 Information
+
+Dynamax is allowed. Dynamax is the major mechanic of Pokemon Sword and Shield, and you can find out more information about it here. 
+
+Only Pokemon in the Galar Pokedex or the Isle of Armor Pokedex could be used. (Not the Crown Tundra)
+
+
+
+Game 1
+Team Preview
+This set is open sheet, so players won’t be surprised by moves, abilities, or items.
+
+The most important thing to note about each team here is the pace at which they play. Although they have similar concepts– each team features Porygon2, Dragapult, and Fire-type, Water-type, and Grass-type Pokemon, Alister’s team wants to set up with Rotom-Wash and Ferrothorn. Togekiss assists with its Follow Me and Serene Grace Air Slash, and Porygon2 and Incineroar can make it easier for the setup to happen. Dragapult offers pure offense for a dynamic change of pace (and the Incineroar is strangely offensive as well!). 
+
+The Pokemon on Edoardo’s side are more immediately offensive– Terrakion, Rillaboom, and Primarina all do strong damage right out the gate. However, Edoardo’s team features the Beat Up + Terrakion combo, which applies offensive pressure on Turn 1. Allister’s leads are therefore going to have to respect that combination.
+
+Turn 1, Game 1
+Edoardo did not lead with Dragapult plus Terrakion, perhaps wisely because Togekiss + Life Orb Dragapult puts a stop to it pretty quickly (with Follow me Max Wyrmwind/Phantasm). 
+
+Many players Dynamax on Turn 1 to try and gain momentum, taking an advantage over their opponent as soon as possible. However, note that Alister’s Dragapult is not in a great spot to do that on this turn. Both Incineroar and Porygon2 will survive a Dynamax attack, and Porygon2 can easily Trick Room and Recover off any damage.
+
+—
+
+Alister opts to U-Turn with Dragapult instead of Dynamaxing, saving its strength for later. Note that Dragapult is challenging to make work outside of Dynamax, and Alister’s team features several Pokemon that don’t make great use of Dynamax themselves (Ferrothorn/Togekiss), so from Edoardo’s perspective, it’s pretty likely that Alister will Dynamax Dragapult later in the game. 
+
+On first instinct, switching Primarina into Ferrothorn is a fool’s errand because of Ferrothorn’s Grass typing. Note, however, that Ferrothorn doesn’t have a Grass-type attack! This is because it’s the Iron Defense Body Press set that became popular in Generation 8. Primarina is thus safe to Dynamax. 
+
+Turn 2, Game 1
+Alister Protects Togekiss, but Edoardo double targets Ferrothorn. Is this a prediction? Not really– think about how much pressure Togekiss is exerting at this point in time. It can Air Slash for minimal damage on either Pokemon, or Yawn– which will be quickly blocked the next turn by Max Starfall.
+
+Alister is fortunate that Ferrothorn survived that attack (plus the Hail chip): if it fainted, he would have been in a rough spot. 
+
+As a side note, this is why it’s often suboptimal to Protect with a Rage Powder or Follow Me Pokemon: your opponent can always double target the Pokemon you would be redirecting attacks from. 
+
+Turn 3, Game 1
+Togekiss continues to not do much. Edoardo needs it gone, though, or his Trick Room will run out. He’s on two clocks: he needs to do as much damage as possible while his Dynamax is up, and he needs to chew through Alister’s team before Trick Room ends and Dragapult hits the field.
+
+—
+
+I’m curious if a Leech Seed from Ferrothorn would have helped Alister out more than an Iron Defense: there is a risk that Edoardo would just switch Porygon2 out in response.
+
+
+
+Turn 4, Game 1
+Dragapult hits the field. This should set off alarm bells for both players given that Primarina will knock it out in one hit, even through Dynamax. Dragapult also cannot protect itself, even with Max Guard.
+
+Given from Edoardo’s perspective, we know that Alister wants to Dynamax Dragapult later in this game, it would be possible to make a prediction that it was going to switch out. Now we have to think about the different Pokemon it could switch to: Incineroar, Porygon2, or Rotom-Wash. 
+
+If Edoardo wanted to make a hard prediction, he could Max Geyser that slot. What if Dragapult Dynamaxes? He could also Ice Beam with the +1 Special Attack Porygon2. But this play is risky: you leave Ferrothorn open to deal a lot of damage to Porygon2, and if Rotom-Wash comes in instead, you might just lose.  
+
+—
+
+However, Incineroar coming in and not fainting means that Edoardo has run out of Dynamax time and is now on the back foot, especially with Trick Room ending next turn. 
+
+Turn 5, Game 1
+This is the last turn of Trick Room, which is a big deal. Alister has nicely set himself up to have Fake Out pressure, and Ferrothorn is applying a lot of pressure to Porygon2.
+
+—
+
+Edoardo double switches. This play is hard for me to interpret: my best guess is that he is responding both to the Fake Out pressure + Leech Seed in Primarina’s case, and Body Press in Porygon2’s case. Then next turn Edoardo can maybe reposition his Porygon2 back on the field for another Trick Room.
+
+Alister opts to go for the U-Turn (!) into the Porygon2 slot (!!). This is because Porygon2 cannot Protect, so he has an assured switch into Dragapult– right as Trick Room is ending! 
+
+Alister has gained a ton of momentum with this play.
+
+
+
+Turn 6, Game 1
+Dragapult is ready to chew through Edoardo’s team.
+
+Note that before he moves, Edoardo considers switching Incineroar in for Primarina, predicting a Max Wyrmwind. However, he doesn’t pull the trigger, instead opting to try to knock out Ferrothorn.
+
+—
+
+Incineroar takes the hit and now the clock is ticking quickly indeed. Edoardo’s only hope is that Porygon2 can survive whatever attack Alister throws at it.
+
+Turn 7, Game 1
+Edoardo is drastically limited by not having any way to target down Dragapult with a Dark-type attack from Incineroar. 
+
+—
+
+The double knockout makes short work of Porygon2. 
+
+
+
+Turn 8, Game 1
+Primarina is forced to Protect to try and stay in this game. Alister, in turn, is forced to attack it: predicting the Protect and being wrong (if it Moonblasted anyway) could have drastic consequences in a locked-up position. There’s no need to go overboard here.
+
+
+
+Turn 9, Game 1
+This Phantom Force seals the game, as it breaks Protect and Edoardo’s Incineroar has no way to target Dragapult.  
+
+
+
+Game 2
+Team Preview between Game 1 and Game 2
+Alister successfully stalled out Trick Room in a pretty dominant fashion– the weakest he looked was on Turn 4, when Dragapult was out in front of Dynamax Primarina. From Alister’s end, he probably knows that the same tactic won’t work twice, however. 
+
+From Edoardo’s end: in all honesty, the events of the last game weren’t that bad in the long run: he just needed to prevent Ferrothorn from stalling out Trick Room. He also knows that Alister is going to make smart plays (e.g. switching the Dragapult out, U-turn instead of Fake Out with Incineroar) that take advantage of the way that each Pokemon puts pressure on each other.
+
+Turn 1, Game 2
+Both players have changed one Pokemon. Note that Alister still has to cover for Dragapult + Terrakion. Edoardo perhaps hoped to accelerate the speed at which Primarina hit the field. Furthermore, if Alister were to lead Dragapult again, Edoardo could easily Max Guard, Dynamax attack, or safely switch out with Primarina, while Porygon2 continued to do whatever it pleased (set Trick Room, get strong attacks out).
+
+Alister can kind of do whatever he wants here– either Nasty Plot (aided by Follow Me), or just clicking Max Geyser/Lightning.
+
+—
+
+Rotom and Primarina trade blows. It’s not too unfortunate for Alister if Trick Room does get set up– because Togekiss can give Rotom the space that it needs to take out Primarina, and then Ferrothorn is nicely positioned. But the flinch is definitely a benefit. This is a good example of how trying for luck can, in the best case, make a decent situation great, and in the worst case maintain positioning. 
+
+
+
+Turn 2, Game 2
+Edoardo is forced to Protect with Primarina here, and is now in a definitely bad spot. Alister again has options: he can predict the Protect and hit Porygon2 with Rotom, or just minimize his risk and target down Primarina. 
+
+—
+
+Edoardo takes a chunk out of Togekiss– if Air Slash flinched again, he was most likely unable to come back.
+
+
+
+Turn 3, Game 2
+Alister saves his Togekiss, despite being at low HP: Ferrothorn could switch in safely that turn.
+
+Turn 4, Game 2
+Nothing to say about a bit of bad luck
+
+Turn 5, Game 2
+Alister is jockeying for Ferrothorn positioning with this Protect + Switch play. It’ll be able to either Iron Defense or Leech Seed.
+
+
+
+Turn 6, Game 2
+This double up play takes advantage of the fact that Alister’s Incineroar doesn’t carry Protect. However, it leaves the other slot wide open– Rotom heals in an attempt to get back in the game.
+
+
+
+Turn 7, Game 2
+Nothing can really save Alister’s Rotom from Porygon2, as Edoardo can always target the Rotom slot (to avoid shenanigans like Nasty Plot).
+
+
+
+Turn 8, Game 2
+Alister has quite simply run out of resources at this point in the face of Terrakion + Incineroar.
+
+Game 3
+Team Preview between Game 2 and Game 3
+This game was much rougher for Alister once the Dynamax sort of shook out. Edoardo positioned his Incineroar and Terrakion very nicely to prevent the Ferrothorn from getting out of control. Edoardo’s Porygon2 was able to stay on the field and Alister didn’t have a way to threaten it immediately. 
+
+How should Alister proceed? It’s tricky. He has to generate some momentum somehow, but it’s challenging to fight through Edoardo’s bulk and the type advantage that Edoardo is able to generate over the course of the game. Edoardo got into a groove as Game 2 wrapped up and found a strong strategy that demands Alister’s response going into Game 3.
+
+
+
+Turn 1, Game 3
+Note that in this situation, Edoardo might just force the same turn as in Game 2 and hope that Alister gets less lucky.
+
+—
+
+And here we see Alister’s idea to generate momentum! With Togekiss’ protection, Nasty Plot Rotom-Wash may be able to fight its way through Trick Room and give Ferrothorn enough of an opening to set up on its own.
+
+Note that Trick Room may not benefit Edoardo in the long run because Ferrothorn is so strong under Trick Room. However, it’s definitely beneficial in the short term, because Primarina can attack again, and if Edoardo knocked out Togekiss with a double-up, then Ferrothorn would hit the field. Edoardo would then be in a lot of trouble versus +2 Rotom outside of Trick Room, and Ferrothorn could set up for free, probably for the game.
+
+Turn 2 Game 3
+It is obvious to both players that Rotom will probably Dynamax on this turn.
+
+—
+
+The players trade Protects. This is favorable for Edoardo because he can get extra damage onto Rotom, and he doesn’t necessarily care too much about Trick Room’s duration, despite having set it himself– Primarina will probably have done its job before Trick Room expires.
+
+
+
+Turn 3 Game 3
+From a health perspective, Edoardo has come out vastly ahead on this turn. Note that Electric Terrain is powering up Porygon2 here!
+
+
+
+Turn 4 Game 3
+Incineroar has Fake Out pressure here, but the Ferrothorn is much more concerned about Burning Jealousy, which also threatens to chip Rotom into a knockout from Thunderbolt as well.
+
+—
+
+This is a nice switch from Alister that would be hard (or dangerous!) to call. Protect allows him to get momentum with Rotom: remember, Edoardo’s Incineroar doesn’t have a Dark-type move, so Alister can Fake Out Porygon2 and Hydro Pump into Incineroar for free.
+
+
+
+Turn 5 Game 3
+ Both players are keenly aware that this is the last turn of Trick Room and there will probably not be another one (Edoardo has no reason to set it).
+
+—
+
+Edoardo fires back with a great switch of his own– and perhaps the most important play of the game! Taking advantage of the Focus Sash to secure the survive, Edoardo has now created a situation where Terrakion can Close Combat into Incineroar without any drawbacks– he’s going to either KO Incineroar or deal a lot of damage to Ferrothorn, because again, this Incineroar can’t Protect. This is sometimes referred to as a “pin”: Alister has run out of room to maneuver. Also, if Rotom responds with a knockout into Terrakion, it just faints to Porygon2.
+
+Note that even if Alister saw this switch coming, there was likely little that he could do. If Incineroar didn’t Fake Out Porygon2 then his Rotom probably fainted. 
+
+Turn 6 Game 3
+The Iron Barbs damage is the best that Alister can hope for. 
+
+Turn 7 Game 3
+This situation is now pretty precarious for both players. Edoardo has a very slight advantage, despite being down in Pokemon, because critically, Rotom-Wash just used Protect, and Alister probably will not gamble on a double Protect. This is relevant because Edoardo just gained Fake Out pressure, so he could knock out Rotom on this turn– if it stays in. However, he could just as easily knock out Ferrothorn with Burning Jealousy. This is a stressful situation for both players but Alister faces the loss more plainly.  
+
+Some players might refer to this situation as a “50-50”– where each player has two two choices and you have to guess which they’re going to pick. They are called 50-50s because if you guess right you win, and if you guess wrong you lose– however, there are very few true 50-50 situations, as we’ll see.
+
+—
+
+This play could have gone either way. Here are Edoardo’s two plays:
+
+Porygon2 Thunderbolt into Rotom-Wash, and Incineroar Fake Out into Rotom-Wash
+
+Porygon2 Thunderbolt into Rotom-Wash, and Incineroar Burning Jealousy (targets both)
+
+Alister’s play dealt with both of them, which is a pretty good solution for staying in the game. However, I don’t think it was the best solution (and I hope it is not overstepping to say this!). If Alister targeted Incineroar with Hydro Pump instead of switching it out, he would surely be sacrificing it to Porygon2. However, this allows Ferrothorn to act without fear of Burning Jealousy (assuming Hydro Pump connects, so this play will work 80% of the time). Even if Incineroar uses Fake Out on Rotom, Ferrothorn is unfettered and can set up an Iron Defense or a Leech Seed. Then Incineroar can switch in when Rotom faints (or with a Protect), Fake Out + Body Press damages Incineroar, and Porygon2 cannot clear Ferrothorn and Incineroar at the same time. Maybe I overlooked something, though.
+
+This play, however, I found while sitting comfortably in my chair in my home on a quiet Wednesday night: it would be much harder to find in the heat of the moment of a high-stakes battle. Always keep that in mind when you critique other people’s tournament play!
+
+Turn 8 Game 3
+Alister’s play is now pretty clear.
+
+Leech Seed is better than Body Press here (although it invites a miss): Ferrothorn needs to get some of Porygon2’s HP and fast. Alister’s Incineroar loses to Porygon2 in the long run.
+
+Turn 9 Game 3
+Earthquake is a nice tech and allows an extremely safe play from Alister that slowly marches him towards victory.
+
+
+
+Turn 10 Game 3
+You can tell that Edoardo has a lot to think about on this turn from the speed at which he is choosing his moves. He has to consider whether Rotom will switch in for Ferrothorn (thus gaining the Leech Seed for itself).
+
+From Alister’s point of view, if he targets Porygon2, he can knock it out this turn or next. However, if Porygon2 uses Recover, he’s in a load of trouble. Switching in Rotom takes advantage of the Recover play.
+
+—
+
+Edoardo calls the switch correctly, and the scales have tipped in his favor.
+
+
+
+Turn 11 Game 3
+Alister is now in a bind: he needs Porygon2 off the field. Ferrothorn is as good as fainted in front of this Incineroar, and is actually getting in the way of Earthquake: Earthquake deals reduced damage as a spread move. 
+
+—
+
+Letting Ferrothorn faint may actually be the better move for Alister here. 
+
+Turn 12 Game 3
+So close! A photo finish to an excellent set that was well-played by both players.
+
+
+
+Wrapping Up
+This set showed off some of the nice parts of early Sword and Shield: slow, methodical games where the Dynamax was incredibly important but not the end of the story for both players. 
+
+It is hard to say what Alister could have done better for sure in this set. He played well throughout the whole set and made some very nice plays that capitalized on Edoardo’s hesitation, especially in Game 1. This set was a grind for both players– in part due to the bulky Pokemon that they had on their teams. 
+
+I think there are many things that can be learned from this set, even after Series 5 is long gone:
+
+Delaying your Dynamax can be quite strong
+
+Be careful when a team has to make the most of its Trick Room turns: and know what will happen on the turns immediately following Trick Room
+
+Look for “pins” where your Pokemon can deal damage for sure, no matter what your opponent does (even if they switch out!)
+
+Focus Sash can actually make your Pokemon a great switch-in, even on powerful, super effective attacks
+
+
+
+
+
+
+How Important Is the Lead to My Team?
+This single question will dictate when you select your lead, what the lead will need to do, how much the lead should specialize on "the lead metagame" (Turns 1 and 2 of battle) versus "the full metagame" (After Turns 1 and 2, when the lead has switched out), and whether or not having a "lead role" in the traditional sense is even a good idea.
+
+Choosing when to select a lead, while often down to personal preference, is a decision few battlers take seriously enough. New players tend too gravitate toward two different options when deciding when to pick their lead. Many decide the lead should be the first Pokémon they select, being the first Pokémon to battle. The other, significantly less common new battler school of thought is to ignore the lead role entirely, picking one of 6 Pokémon to "go first". While there are times when either of these extremes may be desired, neither case is particularly effective in general. Figuring out the lead Pokémon for your team is something that, in a general case, should be done after you have a basic understanding of your team's style and core. Usually, extremely defensive cores may not need an overspecialized "lead role" Pokémon specifically designed to go first, as the lead is less important to these teams. This doesn't mean the lead doesn't matter or should be selected without regard to other leads, but rather the lead Pokémon may sacrifice some Turn 1 effectiveness for usability in the late game. Offensive teams, on the other hand, may rely on a lead for entry hazard support. Overall, it's very rare indeed to select a lead before the second half of a given battler's team building process, as you need to know what your team expects out of the lead role before selecting it. Generally, the more offensive your team is, the more important your lead is.
+
+Once a battler has assembled a general core, or at least has a basic understanding of their team's structure, what the lead can contribute to the team is the next question on a battler's mind. Different teams have different needs, and these priorities are entirely dependent on the other team members. Suicide leads are used by teams dependent on Stealth Rock, for example, while leads that want to gain the offensive upper hand while retaining some "full metagame" usability gravitate toward Machamp or Starmie. Battlers looking for a balance may try out Infernape, Metagross, or Empoleon; while other leads focus less on quickly gaining an immediate advantage in order to be even more useful in "the full metagame", notably Hippowdon.
+
+Lead Pokémon Design Tradeoffs
+Many important and prevalent tradeoffs in lead selection come to a head here. The first is reliability versus versatility. Simply put, an effective lead that does less things generally does them better and more reliably than an effective lead that tries to accomplish more things. The obvious example is Suicide Aerodactyl versus Suicide Azelf. Aerodactyl can pretty much guarantee the presence of Stealth Rock by the end of Turn 1, while Azelf cannot. Yet Azelf still sees significantly high usage due to the option of using Explosion, which Aerodactyl lacks. When picking between leads in situations like these, a firm grasp of the importance of the task you want the lead to do, and whether or not cool bonuses are worth compromising that task, will lead to smart decisions. Most notably, if you're compromising versatility in a lead for reliability, the task the lead does reliably better be pretty important to the function of the rest of your team.
+
+The second tradeoff in general is between lead metagame versus full metagame usability. Ideally, a lead has both, and many of the very best and most common leads are great both Turn 1 and afterward. However, this is often not the case as Pokémon can only do so much with four attacks. People when attempting to make new sets will often completely misjudge this tradeoff. Time after time in the New / Creative Moveset thread as well as the C&C forums, people will post leads with several super effective attacks against common leads that work very well in getting the opponent's first Pokémon KOed. However, when all a lead does is reliably kill the opponent's first Pokémon, it needs to retain some level of usability in the full metagame in order to avoid being completely dead weight. Knowing how important it is for your lead to consider the bigger picture is a function of your lead's role and purpose as well as your style of team.
+
+A lead specifically tailored to beat other leads, or an anti-lead, has to deal with both general design tradeoffs above more specifically. Anti-leads struggle with both versatility and full metagame usability in general, as the designer's intent is to kill or stop other leads from functioning. In general, effectiveness versus other leads is something that needs to be carefully considered in the creation of any lead, but over-metagaming always has dangers. A general rule for people desiring to use anti leads is to ensure they either serve a purpose other than a quick KO or that they have a lot more full metagame usability than most leads. A surprising number of Pokémon can KO the common suicide leads, so don't worry so much about them.
+
+Functional Lead Design 101
+So it's come the time in your team building process to make or pick your lead. First thing is to determine some stuff about your lead. Does it need to complete a task, like laying out Stealth Rock? How mandatory is it that this task be completed? If your lead fails, will the rest of your team be able to recover from the deficit? Most of this discussion was dealt with when the importance of your lead was determined, but this stuff has to be firmed out before you can continue. Spelling out "This lead requires one layer of Spikes in nearly every battle, it would be nice to get two every other battle, and three is just a bonus" will help later on in the process by keeping you focused on what your lead needs to do versus what would be nice but isn't vital.
+
+Once you figure that out, the next step is to look through the list of Pokémon that can provide the support you need. For a Spiker lead, looking through all of the Pokémon that can learn Spikes is the obvious start; Baton Pass leads need to look for Pokémon with Baton Pass, and Pokémon trying to gain early momentum may look in the direction of U-turn users or Pokémon with high Attack. From here you'll probably find a large handful of Pokémon that can even do what you want to accomplish that aren't bottom of the barrel NUs. Look through each Pokémon's movepool, typing, and stats in order to figure out what ways each can fulfill the design criteria you previously set. One Pokémon might be able to use Spore to guarantee those Spikes you need, while another is fast enough to use Focus Sash or Choice Scarf. This step is pretty Pokémon specific and is the first time the design tradeoffs outlined above come into play.
+
+After that, depending on your lead's role and how much lead metagame usability you want out of it, you'll need to analyze your choices in the context of other common leads. A Spiking lead that's OHKOed by an Infernape Fake Out, for example, will need serious consideration. Consider using auxiliary moves like Taunt or powerful attacks to push past otherwise troublesome leads. Depending on the rest of your team, losing one or two lead matchups may not be a problem, especially if that lead is set-up bait for something else on your team. Once you've figured out how your options for particular leads will fare against other leads, consider, if necessary, how they will serve on your team after Turn 1. The importance of this step depends on your design criteria; for Aerodactyl-style leads it is completely unimportant, but for stuff like Metagross it may matter a lot more.
+
+Once you've considered all of these variables with all of your options for leads, use your judgement to choose the one that best fits your team and give it a test. No amount of thinking beats an hour of play testing, and you may find out that what you got is not what you wanted. You may also find out that support you determined was absolutely necessary really was not at all, or that you needed more from your lead than you initially bargained for. Jot down and remember all of these lessons so that when you make revisions, you can make the smartest decisions.
+
+Lead design is a bit of an art, and while it's very easy to be biased toward making a custom set with your favorite Pokémon, or using a standard set, exploring all of the options and choosing the one that's most optimal for your team will give you the edge you need to take control of many matches.
+
+
+
+
+Lead Selection in Pokémon Champions: How to Start Every Match Strong
+Your lead pair decides the tempo of the entire match. This guide covers how to choose leads in Pokémon Champions, standard opening gambits, and how to adapt when you're read.
+
+The lead pair is your opening statement in every match. Lead well and you control positioning. Lead badly and you spend the entire match reacting to your opponent instead of executing your own plan.
+
+What a Lead Pair Needs to Accomplish
+Create safe setup: Fake Out + Tailwind/TR is the classic combo. Incineroar flinches a threat while Whimsicott sets Tailwind before anyone can stop it.
+Threaten KOs immediately: Some leads are pure offense. If your lead can KO a key Pokémon on turn 1, you've won the numbers game before it starts.
+Deny the opponent's setup: Taunt the TR setter, Fake Out the redirect, Encore the sweeper into the wrong move. Disruption leads prevent the opponent from doing what they want.
+The 3 Lead Archetypes
+Setter + Sweeper
+Whimsicott + Sneasler is the cleanest example. Whimsicott uses priority Tailwind while Sneasler threatens immediate KOs. The opponent has to respect both simultaneously.
+
+Fake Out + Setup
+Incineroar + Hatterene: Incineroar flinches the most threatening opposing Pokémon, buying Hatterene a free Trick Room turn without being Taunted or attacked.
+
+Pivot + Attacker
+Sinistcha + Volcarona: Sinistcha redirects attacks away from Volcarona while Matcha Gotcha chips both opponents. Volcarona gets the Quiver Dance it needs, and from there it outspeeds and threatens the field.
+
+Adapting When You're Read
+If your opponent always counters your standard lead, you're being read. The fix is to have alternative leads from your team of 6. For example, if your Whimsicott + Sneasler lead keeps getting Fake Out'd and threatened, consider leading Sinistcha + Volcarona to redirect away from the sweeper and change the tempo.
+
+⚠️ Watch out:Don't lead your Mega on turn 1 against Fake Out users unless you know it's safe. A flinched Mega Evolution turn wastes one of your most powerful tools.
+Back Row Composition
+Your back 2 Pokémon should cover what your leads can't. If your leads are offensive, your back should have something defensive for when you're disadvantaged. If your leads set up, your back should carry the damage once setup is done.
+
+Frequently Asked Questions
+What makes a good lead pair in Pokémon Champions?
+
+A good lead pair creates immediate tempo: either forcing flinches, setting up speed control, or establishing favorable positioning before the opponent can respond.
+
+Should you always lead the same Pokémon?
+
+No. Leads should change based on matchup. A rigid lead is easier to read and counter-play. Build teams with 2-3 flexible lead options.
