@@ -605,7 +605,7 @@ static void CB2_ReturnToRentalTeamsFromSummary(void)
     if (sRentalTeamsData != NULL)
     {
         sRentalTeamsData->previewMonIdx = gLastViewedMonIndex;
-        sRentalTeamsData->focusMode = FOCUS_PREVIEW_MONS;
+        sRentalTeamsData->focusMode = FOCUS_TEAM_LIST;
     }
     SetMainCallback2(CB2_InitRentalTeams);
 }

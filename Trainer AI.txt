@@ -1,18 +1,3 @@
- [/plan](slashCommand;plan) quando termina la lotta contro trainer enzo il gioco si riavvia
-ora le prossime feature sono: rimuovere Tera e Giga e lasciare solo le MEGA
-implementare un modo che faccia vedere nella selezione della mossa durante la battaglia che quella mossa è superefficace (x2) o iperefficace (x4) su un pokemon (mentre stai scegliendo la mossa) e poi quando la mossa è selezionata e si sta scegliendo il bersaglio in lotta in doppio ci dovrebbe essere un indicatore che mostra su quale pokemon è superefficace o iperefficace e su quale magari non lo è o immunità con X
-un tasto come L che si usa per vedere le info della mossa, dovrebbe farti vedere anche le info sul terreno ad esempio (quanti turni di grassy surge, quanti di trickroom, meteo, schermi) 
-poi va implementata la team preview che teoricamente nel gioco è già in parte presente, 
-in pratica quando si inizia una lotta contro un allenatore da un lato si avrà la nostra squadra con la possibilità di scorrerla e quando si passa su un pokemon, su ogni pokemon della squadra avversaria appare una freccetta che indica superefficacia, iperefficacia, non molta efficacia o una X per immunità al in base ai typing dei pokemon
-e dal lato opposto la squadra dell'avversario senza poter scorrere
-si possono selezionare solo 4 pokemon, infatti cliccandone uno appare la classica selezione multipla info scegli o annulla, i pokemon scelti poi in base all'ordine scelto avranno accando un numeretto 1-2-3-4 che indica l'ordine (importante per la lead) 
-e lo stesso farà l'ai avversaria che dovrà scegliere i suoi 4 del team CON INTELLIGENZA è importante che l'ai avversaria scelga bene i suoi 4 pokemon, la lead è fondamentale ("C:\Users\Vincenzo\Desktop\Trainer AI.txt") 
-
-
-
-
-
-
 What are AI Flags?
 AI flags alter the behavior of AI controlled trainers. These flags affect what moves the AI chooses to use, what Pokémon the AI sends out and when they decide to switch, overarching strategic choices the AI prefers to make, and more.
 
