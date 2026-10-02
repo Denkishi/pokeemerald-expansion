@@ -907,7 +907,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
                 .moves = {MOVE_STICKY_WEB, MOVE_LEECH_LIFE, MOVE_LIQUIDATION, MOVE_ENDEAVOR},
             },
             {
-                .species = SPECIES_GARCHOMP_MEGA,
+                .species = SPECIES_GARCHOMP,
                 .item = ITEM_GARCHOMPITE,
                 .level = 50,
                 .nature = NATURE_JOLLY,
@@ -926,7 +926,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         .category = _("Champions Meta"),
         .mons = {
             {
-                .species = SPECIES_STARAPTOR_MEGA,
+                .species = SPECIES_STARAPTOR,
                 .item = ITEM_STARAPTITE,
                 .level = 50,
                 .nature = NATURE_JOLLY,
@@ -1005,7 +1005,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         .category = _("Champions Meta"),
         .mons = {
             {
-                .species = SPECIES_LOPUNNY_MEGA,
+                .species = SPECIES_LOPUNNY,
                 .item = ITEM_LOPUNNITE,
                 .level = 50,
                 .nature = NATURE_ADAMANT,
@@ -1084,7 +1084,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         .category = _("Champions Meta"),
         .mons = {
             {
-                .species = SPECIES_METAGROSS_MEGA,
+                .species = SPECIES_METAGROSS,
                 .item = ITEM_METAGROSSITE,
                 .level = 50,
                 .nature = NATURE_JOLLY,
@@ -1163,7 +1163,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         .category = _("Champions Meta"),
         .mons = {
             {
-                .species = SPECIES_DELPHOX_MEGA,
+                .species = SPECIES_DELPHOX,
                 .item = ITEM_DELPHOXITE,
                 .level = 50,
                 .nature = NATURE_TIMID,
@@ -1266,7 +1266,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
                 .moves = {MOVE_SWORDS_DANCE, MOVE_CEASELESS_EDGE, MOVE_SUCKER_PUNCH, MOVE_ENCORE},
             },
             {
-                .species = SPECIES_FLOETTE_MEGA,
+                .species = SPECIES_FLOETTE,
                 .item = ITEM_FLOETTITE,
                 .level = 50,
                 .nature = NATURE_BOLD,
@@ -1448,7 +1448,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
                 .moves = {MOVE_IRON_HEAD, MOVE_BODY_PRESS, MOVE_ROOST, MOVE_DEFOG},
             },
             {
-                .species = SPECIES_ALTARIA_MEGA,
+                .species = SPECIES_ALTARIA,
                 .item = ITEM_ALTARIANITE,
                 .level = 50,
                 .nature = NATURE_CAREFUL,
@@ -1515,7 +1515,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
                 .moves = {MOVE_WHIRLWIND, MOVE_SLACK_OFF, MOVE_EARTHQUAKE, MOVE_STEALTH_ROCK},
             },
             {
-                .species = SPECIES_CLEFABLE_MEGA,
+                .species = SPECIES_CLEFABLE,
                 .item = ITEM_CLEFABLITE,
                 .level = 50,
                 .nature = NATURE_BOLD,
@@ -1558,7 +1558,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         .category = _("Champions Meta"),
         .mons = {
             {
-                .species = SPECIES_DRAGONITE_MEGA,
+                .species = SPECIES_DRAGONITE,
                 .item = ITEM_DRAGONINITE,
                 .level = 50,
                 .nature = NATURE_MODEST,
@@ -1637,7 +1637,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         .category = _("Champions Meta"),
         .mons = {
             {
-                .species = SPECIES_GOLISOPOD_MEGA,
+                .species = SPECIES_GOLISOPOD,
                 .item = ITEM_GOLISOPITE,
                 .level = 50,
                 .nature = NATURE_ADAMANT,
@@ -1716,7 +1716,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         .category = _("Champions Meta"),
         .mons = {
             {
-                .species = SPECIES_ABSOL_MEGA_Z,
+                .species = SPECIES_ABSOL,
                 .item = ITEM_ABSOLITE_Z,
                 .level = 50,
                 .nature = NATURE_ADAMANT,
@@ -1795,7 +1795,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         .category = _("Champions Meta"),
         .mons = {
             {
-                .species = SPECIES_DELPHOX_MEGA,
+                .species = SPECIES_DELPHOX,
                 .item = ITEM_DELPHOXITE,
                 .level = 50,
                 .nature = NATURE_TIMID,
@@ -1874,7 +1874,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         .category = _("Champions Meta"),
         .mons = {
             {
-                .species = SPECIES_GRENINJA_MEGA,
+                .species = SPECIES_GRENINJA,
                 .item = ITEM_GRENINJITE,
                 .level = 50,
                 .nature = NATURE_NAIVE,
@@ -2013,7 +2013,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
                 .moves = {MOVE_SWORDS_DANCE, MOVE_CLOSE_COMBAT, MOVE_DIRE_CLAW, MOVE_ACROBATICS},
             },
             {
-                .species = SPECIES_FLOETTE_MEGA,
+                .species = SPECIES_FLOETTE,
                 .item = ITEM_FLOETTITE,
                 .level = 50,
                 .nature = NATURE_BOLD,
@@ -2032,7 +2032,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         .category = _("Champions Meta"),
         .mons = {
             {
-                .species = SPECIES_MEGANIUM_MEGA,
+                .species = SPECIES_MEGANIUM,
                 .item = ITEM_MEGANIUMITE,
                 .level = 50,
                 .nature = NATURE_MODEST,
@@ -2111,7 +2111,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         .category = _("Champions Meta"),
         .mons = {
             {
-                .species = SPECIES_GLIMMORA_MEGA,
+                .species = SPECIES_GLIMMORA,
                 .item = ITEM_GLIMMORANITE,
                 .level = 50,
                 .nature = NATURE_TIMID,
@@ -2190,7 +2190,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         .category = _("Champions Meta"),
         .mons = {
             {
-                .species = SPECIES_LOPUNNY_MEGA,
+                .species = SPECIES_LOPUNNY,
                 .item = ITEM_LOPUNNITE,
                 .level = 50,
                 .nature = NATURE_JOLLY,
@@ -2269,7 +2269,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         .category = _("Champions Meta"),
         .mons = {
             {
-                .species = SPECIES_DELPHOX_MEGA,
+                .species = SPECIES_DELPHOX,
                 .item = ITEM_DELPHOXITE,
                 .level = 50,
                 .nature = NATURE_MODEST,
@@ -2348,7 +2348,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         .category = _("Champions Meta"),
         .mons = {
             {
-                .species = SPECIES_CHARIZARD_MEGA_X,
+                .species = SPECIES_CHARIZARD,
                 .item = ITEM_CHARIZARDITE_X,
                 .level = 50,
                 .nature = NATURE_ADAMANT,
@@ -2427,7 +2427,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         .category = _("Champions Meta"),
         .mons = {
             {
-                .species = SPECIES_CLEFABLE_MEGA,
+                .species = SPECIES_CLEFABLE,
                 .item = ITEM_CLEFABLITE,
                 .level = 50,
                 .nature = NATURE_BOLD,
@@ -2542,7 +2542,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
                 .moves = {MOVE_WAVE_CRASH, MOVE_FLIP_TURN, MOVE_AQUA_JET, MOVE_HEAD_SMASH},
             },
             {
-                .species = SPECIES_MEGANIUM_MEGA,
+                .species = SPECIES_MEGANIUM,
                 .item = ITEM_MEGANIUMITE,
                 .level = 50,
                 .nature = NATURE_MODEST,

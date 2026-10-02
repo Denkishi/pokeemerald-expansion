@@ -21,11 +21,11 @@ GambEsterno_Text_EnzoNeedTwoMons:
 	.string "Ti servono almeno due Pokémon pronti.$"
 
 GambEsterno_Text_EnzoAskBattle:
-	.string "Yo! Sono Enzo.\n"
-	.string "Vuoi farti una lotta contro il mio team?$"
+	.string "webbello.\n"
+	.string "Sei venuto a farti schiattere il capone?$"
 
 GambEsterno_Text_EnzoIntro:
-	.string "Capiamo che sai fare$"
+	.string "Capiamo$"
 
 GambEsterno_Text_EnzoVictory:
 	.string "Skill issue$"
