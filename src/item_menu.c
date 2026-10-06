@@ -1,4 +1,5 @@
 #include "global.h"
+#include "config/custom.h"
 #include "item_menu.h"
 #include "battle.h"
 #include "battle_controllers.h"
@@ -1462,16 +1463,20 @@ static void Task_SwitchBagPocket(u8 taskId)
     switch (tPocketSwitchState)
     {
     case 0:
-        DrawItemListBgRow(tPocketSwitchTimer);
-        if (!(++tPocketSwitchTimer & 1))
+        // Più passi per fotogramma = cambio tasca più rapido.
+        for (u32 step = 0; step < CUSTOM_BAG_POCKET_SWITCH_SPEED && tPocketSwitchState == 0; step++)
         {
-            if (tPocketSwitchDir == MENU_CURSOR_DELTA_RIGHT)
-                CopyPocketNameToWindow((u8)(tPocketSwitchTimer >> 1));
-            else
-                CopyPocketNameToWindow((u8)(8 - (tPocketSwitchTimer >> 1)));
+            DrawItemListBgRow(tPocketSwitchTimer);
+            if (!(++tPocketSwitchTimer & 1))
+            {
+                if (tPocketSwitchDir == MENU_CURSOR_DELTA_RIGHT)
+                    CopyPocketNameToWindow((u8)(tPocketSwitchTimer >> 1));
+                else
+                    CopyPocketNameToWindow((u8)(8 - (tPocketSwitchTimer >> 1)));
+            }
+            if (tPocketSwitchTimer == 16)
+                tPocketSwitchState++;
         }
-        if (tPocketSwitchTimer == 16)
-            tPocketSwitchState++;
         break;
     case 1:
         ChangeBagPocketId(&gBagPosition.pocket, tPocketSwitchDir);

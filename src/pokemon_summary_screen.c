@@ -1,4 +1,5 @@
 #include "global.h"
+#include "config/custom.h"
 #include "main.h"
 #include "battle.h"
 #include "battle_anim.h"
@@ -2207,8 +2208,8 @@ static void PssScrollRight(u8 taskId) // Scroll right
         ShowBg(1);
         ShowBg(2);
     }
-    ChangeBgX(data[1], 0x2000, BG_COORD_ADD);
-    data[0] += 32;
+    ChangeBgX(data[1], CUSTOM_SUMMARY_SCROLL_SPEED << 8, BG_COORD_ADD);
+    data[0] += CUSTOM_SUMMARY_SCROLL_SPEED;
     if (data[0] > 0xFF)
         gTasks[taskId].func = PssScrollRightEnd;
 }
@@ -2240,8 +2241,8 @@ static void PssScrollLeft(u8 taskId) // Scroll left
             data[1] = 1;
         ChangeBgX(data[1], 0x10000, BG_COORD_SET);
     }
-    ChangeBgX(data[1], 0x2000, BG_COORD_SUB);
-    data[0] += 32;
+    ChangeBgX(data[1], CUSTOM_SUMMARY_SCROLL_SPEED << 8, BG_COORD_SUB);
+    data[0] += CUSTOM_SUMMARY_SCROLL_SPEED;
     if (data[0] > 0xFF)
         gTasks[taskId].func = PssScrollLeftEnd;
 }

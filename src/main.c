@@ -1,4 +1,5 @@
 #include "global.h"
+#include "config/custom.h"
 #include "crt0.h"
 #include "malloc.h"
 #include "link.h"
@@ -256,8 +257,8 @@ static void SeedRngWithRtc(void)
 
 void InitKeys(void)
 {
-    gKeyRepeatContinueDelay = 5;
-    gKeyRepeatStartDelay = 40;
+    gKeyRepeatContinueDelay = CUSTOM_KEY_REPEAT_CONTINUE_DELAY;
+    gKeyRepeatStartDelay = CUSTOM_KEY_REPEAT_START_DELAY;
 
     gMain.heldKeys = 0;
     gMain.newKeys = 0;

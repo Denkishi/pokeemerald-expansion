@@ -46,4 +46,14 @@
 // TRUE = il giocatore corre sempre (anche senza Scarpe da Corsa); tieni premuto B per camminare.
 #define CUSTOM_AUTO_RUN                     TRUE
 
+// --- 9. Velocità dei menu ----------------------------------------------
+// Cambio pagina nel sommario: pixel per fotogramma (originale 32; deve dividere 256).
+#define CUSTOM_SUMMARY_SCROLL_SPEED         64
+// Cambio tasca nella borsa: passi dell'animazione per fotogramma (originale 1).
+#define CUSTOM_BAG_POCKET_SWITCH_SPEED      2
+// Tasto tenuto premuto nelle liste: fotogrammi prima di ripetere / tra una ripetizione e l'altra
+// (originale 40 e 5).
+#define CUSTOM_KEY_REPEAT_START_DELAY       20
+#define CUSTOM_KEY_REPEAT_CONTINUE_DELAY    3
+
 #endif // GUARD_CONFIG_CUSTOM_H
