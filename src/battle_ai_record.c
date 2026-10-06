@@ -6,6 +6,7 @@
 #include "constants/abilities.h"
 #include "constants/hold_effects.h"
 #include "constants/battle_ai.h"
+#include "battle_info.h"
 
 void RecordLastUsedMoveBy(enum BattlerId battlerId, enum Move move)
 {
@@ -26,6 +27,9 @@ void RecordKnownMove(enum BattlerId battler, enum Move move)
             break;
     }
 
+    if (moveIndex < MAX_MON_MOVES)
+        BattleInfo_RecordMove(battler, move);
+
     if (moveIndex < MAX_MON_MOVES && gBattleHistory->usedMoves[battler][moveIndex] == MOVE_NONE)
     {
         gBattleHistory->usedMoves[battler][moveIndex] = move;
@@ -42,12 +46,14 @@ void RecordAbilityBattle(enum BattlerId battlerId, enum Ability abilityId)
 {
     gBattleHistory->abilities[battlerId] = abilityId;
     gAiPartyData->mons[GetBattlerSide(battlerId)][gBattlerPartyIndexes[battlerId]].ability = abilityId;
+    BattleInfo_RecordAbility(battlerId, abilityId);
 }
 
 void RecordItemEffectBattle(enum BattlerId battlerId, enum HoldEffect itemEffect)
 {
     gBattleHistory->itemEffects[battlerId] = itemEffect;
     gAiPartyData->mons[GetBattlerSide(battlerId)][gBattlerPartyIndexes[battlerId]].heldEffect = itemEffect;
+    BattleInfo_RecordItem(battlerId);
 }
 
 void ClearBattlerAbilityHistory(enum BattlerId battlerId)

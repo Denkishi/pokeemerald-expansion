@@ -5,6 +5,8 @@
 #include "battle_anim.h"
 #include "battle_arena.h"
 #include "battle_controllers.h"
+#include "battle_info.h"
+#include "battle_util2.h"
 #include "battle_dome.h"
 #include "battle_interface.h"
 #include "battle_message.h"
@@ -236,6 +238,17 @@ static enum Item GetNextBall(enum Item ballId)
     return ballId;
 }
 
+// Apre la schermata "Info lotta" passando dallo stesso giro usato dal menu debug:
+// il motore riceve B_ACTION_DEBUG, ci richiama con PlayerHandleBattleDebug e alla fine
+// ripropone il menu azioni.
+static void OpenBattleInfoFromActionMenu(enum BattlerId battler)
+{
+    gBattleInfoRequested = TRUE;
+    TryHideLastUsedBall();
+    BtlController_EmitTwoReturnValues(battler, B_COMM_TO_ENGINE, B_ACTION_DEBUG, 0);
+    BtlController_Complete(battler);
+}
+
 static void HandleInputChooseAction(enum BattlerId battler)
 {
     enum Item itemId = gBattleResources->bufferA[battler][2] | (gBattleResources->bufferA[battler][3] << 8);
@@ -247,6 +260,13 @@ static void HandleInputChooseAction(enum BattlerId battler)
         gPlayerDpadHoldFrames++;
     else
         gPlayerDpadHoldFrames = 0;
+
+    // Info lotta richiesta dal menu mosse (R): si apre appena torna il menu azioni.
+    if (CUSTOM_BATTLE_INFO_SCREEN && gBattleInfoRequested)
+    {
+        OpenBattleInfoFromActionMenu(battler);
+        return;
+    }
 
     if (B_LAST_USED_BALL == TRUE && B_LAST_USED_BALL_CYCLE == TRUE
     && !(B_LAST_USED_BALL_BUTTON == L_BUTTON && gSaveBlock2Ptr->optionsButtonMode == OPTIONS_BUTTON_MODE_L_EQUALS_A))
@@ -412,6 +432,11 @@ static void HandleInputChooseAction(enum BattlerId battler)
         TryHideLastUsedBall();
         BtlController_EmitTwoReturnValues(battler, B_COMM_TO_ENGINE, B_ACTION_THROW_BALL, 0);
         BtlController_Complete(battler);
+    }
+    else if (CUSTOM_BATTLE_INFO_SCREEN && JOY_NEW(R_BUTTON))
+    {
+        PlaySE(SE_SELECT);
+        OpenBattleInfoFromActionMenu(battler);
     }
 }
 
@@ -800,6 +825,17 @@ void HandleInputChooseMove(enum BattlerId battler)
             BtlController_Complete(battler);
             TryToHideMoveInfoWindow();
         }
+    }
+    else if (CUSTOM_BATTLE_INFO_SCREEN && JOY_NEW(R_BUTTON) && !gBattleStruct->descriptionSubmenu && !gBattleStruct->zmove.viewing)
+    {
+        // Come B (torna al menu azioni), ma lasciando la richiesta di aprire "Info lotta".
+        PlaySE(SE_SELECT);
+        gBattleStruct->gimmick.playerSelect = FALSE;
+        gBattleInfoRequested = TRUE;
+        BtlController_EmitTwoReturnValues(battler, B_COMM_TO_ENGINE, B_ACTION_EXEC_SCRIPT, 0xFFFF);
+        HideGimmickTriggerSprite();
+        BtlController_Complete(battler);
+        TryToHideMoveInfoWindow();
     }
     else if (JOY_NEW(DPAD_LEFT) && !gBattleStruct->zmove.viewing)
     {
@@ -2030,6 +2066,7 @@ static void PlayerHandleChooseAction(enum BattlerId battler)
     s32 i;
 
     gBattlerControllerFuncs[battler] = HandleChooseActionAfterDma3;
+    BattleInfo_SampleTimers();
     BattleTv_ClearExplosionFaintCause();
     BattlePutTextOnWindow(gText_BattleMenu, B_WIN_ACTION_MENU);
 
@@ -2366,9 +2403,26 @@ static void Controller_WaitForDebug(enum BattlerId battler)
     }
 }
 
+// Aspetta la dissolvenza, chiude la schermata di lotta come fa il menu squadra e apre "Info lotta".
+static void Controller_OpenBattleInfoAfterFade(enum BattlerId battler)
+{
+    if (!gPaletteFade.active)
+    {
+        gBattleInfoRequested = FALSE;
+        gBattlerControllerFuncs[battler] = Controller_WaitForDebug;
+        CloseMainBattleScreen();
+        SetMainCallback2(CB2_BattleInfo);
+    }
+}
+
 static void PlayerHandleBattleDebug(enum BattlerId battler)
 {
     BeginNormalPaletteFade(-1, 0, 0, 0x10, 0);
+    if (CUSTOM_BATTLE_INFO_SCREEN && gBattleInfoRequested)
+    {
+        gBattlerControllerFuncs[battler] = Controller_OpenBattleInfoAfterFade;
+        return;
+    }
     SetMainCallback2(CB2_BattleDebugMenu);
     gBattlerControllerFuncs[battler] = Controller_WaitForDebug;
 }

@@ -9,7 +9,7 @@
 // Dopo una VITTORIA contro questo trainer il gioco fa soft reset.
 // Metti la costante giusta del tuo trainer (vedi include/constants/opponents.h
 // o src/data/trainers.party). 0 = feature spenta.
-#define CUSTOM_RESET_AFTER_TRAINER          TRAINER_ENZO
+#define CUSTOM_RESET_AFTER_TRAINER          0   // era TRAINER_ENZO: dopo la vittoria il gioco si riavviava
 #define CUSTOM_RESET_ALSO_ON_LOSS           FALSE   // TRUE = riavvia anche se perdi
 
 // --- 2. Gimmick: solo Mega --------------------------------------------
@@ -55,5 +55,10 @@
 // (originale 40 e 5).
 #define CUSTOM_KEY_REPEAT_START_DELAY       20
 #define CUSTOM_KEY_REPEAT_CONTINUE_DELAY    3
+
+// --- 10. Info lotta ------------------------------------------------------
+// Tasto R nel menu azioni o nel menu mosse: schermata con squadre, modifiche alle
+// statistiche, effetti di campo e dettagli rivelati dell'avversario.
+#define CUSTOM_BATTLE_INFO_SCREEN           TRUE
 
 #endif // GUARD_CONFIG_CUSTOM_H

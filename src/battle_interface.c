@@ -1,4 +1,5 @@
 #include "global.h"
+#include "config/custom.h"
 #include "malloc.h"
 #include "battle.h"
 #include "pokemon.h"
@@ -2951,7 +2952,10 @@ static const struct SpriteSheet sSpriteSheet_LastUsedBallWindow =
     sLastUsedBallWindowGfx, sizeof(sLastUsedBallWindowGfx), TAG_LAST_BALL_WINDOW
 };
 
-#if B_MOVE_DESCRIPTION_BUTTON == R_BUTTON
+#if CUSTOM_BATTLE_INFO_SCREEN
+// Due mini prompt nello spazio di uno: "L MOSSA" e "R LOTTA".
+static const u8 sMoveInfoWindowGfx[] = INCGFX_U8("graphics/battle_interface/move_info_window_lr.png", ".4bpp");
+#elif B_MOVE_DESCRIPTION_BUTTON == R_BUTTON
 static const u8 sMoveInfoWindowGfx[] = INCGFX_U8("graphics/battle_interface/move_info_window_r.png", ".4bpp");
 #else
 static const u8 sMoveInfoWindowGfx[] = INCGFX_U8("graphics/battle_interface/move_info_window_l.png", ".4bpp");
