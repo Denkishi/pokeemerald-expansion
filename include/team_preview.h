@@ -15,4 +15,8 @@ void TeamPreview_RestorePlayerParty(void);
 // Usata dalla preview; esposta per test/debug.
 void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder);
 
+// Squadra avversaria vista in anteprima, per la schermata Info lotta.
+bool32 TeamPreview_HasEnemyPreview(void);
+bool32 TeamPreview_GetEnemyPreviewMon(u32 index, u16 *species, u32 *battleSlot);
+
 #endif // GUARD_TEAM_PREVIEW_H

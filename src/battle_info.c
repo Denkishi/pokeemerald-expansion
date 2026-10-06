@@ -30,6 +30,7 @@
 #include "sprite.h"
 #include "string_util.h"
 #include "task.h"
+#include "team_preview.h"
 #include "text.h"
 #include "window.h"
 #include "config/custom.h"
@@ -230,12 +231,22 @@ struct BattleInfoState
 {
     u8 view;
     u8 side;        // cursore: lato
-    u8 slot;        // cursore: slot nella squadra
+    u8 slot;        // cursore: posizione nella striscia (per noi coincide con lo slot)
     u8 detailRow;
     u8 iconIds[BI_SIDE_COUNT][PARTY_SIZE];
 };
 
 static EWRAM_DATA struct BattleInfoState sBI = {0};
+
+// Striscia avversaria: se c'è stata l'anteprima mostra tutte le specie viste lì, nell'ordine
+// originale (così la posizione non rivela chi è stato portato); altrimenti la squadra in lotta.
+struct FoeDisplayMon
+{
+    u16 species;
+    u8 battleSlot;  // slot nella squadra in lotta, PARTY_SIZE = non portato / sconosciuto
+};
+static EWRAM_DATA struct FoeDisplayMon sFoeDisplay[PARTY_SIZE] = {0};
+static EWRAM_DATA u8 sFoeDisplayCount = 0;
 static EWRAM_DATA u16 sBI_Tilemap[BG_SCREEN_SIZE / 2] = {0};
 
 static const u16 sBI_BlackPal[16] = {0};
@@ -419,6 +430,73 @@ static s32 IconX(u32 slot)
     return ICON_FIRST_X + ICON_PITCH * slot;
 }
 
+static void BuildFoeDisplay(void)
+{
+    u32 i;
+
+    sFoeDisplayCount = 0;
+    if (TeamPreview_HasEnemyPreview())
+    {
+        for (i = 0; i < PARTY_SIZE; i++)
+        {
+            u16 species;
+            u32 battleSlot;
+            if (!TeamPreview_GetEnemyPreviewMon(i, &species, &battleSlot))
+                continue;
+            sFoeDisplay[sFoeDisplayCount].species = species;
+            sFoeDisplay[sFoeDisplayCount].battleSlot = battleSlot;
+            sFoeDisplayCount++;
+        }
+    }
+    if (sFoeDisplayCount == 0)
+    {
+        for (i = 0; i < PARTY_SIZE; i++)
+        {
+            if (!SlotExists(BI_SIDE_FOE, i))
+                continue;
+            sFoeDisplay[sFoeDisplayCount].species = GetMonData(&SideParty(BI_SIDE_FOE)[i], MON_DATA_SPECIES);
+            sFoeDisplay[sFoeDisplayCount].battleSlot = i;
+            sFoeDisplayCount++;
+        }
+    }
+}
+
+// Le funzioni Pos* lavorano sulla posizione nella striscia; quelle Slot* sullo slot in lotta.
+static bool32 PosExists(u32 side, u32 pos)
+{
+    if (side == BI_SIDE_PLAYER)
+        return SlotExists(side, pos);
+    return pos < sFoeDisplayCount;
+}
+
+// Slot in lotta, PARTY_SIZE se la posizione non corrisponde a un Pokémon portato.
+static u32 PosToSlot(u32 side, u32 pos)
+{
+    if (side == BI_SIDE_PLAYER)
+        return pos;
+    if (pos >= sFoeDisplayCount || !SlotExists(BI_SIDE_FOE, sFoeDisplay[pos].battleSlot))
+        return PARTY_SIZE;
+    return sFoeDisplay[pos].battleSlot;
+}
+
+// Si può vedere a colori e aprirne i dettagli?
+static bool32 PosRevealed(u32 side, u32 pos)
+{
+    u32 slot = PosToSlot(side, pos);
+    return slot < PARTY_SIZE && SlotRevealed(side, slot);
+}
+
+static bool32 PosOnField(u32 side, u32 pos)
+{
+    u32 slot = PosToSlot(side, pos);
+    return slot < PARTY_SIZE && SlotRevealed(side, slot) && BattlerForSlot(side, slot) != MAX_BATTLERS_COUNT;
+}
+
+static u32 CurSlot(void)
+{
+    return PosToSlot(sBI.side, sBI.slot);
+}
+
 // ---------------------------------------------------------------------
 // Testo
 // ---------------------------------------------------------------------
@@ -520,7 +598,7 @@ static void DrawStrip(u32 side)
     {
         s32 cx = IconX(slot);
 
-        if (!SlotExists(side, slot))
+        if (!PosExists(side, slot))
             continue;
         if (side == sBI.side && slot == sBI.slot)
         {
@@ -528,7 +606,7 @@ static void DrawStrip(u32 side)
             FillWindowPixelRect(win, PIXEL_FILL(TEXT_COLOR_RED), cx - 16, BAR_H, 32, 28);
             FillWindowPixelRect(win, PIXEL_FILL(TEXT_COLOR_LIGHT_RED), cx - 14, BAR_H + 2, 28, 24);
         }
-        if (SlotRevealed(side, slot) && BattlerForSlot(side, slot) != MAX_BATTLERS_COUNT)
+        if (PosOnField(side, slot))
             FillWindowPixelRect(win, PIXEL_FILL(TEXT_COLOR_GREEN), cx - 12, 36, 24, 3);
     }
     CopyWindowToVram(win, COPYWIN_GFX);
@@ -556,20 +634,31 @@ static void CreateIcons(void)
     {
         for (slot = 0; slot < PARTY_SIZE; slot++)
         {
-            struct Pokemon *mon = &SideParty(side)[slot];
+            u32 battleSlot;
             bool32 revealed;
             enum Species species;
+            u32 personality = 0;
             u32 spriteId;
             s32 y = ((side == BI_SIDE_PLAYER) ? PLAYER_STRIP_Y : FOE_STRIP_Y) + STRIP_ICON_Y;
 
             sBI.iconIds[side][slot] = MAX_SPRITES;
-            if (!SlotExists(side, slot))
+            if (!PosExists(side, slot))
                 continue;
-            revealed = SlotRevealed(side, slot);
-            // Non rivelato: icona "?" generica, così la sagoma non svela la specie.
-            species = revealed ? GetMonData(mon, MON_DATA_SPECIES) : SPECIES_NONE;
-            spriteId = CreateMonIcon(species, SpriteCallbackDummy, IconX(slot), y, 1,
-                                     revealed ? GetMonData(mon, MON_DATA_PERSONALITY) : 0);
+            battleSlot = PosToSlot(side, slot);
+            revealed = PosRevealed(side, slot);
+            if (revealed)
+            {
+                // Dati attuali (es. megaevoluzione)
+                struct Pokemon *mon = &SideParty(side)[battleSlot];
+                species = GetMonData(mon, MON_DATA_SPECIES);
+                personality = GetMonData(mon, MON_DATA_PERSONALITY);
+            }
+            else
+            {
+                // Non ancora visto in lotta: sagoma nera della specie vista in anteprima.
+                species = sFoeDisplay[slot].species;
+            }
+            spriteId = CreateMonIcon(species, SpriteCallbackDummy, IconX(slot), y, 1, personality);
             if (spriteId >= MAX_SPRITES)
                 continue;
             sBI.iconIds[side][slot] = spriteId;
@@ -579,7 +668,7 @@ static void CreateIcons(void)
                 if (blackPal != 0xFF)
                     gSprites[spriteId].oam.paletteNum = blackPal;
             }
-            else if (SlotFainted(side, slot))
+            else if (SlotFainted(side, battleSlot))
             {
                 u32 palIndex = GetMonIconPaletteIndexFromSpecies(species);
                 if (palIndex < 6 && greyPal[palIndex] != 0xFF)
@@ -856,7 +945,7 @@ static enum Move DetailMove(u32 side, u32 slot, u32 index)
 
 static void DrawDetailRow(u32 row, s32 x, s32 y)
 {
-    u32 side = sBI.side, slot = sBI.slot;
+    u32 side = sBI.side, slot = CurSlot();
     bool32 isFoe = (side == BI_SIDE_FOE);
     const u8 *colors = sColDark;
     u8 *ptr = gStringVar4;
@@ -920,7 +1009,7 @@ static void DrawDetailRow(u32 row, s32 x, s32 y)
 
 static void DrawDetailDescription(void)
 {
-    u32 side = sBI.side, slot = sBI.slot;
+    u32 side = sBI.side, slot = CurSlot();
     const u8 *desc = sText_NotRevealed;
     const u8 *colors = sColGray;
 
@@ -981,7 +1070,7 @@ static void DrawDetailDescription(void)
 
 static void DrawDetailView(void)
 {
-    u32 side = sBI.side, slot = sBI.slot;
+    u32 side = sBI.side, slot = CurSlot();
     struct Pokemon *mon = &SideParty(side)[slot];
     enum Species species = GetMonData(mon, MON_DATA_SPECIES);
     u32 hp = GetMonData(mon, MON_DATA_HP), maxHp = GetMonData(mon, MON_DATA_MAX_HP);
@@ -1081,28 +1170,21 @@ static void CB2_BattleInfoMain(void)
     UpdatePaletteFade();
 }
 
-// Mette il cursore sul primo Pokémon valido (prima il nostro in campo).
+// Mette il cursore sul primo avversario in campo (o sul primo della striscia).
 static void InitCursor(void)
 {
-    u32 slot;
+    u32 pos;
 
+    BuildFoeDisplay();
     sBI.view = VIEW_MAIN;
     sBI.detailRow = 0;
     sBI.side = BI_SIDE_FOE;
     sBI.slot = 0;
-    for (slot = 0; slot < PARTY_SIZE; slot++)
+    for (pos = 0; pos < sFoeDisplayCount; pos++)
     {
-        if (SlotExists(BI_SIDE_FOE, slot) && BattlerForSlot(BI_SIDE_FOE, slot) != MAX_BATTLERS_COUNT)
+        if (PosOnField(BI_SIDE_FOE, pos))
         {
-            sBI.slot = slot;
-            return;
-        }
-    }
-    for (slot = 0; slot < PARTY_SIZE; slot++)
-    {
-        if (SlotExists(BI_SIDE_FOE, slot))
-        {
-            sBI.slot = slot;
+            sBI.slot = pos;
             return;
         }
     }
@@ -1196,7 +1278,7 @@ static void MoveCursorHorizontal(s32 delta)
         slot += delta;
         if (slot < 0 || slot >= PARTY_SIZE)
             return;
-        if (SlotExists(sBI.side, slot))
+        if (PosExists(sBI.side, slot))
             break;
     }
     sBI.slot = slot;
@@ -1217,7 +1299,7 @@ static void SwitchCursorSide(void)
     // Stesso slot se esiste, altrimenti il più vicino.
     for (slot = 0; slot < PARTY_SIZE; slot++)
     {
-        if (!SlotExists(newSide, slot))
+        if (!PosExists(newSide, slot))
             continue;
         if (best == PARTY_SIZE || SlotDistance(slot, sBI.slot) < SlotDistance(best, sBI.slot))
             best = slot;
@@ -1273,7 +1355,7 @@ static void Task_BattleInfoInput(u8 taskId)
     }
     else if (JOY_NEW(A_BUTTON))
     {
-        if (!SlotExists(sBI.side, sBI.slot) || !SlotRevealed(sBI.side, sBI.slot))
+        if (!PosRevealed(sBI.side, sBI.slot))
         {
             PlaySE(SE_FAILURE);
         }

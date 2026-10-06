@@ -86,6 +86,10 @@ static EWRAM_DATA u8 sSavedOrder[PARTY_SIZE] = {0};   // nuovo slot -> slot orig
 static EWRAM_DATA u8 sSavedPicks = 0;
 static EWRAM_DATA bool8 sPartyReduced = FALSE;
 static EWRAM_DATA u16 *sTilemaps[2] = {NULL};
+// Squadra avversaria com'era in anteprima (serve alla schermata Info lotta).
+static EWRAM_DATA bool8 sEnemyPreviewValid = FALSE;
+static EWRAM_DATA u16 sEnemyPreviewSpecies[PARTY_SIZE] = {0};
+static EWRAM_DATA u8 sEnemyPreviewBattleSlot[PARTY_SIZE] = {0}; // slot in lotta, 0xFF = non portato
 
 static void CB2_TeamPreviewInit(void);
 static void CB2_TeamPreviewMain(void);
@@ -1317,7 +1321,14 @@ static void ApplyPartySelections(void)
         if (tmp != NULL)
         {
             for (i = 0; i < PARTY_SIZE; i++)
+            {
                 tmp[i] = gEnemyParty[i];
+                sEnemyPreviewSpecies[i] = GetMonData(&tmp[i], MON_DATA_SPECIES);
+                sEnemyPreviewBattleSlot[i] = 0xFF;
+            }
+            for (k = 0; k < sTP.enemyPicks; k++)
+                sEnemyPreviewBattleSlot[sTP.enemyOrder[k]] = k;
+            sEnemyPreviewValid = TRUE;
             for (k = 0; k < PARTY_SIZE; k++)
             {
                 if (k < sTP.enemyPicks)
@@ -1331,9 +1342,28 @@ static void ApplyPartySelections(void)
     }
 }
 
+// Pokémon avversario numero `index` dell'anteprima (ordine originale).
+// battleSlot = slot nella squadra in lotta, PARTY_SIZE se non è stato portato.
+// FALSE se questa lotta non ha avuto anteprima o lo slot è vuoto.
+bool32 TeamPreview_GetEnemyPreviewMon(u32 index, u16 *species, u32 *battleSlot)
+{
+    if (!sEnemyPreviewValid || index >= PARTY_SIZE || sEnemyPreviewSpecies[index] == SPECIES_NONE)
+        return FALSE;
+    *species = sEnemyPreviewSpecies[index];
+    *battleSlot = (sEnemyPreviewBattleSlot[index] < PARTY_SIZE) ? sEnemyPreviewBattleSlot[index] : PARTY_SIZE;
+    return TRUE;
+}
+
+bool32 TeamPreview_HasEnemyPreview(void)
+{
+    return sEnemyPreviewValid;
+}
+
 void TeamPreview_RestorePlayerParty(void)
 {
     u32 k;
+
+    sEnemyPreviewValid = FALSE; // la lotta è finita
 
     if (!sPartyReduced)
         return;
