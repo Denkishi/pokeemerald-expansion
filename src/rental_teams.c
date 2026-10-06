@@ -15,6 +15,7 @@
 #include "party_menu.h"
 #include "pokemon.h"
 #include "pokemon_icon.h"
+#include "pokemon_storage_system.h"
 #include "pokemon_summary_screen.h"
 #include "random.h"
 #include "rental_teams.h"
@@ -551,6 +552,10 @@ static void Task_RentalTeams_FadeOutToSummary(u8 taskId)
         FreeMonIconPalettes();
         FreeSpriteTilesByTag(TAG_RENTAL_HELD_ITEM);
         FreeSpritePaletteByTag(TAG_RENTAL_HELD_ITEM);
+        // Come all'uscita verso l'overworld: niente VBlank ne' copie BG in sospeso
+        // mentre i buffer delle finestre vengono liberati.
+        SetVBlankCallback(NULL);
+        ClearScheduledBgCopiesToVram();
         FreeAllWindowBuffers();
         DestroyTask(taskId);
 
@@ -980,9 +985,23 @@ void GiveSelectedRentalTeam(void)
 {
     u16 teamId = gSpecialVar_0x8005;
     u32 i;
+    u32 partyCount;
 
     if (teamId >= TOTAL_RENTAL_TEAMS)
         return;
+
+    // La squadra attuale (es. ELIA) va nel box per fare posto a quella a noleggio.
+    // Se il PC è pieno il Pokémon resta in squadra.
+    for (i = 0; i < PARTY_SIZE; i++)
+    {
+        struct Pokemon *partyMon = &gParties[B_TRAINER_PLAYER][i];
+        if (GetMonData(partyMon, MON_DATA_SPECIES) == SPECIES_NONE)
+            continue;
+        if (CopyMonToPC(partyMon) == MON_GIVEN_TO_PC)
+            ZeroMonData(partyMon);
+    }
+    CompactPartySlots();
+    partyCount = CalculatePlayerPartyCount();
 
     for (i = 0; i < 6; i++)
     {
@@ -992,8 +1011,12 @@ void GiveSelectedRentalTeam(void)
             continue;
 
         BuildRentalPokemon(&mon, rMon);
-        CopyMonToPC(&mon);
+        if (partyCount < PARTY_SIZE)
+            gParties[B_TRAINER_PLAYER][partyCount++] = mon;
+        else
+            CopyMonToPC(&mon);
     }
+    CalculatePlayerPartyCount();
 }
 
 void PopulateRentalCategoryTeams(void)

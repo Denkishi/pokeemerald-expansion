@@ -77,6 +77,7 @@ struct TeamPreviewState
     u8 enemyPicks;
     bool8 aiDone;
     bool8 active;
+    bool8 warn;                 // START premuto senza aver scelto tutti
 };
 
 static EWRAM_DATA struct TeamPreviewState sTP = {0};
@@ -101,9 +102,10 @@ static void ApplyPartySelections(void);
 // ---------------------------------------------------------------------
 // Testi (cambia qui per tradurre)
 // ---------------------------------------------------------------------
-static const u8 sText_Header[]   = _("SCEGLI {STR_VAR_1}   ");
-static const u8 sText_Hint[]     = _("A:menu B:togli START:via");
-static const u8 sText_Enemy[]    = _("AVVERSARIO");
+static const u8 sText_Header[]   = _("SCEGLI {STR_VAR_1} POKéMON");
+static const u8 sText_Hint[]     = _("A: Menu   B: Togli");
+static const u8 sText_Ready[]    = _("START: Lotta!");
+static const u8 sText_Missing[]  = _("Scegline ancora {STR_VAR_1}!");
 static const u8 sText_Info[]     = _("Info");
 static const u8 sText_Pick[]     = _("Scegli");
 static const u8 sText_Unpick[]   = _("Togli");
@@ -113,7 +115,7 @@ static const u8 sText_Back[]     = _("Indietro");
 static const u8 sText_Lv[]       = _("Lv.");
 static const u8 sText_KO[]       = _("KO");
 static const u8 sText_Egg[]      = _("UOVO");
-static const u8 sText_Cursor[]   = _("{RIGHT_ARROW}");
+static const u8 sText_Cursor[]   = _("▶");
 static const u8 sText_Iper[]     = _("{UP_ARROW}{UP_ARROW}");
 static const u8 sText_Super[]    = _("{UP_ARROW}");
 static const u8 sText_Resist[]   = _("{DOWN_ARROW}");
@@ -124,23 +126,62 @@ static const u8 sText_Slash[]    = _("/");
 // ---------------------------------------------------------------------
 // Grafica
 // ---------------------------------------------------------------------
-// 0 sfondo, 1 bianco, 2 testo, 3 ombra, 4 pannello noi, 5 pannello loro,
-// 6 evidenziato, 7 rosso, 8 blu, 9 arancio, 10 grigio scuro, 11 grigio chiaro, 12 verde
-static const u16 sPreviewPal[16] =
+// Colori ispirati al menu squadra: schede blu (noi) e rosse (loro), selezione arancio.
+enum
 {
-    RGB(4, 6, 10),  RGB(31, 31, 31), RGB(6, 6, 8),   RGB(18, 18, 20),
-    RGB(20, 26, 31), RGB(31, 22, 22), RGB(31, 29, 14), RGB(28, 4, 4),
-    RGB(4, 10, 28), RGB(30, 16, 2),  RGB(12, 12, 14), RGB(24, 24, 26),
-    RGB(8, 20, 8),  RGB(0, 0, 0),    RGB(0, 0, 0),    RGB(0, 0, 0),
+    COL_BG,          // sfondo (trasparente nelle finestre)
+    COL_WHITE,
+    COL_SHADOW,
+    COL_P_FILL,      // scheda giocatore
+    COL_P_BORDER,
+    COL_P_LIGHT,
+    COL_E_FILL,      // scheda avversario
+    COL_E_BORDER,
+    COL_E_LIGHT,
+    COL_SEL_FILL,    // scheda sotto il cursore
+    COL_ORANGE,
+    COL_YELLOW,
+    COL_HEADER,
+    COL_GREY,
+    COL_GREEN,
+    COL_CYAN,
 };
 
-static const u8 sColHeader[]  = {0, 1, 10};
-static const u8 sColPlayer[]  = {4, 2, 3};
-static const u8 sColEnemy[]   = {5, 2, 3};
-static const u8 sColHilite[]  = {6, 2, 3};
-static const u8 sColGrey4[]   = {4, 10, 11};
-static const u8 sColNumber[]  = {7, 1, 7};
+static const u16 sPreviewPal[16] =
+{
+    [COL_BG]       = RGB(5, 9, 13),
+    [COL_WHITE]    = RGB(31, 31, 31),
+    [COL_SHADOW]   = RGB(4, 5, 8),
+    [COL_P_FILL]   = RGB(9, 17, 27),
+    [COL_P_BORDER] = RGB(4, 9, 17),
+    [COL_P_LIGHT]  = RGB(16, 24, 31),
+    [COL_E_FILL]   = RGB(25, 10, 10),
+    [COL_E_BORDER] = RGB(14, 4, 5),
+    [COL_E_LIGHT]  = RGB(31, 17, 16),
+    [COL_SEL_FILL] = RGB(13, 22, 31),
+    [COL_ORANGE]   = RGB(31, 19, 4),
+    [COL_YELLOW]   = RGB(31, 29, 10),
+    [COL_HEADER]   = RGB(2, 4, 8),
+    [COL_GREY]     = RGB(17, 18, 20),
+    [COL_GREEN]    = RGB(12, 28, 12),
+    [COL_CYAN]     = RGB(18, 28, 31),
+};
+
+// {sfondo, testo, ombra}: sfondo 0 = trasparente, si vede la scheda sotto.
+static const u8 sColWhite[]   = {COL_BG, COL_WHITE, COL_SHADOW};
+static const u8 sColGrey[]    = {COL_BG, COL_GREY, COL_SHADOW};
+static const u8 sColYellow[]  = {COL_BG, COL_YELLOW, COL_SHADOW};
+static const u8 sColOrange[]  = {COL_BG, COL_ORANGE, COL_SHADOW};
+static const u8 sColGreen[]   = {COL_BG, COL_GREEN, COL_SHADOW};
+static const u8 sColCyan[]    = {COL_BG, COL_CYAN, COL_SHADOW};
+static const u8 sColNumber[]  = {COL_BG, COL_SHADOW, COL_BG};
 static const u8 sColMenu[]    = {TEXT_COLOR_WHITE, TEXT_COLOR_DARK_GRAY, TEXT_COLOR_LIGHT_GRAY};
+
+#define ICON_X       17
+#define TEXT_X       34
+#define CARD_X       1
+#define CARD_W       118
+#define CARD_H       22
 
 static const struct BgTemplate sBgTemplates[] =
 {
@@ -153,7 +194,7 @@ static const struct WindowTemplate sWinTemplates[] =
     [WIN_HEADER] = { .bg = 0, .tilemapLeft = 0,  .tilemapTop = 0, .width = 30, .height = 2,  .paletteNum = 0, .baseBlock = 1 },
     [WIN_PLAYER] = { .bg = 0, .tilemapLeft = 0,  .tilemapTop = 2, .width = 15, .height = 18, .paletteNum = 0, .baseBlock = 61 },
     [WIN_ENEMY]  = { .bg = 0, .tilemapLeft = 15, .tilemapTop = 2, .width = 15, .height = 18, .paletteNum = 0, .baseBlock = 331 },
-    [WIN_MENU]   = { .bg = 1, .tilemapLeft = 16, .tilemapTop = 7, .width = 8,  .height = 6,  .paletteNum = MENU_PAL, .baseBlock = 601 },
+    [WIN_MENU]   = { .bg = 1, .tilemapLeft = 21, .tilemapTop = 13, .width = 8,  .height = 6,  .paletteNum = MENU_PAL, .baseBlock = 601 },
     DUMMY_WIN_TEMPLATE,
 };
 
@@ -716,13 +757,13 @@ static void CreateIcons(void)
         if (GetMonData(p, MON_DATA_SPECIES) != SPECIES_NONE)
         {
             sTP.iconIds[0][i] = CreateMonIcon(GetMonData(p, MON_DATA_SPECIES_OR_EGG), SpriteCB_MonIcon,
-                                              14, LIST_TOP_Y + ROW_H * i + 10, 1, GetMonData(p, MON_DATA_PERSONALITY));
+                                              ICON_X, LIST_TOP_Y + ROW_H * i + 10, 1, GetMonData(p, MON_DATA_PERSONALITY));
             gSprites[sTP.iconIds[0][i]].oam.priority = 1;
         }
         if (GetMonData(e, MON_DATA_SPECIES) != SPECIES_NONE)
         {
             sTP.iconIds[1][i] = CreateMonIcon(GetMonData(e, MON_DATA_SPECIES), SpriteCB_MonIcon,
-                                              120 + 14, LIST_TOP_Y + ROW_H * i + 10, 1, GetMonData(e, MON_DATA_PERSONALITY));
+                                              120 + ICON_X, LIST_TOP_Y + ROW_H * i + 10, 1, GetMonData(e, MON_DATA_PERSONALITY));
             gSprites[sTP.iconIds[1][i]].oam.priority = 1;
             gSprites[sTP.iconIds[1][i]].callback = SpriteCallbackDummy; // fermi: lato avversario
         }
@@ -847,16 +888,52 @@ static void FreeScreen(void)
 static void DrawHeader(void)
 {
     u8 *ptr;
-    FillWindowPixelBuffer(WIN_HEADER, PIXEL_FILL(0));
+    u32 left = sTP.required - sTP.numPicks;
+
+    FillWindowPixelBuffer(WIN_HEADER, PIXEL_FILL(COL_HEADER));
+    FillWindowPixelRect(WIN_HEADER, PIXEL_FILL(COL_P_LIGHT), 0, 15, 120, 1);
+    FillWindowPixelRect(WIN_HEADER, PIXEL_FILL(COL_E_LIGHT), 120, 15, 120, 1);
+
+    // Sinistra: "SCEGLI 4 POKéMON" + contatore allineato a destra.
     ConvertIntToDecimalStringN(gStringVar1, sTP.required, STR_CONV_MODE_LEFT_ALIGN, 1);
     StringExpandPlaceholders(gStringVar4, sText_Header);
-    ptr = gStringVar4 + StringLength(gStringVar4);
-    ptr = ConvertIntToDecimalStringN(ptr, sTP.numPicks, STR_CONV_MODE_LEFT_ALIGN, 1);
+    AddTextPrinterParameterized3(WIN_HEADER, FONT_SMALL, 4, 2, sColWhite, TEXT_SKIP_DRAW, gStringVar4);
+    ptr = ConvertIntToDecimalStringN(gStringVar2, sTP.numPicks, STR_CONV_MODE_LEFT_ALIGN, 1);
     ptr = StringCopy(ptr, sText_Slash);
     ConvertIntToDecimalStringN(ptr, sTP.required, STR_CONV_MODE_LEFT_ALIGN, 1);
-    AddTextPrinterParameterized3(WIN_HEADER, FONT_SMALL, 4, 2, sColHeader, TEXT_SKIP_DRAW, gStringVar4);
-    AddTextPrinterParameterized3(WIN_HEADER, FONT_SMALL, 70, 2, sColHeader, TEXT_SKIP_DRAW, sText_Hint);
+    AddTextPrinterParameterized3(WIN_HEADER, FONT_SMALL, 116 - GetStringWidth(FONT_SMALL, gStringVar2, 0), 2,
+                                 left == 0 ? sColGreen : sColYellow, TEXT_SKIP_DRAW, gStringVar2);
+
+    // Destra: cosa puoi fare adesso.
+    if (left == 0)
+    {
+        AddTextPrinterParameterized3(WIN_HEADER, FONT_SMALL, 126, 2, sColGreen, TEXT_SKIP_DRAW, sText_Ready);
+    }
+    else if (sTP.warn)
+    {
+        ConvertIntToDecimalStringN(gStringVar1, left, STR_CONV_MODE_LEFT_ALIGN, 1);
+        StringExpandPlaceholders(gStringVar4, sText_Missing);
+        AddTextPrinterParameterized3(WIN_HEADER, FONT_SMALL, 126, 2, sColOrange, TEXT_SKIP_DRAW, gStringVar4);
+    }
+    else
+    {
+        AddTextPrinterParameterized3(WIN_HEADER, FONT_SMALL, 126, 2, sColWhite, TEXT_SKIP_DRAW, sText_Hint);
+    }
     CopyWindowToVram(WIN_HEADER, COPYWIN_FULL);
+}
+
+// Scheda arrotondata stile slot del menu squadra.
+static void DrawCard(u32 win, u32 rowY, u32 fill, u32 border, u32 light, u32 thick)
+{
+    u32 x = CARD_X, y = rowY + 1;
+
+    FillWindowPixelRect(win, PIXEL_FILL(border), x, y, CARD_W, CARD_H);
+    FillWindowPixelRect(win, PIXEL_FILL(fill), x + thick, y + thick, CARD_W - 2 * thick, CARD_H - 2 * thick);
+    FillWindowPixelRect(win, PIXEL_FILL(light), x + thick, y + thick, CARD_W - 2 * thick, 1);
+    FillWindowPixelRect(win, PIXEL_FILL(COL_BG), x, y, 1, 1);
+    FillWindowPixelRect(win, PIXEL_FILL(COL_BG), x + CARD_W - 1, y, 1, 1);
+    FillWindowPixelRect(win, PIXEL_FILL(COL_BG), x, y + CARD_H - 1, 1, 1);
+    FillWindowPixelRect(win, PIXEL_FILL(COL_BG), x + CARD_W - 1, y + CARD_H - 1, 1, 1);
 }
 
 static void DrawMonText(u32 win, struct Pokemon *mon, u32 y, const u8 *colors)
@@ -864,44 +941,48 @@ static void DrawMonText(u32 win, struct Pokemon *mon, u32 y, const u8 *colors)
     u8 *ptr;
     if (GetMonData(mon, MON_DATA_IS_EGG))
     {
-        AddTextPrinterParameterized3(win, FONT_NARROW, 26, y, colors, TEXT_SKIP_DRAW, sText_Egg);
+        AddTextPrinterParameterized3(win, FONT_NARROW, TEXT_X, y + 1, colors, TEXT_SKIP_DRAW, sText_Egg);
         return;
     }
     GetMonData(mon, MON_DATA_NICKNAME, gStringVar1);
     StringGet_Nickname(gStringVar1);
-    AddTextPrinterParameterized3(win, FONT_NARROW, 26, y, colors, TEXT_SKIP_DRAW, gStringVar1);
+    AddTextPrinterParameterized3(win, FONT_NARROW, TEXT_X, y + 1, colors, TEXT_SKIP_DRAW, gStringVar1);
     ptr = StringCopy(gStringVar2, sText_Lv);
     ConvertIntToDecimalStringN(ptr, GetMonData(mon, MON_DATA_LEVEL), STR_CONV_MODE_LEFT_ALIGN, 3);
-    AddTextPrinterParameterized3(win, FONT_SMALL, 26, y + 12, colors, TEXT_SKIP_DRAW, gStringVar2);
+    AddTextPrinterParameterized3(win, FONT_SMALL, TEXT_X, y + 11, colors, TEXT_SKIP_DRAW, gStringVar2);
 }
 
 static void DrawPlayerPanel(void)
 {
     u32 i;
-    FillWindowPixelBuffer(WIN_PLAYER, PIXEL_FILL(4));
+    FillWindowPixelBuffer(WIN_PLAYER, PIXEL_FILL(COL_BG));
     for (i = 0; i < PARTY_SIZE; i++)
     {
         struct Pokemon *mon = &gPlayerParty[i];
         u32 y = ROW_H * i;
-        const u8 *col = sColPlayer;
+        const u8 *col = sColWhite;
 
         if (GetMonData(mon, MON_DATA_SPECIES) == SPECIES_NONE)
-            continue;
-        if (i == sTP.cursor)
         {
-            FillWindowPixelRect(WIN_PLAYER, PIXEL_FILL(6), 0, y, 120, ROW_H);
-            col = sColHilite;
+            DrawCard(WIN_PLAYER, y, COL_BG, COL_P_BORDER, COL_BG, 1); // slot vuoto
+            continue;
         }
+        if (i == sTP.cursor)
+            DrawCard(WIN_PLAYER, y, COL_SEL_FILL, COL_ORANGE, COL_P_LIGHT, 2);
+        else
+            DrawCard(WIN_PLAYER, y, COL_P_FILL, COL_P_BORDER, COL_P_LIGHT, 1);
         if (!IsMonUsable(mon))
-            col = sColGrey4;
+            col = sColGrey;
         DrawMonText(WIN_PLAYER, mon, y, col);
         if (!GetMonData(mon, MON_DATA_IS_EGG) && GetMonData(mon, MON_DATA_HP) == 0)
-            AddTextPrinterParameterized3(WIN_PLAYER, FONT_SMALL, 70, y + 12, col, TEXT_SKIP_DRAW, sText_KO);
+            AddTextPrinterParameterized3(WIN_PLAYER, FONT_SMALL, 74, y + 11, sColOrange, TEXT_SKIP_DRAW, sText_KO);
         if (sTP.pickOrder[i])
         {
-            FillWindowPixelRect(WIN_PLAYER, PIXEL_FILL(7), 102, y + 4, 14, 16);
+            // Medaglietta gialla con l'ordine di scelta.
+            FillWindowPixelRect(WIN_PLAYER, PIXEL_FILL(COL_SHADOW), 99, y + 4, 16, 16);
+            FillWindowPixelRect(WIN_PLAYER, PIXEL_FILL(COL_YELLOW), 100, y + 5, 14, 14);
             ConvertIntToDecimalStringN(gStringVar3, sTP.pickOrder[i], STR_CONV_MODE_LEFT_ALIGN, 1);
-            AddTextPrinterParameterized3(WIN_PLAYER, FONT_NORMAL, 106, y + 4, sColNumber, TEXT_SKIP_DRAW, gStringVar3);
+            AddTextPrinterParameterized3(WIN_PLAYER, FONT_NORMAL, 104, y + 4, sColNumber, TEXT_SKIP_DRAW, gStringVar3);
         }
     }
     CopyWindowToVram(WIN_PLAYER, COPYWIN_FULL);
@@ -913,28 +994,33 @@ static void DrawEnemyPanel(void)
     struct Pokemon *hover = &gPlayerParty[sTP.cursor];
     bool32 showEff = IsMonUsable(hover);
 
-    FillWindowPixelBuffer(WIN_ENEMY, PIXEL_FILL(5));
+    FillWindowPixelBuffer(WIN_ENEMY, PIXEL_FILL(COL_BG));
     for (i = 0; i < PARTY_SIZE; i++)
     {
         struct Pokemon *mon = &gEnemyParty[i];
         u32 y = ROW_H * i;
 
         if (GetMonData(mon, MON_DATA_SPECIES) == SPECIES_NONE)
+        {
+            DrawCard(WIN_ENEMY, y, COL_BG, COL_E_BORDER, COL_BG, 1); // slot vuoto
             continue;
-        DrawMonText(WIN_ENEMY, mon, y, sColEnemy);
+        }
+        DrawCard(WIN_ENEMY, y, COL_E_FILL, COL_E_BORDER, COL_E_LIGHT, 1);
+        DrawMonText(WIN_ENEMY, mon, y, sColWhite);
 
         if (showEff)
         {
             u32 eff = PreviewEffectiveness(hover, mon);
             const u8 *txt = NULL;
-            u8 col[3] = {5, 2, 3};
-            if (eff == 0)        { txt = sText_Immune;  col[1] = 2;  }
-            else if (eff >= 400) { txt = sText_Iper;    col[1] = 7;  }
-            else if (eff >= 200) { txt = sText_Super;   col[1] = 9;  }
-            else if (eff <= 25)  { txt = sText_Resist4; col[1] = 8;  }
-            else if (eff < 100)  { txt = sText_Resist;  col[1] = 8;  }
+            const u8 *col = sColWhite;
+            if (eff == 0)        { txt = sText_Immune;  col = sColWhite;  }
+            else if (eff >= 400) { txt = sText_Iper;    col = sColYellow; }
+            else if (eff >= 200) { txt = sText_Super;   col = sColYellow; }
+            else if (eff <= 25)  { txt = sText_Resist4; col = sColCyan;   }
+            else if (eff < 100)  { txt = sText_Resist;  col = sColCyan;   }
             if (txt != NULL)
-                AddTextPrinterParameterized3(WIN_ENEMY, FONT_NORMAL, 100, y + 4, col, TEXT_SKIP_DRAW, txt);
+                AddTextPrinterParameterized3(WIN_ENEMY, FONT_NORMAL, 114 - GetStringWidth(FONT_NORMAL, txt, 0), y + 4,
+                                             col, TEXT_SKIP_DRAW, txt);
         }
         if (CUSTOM_TEAM_PREVIEW_REVEAL_AI)
         {
@@ -944,17 +1030,17 @@ static void DrawEnemyPanel(void)
                 if (sTP.enemyOrder[k] == i)
                 {
                     ConvertIntToDecimalStringN(gStringVar3, k + 1, STR_CONV_MODE_LEFT_ALIGN, 1);
-                    AddTextPrinterParameterized3(WIN_ENEMY, FONT_SMALL, 70, y + 12, sColEnemy, TEXT_SKIP_DRAW, gStringVar3);
+                    AddTextPrinterParameterized3(WIN_ENEMY, FONT_SMALL, 74, y + 11, sColYellow, TEXT_SKIP_DRAW, gStringVar3);
                 }
             }
         }
     }
-    AddTextPrinterParameterized3(WIN_ENEMY, FONT_SMALL, 70, 136, sColEnemy, TEXT_SKIP_DRAW, sText_Enemy);
     CopyWindowToVram(WIN_ENEMY, COPYWIN_FULL);
 }
 
 static void DrawAll(void)
 {
+    sTP.warn = FALSE;
     DrawHeader();
     DrawPlayerPanel();
     DrawEnemyPanel();
@@ -982,15 +1068,14 @@ static void DrawMenu(void)
         items[0] = sText_Fight;
         items[1] = sText_Back;
     }
-    FillWindowPixelBuffer(WIN_MENU, PIXEL_FILL(1));
+    // La cornice va prima del testo: DrawStdFrame... riempie la finestra di bianco.
+    DrawStdFrameWithCustomTileAndPalette(WIN_MENU, FALSE, FRAME_TILE, FRAME_PAL);
     for (i = 0; i < n; i++)
     {
         if (i == sTP.menuCursor)
             AddTextPrinterParameterized3(WIN_MENU, FONT_NORMAL, 0, 16 * i, sColMenu, TEXT_SKIP_DRAW, sText_Cursor);
-        AddTextPrinterParameterized3(WIN_MENU, FONT_NORMAL, 10, 16 * i, sColMenu, TEXT_SKIP_DRAW, items[i]);
+        AddTextPrinterParameterized3(WIN_MENU, FONT_NORMAL, 8, 16 * i, sColMenu, TEXT_SKIP_DRAW, items[i]);
     }
-    PutWindowTilemap(WIN_MENU);
-    DrawStdFrameWithCustomTileAndPalette(WIN_MENU, FALSE, FRAME_TILE, FRAME_PAL);
     CopyWindowToVram(WIN_MENU, COPYWIN_FULL);
     ScheduleBgCopyTilemapToVram(1);
 }
@@ -1083,6 +1168,8 @@ static void Task_TeamPreviewInput(u8 taskId)
             else
             {
                 PlaySE(SE_FAILURE);
+                sTP.warn = TRUE;
+                DrawHeader();
             }
         }
         return;
@@ -1145,6 +1232,12 @@ static void Task_TeamPreviewInput(u8 taskId)
         }
         else // MENU_CONFIRM
         {
+            if (sTP.menuCursor == 0 && sTP.numPicks != sTP.required)
+            {
+                PlaySE(SE_FAILURE);
+                CloseMenu();
+                return;
+            }
             PlaySE(SE_SELECT);
             if (sTP.menuCursor == 0)
             {
@@ -1167,7 +1260,8 @@ static void Task_TeamPreviewExitToSummary(u8 taskId)
     DestroyTask(taskId);
     FreeScreen();
     SetVBlankCallback(NULL);
-    ShowPokemonSummaryScreen(SUMMARY_MODE_NORMAL, gPlayerParty, sTP.cursor, gPlayerPartyCount - 1, CB2_ReturnFromSummary);
+    // LOCK_MOVES: niente rinomina / ricorda-mosse / riordino mosse da qui (escono verso altre schermate).
+    ShowPokemonSummaryScreen(SUMMARY_MODE_LOCK_MOVES, gPlayerParty, sTP.cursor, gPlayerPartyCount - 1, CB2_ReturnFromSummary);
 }
 
 static void CB2_ReturnFromSummary(void)
