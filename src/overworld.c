@@ -29,6 +29,8 @@
 #include "follower_npc.h"
 #include "gpu_regs.h"
 #include "heal_location.h"
+#include "config/custom.h"
+#include "constants/heal_locations.h"
 #include "io_reg.h"
 #include "item.h"
 #include "item_icon.h"
@@ -395,6 +397,8 @@ void DoWhiteOut(void)
     RunScriptImmediately(EventScript_WhiteOut);
     HealPlayerParty();
     Overworld_ResetStateAfterWhiteOut();
+    if (CUSTOM_WHITEOUT_HEAL_LOCATION != HEAL_LOCATION_NONE)
+        SetLastHealLocationWarp(CUSTOM_WHITEOUT_HEAL_LOCATION);
     SetWarpDestinationToLastHealLocation();
     WarpIntoMap();
 }

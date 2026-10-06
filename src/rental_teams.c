@@ -58,15 +58,21 @@ static const struct OamData sOamData_ArrowCursor =
     .objMode = ST_OAM_OBJ_NORMAL,
     .mosaic = FALSE,
     .bpp = ST_OAM_4BPP,
-    .shape = SPRITE_SHAPE(8x8),
+    .shape = SPRITE_SHAPE(16x16),
     .x = 0,
     .matrixNum = 0,
-    .size = SPRITE_SIZE(8x8),
+    .size = SPRITE_SIZE(16x16),
     .tileNum = 0,
     .priority = 0,
     .paletteNum = 0,
     .affineParam = 0,
 };
+
+// Freccia rossa che oscilla accanto al Pokémon selezionato nell'anteprima.
+static void SpriteCB_RentalArrowCursor(struct Sprite *sprite)
+{
+    sprite->x2 = ((++sprite->data[0] >> 3) & 1) ? 1 : 0;
+}
 
 static const struct SpriteTemplate sSpriteTemplate_ArrowCursor =
 {
@@ -76,7 +82,7 @@ static const struct SpriteTemplate sSpriteTemplate_ArrowCursor =
     .anims = gDummySpriteAnimTable,
     .images = NULL,
     .affineAnims = gDummySpriteAffineAnimTable,
-    .callback = SpriteCallbackDummy,
+    .callback = SpriteCB_RentalArrowCursor,
 };
 
 
@@ -371,14 +377,20 @@ static void UpdatePreviewText(s32 itemIndex)
                 { 168, 86 }, { 206, 86 },
                 { 168, 114 }, { 206, 114 },
             };
-            static const u8 sText_RightArrow[] = _("{RIGHT_ARROW}");
-            u32 arrowX = (sIconCoords[monIdx][0] - 136) - 16;
-            u32 arrowY = (sIconCoords[monIdx][1] - 24) - 8;
-            AddTextPrinterParameterized(WIN_PREVIEW, FONT_NORMAL, sText_RightArrow, arrowX, arrowY, TEXT_SKIP_DRAW, NULL);
+            // Sprite rosso davanti all'icona (la freccia di testo grigia finiva dietro).
+            if (sRentalTeamsData->arrowSpriteId < MAX_SPRITES)
+            {
+                struct Sprite *arrow = &gSprites[sRentalTeamsData->arrowSpriteId];
+                arrow->x = sIconCoords[monIdx][0] - 16;
+                arrow->y = sIconCoords[monIdx][1] + 2;
+                arrow->invisible = FALSE;
+            }
         }
     }
     else
     {
+        if (sRentalTeamsData->arrowSpriteId < MAX_SPRITES)
+            gSprites[sRentalTeamsData->arrowSpriteId].invisible = TRUE;
         AddTextPrinterParameterized(WIN_PREVIEW, FONT_NORMAL, sText_AnteprimaHeader, 12, 2, TEXT_SKIP_DRAW, NULL);
         AddTextPrinterParameterized(WIN_PREVIEW, FONT_SMALL, sText_KeyHelpList, 2, 100, TEXT_SKIP_DRAW, NULL);
     }

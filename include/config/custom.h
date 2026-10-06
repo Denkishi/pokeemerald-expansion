@@ -36,4 +36,10 @@
 #define CUSTOM_FLAG_NO_TEAM_PREVIEW         0       // se != 0 e il flag è settato: niente preview (es. lotte storia)
 #define CUSTOM_TEAM_PREVIEW_REVEAL_AI       FALSE   // TRUE = mostra i numeri scelti dall'AI (debug)
 
+// --- 7. Sconfitta: dove si riparte -------------------------------------
+// Se perdi una lotta torni sempre a questo punto di cura (dentro centrogamb,
+// davanti all'infermiera). HEAL_LOCATION_NONE = comportamento normale
+// (ultimo Centro Pokémon visitato). Lista in src/data/heal_locations.json.
+#define CUSTOM_WHITEOUT_HEAL_LOCATION       HEAL_LOCATION_GAMB_ESTERNO
+
 #endif // GUARD_CONFIG_CUSTOM_H
