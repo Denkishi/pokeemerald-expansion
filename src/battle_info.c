@@ -10,6 +10,7 @@
 #include "global.h"
 #include "battle.h"
 #include "battle_controllers.h"
+#include "battle_hud.h"
 #include "battle_info.h"
 #include "battle_main.h"
 #include "battle_util.h"
@@ -35,6 +36,7 @@
 #include "window.h"
 #include "config/custom.h"
 #include "constants/battle.h"
+#include "constants/hold_effects.h"
 #include "constants/rgb.h"
 #include "constants/songs.h"
 
@@ -74,11 +76,79 @@ EWRAM_DATA bool8 gBattleInfoRequested = FALSE;
 static EWRAM_DATA struct RevealedMon sRevealed[PARTY_SIZE] = {0}; // squadra avversaria, per slot
 static EWRAM_DATA struct TimerMax sTimerMax = {0};
 
+// Registro dei messaggi: anello degli ultimi LOG_ENTRIES messaggi.
+#define LOG_ENTRIES     24
+#define LOG_TEXT_LEN    72
+#define LOG_ROWS        7
+
+struct LogEntry
+{
+    u8 turn;
+    u8 text[LOG_TEXT_LEN];
+};
+
+static EWRAM_DATA struct LogEntry sLog[LOG_ENTRIES] = {0};
+static EWRAM_DATA u8 sLogCount = 0;
+static EWRAM_DATA u8 sLogHead = 0; // prossima posizione di scrittura
+
+void BattleInfo_LogMessage(const u8 *str)
+{
+    struct LogEntry *entry = &sLog[sLogHead];
+    u32 len = 0;
+
+    // Copia su una riga sola: a capo e pause diventano spazi, i codici di controllo spariscono.
+    while (*str != EOS && len < LOG_TEXT_LEN - 1)
+    {
+        u8 ch = *str++;
+
+        if (ch == EXT_CTRL_CODE_BEGIN)
+        {
+            u32 skip = GetExtCtrlCodeLength(*str);
+            while (skip != 0 && *str != EOS)
+            {
+                str++;
+                skip--;
+            }
+            continue;
+        }
+        if (ch == PLACEHOLDER_BEGIN)
+        {
+            if (*str != EOS)
+                str++;
+            continue;
+        }
+        if (ch == CHAR_NEWLINE || ch == CHAR_PROMPT_SCROLL || ch == CHAR_PROMPT_CLEAR)
+            ch = CHAR_SPACE;
+        if (ch == CHAR_SPACE && (len == 0 || entry->text[len - 1] == CHAR_SPACE))
+            continue;
+        entry->text[len++] = ch;
+    }
+    while (len != 0 && entry->text[len - 1] == CHAR_SPACE)
+        len--;
+    if (len == 0)
+        return;
+    entry->text[len] = EOS;
+    entry->turn = (gBattleTurnCounter < 254) ? gBattleTurnCounter + 1 : 255;
+
+    sLogHead = (sLogHead + 1) % LOG_ENTRIES;
+    if (sLogCount < LOG_ENTRIES)
+        sLogCount++;
+}
+
+// n = 0 è il messaggio più vecchio ancora in memoria.
+static const struct LogEntry *LogEntryAt(u32 n)
+{
+    return &sLog[(sLogHead + LOG_ENTRIES - sLogCount + n) % LOG_ENTRIES];
+}
+
 void BattleInfo_ResetBattle(void)
 {
     memset(sRevealed, 0, sizeof(sRevealed));
     memset(&sTimerMax, 0, sizeof(sTimerMax));
     gBattleInfoRequested = FALSE;
+    sLogCount = 0;
+    sLogHead = 0;
+    BattleHud_Reset();
 }
 
 static struct RevealedMon *RevealedForBattler(enum BattlerId battler)
@@ -135,6 +205,72 @@ void BattleInfo_RecordItem(enum BattlerId battler)
         item = gLastUsedItem; // già consumato (es. bacca)
     if (item != ITEM_NONE)
         rev->item = item;
+}
+
+enum Ability BattleInfo_KnownAbility(enum BattlerId battler)
+{
+    struct RevealedMon *rev;
+
+    if (battler >= MAX_BATTLERS_COUNT)
+        return ABILITY_NONE;
+    if (IsOnPlayerSide(battler))
+        return GetBattlerAbility(battler);
+    rev = RevealedForBattler(battler);
+    if (rev == NULL || rev->ability == ABILITY_NONE)
+        return ABILITY_NONE;
+    return GetBattlerAbility(battler);
+}
+
+enum HoldEffect BattleInfo_KnownHoldEffect(enum BattlerId battler)
+{
+    struct RevealedMon *rev;
+
+    if (battler >= MAX_BATTLERS_COUNT)
+        return HOLD_EFFECT_NONE;
+    if (IsOnPlayerSide(battler))
+        return GetBattlerHoldEffect(battler);
+    rev = RevealedForBattler(battler);
+    // Rivelato ma non più tenuto (es. bacca già mangiata): non conta più.
+    if (rev == NULL || rev->item == ITEM_NONE || gBattleMons[battler].item != rev->item)
+        return HOLD_EFFECT_NONE;
+    return GetBattlerHoldEffect(battler);
+}
+
+s32 BattleInfo_WorstIncomingEffectiveness(struct Pokemon *mon)
+{
+    enum Species species = GetMonData(mon, MON_DATA_SPECIES);
+    enum Type type1 = GetSpeciesType(species, 0), type2 = GetSpeciesType(species, 1);
+    s32 worst = -1;
+    u32 battler, i;
+
+    for (battler = 0; battler < gBattlersCount; battler++)
+    {
+        struct RevealedMon *rev;
+
+        if ((gAbsentBattlerFlags & (1u << battler)) || IsOnPlayerSide(battler) || !IsBattlerAlive(battler))
+            continue;
+        rev = RevealedForBattler(battler);
+        if (rev == NULL)
+            continue;
+        for (i = 0; i < MAX_MON_MOVES; i++)
+        {
+            enum Move move = rev->moves[i];
+            enum Type moveType;
+            u32 modifier;
+            s32 percent;
+
+            if (move == MOVE_NONE || GetMoveCategory(move) == DAMAGE_CATEGORY_STATUS)
+                continue;
+            moveType = GetMoveType(move);
+            modifier = GetTypeModifier(moveType, type1);
+            if (type2 != type1)
+                modifier = (modifier * GetTypeModifier(moveType, type2)) >> 12;
+            percent = (modifier * 100) >> 12;
+            if (percent > worst)
+                worst = percent;
+        }
+    }
+    return worst;
 }
 
 // Durata massima: i timer del gioco contano solo i turni rimasti, quindi la ricavo
@@ -194,6 +330,7 @@ enum
 {
     VIEW_MAIN,
     VIEW_DETAIL,
+    VIEW_LOG,
 };
 
 enum
@@ -233,6 +370,8 @@ struct BattleInfoState
     u8 side;        // cursore: lato
     u8 slot;        // cursore: posizione nella striscia (per noi coincide con lo slot)
     u8 detailRow;
+    u8 detailPage;  // 0 = abilità/strumento/mosse, 1 = stati temporanei
+    u8 logScroll;   // righe scorse verso l'alto nel registro
     u8 iconIds[BI_SIDE_COUNT][PARTY_SIZE];
 };
 
@@ -260,8 +399,40 @@ static const u8 sColGray[]  = {TEXT_COLOR_TRANSPARENT, TEXT_COLOR_LIGHT_GRAY, TE
 
 static const u8 sText_Foe[]          = _("AVVERSARIO");
 static const u8 sText_Player[]       = _("LA TUA SQUADRA");
-static const u8 sText_HintMain[]     = _("A: Dettagli   B: Esci");
-static const u8 sText_HintDetail[]   = _("B: Indietro");
+static const u8 sText_HintMain[]     = _("A: Dettagli  L: Registro  B: Esci");
+static const u8 sText_HintDetail[]   = _("A: Stati/Mosse  B: Indietro");
+static const u8 sText_HintLog[]      = _("Su/Giù: scorri  B: Indietro");
+static const u8 sText_LogHeader[]    = _("REGISTRO DELLA LOTTA");
+static const u8 sText_LogEmpty[]     = _("Ancora nessun messaggio.");
+static const u8 sText_LogTurn[]      = _("T");
+static const u8 sText_VolHeader[]    = _("Stati temporanei:");
+static const u8 sText_VolNone[]      = _("nessuno");
+static const u8 sText_VolNotOnField[] = _("Non è in campo.");
+static const u8 sText_VolConfused[]  = _("Confuso");
+static const u8 sText_VolTaunt[]     = _("Provocazione");
+static const u8 sText_VolEncore[]    = _("Ripeti");
+static const u8 sText_VolDisable[]   = _("Inibitore");
+static const u8 sText_VolTorment[]   = _("Attaccalite");
+static const u8 sText_VolHealBlock[] = _("Anticura");
+static const u8 sText_VolEmbargo[]   = _("Divieto");
+static const u8 sText_VolSubstitute[] = _("Sostituto");
+static const u8 sText_VolLeechSeed[] = _("Parassiseme");
+static const u8 sText_VolPerish[]    = _("Ultimocanto");
+static const u8 sText_VolYawn[]      = _("Sbadiglio");
+static const u8 sText_VolCurse[]     = _("Maledizione");
+static const u8 sText_VolIngrain[]   = _("Radicamento");
+static const u8 sText_VolAquaRing[]  = _("Acquanello");
+static const u8 sText_VolFocus[]     = _("Focalenergia");
+static const u8 sText_VolMagnetRise[] = _("Magnetascesa");
+static const u8 sText_VolTelekinesis[] = _("Telecinesi");
+static const u8 sText_VolTrapped[]   = _("Intrappolato");
+static const u8 sText_VolWrapped[]   = _("Legato");
+static const u8 sText_VolInfatuated[] = _("Infatuato");
+static const u8 sText_VolNightmare[] = _("Incubo");
+static const u8 sText_VolStockpile[] = _("Accumulo");
+static const u8 sText_VolSlowStart[] = _("Lentoinizio");
+static const u8 sText_VolDestinyBond[] = _("Destinobbligato");
+static const u8 sText_VolCharge[]    = _("Sottocarica");
 static const u8 sText_OnField[]      = _("Barra verde = in campo");
 static const u8 sText_StatsHeader[]  = _("MODIFICHE STATISTICHE");
 static const u8 sText_FieldHeader[]  = _("CAMPO");
@@ -372,6 +543,42 @@ static void CB2_BattleInfoMain(void);
 static void VBlankCB_BattleInfo(void);
 static void Task_BattleInfoInput(u8 taskId);
 static void Task_BattleInfoExit(u8 taskId);
+
+const u8 *BattleInfo_GetWeatherName(void)
+{
+    u32 weather = gBattleWeather;
+
+    if (weather & B_WEATHER_RAIN_PRIMAL)   return sText_HeavyRain;
+    if (weather & B_WEATHER_RAIN)          return sText_Rain;
+    if (weather & B_WEATHER_SUN_PRIMAL)    return sText_HarshSun;
+    if (weather & B_WEATHER_SUN)           return sText_Sun;
+    if (weather & B_WEATHER_SANDSTORM)     return sText_Sand;
+    if (weather & B_WEATHER_HAIL)          return sText_Hail;
+    if (weather & B_WEATHER_SNOW)          return sText_Snow;
+    if (weather & B_WEATHER_FOG)           return sText_Fog;
+    if (weather & B_WEATHER_STRONG_WINDS)  return sText_Winds;
+    return NULL;
+}
+
+const u8 *BattleInfo_GetTerrainName(void)
+{
+    switch (gFieldTimers.terrain)
+    {
+    case B_TERRAIN_GRASSY:   return sText_Grassy;
+    case B_TERRAIN_MISTY:    return sText_Misty;
+    case B_TERRAIN_ELECTRIC: return sText_Electric;
+    case B_TERRAIN_PSYCHIC:  return sText_Psychic;
+    default:                 return NULL;
+    }
+}
+
+const u8 *BattleInfo_GetRoomName(u32 fieldStatus)
+{
+    if (fieldStatus & STATUS_FIELD_TRICK_ROOM)   return sText_TrickRoom;
+    if (fieldStatus & STATUS_FIELD_GRAVITY)      return sText_Gravity;
+    if (fieldStatus & STATUS_FIELD_MAGIC_ROOM)   return sText_MagicRoom;
+    return sText_WonderRoom;
+}
 
 // ---------------------------------------------------------------------
 // Accesso ai dati
@@ -586,7 +793,7 @@ static void DrawStrip(u32 side)
     Print(win, BI_FONT, 4, 0, sColWhite, (side == BI_SIDE_PLAYER) ? sText_Player : sText_Foe);
     if (side == BI_SIDE_FOE)
     {
-        const u8 *hint = (sBI.view == VIEW_DETAIL) ? sText_HintDetail : sText_HintMain;
+        const u8 *hint = (sBI.view == VIEW_DETAIL) ? sText_HintDetail : (sBI.view == VIEW_LOG) ? sText_HintLog : sText_HintMain;
         Print(win, BI_FONT, 236 - GetStringWidth(BI_FONT, hint, 0), 0, sColWhite, hint);
     }
     else
@@ -1068,6 +1275,55 @@ static void DrawDetailDescription(void)
     PrintWrapped(WIN_MID, BI_FONT, 4, 52, 232, 3, colors, desc);
 }
 
+// Stati temporanei del Pokémon selezionato (solo se è in campo: al cambio spariscono).
+// Sono tutti annunciati dai messaggi di lotta, quindi si mostrano anche per l'avversario.
+// La durata compare solo dove è fissa e nota (non per confusione e sonno).
+static void DrawVolatiles(u32 side, u32 slot)
+{
+    struct Flow flow = {.x = 4, .y = 22 + LINE_H, .left = 4, .right = 236, .bottom = 22 + LINE_H * 6, .overflow = FALSE};
+    u32 battler = BattlerForSlot(side, slot);
+    struct Volatiles *vol;
+    u32 before;
+
+    Print(WIN_MID, BI_FONT, 4, 22, sColBlue, sText_VolHeader);
+    if (battler == MAX_BATTLERS_COUNT)
+    {
+        Print(WIN_MID, BI_FONT, 4, 22 + LINE_H, sColGray, sText_VolNotOnField);
+        return;
+    }
+    vol = &gBattleMons[battler].volatiles;
+    before = flow.x + flow.y * 256;
+
+    if (vol->confusionTimer)    Flow_Add(&flow, sColDark, sText_VolConfused);
+    if (vol->tauntTimer)        Flow_AddTimed(&flow, sText_VolTaunt, vol->tauntTimer, 0);
+    if (vol->encoreTimer)       Flow_AddTimed(&flow, sText_VolEncore, vol->encoreTimer, 0);
+    if (vol->disableTimer)      Flow_AddTimed(&flow, sText_VolDisable, vol->disableTimer, 0);
+    if (vol->torment)           Flow_Add(&flow, sColDark, sText_VolTorment);
+    if (vol->healBlockTimer)    Flow_AddTimed(&flow, sText_VolHealBlock, vol->healBlockTimer, 0);
+    if (vol->embargoTimer)      Flow_AddTimed(&flow, sText_VolEmbargo, vol->embargoTimer, 0);
+    if (vol->substitute)        Flow_Add(&flow, sColDark, sText_VolSubstitute);
+    if (vol->leechSeed)         Flow_Add(&flow, sColDark, sText_VolLeechSeed);
+    if (vol->perishSong)        Flow_AddTimed(&flow, sText_VolPerish, vol->perishSongTimer, 0);
+    if (vol->yawn)              Flow_Add(&flow, sColDark, sText_VolYawn);
+    if (vol->cursed)            Flow_Add(&flow, sColDark, sText_VolCurse);
+    if (vol->root)              Flow_Add(&flow, sColDark, sText_VolIngrain);
+    if (vol->aquaRing)          Flow_Add(&flow, sColDark, sText_VolAquaRing);
+    if (vol->focusEnergy)       Flow_Add(&flow, sColDark, sText_VolFocus);
+    if (vol->magnetRiseTimer)   Flow_AddTimed(&flow, sText_VolMagnetRise, vol->magnetRiseTimer, 0);
+    if (vol->telekinesisTimer)  Flow_AddTimed(&flow, sText_VolTelekinesis, vol->telekinesisTimer, 0);
+    if (vol->escapePrevention)  Flow_Add(&flow, sColDark, sText_VolTrapped);
+    if (vol->wrapped)           Flow_AddTimed(&flow, sText_VolWrapped, vol->wrapTurns, 0);
+    if (vol->infatuation)       Flow_Add(&flow, sColDark, sText_VolInfatuated);
+    if (vol->nightmare)         Flow_Add(&flow, sColDark, sText_VolNightmare);
+    if (vol->stockpileCounter)  Flow_AddCount(&flow, sText_VolStockpile, vol->stockpileCounter);
+    if (vol->slowStartTimer)    Flow_AddTimed(&flow, sText_VolSlowStart, vol->slowStartTimer, 0);
+    if (vol->destinyBond)       Flow_Add(&flow, sColDark, sText_VolDestinyBond);
+    if (vol->chargeTimer)       Flow_Add(&flow, sColDark, sText_VolCharge);
+
+    if (before == (u32)(flow.x + flow.y * 256))
+        Print(WIN_MID, BI_FONT, 4, 22 + LINE_H, sColGray, sText_VolNone);
+}
+
 static void DrawDetailView(void)
 {
     u32 side = sBI.side, slot = CurSlot();
@@ -1134,12 +1390,56 @@ static void DrawDetailView(void)
     }
     Print(WIN_MID, BI_FONT, 4, BAR_H, sColDark, gStringVar4);
 
-    // Abilità / strumento / mosse su due colonne
-    for (row = 0; row < DETAIL_ROW_COUNT; row++)
-        DrawDetailRow(row, (row % 2) ? 124 : 4, 22 + LINE_H * (row / 2));
+    if (sBI.detailPage == 1)
+    {
+        DrawVolatiles(side, slot);
+    }
+    else
+    {
+        // Abilità / strumento / mosse su due colonne
+        for (row = 0; row < DETAIL_ROW_COUNT; row++)
+            DrawDetailRow(row, (row % 2) ? 124 : 4, 22 + LINE_H * (row / 2));
 
-    FillWindowPixelRect(WIN_MID, PIXEL_FILL(TEXT_COLOR_LIGHT_GRAY), 2, 50, 236, 1);
-    DrawDetailDescription();
+        FillWindowPixelRect(WIN_MID, PIXEL_FILL(TEXT_COLOR_LIGHT_GRAY), 2, 50, 236, 1);
+        DrawDetailDescription();
+    }
+    CopyWindowToVram(WIN_MID, COPYWIN_GFX);
+}
+
+// Registro: un messaggio per riga, i più recenti in basso; "T n" segna l'inizio di ogni turno.
+static void DrawLogView(void)
+{
+    s32 prevTurn = -1;
+    u32 row;
+
+    FillWindowPixelBuffer(WIN_MID, PIXEL_FILL(TEXT_COLOR_WHITE));
+    FillWindowPixelRect(WIN_MID, PIXEL_FILL(TEXT_COLOR_DARK_GRAY), 0, 0, 240, BAR_H);
+    Print(WIN_MID, BI_FONT, 4, 0, sColWhite, sText_LogHeader);
+
+    if (sLogCount == 0)
+    {
+        Print(WIN_MID, BI_FONT, 4, BAR_H + 1, sColGray, sText_LogEmpty);
+        CopyWindowToVram(WIN_MID, COPYWIN_GFX);
+        return;
+    }
+    for (row = 0; row < LOG_ROWS; row++)
+    {
+        s32 n = (s32)sLogCount - 1 - sBI.logScroll - (LOG_ROWS - 1 - row);
+        const struct LogEntry *entry;
+        s32 y = BAR_H + 1 + LINE_H * row;
+
+        if (n < 0)
+            continue;
+        entry = LogEntryAt(n);
+        if (entry->turn != prevTurn)
+        {
+            u8 *ptr = StringCopy(gStringVar4, sText_LogTurn);
+            ConvertIntToDecimalStringN(ptr, entry->turn, STR_CONV_MODE_LEFT_ALIGN, 3);
+            Print(WIN_MID, BI_FONT, 2, y, sColBlue, gStringVar4);
+            prevTurn = entry->turn;
+        }
+        Print(WIN_MID, GetFontIdToFit(entry->text, BI_FONT, 0, 212), 26, y, sColDark, entry->text);
+    }
     CopyWindowToVram(WIN_MID, COPYWIN_GFX);
 }
 
@@ -1147,6 +1447,8 @@ static void DrawMid(void)
 {
     if (sBI.view == VIEW_DETAIL)
         DrawDetailView();
+    else if (sBI.view == VIEW_LOG)
+        DrawLogView();
     else
         DrawMainView();
 }
@@ -1178,6 +1480,8 @@ static void InitCursor(void)
     BuildFoeDisplay();
     sBI.view = VIEW_MAIN;
     sBI.detailRow = 0;
+    sBI.detailPage = 0;
+    sBI.logScroll = 0;
     sBI.side = BI_SIDE_FOE;
     sBI.slot = 0;
     for (pos = 0; pos < sFoeDisplayCount; pos++)
@@ -1318,6 +1622,34 @@ static void Task_BattleInfoInput(u8 taskId)
     if (gPaletteFade.active)
         return;
 
+    if (sBI.view == VIEW_LOG)
+    {
+        if (JOY_NEW(B_BUTTON) || JOY_NEW(L_BUTTON))
+        {
+            PlaySE(SE_SELECT);
+            sBI.view = VIEW_MAIN;
+            DrawStrip(BI_SIDE_FOE);
+            DrawMid();
+        }
+        else if (JOY_REPEAT(DPAD_UP))
+        {
+            if (sBI.logScroll + LOG_ROWS < sLogCount)
+            {
+                sBI.logScroll++;
+                DrawMid();
+            }
+        }
+        else if (JOY_REPEAT(DPAD_DOWN))
+        {
+            if (sBI.logScroll != 0)
+            {
+                sBI.logScroll--;
+                DrawMid();
+            }
+        }
+        return;
+    }
+
     if (sBI.view == VIEW_DETAIL)
     {
         s32 row = sBI.detailRow;
@@ -1330,6 +1662,16 @@ static void Task_BattleInfoInput(u8 taskId)
             DrawMid();
             return;
         }
+        if (JOY_NEW(A_BUTTON))
+        {
+            // Alterna abilità/strumento/mosse e stati temporanei.
+            PlaySE(SE_SELECT);
+            sBI.detailPage ^= 1;
+            DrawMid();
+            return;
+        }
+        if (sBI.detailPage == 1)
+            return;
         if (JOY_NEW(DPAD_UP) && row >= 2)
             row -= 2;
         else if (JOY_NEW(DPAD_DOWN) && row + 2 < DETAIL_ROW_COUNT)
@@ -1353,6 +1695,14 @@ static void Task_BattleInfoInput(u8 taskId)
         BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
         gTasks[taskId].func = Task_BattleInfoExit;
     }
+    else if (JOY_NEW(L_BUTTON))
+    {
+        PlaySE(SE_SELECT);
+        sBI.view = VIEW_LOG;
+        sBI.logScroll = 0;
+        DrawStrip(BI_SIDE_FOE);
+        DrawMid();
+    }
     else if (JOY_NEW(A_BUTTON))
     {
         if (!PosRevealed(sBI.side, sBI.slot))
@@ -1364,6 +1714,7 @@ static void Task_BattleInfoInput(u8 taskId)
             PlaySE(SE_SELECT);
             sBI.view = VIEW_DETAIL;
             sBI.detailRow = DETAIL_MOVE_1;
+            sBI.detailPage = 0;
             DrawStrip(BI_SIDE_FOE);
             DrawMid();
         }

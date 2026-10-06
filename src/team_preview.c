@@ -26,6 +26,7 @@
 #include "sound.h"
 #include "sprite.h"
 #include "string_util.h"
+#include "script_pokemon_util.h"
 #include "task.h"
 #include "text.h"
 #include "text_window.h"
@@ -85,6 +86,9 @@ static EWRAM_DATA struct Pokemon sSavedParty[PARTY_SIZE] = {0};
 static EWRAM_DATA u8 sSavedOrder[PARTY_SIZE] = {0};   // nuovo slot -> slot originale
 static EWRAM_DATA u8 sSavedPicks = 0;
 static EWRAM_DATA bool8 sPartyReduced = FALSE;
+// Ultima scelta fatta (per SELECT): si riconoscono i Pokémon dalla personalità.
+static EWRAM_DATA u32 sLastPickPersonality[PARTY_SIZE] = {0};
+static EWRAM_DATA u8 sLastPickCount = 0;
 static EWRAM_DATA u16 *sTilemaps[2] = {NULL};
 // Squadra avversaria com'era in anteprima (serve alla schermata Info lotta).
 static EWRAM_DATA bool8 sEnemyPreviewValid = FALSE;
@@ -107,7 +111,7 @@ static void ApplyPartySelections(void);
 // Testi (cambia qui per tradurre)
 // ---------------------------------------------------------------------
 static const u8 sText_Header[]   = _("SCEGLI {STR_VAR_1} POKéMON");
-static const u8 sText_Hint[]     = _("A: Menu   B: Togli");
+static const u8 sText_Hint[]     = _("A:Menu  SEL:Ultimi 4");
 static const u8 sText_Ready[]    = _("START: Lotta!");
 static const u8 sText_Missing[]  = _("Scegline ancora {STR_VAR_1}!");
 static const u8 sText_Info[]     = _("Info");
@@ -116,7 +120,7 @@ static const u8 sText_Unpick[]   = _("Togli");
 static const u8 sText_Cancel[]   = _("Annulla");
 static const u8 sText_Fight[]    = _("Lotta!");
 static const u8 sText_Back[]     = _("Indietro");
-static const u8 sText_Lv[]       = _("Lv.");
+static const u8 sText_Space[]    = _(" ");
 static const u8 sText_KO[]       = _("KO");
 static const u8 sText_Egg[]      = _("UOVO");
 static const u8 sText_Cursor[]   = _("▶");
@@ -940,9 +944,25 @@ static void DrawCard(u32 win, u32 rowY, u32 fill, u32 border, u32 light, u32 thi
     FillWindowPixelRect(win, PIXEL_FILL(COL_BG), x + CARD_W - 1, y + CARD_H - 1, 1, 1);
 }
 
-static void DrawMonText(u32 win, struct Pokemon *mon, u32 y, const u8 *colors)
+// Prime 3 lettere del nome del tipo (es. "Fir", "Wat").
+static u8 *AppendTypeAbbr(u8 *ptr, enum Type type)
+{
+    const u8 *name = gTypesInfo[type].name;
+    u32 i;
+
+    for (i = 0; i < 3 && name[i] != EOS; i++)
+        *ptr++ = name[i];
+    *ptr = EOS;
+    return ptr;
+}
+
+// Nome sulla prima riga; sulla seconda i tipi e, per i nostri, lo strumento tenuto.
+static void DrawMonText(u32 win, struct Pokemon *mon, u32 y, const u8 *colors, bool32 showItem)
 {
     u8 *ptr;
+    enum Species species;
+    enum Type type1, type2;
+
     if (GetMonData(mon, MON_DATA_IS_EGG))
     {
         AddTextPrinterParameterized3(win, FONT_NARROW, TEXT_X, y + 1, colors, TEXT_SKIP_DRAW, sText_Egg);
@@ -951,9 +971,29 @@ static void DrawMonText(u32 win, struct Pokemon *mon, u32 y, const u8 *colors)
     GetMonData(mon, MON_DATA_NICKNAME, gStringVar1);
     StringGet_Nickname(gStringVar1);
     AddTextPrinterParameterized3(win, FONT_NARROW, TEXT_X, y + 1, colors, TEXT_SKIP_DRAW, gStringVar1);
-    ptr = StringCopy(gStringVar2, sText_Lv);
-    ConvertIntToDecimalStringN(ptr, GetMonData(mon, MON_DATA_LEVEL), STR_CONV_MODE_LEFT_ALIGN, 3);
-    AddTextPrinterParameterized3(win, FONT_SMALL, TEXT_X, y + 11, colors, TEXT_SKIP_DRAW, gStringVar2);
+
+    if (showItem && GetMonData(mon, MON_DATA_HP) == 0)
+        return; // al posto della seconda riga c'è "KO"
+
+    species = GetMonData(mon, MON_DATA_SPECIES);
+    type1 = GetSpeciesType(species, 0);
+    type2 = GetSpeciesType(species, 1);
+    ptr = AppendTypeAbbr(gStringVar2, type1);
+    if (type2 != type1)
+    {
+        ptr = StringCopy(ptr, sText_Slash);
+        ptr = AppendTypeAbbr(ptr, type2);
+    }
+    if (showItem)
+    {
+        enum Item item = GetMonData(mon, MON_DATA_HELD_ITEM);
+        if (item != ITEM_NONE)
+        {
+            ptr = StringCopy(ptr, sText_Space);
+            CopyItemName(item, ptr);
+        }
+    }
+    AddTextPrinterParameterized3(win, GetFontIdToFit(gStringVar2, FONT_SMALL, 0, 82), TEXT_X, y + 11, colors, TEXT_SKIP_DRAW, gStringVar2);
 }
 
 static void DrawPlayerPanel(void)
@@ -977,9 +1017,9 @@ static void DrawPlayerPanel(void)
             DrawCard(WIN_PLAYER, y, COL_P_FILL, COL_P_BORDER, COL_P_LIGHT, 1);
         if (!IsMonUsable(mon))
             col = sColGrey;
-        DrawMonText(WIN_PLAYER, mon, y, col);
+        DrawMonText(WIN_PLAYER, mon, y, col, TRUE);
         if (!GetMonData(mon, MON_DATA_IS_EGG) && GetMonData(mon, MON_DATA_HP) == 0)
-            AddTextPrinterParameterized3(WIN_PLAYER, FONT_SMALL, 74, y + 11, sColOrange, TEXT_SKIP_DRAW, sText_KO);
+            AddTextPrinterParameterized3(WIN_PLAYER, FONT_SMALL, TEXT_X, y + 11, sColOrange, TEXT_SKIP_DRAW, sText_KO);
         if (sTP.pickOrder[i])
         {
             // Medaglietta gialla con l'ordine di scelta.
@@ -1010,7 +1050,7 @@ static void DrawEnemyPanel(void)
             continue;
         }
         DrawCard(WIN_ENEMY, y, COL_E_FILL, COL_E_BORDER, COL_E_LIGHT, 1);
-        DrawMonText(WIN_ENEMY, mon, y, sColWhite);
+        DrawMonText(WIN_ENEMY, mon, y, sColWhite, FALSE);
 
         if (showEff)
         {
@@ -1121,6 +1161,29 @@ static bool32 TryPick(u32 slot)
     return TRUE;
 }
 
+// SELECT: rimette i Pokémon scelti nell'ultima lotta, nello stesso ordine
+// (quelli che non ci sono più o non possono lottare vengono saltati).
+static bool32 RepickLast(void)
+{
+    u32 i, k;
+
+    if (sLastPickCount == 0)
+        return FALSE;
+    memset(sTP.pickOrder, 0, sizeof(sTP.pickOrder));
+    sTP.numPicks = 0;
+    for (k = 0; k < sLastPickCount; k++)
+    {
+        for (i = 0; i < PARTY_SIZE; i++)
+        {
+            if (GetMonData(&gPlayerParty[i], MON_DATA_SPECIES) != SPECIES_NONE
+             && GetMonData(&gPlayerParty[i], MON_DATA_PERSONALITY) == sLastPickPersonality[k]
+             && TryPick(i))
+                break;
+        }
+    }
+    return sTP.numPicks != 0;
+}
+
 static void MoveCursor(s32 delta)
 {
     u32 count = gPlayerPartyCount;
@@ -1160,6 +1223,21 @@ static void Task_TeamPreviewInput(u8 taskId)
                     DrawAll();
                     break;
                 }
+            }
+        }
+        else if (JOY_NEW(SELECT_BUTTON))
+        {
+            if (RepickLast())
+            {
+                PlaySE(SE_SELECT);
+                DrawAll();
+                if (sTP.numPicks == sTP.required)
+                    OpenMenu(MENU_CONFIRM, 0);
+            }
+            else
+            {
+                PlaySE(SE_FAILURE);
+                DrawAll();
             }
         }
         else if (JOY_NEW(START_BUTTON))
@@ -1304,6 +1382,10 @@ static void ApplyPartySelections(void)
         for (i = 0; i < PARTY_SIZE; i++)
             if (sTP.pickOrder[i] == k)
                 sSavedOrder[k - 1] = i;
+    sLastPickCount = sSavedPicks;
+    for (k = 0; k < sSavedPicks; k++)
+        sLastPickPersonality[k] = GetMonData(&sSavedParty[sSavedOrder[k]], MON_DATA_PERSONALITY);
+
     for (k = 0; k < PARTY_SIZE; k++)
     {
         if (k < sSavedPicks)
@@ -1359,11 +1441,9 @@ bool32 TeamPreview_HasEnemyPreview(void)
     return sEnemyPreviewValid;
 }
 
-void TeamPreview_RestorePlayerParty(void)
+static void RestoreReducedParty(void)
 {
     u32 k;
-
-    sEnemyPreviewValid = FALSE; // la lotta è finita
 
     if (!sPartyReduced)
         return;
@@ -1395,4 +1475,15 @@ void TeamPreview_RestorePlayerParty(void)
         gPlayerParty[k] = sSavedParty[k];
     CompactPartySlots();
     CalculatePlayerPartyCount();
+}
+
+// Chiamata alla fine di ogni lotta contro un allenatore.
+void TeamPreview_RestorePlayerParty(void)
+{
+    sEnemyPreviewValid = FALSE; // la lotta è finita
+    RestoreReducedParty();
+
+    // Cura completa dopo una vittoria (dopo una sconfitta ci pensa già il ritorno al Centro).
+    if (CUSTOM_HEAL_AFTER_BATTLE && gBattleOutcome == B_OUTCOME_WON && !(gBattleTypeFlags & BATTLE_TYPE_FRONTIER))
+        HealPlayerParty();
 }

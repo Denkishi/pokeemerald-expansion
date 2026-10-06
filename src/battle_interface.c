@@ -872,6 +872,32 @@ void InitBattlerHealthboxCoords(enum BattlerId battler)
     UpdateSpritePos(gHealthboxSpriteIds[battler], x, y);
 }
 
+// PS dell'avversario in percentuale, nello spazio del livello (tutte le lotte sono a Lv50).
+void UpdateOpponentHpPercentInHealthbox(u8 healthboxSpriteId, s32 hp, s32 maxHp)
+{
+    u8 text[8];
+    u8 *ptr;
+    enum BattlerId battler = gSprites[healthboxSpriteId].hMain_Battler;
+    u32 spriteId = gSprites[healthboxSpriteId].oam.affineParam;
+    s32 percent;
+    u32 width;
+
+    if (!CUSTOM_OPPONENT_HP_PERCENT || IsOnPlayerSide(battler) || maxHp <= 0)
+        return;
+    if (hp < 0)
+        hp = 0;
+    percent = (hp * 100 + maxHp - 1) / maxHp; // per eccesso: 1% finché resta almeno 1 PS
+    ptr = ConvertIntToDecimalStringN(text, percent, STR_CONV_MODE_LEFT_ALIGN, 3);
+    *ptr++ = CHAR_PERCENT;
+    *ptr = EOS;
+
+    width = GetStringWidth(FONT_SMALL, text, 0);
+    if (width > 24)
+        width = 24;
+    FillSpriteRectColor(spriteId, 0, 5, 24, 11, HEALTHBOX_BG_INDEX);
+    AddSpriteTextPrinterParameterized6(spriteId, FONT_SMALL, 24 - width, 3, 0, 0, sHealthBoxTextColor, 0, text);
+}
+
 static void UpdateLvlInHealthbox(u8 healthboxSpriteId, u8 lvl)
 {
     u8 text[16];
@@ -900,6 +926,11 @@ static void UpdateLvlInHealthbox(u8 healthboxSpriteId, u8 lvl)
     {
         FillSpriteRectColor(spriteId, 8, 5, 24, 11, HEALTHBOX_BG_INDEX);
         AddSpriteTextPrinterParameterized6(spriteId, FONT_SMALL, 32 - width, 3, 0, 0, sHealthBoxTextColor, 0, text);
+    }
+    else if (CUSTOM_OPPONENT_HP_PERCENT)
+    {
+        struct Pokemon *mon = GetBattlerMon(battler);
+        UpdateOpponentHpPercentInHealthbox(healthboxSpriteId, GetMonData(mon, MON_DATA_HP), GetMonData(mon, MON_DATA_MAX_HP));
     }
     else
     {

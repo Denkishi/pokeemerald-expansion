@@ -22,4 +22,9 @@ void CreateEffectivenessBadges(enum BattlerId battler);
 // Definita in battle_controller_player.c (EFFECTIVENESS_* della mossa sotto cursore).
 u32 GetMoveSelectionEffectiveness(enum BattlerId battlerAtk, enum BattlerId battlerDef);
 
+// Definita in battle_controller_player.c: danno stimato della mossa sotto cursore, in % dei PS
+// massimi del bersaglio (tiro minimo e massimo). Usa solo ciò che il giocatore sa del bersaglio.
+// FALSE se non c'è nulla da mostrare (mossa di stato, danno fisso...).
+bool32 GetMoveSelectionDamageRange(enum BattlerId battlerAtk, enum BattlerId battlerDef, u32 *minPercent, u32 *maxPercent);
+
 #endif // GUARD_BATTLE_CUSTOM_UI_H

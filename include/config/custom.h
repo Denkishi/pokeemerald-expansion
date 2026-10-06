@@ -61,4 +61,13 @@
 // statistiche, effetti di campo e dettagli rivelati dell'avversario.
 #define CUSTOM_BATTLE_INFO_SCREEN           TRUE
 
+// --- 11. Informazioni e comodità stile simulatore ------------------------
+#define CUSTOM_OPPONENT_HP_PERCENT          TRUE    // PS avversario in % al posto di "Lv50" sul riquadro
+#define CUSTOM_BATTLE_HUD                   TRUE    // modifiche statistiche accanto ai riquadri + meteo/terreno in alto a destra
+#define CUSTOM_MOVE_DATA_IN_MENU            TRUE    // tipo, categoria, potenza e precisione nel menu mosse
+#define CUSTOM_DAMAGE_PREVIEW               TRUE    // intervallo di danno stimato in % accanto al badge di efficacia
+#define CUSTOM_SWITCH_EFFECTIVENESS         TRUE    // nel menu squadra in lotta: efficacia peggiore subita dalle mosse rivelate
+#define CUSTOM_HEAL_AFTER_BATTLE            TRUE    // cura completa dopo ogni lotta vinta contro un allenatore
+#define CUSTOM_BATTLE_AUTO_TEXT             TRUE    // i messaggi di lotta avanzano da soli (A/B li fanno avanzare subito)
+
 #endif // GUARD_CONFIG_CUSTOM_H

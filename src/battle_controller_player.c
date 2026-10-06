@@ -6,6 +6,7 @@
 #include "battle_arena.h"
 #include "battle_controllers.h"
 #include "battle_info.h"
+#include "battle_hud.h"
 #include "battle_util2.h"
 #include "battle_dome.h"
 #include "battle_interface.h"
@@ -1787,6 +1788,41 @@ static void MoveSelectionDisplayMoveType(enum BattlerId battler)
         struct Pokemon *mon = GetBattlerMon(battler);
         type = CheckDynamicMoveType(mon, move, battler, MON_IN_BATTLE);
     }
+    if (CUSTOM_MOVE_DATA_IN_MENU)
+    {
+        // "Tipo F120 85": tipo, categoria (F/S) + potenza, precisione. "St" = mossa di stato.
+        static const u8 sText_Physical[] = _("F");
+        static const u8 sText_Special[] = _("S");
+        static const u8 sText_StatusMove[] = _("St");
+        static const u8 sText_Dash[] = _("-");
+        static const u8 sText_Gap[] = _(" ");
+        enum DamageCategory category = GetMoveCategory(move);
+        u32 power = GetMovePower(move), accuracy = GetMoveAccuracy(move);
+
+        end = StringCopy(gDisplayedStringBattle, gTypesInfo[type].name);
+        end = StringCopy(end, sText_Gap);
+        if (category == DAMAGE_CATEGORY_STATUS)
+        {
+            end = StringCopy(end, sText_StatusMove);
+        }
+        else
+        {
+            end = StringCopy(end, (category == DAMAGE_CATEGORY_PHYSICAL) ? sText_Physical : sText_Special);
+            if (power > 1)
+                end = ConvertIntToDecimalStringN(end, power, STR_CONV_MODE_LEFT_ALIGN, 3);
+            else
+                end = StringCopy(end, sText_Dash);
+        }
+        if (accuracy != 0)
+        {
+            end = StringCopy(end, sText_Gap);
+            end = ConvertIntToDecimalStringN(end, accuracy, STR_CONV_MODE_LEFT_ALIGN, 3);
+        }
+        PrependFontIdToFit(gDisplayedStringBattle, end, FONT_NORMAL, WindowWidthPx(B_WIN_MOVE_TYPE) - 2);
+        BattlePutTextOnWindow(gDisplayedStringBattle, B_WIN_MOVE_TYPE);
+        return;
+    }
+
     end = StringCopy(txtPtr, gTypesInfo[type].name);
 
     PrependFontIdToFit(txtPtr, end, FONT_NORMAL, WindowWidthPx(B_WIN_MOVE_TYPE) - 25);
@@ -2067,6 +2103,7 @@ static void PlayerHandleChooseAction(enum BattlerId battler)
 
     gBattlerControllerFuncs[battler] = HandleChooseActionAfterDma3;
     BattleInfo_SampleTimers();
+    BattleHud_Ensure();
     BattleTv_ClearExplosionFaintCause();
     BattlePutTextOnWindow(gText_BattleMenu, B_WIN_ACTION_MENU);
 
@@ -2455,9 +2492,9 @@ static u32 CheckTypeEffectiveness(enum BattlerId battlerAtk, enum BattlerId batt
     ctx.weather = GetWeather();
     ctx.terrain = gFieldTimers.terrain;
     ctx.abilities[ctx.battlerAtk] = GetBattlerAbility(battlerAtk);
-    ctx.abilities[ctx.battlerDef] = GetBattlerAbility(battlerDef);
+    ctx.abilities[ctx.battlerDef] = BattleInfo_KnownAbility(battlerDef);
     ctx.holdEffects[ctx.battlerAtk] = GetBattlerHoldEffect(battlerAtk);
-    ctx.holdEffects[ctx.battlerDef] = GetBattlerHoldEffect(battlerDef);
+    ctx.holdEffects[ctx.battlerDef] = BattleInfo_KnownHoldEffect(battlerDef);
 
     uq4_12_t modifier = CalcTypeEffectivenessMultiplier(&ctx);
 
@@ -2480,6 +2517,55 @@ static u32 CheckTypeEffectiveness(enum BattlerId battlerAtk, enum BattlerId batt
 u32 GetMoveSelectionEffectiveness(enum BattlerId battlerAtk, enum BattlerId battlerDef)
 {
     return CheckTypeEffectiveness(battlerAtk, battlerDef);
+}
+
+// Danno stimato della mossa sotto cursore in % dei PS massimi del bersaglio (tiro 85%..100%).
+// Come un calcolatore: usa abilità e strumento del bersaglio solo se già rivelati,
+// niente colpo critico, un solo colpo per le mosse multi-colpo.
+bool32 GetMoveSelectionDamageRange(enum BattlerId battlerAtk, enum BattlerId battlerDef, u32 *minPercent, u32 *maxPercent)
+{
+    struct ChooseMoveStruct *moveInfo = (struct ChooseMoveStruct *)(&gBattleResources->bufferA[battlerAtk][4]);
+    struct DamageContext ctx = {0};
+    s32 base, low, high;
+    u32 maxHp = gBattleMons[battlerDef].maxHP;
+
+    ctx.battlerAtk = battlerAtk;
+    ctx.battlerDef = battlerDef;
+    ctx.move = moveInfo->moves[gMoveSelectionCursor[battlerAtk]];
+    if (ctx.move == MOVE_NONE || IsBattleMoveStatus(ctx.move) || maxHp == 0)
+        return FALSE;
+    ctx.chosenMove = ctx.move;
+    ctx.moveType = CheckDynamicMoveType(GetBattlerMon(battlerAtk), ctx.move, battlerAtk, MON_IN_BATTLE);
+    ctx.updateFlags = FALSE;
+    ctx.aiCalc = TRUE;
+    ctx.weather = GetWeather();
+    ctx.terrain = gFieldTimers.terrain;
+    ctx.abilities[ctx.battlerAtk] = GetBattlerAbility(battlerAtk);
+    ctx.abilities[ctx.battlerDef] = BattleInfo_KnownAbility(battlerDef);
+    ctx.holdEffects[ctx.battlerAtk] = GetBattlerHoldEffect(battlerAtk);
+    ctx.holdEffects[ctx.battlerDef] = BattleInfo_KnownHoldEffect(battlerDef);
+    ctx.typeEffectivenessModifier = CalcTypeEffectivenessMultiplier(&ctx);
+
+    if (ctx.typeEffectivenessModifier == UQ_4_12(0.0))
+    {
+        *minPercent = *maxPercent = 0;
+        return TRUE;
+    }
+
+    base = CalculateMoveDamageVars(&ctx); // danno prima del tiro casuale
+    // Potenza rimasta a 0/1: mossa a danno fisso o speciale, il calcolo normale non vale.
+    if (base <= 0 || gBattleMovePower <= 1)
+        return FALSE;
+
+    low = ApplyModifiersAfterDmgRoll(&ctx, base * DMG_ROLL_PERCENT_LO / 100);
+    high = ApplyModifiersAfterDmgRoll(&ctx, base);
+    if (low < 1)
+        low = 1;
+    if (high < low)
+        high = low;
+    *minPercent = min((u32)low * 100 / maxHp, 999);
+    *maxPercent = min((u32)high * 100 / maxHp, 999);
+    return TRUE;
 }
 
 static u32 CheckTargetTypeEffectiveness(enum BattlerId battler)

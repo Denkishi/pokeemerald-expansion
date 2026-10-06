@@ -39,6 +39,8 @@
 #include "link_rfu.h"
 #include "mail.h"
 #include "main.h"
+#include "battle_info.h"
+#include "config/custom.h"
 #include "menu.h"
 #include "menu_helpers.h"
 #include "menu_specialized.h"
@@ -1056,6 +1058,38 @@ static void RenderPartyMenuBox(u8 slot)
     }
 }
 
+// In lotta: quanto questo Pokémon subirebbe, nel caso peggiore, dalle mosse offensive
+// già rivelate degli avversari in campo (x2, x4, x.5...). Niente se è neutro o sconosciuto.
+static void DisplayIncomingEffectiveness(struct Pokemon *mon, struct PartyMenuBox *menuBox)
+{
+    static const u8 sText_x4[]   = _("×4");
+    static const u8 sText_x2[]   = _("×2");
+    static const u8 sText_xHalf[] = _("×.5");
+    static const u8 sText_xQuarter[] = _("×.25");
+    static const u8 sText_x0[]   = _("×0");
+    // {x, y} dentro la finestra dello slot
+    static const u8 sPosLeftColumn[]  = {24, 46};
+    static const u8 sPosRightColumn[] = {118, 0};
+    const u8 *text;
+    s32 percent;
+
+    if (!CUSTOM_SWITCH_EFFECTIVENESS || gPartyMenu.menuType != PARTY_MENU_TYPE_IN_BATTLE || !gMain.inBattle)
+        return;
+    if (GetMonData(mon, MON_DATA_HP) == 0)
+        return;
+    percent = BattleInfo_WorstIncomingEffectiveness(mon);
+    if (percent < 0 || percent == 100)
+        return;
+    if (percent >= 400)      text = sText_x4;
+    else if (percent >= 200) text = sText_x2;
+    else if (percent == 0)   text = sText_x0;
+    else if (percent <= 25)  text = sText_xQuarter;
+    else                     text = sText_xHalf;
+
+    DisplayPartyPokemonBarDetail(menuBox->windowId, text, 0,
+                                 (menuBox->infoRects == &sPartyBoxInfoRects[PARTY_BOX_LEFT_COLUMN]) ? sPosLeftColumn : sPosRightColumn);
+}
+
 static void DisplayPartyPokemonData(u8 slot)
 {
     struct Pokemon *mon = GetPartyMonFromPartyMenuId(slot);
@@ -1073,6 +1107,7 @@ static void DisplayPartyPokemonData(u8 slot)
         DisplayPartyPokemonHPCheck(mon, &sPartyMenuBoxes[slot], 0);
         DisplayPartyPokemonMaxHPCheck(mon, &sPartyMenuBoxes[slot], 0);
         DisplayPartyPokemonHPBarCheck(mon, &sPartyMenuBoxes[slot]);
+        DisplayIncomingEffectiveness(mon, &sPartyMenuBoxes[slot]);
     }
 }
 

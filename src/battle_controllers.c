@@ -1,6 +1,7 @@
 #include "global.h"
 #include "battle.h"
 #include "battle_ai_main.h"
+#include "battle_info.h"
 #include "battle_ai_util.h"
 #include "battle_anim.h"
 #include "battle_arena.h"
@@ -2195,6 +2196,7 @@ void Controller_WaitForHealthBar(enum BattlerId battler)
     if (hpValue != -1)
     {
         UpdateHpTextInHealthbox(gHealthboxSpriteIds[battler], HP_CURRENT, hpValue, maxHP);
+        UpdateOpponentHpPercentInHealthbox(gHealthboxSpriteIds[battler], hpValue, maxHP);
     }
     else
     {
@@ -2664,6 +2666,7 @@ void BtlController_HandlePrintString(enum BattlerId battler)
     gBattle_BG0_Y = 0;
     stringId = (u16 *)(&gBattleResources->bufferA[battler][2]);
     BufferStringBattle(*stringId, battler);
+    BattleInfo_LogMessage(gDisplayedStringBattle);
 
     if (gTestRunnerEnabled)
     {

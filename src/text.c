@@ -7,6 +7,7 @@
 #include "fonts.h"
 #include "m4a.h"
 #include "main.h"
+#include "config/custom.h"
 #include "malloc.h"
 #include "menu.h"
 #include "palette.h"
@@ -1236,6 +1237,10 @@ void TextPrinterClearDownArrow(struct TextPrinter *textPrinter)
     CopyWindowToVram(textPrinter->printerTemplate.windowId, COPYWIN_GFX);
 }
 
+// In lotta i messaggi che aspettano un tasto avanzano da soli dopo una pausa;
+// A/B li fanno avanzare subito.
+#define BATTLE_AUTO_TEXT (CUSTOM_BATTLE_AUTO_TEXT && gMain.inBattle)
+
 bool32 TextPrinterWaitAutoMode(struct TextPrinter *textPrinter)
 {
     if (textPrinter->autoScrollDelay == NUM_FRAMES_AUTO_SCROLL_DELAY)
@@ -1262,11 +1267,11 @@ void SetResultWithButtonPress(bool32 *result)
 bool32 TextPrinterWaitWithDownArrow(struct TextPrinter *textPrinter)
 {
     bool32 result = FALSE;
-    if (gTextFlags.autoScroll != 0 || AUTO_SCROLL_TEXT)
+    if (gTextFlags.autoScroll != 0 || AUTO_SCROLL_TEXT || BATTLE_AUTO_TEXT)
     {
         result = TextPrinterWaitAutoMode(textPrinter);
 
-        if (AUTO_SCROLL_TEXT)
+        if (AUTO_SCROLL_TEXT || BATTLE_AUTO_TEXT)
             SetResultWithButtonPress(&result);
     }
     else
@@ -1280,11 +1285,11 @@ bool32 TextPrinterWaitWithDownArrow(struct TextPrinter *textPrinter)
 bool32 TextPrinterWait(struct TextPrinter *textPrinter)
 {
     bool32 result = FALSE;
-    if (gTextFlags.autoScroll != 0 || AUTO_SCROLL_TEXT)
+    if (gTextFlags.autoScroll != 0 || AUTO_SCROLL_TEXT || BATTLE_AUTO_TEXT)
     {
         result = TextPrinterWaitAutoMode(textPrinter);
 
-        if (AUTO_SCROLL_TEXT)
+        if (AUTO_SCROLL_TEXT || BATTLE_AUTO_TEXT)
             SetResultWithButtonPress(&result);
     }
     else

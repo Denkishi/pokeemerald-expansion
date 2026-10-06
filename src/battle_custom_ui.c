@@ -408,6 +408,140 @@ static void SpriteCB_EffBadge(struct Sprite *sprite)
     PlaceBadge(sprite);
 }
 
+// ---------------------------------------------------------------------
+// Anteprima del danno: "38-45%" a destra del badge, solo sugli avversari.
+// Usa la stessa palette del badge (1 = bianco, 2 = quasi nero).
+// ---------------------------------------------------------------------
+#define TAG_DMG_TEXT    0xE7A2  // + bersaglio (0..3)
+#define DMG_TEXT_W      32
+#define DMG_TEXT_H      16
+
+// data[1] e data[2] servono al motore di stampa su sprite: non usarli.
+#define sDmgAttacker    data[0]
+#define sDmgTarget      data[3]
+#define sDmgLastKey     data[4]
+
+static const u8 ALIGNED(4) sDmgBlankGfx[DMG_TEXT_W * DMG_TEXT_H / 2] = {0};
+
+static const struct OamData sDmgTextOam =
+{
+    .shape = SPRITE_SHAPE(32x16),
+    .size = SPRITE_SIZE(32x16),
+    .priority = 0,
+};
+
+static void SpriteCB_DmgText(struct Sprite *sprite);
+
+#define DMG_TEXT_TEMPLATE(n)                            \
+    {                                                   \
+        .tileTag = TAG_DMG_TEXT + (n),                  \
+        .paletteTag = TAG_EFF_BADGE,                    \
+        .oam = &sDmgTextOam,                            \
+        .anims = gDummySpriteAnimTable,                 \
+        .images = NULL,                                 \
+        .affineAnims = gDummySpriteAffineAnimTable,     \
+        .callback = SpriteCB_DmgText,                   \
+    }
+
+static const struct SpriteTemplate sDmgTextTemplates[MAX_BATTLERS_COUNT] =
+{
+    DMG_TEXT_TEMPLATE(0),
+    DMG_TEXT_TEMPLATE(1),
+    DMG_TEXT_TEMPLATE(2),
+    DMG_TEXT_TEMPLATE(3),
+};
+
+static void DrawDmgText(struct Sprite *sprite, u32 spriteId, enum BattlerId atk, enum BattlerId def)
+{
+    static const u8 sText_Dash[] = _("-");
+    static const u8 sText_Pct[] = _("%");
+    union TextColor color = {.background = 2, .foreground = 1, .shadow = 2, .accent = 2};
+    u32 minPercent, maxPercent, width;
+    u8 text[12];
+    u8 *ptr;
+
+    FillSpriteRectColor(spriteId, 0, 0, DMG_TEXT_W, DMG_TEXT_H, 0);
+    if (!ShouldShowOnTarget(atk, def, CurrentSelectedMove(atk))
+     || !GetMoveSelectionDamageRange(atk, def, &minPercent, &maxPercent))
+    {
+        sprite->invisible = TRUE;
+        return;
+    }
+
+    ptr = text;
+    if (minPercent != maxPercent)
+    {
+        ptr = ConvertIntToDecimalStringN(ptr, minPercent, STR_CONV_MODE_LEFT_ALIGN, 3);
+        ptr = StringCopy(ptr, sText_Dash);
+    }
+    ptr = ConvertIntToDecimalStringN(ptr, maxPercent, STR_CONV_MODE_LEFT_ALIGN, 3);
+    StringCopy(ptr, sText_Pct);
+
+    width = GetStringWidth(FONT_SMALL_NARROWER, text, 0) + 2;
+    if (width > DMG_TEXT_W)
+        width = DMG_TEXT_W;
+    FillSpriteRectColor(spriteId, 0, 0, width, 8, 2);
+    AddSpriteTextPrinterParameterized6(spriteId, FONT_SMALL_NARROWER, 1, 0, 0, 0, color, 0, text);
+    sprite->invisible = FALSE;
+}
+
+static void SpriteCB_DmgText(struct Sprite *sprite)
+{
+    enum BattlerId atk = sprite->sDmgAttacker, def = sprite->sDmgTarget;
+    struct Sprite *hb;
+    s32 key;
+
+    if (!IsInMoveSelection(atk))
+    {
+        FreeSpriteTilesByTag(sprite->template->tileTag);
+        DestroySprite(sprite);
+        return;
+    }
+
+    // Stessa chiave del badge: ricalcola solo se cambia mossa, bersaglio o gimmick.
+    key = (gMoveSelectionCursor[atk] + 1) | (gMultiUsePlayerCursor << 4)
+        | (gBattleStruct->gimmick.playerSelect << 8) | ((gBattlerControllerFuncs[atk] == HandleInputChooseTarget) << 9);
+    if (key != sprite->sDmgLastKey)
+    {
+        sprite->sDmgLastKey = key;
+        DrawDmgText(sprite, sprite - gSprites, atk, def);
+    }
+
+    // A destra del badge (che sta a hb.x + 72, largo 16).
+    hb = &gSprites[gHealthboxSpriteIds[def]];
+    sprite->x = hb->x + hb->x2 + 98;
+    sprite->y = hb->y + hb->y2 - 2;
+}
+
+static void CreateDmgText(enum BattlerId atk, enum BattlerId def)
+{
+    const struct SpriteTemplate *template = &sDmgTextTemplates[def];
+    u32 i, spriteId;
+
+    if (!CUSTOM_DAMAGE_PREVIEW || def >= MAX_BATTLERS_COUNT || IsBattlerAlly(atk, def))
+        return;
+    for (i = 0; i < MAX_SPRITES; i++)
+    {
+        if (gSprites[i].inUse && gSprites[i].template == template)
+            return; // esiste già
+    }
+    if (GetSpriteTileStartByTag(template->tileTag) == 0xFFFF)
+    {
+        struct SpriteSheet sheet = {sDmgBlankGfx, sizeof(sDmgBlankGfx), template->tileTag};
+        if (LoadSpriteSheet(&sheet) == 0)
+            return;
+    }
+    spriteId = CreateSprite(template, 0, 0, 0);
+    if (spriteId == MAX_SPRITES)
+        return;
+    gSprites[spriteId].sDmgAttacker = atk;
+    gSprites[spriteId].sDmgTarget = def;
+    gSprites[spriteId].sDmgLastKey = -1;
+    gSprites[spriteId].data[1] = SPRITE_NONE;
+    gSprites[spriteId].data[2] = SPRITE_NONE;
+    gSprites[spriteId].invisible = TRUE;
+}
+
 void CreateEffectivenessBadges(enum BattlerId battler)
 {
     enum BattlerId def;
@@ -446,5 +580,10 @@ void CreateEffectivenessBadges(enum BattlerId battler)
         gSprites[spriteId].sLastKey = -1;
         gSprites[spriteId].invisible = TRUE;
         PlaceBadge(&gSprites[spriteId]);
+    }
+    for (def = 0; def < gBattlersCount; def++)
+    {
+        if (def != battler)
+            CreateDmgText(battler, def);
     }
 }
