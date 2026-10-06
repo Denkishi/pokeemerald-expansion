@@ -27,7 +27,7 @@
 // Premi B_MOVE_DESCRIPTION_BUTTON (L) una volta: info mossa.
 // Premi ancora: info campo (meteo, terreno, Distorsione, schermi...).
 // Premi ancora: chiudi.
-#define CUSTOM_FIELD_INFO_PAGE              TRUE
+#define CUSTOM_FIELD_INFO_PAGE              FALSE   // spenta: le stesse informazioni sono in Info lotta (R)
 
 // --- 5/6. Team preview + scelta 4 -------------------------------------
 #define CUSTOM_TEAM_PREVIEW                 TRUE
