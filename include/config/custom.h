@@ -42,4 +42,8 @@
 // (ultimo Centro Pokémon visitato). Lista in src/data/heal_locations.json.
 #define CUSTOM_WHITEOUT_HEAL_LOCATION       HEAL_LOCATION_GAMB_ESTERNO
 
+// --- 8. Corsa automatica -----------------------------------------------
+// TRUE = il giocatore corre sempre (anche senza Scarpe da Corsa); tieni premuto B per camminare.
+#define CUSTOM_AUTO_RUN                     TRUE
+
 #endif // GUARD_CONFIG_CUSTOM_H
