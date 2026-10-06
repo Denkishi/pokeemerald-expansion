@@ -1,4 +1,6 @@
 #include "global.h"
+#include "team_preview.h"
+#include "config/custom.h"
 #include "data.h"
 #include "main.h"
 #include "battle.h"
@@ -262,7 +264,10 @@ static void Task_BattleStart(u8 taskId)
         {
             PrepareForFollowerNPCBattle();
             CleanupOverworldWindowsAndTilemaps();
-            SetMainCallback2(CB2_InitBattle);
+            if (TeamPreview_ShouldRun())
+                SetMainCallback2(CB2_TeamPreview); // poi va da sola in CB2_InitBattle
+            else
+                SetMainCallback2(CB2_InitBattle);
             RestartWildEncounterImmunitySteps();
             ClearPoisonStepCounter();
             DespawnOWEOnBattleStart();
@@ -1569,9 +1574,22 @@ static void HandleBattleVariantEndParty(void)
     FlagClear(B_FLAG_SKY_BATTLE);
 }
 
+static bool32 TryResetAfterCustomTrainer(void)
+{
+    if (CUSTOM_RESET_AFTER_TRAINER == 0 || TRAINER_BATTLE_PARAM.opponentA != CUSTOM_RESET_AFTER_TRAINER)
+        return FALSE;
+    if (IsPlayerDefeated(gBattleOutcome) && !CUSTOM_RESET_ALSO_ON_LOSS)
+        return FALSE;
+    DoSoftReset();
+    return TRUE;
+}
+
 static void CB2_EndTrainerBattle(void)
 {
+    TeamPreview_RestorePlayerParty();
     HandleBattleVariantEndParty();
+    if (TryResetAfterCustomTrainer())
+        return;
 
     gIsDebugBattle = FALSE;
     if (FollowerNPCIsBattlePartner())
@@ -1632,6 +1650,7 @@ static void CB2_EndTrainerBattle(void)
 
 static void CB2_EndRematchBattle(void)
 {
+    TeamPreview_RestorePlayerParty();
     if (TRAINER_BATTLE_PARAM.opponentA == TRAINER_SECRET_BASE)
     {
         DowngradeBadPoison();

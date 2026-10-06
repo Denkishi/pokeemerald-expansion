@@ -1,0 +1,39 @@
+#ifndef GUARD_CONFIG_CUSTOM_H
+#define GUARD_CONFIG_CUSTOM_H
+
+// =====================================================================
+// Config custom (Vincenzo). Tutto qui: accendi / spegni.
+// =====================================================================
+
+// --- 1. Riavvio dopo trainer Enzo -------------------------------------
+// Dopo una VITTORIA contro questo trainer il gioco fa soft reset.
+// Metti la costante giusta del tuo trainer (vedi include/constants/opponents.h
+// o src/data/trainers.party). 0 = feature spenta.
+#define CUSTOM_RESET_AFTER_TRAINER          TRAINER_ENZO
+#define CUSTOM_RESET_ALSO_ON_LOSS           FALSE   // TRUE = riavvia anche se perdi
+
+// --- 2. Gimmick: solo Mega --------------------------------------------
+#define CUSTOM_DISABLE_TERA                 TRUE
+#define CUSTOM_DISABLE_DYNAMAX              TRUE    // Dynamax + Gigantamax
+#define CUSTOM_DISABLE_Z_MOVES              TRUE    // "solo Mega": spegne anche Z-Mosse. FALSE per tenerle.
+
+// --- 3. Indicatore efficacia in lotta ---------------------------------
+// Badge x4 / x2 / x1 / 1/2 / 1/4 / X sopra ogni Pokémon bersaglio
+// mentre scegli la mossa e mentre scegli il bersaglio.
+#define CUSTOM_EFFECTIVENESS_BADGES         TRUE
+#define CUSTOM_EFFECTIVENESS_SHOW_NEUTRAL   TRUE    // FALSE = niente badge "x1"
+
+// --- 4. Tasto info: pagina campo --------------------------------------
+// Premi B_MOVE_DESCRIPTION_BUTTON (L) una volta: info mossa.
+// Premi ancora: info campo (meteo, terreno, Distorsione, schermi...).
+// Premi ancora: chiudi.
+#define CUSTOM_FIELD_INFO_PAGE              TRUE
+
+// --- 5/6. Team preview + scelta 4 -------------------------------------
+#define CUSTOM_TEAM_PREVIEW                 TRUE
+#define CUSTOM_TEAM_PREVIEW_PICKS           4       // quanti Pokémon si portano
+#define CUSTOM_TEAM_PREVIEW_MIN_PARTY       2       // sotto questo numero di Pokémon usabili: niente preview
+#define CUSTOM_FLAG_NO_TEAM_PREVIEW         0       // se != 0 e il flag è settato: niente preview (es. lotte storia)
+#define CUSTOM_TEAM_PREVIEW_REVEAL_AI       FALSE   // TRUE = mostra i numeri scelti dall'AI (debug)
+
+#endif // GUARD_CONFIG_CUSTOM_H

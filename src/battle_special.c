@@ -1,4 +1,5 @@
 #include "global.h"
+#include "team_preview.h"
 #include "main.h"
 #include "battle_special.h"
 #include "battle.h"
@@ -28,6 +29,7 @@ static void SetEReaderTrainerChecksum(struct BattleTowerEReaderTrainer *ereaderT
 
 void CB2_EndSpecialTrainerBattle(void)
 {
+    TeamPreview_RestorePlayerParty();
     s32 i;
 
     RecordedBattle_SaveBattleOutcome();

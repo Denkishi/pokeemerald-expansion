@@ -13,6 +13,7 @@
 #include "sprite.h"
 #include "util.h"
 #include "test_runner.h"
+#include "config/custom.h"
 
 #include "data/gimmicks.h"
 
@@ -65,6 +66,13 @@ void AssignUsableGimmicks(void)
 // Returns whether a battler is able to use a gimmick. Checks consumption and gimmick specific functions.
 bool32 CanActivateGimmick(enum BattlerId battler, enum Gimmick gimmick)
 {
+#if !TESTING
+    // Custom: solo Mega. Tera / Dynamax (Giga) / Z-Mosse spenti da config.
+    if ((CUSTOM_DISABLE_TERA && gimmick == GIMMICK_TERA)
+     || (CUSTOM_DISABLE_DYNAMAX && gimmick == GIMMICK_DYNAMAX)
+     || (CUSTOM_DISABLE_Z_MOVES && gimmick == GIMMICK_Z_MOVE))
+        return FALSE;
+#endif
     if (HasTrainerUsedAnyGimmick(battler))
         return FALSE;
 

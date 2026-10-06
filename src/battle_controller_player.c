@@ -1,4 +1,6 @@
 #include "global.h"
+#include "battle_custom_ui.h"
+#include "config/custom.h"
 #include "battle.h"
 #include "battle_anim.h"
 #include "battle_arena.h"
@@ -95,6 +97,9 @@ static void ReloadMoveNames(enum BattlerId battler);
 static u32 CheckTypeEffectiveness(enum BattlerId battlerAtk, enum BattlerId battlerDef);
 static u32 CheckTargetTypeEffectiveness(enum BattlerId battler);
 static void MoveSelectionDisplayMoveEffectiveness(u32 foeEffectiveness, enum BattlerId battler);
+
+enum { INFO_PAGE_MOVE, INFO_PAGE_FIELD };
+static EWRAM_DATA u8 sInfoPage = INFO_PAGE_MOVE;
 
 static void (*const sPlayerBufferCommands[CONTROLLER_CMDS_COUNT])(enum BattlerId battler) =
 {
@@ -880,8 +885,21 @@ void HandleInputChooseMove(enum BattlerId battler)
     }
     else if (gBattleStruct->descriptionSubmenu)
     {
-        if (JOY_NEW(B_MOVE_DESCRIPTION_BUTTON) || JOY_NEW(A_BUTTON) || JOY_NEW(B_BUTTON))
+        if (CUSTOM_FIELD_INFO_PAGE && JOY_NEW(B_MOVE_DESCRIPTION_BUTTON) && sInfoPage == INFO_PAGE_MOVE)
         {
+            // Seconda pressione: pagina campo.
+            sInfoPage = INFO_PAGE_FIELD;
+            if (gCategoryIconSpriteId != 0xFF)
+            {
+                DestroySprite(&gSprites[gCategoryIconSpriteId]);
+                gCategoryIconSpriteId = 0xFF;
+            }
+            PlaySE(SE_SELECT);
+            PrintBattleFieldInfo(B_WIN_MOVE_DESCRIPTION, battler);
+        }
+        else if (JOY_NEW(B_MOVE_DESCRIPTION_BUTTON) || JOY_NEW(A_BUTTON) || JOY_NEW(B_BUTTON))
+        {
+            sInfoPage = INFO_PAGE_MOVE;
             gBattleStruct->descriptionSubmenu = FALSE;
             if (gCategoryIconSpriteId != 0xFF)
             {
@@ -903,6 +921,7 @@ void HandleInputChooseMove(enum BattlerId battler)
         !(B_MOVE_DESCRIPTION_BUTTON == L_BUTTON && gSaveBlock2Ptr->optionsButtonMode == OPTIONS_BUTTON_MODE_L_EQUALS_A))
     {
         gBattleStruct->descriptionSubmenu = TRUE;
+        sInfoPage = INFO_PAGE_MOVE;
         TryMoveSelectionDisplayMoveDescription(battler);
     }
     else if (JOY_NEW(START_BUTTON))
@@ -1744,7 +1763,12 @@ static void TryMoveSelectionDisplayMoveDescription(enum BattlerId battler)
         return;
 
     if (gBattleStruct->descriptionSubmenu)
-        MoveSelectionDisplayMoveDescription(battler);
+    {
+        if (sInfoPage == INFO_PAGE_FIELD)
+            PrintBattleFieldInfo(B_WIN_MOVE_DESCRIPTION, battler);
+        else
+            MoveSelectionDisplayMoveDescription(battler);
+    }
 }
 
 static void MoveSelectionDisplayMoveDescription(enum BattlerId battler)
@@ -2123,6 +2147,7 @@ void PlayerHandleChooseMove(enum BattlerId battler)
             CreateGimmickTriggerSprite(battler);
 
         gBattlerControllerFuncs[battler] = HandleChooseMoveAfterDma3;
+        CreateEffectivenessBadges(battler);
     }
 }
 
@@ -2348,17 +2373,7 @@ static void PlayerHandleBattleDebug(enum BattlerId battler)
     gBattlerControllerFuncs[battler] = Controller_WaitForDebug;
 }
 
-// Order based numerically, with EFFECTIVENESS_CANNOT_VIEW at 0 to always prioritize any other effectiveness during comparison
-enum
-{
-    EFFECTIVENESS_CANNOT_VIEW,
-    EFFECTIVENESS_NO_EFFECT,
-    EFFECTIVENESS_MOSTLY_INEFFECTIVE,
-    EFFECTIVENESS_NOT_VERY_EFFECTIVE,
-    EFFECTIVENESS_NORMAL,
-    EFFECTIVENESS_SUPER_EFFECTIVE,
-    EFFECTIVENESS_EXTREMELY_EFFECTIVE,
-};
+// Enum EFFECTIVENESS_* spostato in include/battle_custom_ui.h
 
 static bool32 ShouldShowTypeEffectiveness(u32 targetId)
 {
@@ -2408,6 +2423,11 @@ static u32 CheckTypeEffectiveness(enum BattlerId battlerAtk, enum BattlerId batt
     return EFFECTIVENESS_NORMAL; // Normal effectiveness
 }
 
+u32 GetMoveSelectionEffectiveness(enum BattlerId battlerAtk, enum BattlerId battlerDef)
+{
+    return CheckTypeEffectiveness(battlerAtk, battlerDef);
+}
+
 static u32 CheckTargetTypeEffectiveness(enum BattlerId battler)
 {
     enum BattlerId battlerFoe = GetOppositeBattler(battler);
@@ -2429,11 +2449,12 @@ static u32 CheckTargetTypeEffectiveness(enum BattlerId battler)
 static void MoveSelectionDisplayMoveEffectiveness(u32 foeEffectiveness, enum BattlerId battler)
 {
     static const u8 noIcon[] =  _("");
-    static const u8 effectiveIcon[] =  _("{CIRCLE_HOLLOW}");
-    static const u8 extremeleyEffectiveIcon[] =  _("{STAR}");
-    static const u8 superEffectiveIcon[] =  _("{CIRCLE_DOT}");
-    static const u8 notVeryEffectiveIcon[] =  _("{TRIANGLE}");
-    static const u8 mostlyIneffectiveIcon[] =  _("{TRIANGLE_UPSIDE_DOWN}");
+    // Custom: testo chiaro invece dei simboli.
+    static const u8 effectiveIcon[] =  _("{FONT_SMALL_NARROW}×1");
+    static const u8 extremeleyEffectiveIcon[] =  _("{FONT_SMALL_NARROW}×4");
+    static const u8 superEffectiveIcon[] =  _("{FONT_SMALL_NARROW}×2");
+    static const u8 notVeryEffectiveIcon[] =  _("{FONT_SMALL_NARROW}×.5");
+    static const u8 mostlyIneffectiveIcon[] =  _("{FONT_SMALL_NARROW}×.25");
     static const u8 immuneIcon[] =  _("{BIG_MULT_X}");
     struct ChooseMoveStruct *moveInfo = (struct ChooseMoveStruct *)(&gBattleResources->bufferA[battler][4]);
     u8 *txtPtr;
