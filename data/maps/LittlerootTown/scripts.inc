@@ -302,14 +302,11 @@ LittlerootTown_EventScript_CategorySVRarelyUsed::
 	end
 
 LittlerootTown_EventScript_ShowCategoryTeams::
-	@ NB: la schermata intera (special OpenRentalTeamBrowser) e' disattivata:
-	@ all'uscita fa scattare un'asserzione in malloc.c (blocco heap gia' liberato) e il gioco crasha.
-	special PopulateRentalCategoryTeams
-	dynmultipush LittlerootTown_Text_Cancel, 0xFFFF
-	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_SHOW_RENTAL_TEAM
-	switch VAR_RESULT
-	case 0xFFFF, LittlerootTown_EventScript_RentalMenu
-	case MULTI_B_PRESSED, LittlerootTown_EventScript_RentalMenu
+	@ Schermata intera (riscritta): lista team + anteprima. Destra = anteprima, A = sommario.
+	@ VAR_0x8004 = categoria, VAR_RESULT = team scelto (0xFFFF = annullato).
+	closemessage
+	special OpenRentalTeamBrowser
+	goto_if_eq VAR_RESULT, 0xFFFF, LittlerootTown_EventScript_RentalMenu
 	copyvar VAR_0x8005, VAR_RESULT
 	special BufferRentalTeamName
 	goto LittlerootTown_EventScript_ConfirmTeam

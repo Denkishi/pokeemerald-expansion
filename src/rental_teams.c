@@ -41,70 +41,66 @@
 #define TAG_RENTAL_HELD_ITEM    55120
 #define ITEM_ID_RANDOM          1000
 
-#include "decompress.h"
 
-#define TAG_RENTAL_ARROW_CURSOR 2002
-
-static const u16 sRedInterface_Pal[]    = INCGFX_U16("graphics/interface/red.pal", ".gbapal");
-static const u32 sArrowCursor_Gfx[]     = INCGFX_U32("graphics/interface/arrow_cursor.png", ".4bpp.smol");
-
-static const struct SpritePalette sArrowCursorSpritePal = { sRedInterface_Pal, TAG_RENTAL_ARROW_CURSOR };
-static const struct CompressedSpriteSheet sArrowCursorSpriteSheet = { sArrowCursor_Gfx, 0x80, TAG_RENTAL_ARROW_CURSOR };
-
-static const struct OamData sOamData_ArrowCursor =
+// =====================================================================
+// Schermata "Team a noleggio": lista team + anteprima + sommario.
+//
+// Riscritta da zero. Regole seguite per non corrompere la memoria:
+//  - nessuna Alloc/Free propria: stato, tilemap e Pokémon del sommario sono statici;
+//  - niente ListMenu, frecce di scorrimento o sprite compressi (usano buffer temporanei sull'heap);
+//  - l'unico heap usato è quello standard delle finestre (InitWindows / FreeAllWindowBuffers).
+// =====================================================================
+enum
 {
-    .y = 0,
-    .affineMode = ST_OAM_AFFINE_OFF,
-    .objMode = ST_OAM_OBJ_NORMAL,
-    .mosaic = FALSE,
-    .bpp = ST_OAM_4BPP,
-    .shape = SPRITE_SHAPE(16x16),
-    .x = 0,
-    .matrixNum = 0,
-    .size = SPRITE_SIZE(16x16),
-    .tileNum = 0,
-    .priority = 0,
-    .paletteNum = 0,
-    .affineParam = 0,
-};
-
-// Freccia rossa che oscilla accanto al Pokémon selezionato nell'anteprima.
-static void SpriteCB_RentalArrowCursor(struct Sprite *sprite)
-{
-    sprite->x2 = ((++sprite->data[0] >> 3) & 1) ? 1 : 0;
-}
-
-static const struct SpriteTemplate sSpriteTemplate_ArrowCursor =
-{
-    .tileTag = TAG_RENTAL_ARROW_CURSOR,
-    .paletteTag = TAG_RENTAL_ARROW_CURSOR,
-    .oam = &sOamData_ArrowCursor,
-    .anims = gDummySpriteAnimTable,
-    .images = NULL,
-    .affineAnims = gDummySpriteAffineAnimTable,
-    .callback = SpriteCB_RentalArrowCursor,
-};
-
-
-enum {
     WIN_HEADER,
     WIN_TEAM_LIST,
     WIN_PREVIEW,
-    WIN_COUNT
 };
 
-enum {
+enum
+{
     FOCUS_TEAM_LIST,
-    FOCUS_PREVIEW_MONS
+    FOCUS_PREVIEW_MONS,
 };
+
+#define RB_ROWS         7       // righe visibili nella lista
+#define RB_ROW_H        16
+#define RB_FRAME_TILE   0x200
+#define RB_FRAME_PAL    14
+#define RB_TEXT_PAL     15
+#define RB_NO_TEAM      0xFFFF
+#define RB_TEAM_SLOTS   6
+
+// Origine (in pixel schermo) della finestra anteprima: serve per disegnare dietro le icone.
+#define RB_PREVIEW_X    (18 * 8)
+#define RB_PREVIEW_Y    (4 * 8)
+
+struct RentalBrowser
+{
+    u16 category;
+    u16 numTeams;   // team nella categoria
+    u16 cursor;     // 0 = Team Casuale, 1..numTeams = team
+    u16 scroll;     // prima riga visibile
+    u16 result;
+    u8 focus;
+    u8 monIdx;      // slot selezionato nell'anteprima
+    u8 monIconSpriteIds[RB_TEAM_SLOTS];
+    u8 itemSpriteIds[RB_TEAM_SLOTS];
+};
+
+static EWRAM_DATA struct RentalBrowser sRB = {0};
+static EWRAM_DATA struct Pokemon sRentalSummaryMons[RB_TEAM_SLOTS] = {0};
+static EWRAM_DATA u8 sRentalSummarySlots[RB_TEAM_SLOTS] = {0}; // indice nel sommario -> slot del team
+static EWRAM_DATA u8 sRentalSummaryCount = 0;
+static EWRAM_DATA u16 sRB_Tilemap[BG_SCREEN_SIZE / 2] = {0};
 
 static const u8 sText_CasualeHeader[] = _("CASUALE");
 static const u8 sText_CasualeDescription[] = _("Premendo A\nriceverai un\nteam a sorpresa\ntra quelli di\nquesta lista!");
 static const u8 sText_KeyHelpRandom[] = _("A:Scegli  B:Esci");
 static const u8 sText_AnteprimaHeader[] = _("ANTEPRIMA");
 static const u8 sText_KeyHelpList[] = _("A:Scegli  {DPAD_RIGHT}:Info");
-static const u8 sText_KeyHelpPreview[] = _("A:Info  B:Torna");
-static const u8 sText_RandomTeamOption[] = _("  Team Casuale");
+static const u8 sText_KeyHelpPreview[] = _("A: Sommario   B: Indietro   START: Scegli");
+static const u8 sText_RandomTeamOption[] = _("Team Casuale");
 static const u8 sText_AllTeamsCategory[] = _("TUTTI I TEAM (76)");
 static const u8 sText_HeaderPrefix[] = _("TEAM A NOLEGGIO - ");
 static const u8 sText_UnknownTeam[] = _("Team Sconosciuto");
@@ -112,61 +108,16 @@ static const u8 sText_StrNone[] = _("Str: Nessuno");
 static const u8 sText_StrPrefix[] = _("Str: ");
 static const u8 sText_MonIdxOpen[] = _("(");
 static const u8 sText_MonIdxSep[] = _("/6) ");
+static const u8 sText_RB_Cursor[] = _("▶");
+static const u8 sText_RB_Up[] = _("{UP_ARROW}");
+static const u8 sText_RB_Down[] = _("{DOWN_ARROW}");
 
-struct RentalTeamsMenuData
-{
-    u8 listTaskId;
-    u8 scrollArrowsTaskId;
-    u8 arrowSpriteId;
-    u16 scrollOffset;
-    u16 selectedRow;
-    u8 monIconSpriteIds[6];
-    u8 itemSpriteIds[6];
-    u16 category;
-    u16 numTeams;
-    u16 numItems;
-    struct ListMenuItem *menuItems;
-    s32 currentTeamId;
-    u8 focusMode;
-    u8 previewMonIdx;
-};
+// {sfondo, testo, ombra} sulla palette standard dei menu
+static const u8 sRB_ColDark[] = {TEXT_COLOR_WHITE, TEXT_COLOR_DARK_GRAY, TEXT_COLOR_LIGHT_GRAY};
+static const u8 sRB_ColGray[] = {TEXT_COLOR_WHITE, TEXT_COLOR_LIGHT_GRAY, TEXT_COLOR_WHITE};
+static const u8 sRB_ColRed[]  = {TEXT_COLOR_WHITE, TEXT_COLOR_RED, TEXT_COLOR_LIGHT_RED};
 
-static EWRAM_DATA struct RentalTeamsMenuData *sRentalTeamsData = NULL;
-static EWRAM_DATA struct Pokemon *sRentalSummaryMons = NULL;
-
-static const struct WindowTemplate sRentalTeamsWindowTemplates[] =
-{
-    [WIN_HEADER] = {
-        .bg = 0,
-        .tilemapLeft = 1,
-        .tilemapTop = 1,
-        .width = 28,
-        .height = 2,
-        .paletteNum = 15,
-        .baseBlock = 0x0001,
-    },
-    [WIN_TEAM_LIST] = {
-        .bg = 0,
-        .tilemapLeft = 1,
-        .tilemapTop = 4,
-        .width = 16,
-        .height = 14,
-        .paletteNum = 15,
-        .baseBlock = 0x0039,
-    },
-    [WIN_PREVIEW] = {
-        .bg = 0,
-        .tilemapLeft = 18,
-        .tilemapTop = 4,
-        .width = 11,
-        .height = 14,
-        .paletteNum = 15,
-        .baseBlock = 0x0119,
-    },
-    DUMMY_WIN_TEMPLATE
-};
-
-static const struct BgTemplate sRentalTeamsBgTemplates[] =
+static const struct BgTemplate sRB_BgTemplates[] =
 {
     {
         .bg = 0,
@@ -177,15 +128,46 @@ static const struct BgTemplate sRentalTeamsBgTemplates[] =
         .priority = 1,
         .baseTile = 0,
     },
-    {
-        .bg = 1,
-        .charBaseIndex = 2,
-        .mapBaseIndex = 29,
-        .screenSize = 0,
-        .paletteMode = 0,
-        .priority = 2,
-        .baseTile = 0,
+};
+
+static const struct WindowTemplate sRB_WinTemplates[] =
+{
+    [WIN_HEADER] = {
+        .bg = 0,
+        .tilemapLeft = 1,
+        .tilemapTop = 1,
+        .width = 28,
+        .height = 2,
+        .paletteNum = RB_TEXT_PAL,
+        .baseBlock = 0x0001,
     },
+    [WIN_TEAM_LIST] = {
+        .bg = 0,
+        .tilemapLeft = 1,
+        .tilemapTop = 4,
+        .width = 16,
+        .height = 14,
+        .paletteNum = RB_TEXT_PAL,
+        .baseBlock = 0x0039,
+    },
+    [WIN_PREVIEW] = {
+        .bg = 0,
+        .tilemapLeft = 18,
+        .tilemapTop = 4,
+        .width = 11,
+        .height = 14,
+        .paletteNum = RB_TEXT_PAL,
+        .baseBlock = 0x0119,
+    },
+    DUMMY_WIN_TEMPLATE
+};
+
+// Centro (in pixel schermo) delle 6 icone dell'anteprima.
+static const s16 sRB_IconCoords[RB_TEAM_SLOTS][2] =
+{
+    { 168, 58 },  { 206, 58 },
+    { 168, 86 },  { 206, 86 },
+    { 168, 114 }, { 206, 114 },
 };
 
 static void SpriteCB_RentalHeldItem(struct Sprite *sprite);
@@ -264,252 +246,6 @@ static void SpriteCB_BounceRentalMonIcon(struct Sprite *sprite)
     }
 }
 
-static void SetPreviewMonBouncing(u8 monIdx, bool8 bounce)
-{
-    if (monIdx >= 6)
-        return;
-    u8 spriteId = sRentalTeamsData->monIconSpriteIds[monIdx];
-    if (spriteId != SPRITE_NONE && spriteId < MAX_SPRITES)
-    {
-        if (bounce)
-        {
-            gSprites[spriteId].x2 = 0;
-            gSprites[spriteId].y2 = 0;
-            gSprites[spriteId].callback = SpriteCB_BounceRentalMonIcon;
-        }
-        else
-        {
-            gSprites[spriteId].x2 = 0;
-            gSprites[spriteId].y2 = 0;
-            gSprites[spriteId].callback = SpriteCB_MonIcon;
-        }
-    }
-}
-
-static void VBlankCB_RentalTeams(void)
-{
-    LoadOam();
-    ProcessSpriteCopyRequests();
-    TransferPlttBuffer();
-}
-
-static void CB2_RentalTeamsMain(void)
-{
-    RunTasks();
-    AnimateSprites();
-    BuildOamBuffer();
-    RunTextPrinters();
-    DoScheduledBgTilemapCopiesToVram();
-    UpdatePaletteFade();
-}
-
-static void FreeRentalTeamsResources(void)
-{
-    if (sRentalSummaryMons != NULL)
-    {
-        Free(sRentalSummaryMons);
-        sRentalSummaryMons = NULL;
-    }
-    if (sRentalTeamsData != NULL)
-    {
-        if (sRentalTeamsData->menuItems != NULL)
-            Free(sRentalTeamsData->menuItems);
-        Free(sRentalTeamsData);
-        sRentalTeamsData = NULL;
-    }
-    FreeAllWindowBuffers();
-}
-
-static void FreePreviewSprites(void)
-{
-    u8 i;
-    for (i = 0; i < 6; i++)
-    {
-        if (sRentalTeamsData->monIconSpriteIds[i] != SPRITE_NONE)
-        {
-            FreeAndDestroyMonIconSprite(&gSprites[sRentalTeamsData->monIconSpriteIds[i]]);
-            sRentalTeamsData->monIconSpriteIds[i] = SPRITE_NONE;
-        }
-        if (sRentalTeamsData->itemSpriteIds[i] != SPRITE_NONE)
-        {
-            DestroySprite(&gSprites[sRentalTeamsData->itemSpriteIds[i]]);
-            sRentalTeamsData->itemSpriteIds[i] = SPRITE_NONE;
-        }
-    }
-}
-
-static void UpdatePreviewText(s32 itemIndex)
-{
-    if (itemIndex < 0 || itemIndex >= TOTAL_RENTAL_TEAMS)
-        return;
-
-    FillWindowPixelBuffer(WIN_PREVIEW, PIXEL_FILL(1));
-
-    if (sRentalTeamsData->focusMode == FOCUS_PREVIEW_MONS)
-    {
-        u8 monIdx = sRentalTeamsData->previewMonIdx;
-        const struct PresetRentalMon *rMon = &sRentalTeams[itemIndex].mons[monIdx];
-        u8 str[32];
-
-        ConvertIntToDecimalStringN(gStringVar1, monIdx + 1, STR_CONV_MODE_LEFT_ALIGN, 1);
-        StringCopy(str, sText_MonIdxOpen);
-        StringAppend(str, gStringVar1);
-        StringAppend(str, sText_MonIdxSep);
-        StringAppend(str, GetSpeciesName(rMon->species));
-        AddTextPrinterParameterized(WIN_PREVIEW, FONT_SMALL, str, 2, 0, TEXT_SKIP_DRAW, NULL);
-
-        if (rMon->item != ITEM_NONE)
-        {
-            StringCopy(str, sText_StrPrefix);
-            CopyItemName(rMon->item, gStringVar1);
-            StringAppend(str, gStringVar1);
-        }
-        else
-        {
-            StringCopy(str, sText_StrNone);
-        }
-        AddTextPrinterParameterized(WIN_PREVIEW, FONT_SMALL, str, 2, 100, TEXT_SKIP_DRAW, NULL);
-
-        // Draw arrow next to the selected sprite
-        {
-            static const s16 sIconCoords[6][2] = {
-                { 168, 58 }, { 206, 58 },
-                { 168, 86 }, { 206, 86 },
-                { 168, 114 }, { 206, 114 },
-            };
-            // Sprite rosso davanti all'icona (la freccia di testo grigia finiva dietro).
-            if (sRentalTeamsData->arrowSpriteId < MAX_SPRITES)
-            {
-                struct Sprite *arrow = &gSprites[sRentalTeamsData->arrowSpriteId];
-                arrow->x = sIconCoords[monIdx][0] - 16;
-                arrow->y = sIconCoords[monIdx][1] + 2;
-                arrow->invisible = FALSE;
-            }
-        }
-    }
-    else
-    {
-        if (sRentalTeamsData->arrowSpriteId < MAX_SPRITES)
-            gSprites[sRentalTeamsData->arrowSpriteId].invisible = TRUE;
-        AddTextPrinterParameterized(WIN_PREVIEW, FONT_NORMAL, sText_AnteprimaHeader, 12, 2, TEXT_SKIP_DRAW, NULL);
-        AddTextPrinterParameterized(WIN_PREVIEW, FONT_SMALL, sText_KeyHelpList, 2, 100, TEXT_SKIP_DRAW, NULL);
-    }
-
-    CopyWindowToVram(WIN_PREVIEW, COPYWIN_GFX);
-}
-
-static void UpdateTeamPreview(s32 itemIndex)
-{
-    u8 i;
-    if (sRentalTeamsData->focusMode == FOCUS_TEAM_LIST && sRentalTeamsData->arrowSpriteId < MAX_SPRITES)
-        gSprites[sRentalTeamsData->arrowSpriteId].invisible = TRUE;
-    FreePreviewSprites();
-
-    FillWindowPixelBuffer(WIN_PREVIEW, PIXEL_FILL(1));
-
-    if (itemIndex == ITEM_ID_RANDOM)
-    {
-        sRentalTeamsData->focusMode = FOCUS_TEAM_LIST;
-        AddTextPrinterParameterized(WIN_PREVIEW, FONT_NORMAL, sText_CasualeHeader, 16, 2, TEXT_SKIP_DRAW, NULL);
-        AddTextPrinterParameterized(WIN_PREVIEW, FONT_SMALL, sText_CasualeDescription, 4, 26, TEXT_SKIP_DRAW, NULL);
-        AddTextPrinterParameterized(WIN_PREVIEW, FONT_SMALL, sText_KeyHelpRandom, 4, 100, TEXT_SKIP_DRAW, NULL);
-    }
-    else if (itemIndex >= 0 && itemIndex < TOTAL_RENTAL_TEAMS)
-    {
-        static const s16 sIconCoords[6][2] = {
-            { 168, 58 }, { 206, 58 },
-            { 168, 86 }, { 206, 86 },
-            { 168, 114 }, { 206, 114 },
-        };
-
-        for (i = 0; i < 6; i++)
-        {
-            u16 species = sRentalTeams[itemIndex].mons[i].species;
-            if (species != SPECIES_NONE)
-            {
-                u8 spriteId = CreateMonIcon(species, SpriteCB_MonIcon, sIconCoords[i][0], sIconCoords[i][1], 0, 0);
-                if (spriteId < MAX_SPRITES)
-                {
-                    gSprites[spriteId].oam.priority = 0;
-                    gSprites[spriteId].subpriority = 2;
-                    sRentalTeamsData->monIconSpriteIds[i] = spriteId;
-
-                    enum Item item = sRentalTeams[itemIndex].mons[i].item;
-                    if (item != ITEM_NONE)
-                    {
-                        u8 itemSpriteId = CreateSprite(&sSpriteTemplate_RentalHeldItem, sIconCoords[i][0] + 9, sIconCoords[i][1] + 8, 1);
-                        if (itemSpriteId < MAX_SPRITES)
-                        {
-                            gSprites[itemSpriteId].oam.priority = 0;
-                            gSprites[itemSpriteId].data[7] = spriteId;
-                            StartSpriteAnim(&gSprites[itemSpriteId], ItemIsMail(item));
-                            sRentalTeamsData->itemSpriteIds[i] = itemSpriteId;
-                        }
-                    }
-                }
-            }
-        }
-
-        UpdatePreviewText(itemIndex);
-    }
-
-    CopyWindowToVram(WIN_PREVIEW, COPYWIN_GFX);
-}
-
-static void UpdatePreviewFocus(u8 newIdx)
-{
-    if (newIdx >= 6)
-        return;
-    s32 teamId = sRentalTeamsData->currentTeamId;
-    if (teamId < 0 || teamId >= TOTAL_RENTAL_TEAMS)
-        return;
-    if (sRentalTeams[teamId].mons[newIdx].species == SPECIES_NONE)
-        return;
-
-    PlaySE(SE_SELECT);
-    SetPreviewMonBouncing(sRentalTeamsData->previewMonIdx, FALSE);
-    sRentalTeamsData->previewMonIdx = newIdx;
-    SetPreviewMonBouncing(sRentalTeamsData->previewMonIdx, TRUE);
-    UpdatePreviewText(teamId);
-}
-
-static void RentalTeams_MoveCursor(s32 itemIndex, bool8 onInit, struct ListMenu *list)
-{
-    if (!onInit)
-        PlaySE(SE_SELECT);
-    sRentalTeamsData->currentTeamId = itemIndex;
-    UpdateTeamPreview(itemIndex);
-}
-
-static void Task_RentalTeams_FadeOutAndExit(u8 taskId)
-{
-    if (!gPaletteFade.active)
-    {
-        FreePreviewSprites();
-        if (sRentalTeamsData->scrollArrowsTaskId != TASK_NONE)
-        {
-            RemoveScrollIndicatorArrowPair(sRentalTeamsData->scrollArrowsTaskId);
-            sRentalTeamsData->scrollArrowsTaskId = TASK_NONE;
-    sRentalTeamsData->arrowSpriteId = MAX_SPRITES;
-        }
-        DestroyListMenuTask(sRentalTeamsData->listTaskId, NULL, NULL);
-        FreeMonIconPalettes();
-        FreeSpriteTilesByTag(TAG_RENTAL_HELD_ITEM);
-        FreeSpritePaletteByTag(TAG_RENTAL_HELD_ITEM);
-        FreeSpriteTilesByTag(TAG_RENTAL_ARROW_CURSOR);
-        FreeSpritePaletteByTag(TAG_RENTAL_ARROW_CURSOR);
-        SetVBlankCallback(NULL);
-        FreeRentalTeamsResources();
-        DestroyTask(taskId);
-        SetMainCallback1(CB1_Overworld);
-        gFieldCallback = FieldCB_ContinueScriptHandleMusic;
-        gMain.state = 0;
-        ResetBgsAndClearDma3BusyFlags(0);
-        ClearScheduledBgCopiesToVram();
-        SetMainCallback2(CB2_ReturnToField);
-    }
-}
-
 static void BuildRentalPokemon(struct Pokemon *mon, const struct PresetRentalMon *rMon)
 {
     u32 j;
@@ -543,419 +279,601 @@ static void BuildRentalPokemon(struct Pokemon *mon, const struct PresetRentalMon
     CreateMonFromTemplate(mon, &template);
 }
 
-static void CB2_ReturnToRentalTeamsFromSummary(void);
+static void CB2_RB_Init(void);
+static void CB2_RB_Main(void);
+static void VBlankCB_RB(void);
+static void CB2_RB_ReturnFromSummary(void);
+static void Task_RB_Input(u8 taskId);
+static void Task_RB_ExitToField(u8 taskId);
+static void Task_RB_ExitToSummary(u8 taskId);
 
-static void Task_RentalTeams_FadeOutToSummary(u8 taskId)
+// ---------------------------------------------------------------------
+// Dati
+// ---------------------------------------------------------------------
+static u16 RB_TeamIdAtRow(u32 row)
 {
-    if (!gPaletteFade.active)
-    {
-        u8 monIdx = gTasks[taskId].data[0];
-        u8 numValidMons = gTasks[taskId].data[1];
+    u16 teamId;
 
-        FreePreviewSprites();
-
-        if (sRentalTeamsData->scrollArrowsTaskId != TASK_NONE)
-        {
-            RemoveScrollIndicatorArrowPair(sRentalTeamsData->scrollArrowsTaskId);
-            sRentalTeamsData->scrollArrowsTaskId = TASK_NONE;
-    sRentalTeamsData->arrowSpriteId = MAX_SPRITES;
-        }
-        DestroyListMenuTask(sRentalTeamsData->listTaskId, NULL, NULL);
-        FreeMonIconPalettes();
-        FreeSpriteTilesByTag(TAG_RENTAL_HELD_ITEM);
-        FreeSpritePaletteByTag(TAG_RENTAL_HELD_ITEM);
-        // Come all'uscita verso l'overworld: niente VBlank ne' copie BG in sospeso
-        // mentre i buffer delle finestre vengono liberati.
-        SetVBlankCallback(NULL);
-        ClearScheduledBgCopiesToVram();
-        FreeAllWindowBuffers();
-        DestroyTask(taskId);
-
-        ShowPokemonSummaryScreen(SUMMARY_MODE_LOCK_MOVES, sRentalSummaryMons, monIdx, numValidMons - 1, CB2_ReturnToRentalTeamsFromSummary);
-    }
+    if (row == 0 || row > sRB.numTeams)
+        return RB_NO_TEAM;
+    if (sRB.category == CATEGORY_ALL)
+        teamId = row - 1;
+    else
+        teamId = sRentalCategories[sRB.category].teamIndices[row - 1];
+    if (teamId >= TOTAL_RENTAL_TEAMS)
+        return RB_NO_TEAM;
+    return teamId;
 }
 
-static void OpenSummaryScreenForRentalTeam(u8 taskId, u16 teamId, u8 monIdx)
+static u16 RB_CurrentTeam(void)
+{
+    return RB_TeamIdAtRow(sRB.cursor);
+}
+
+static u16 RB_RandomTeam(void)
+{
+    if (sRB.numTeams == 0)
+        return RB_NO_TEAM;
+    return RB_TeamIdAtRow(1 + (Random() % sRB.numTeams));
+}
+
+static bool32 RB_MonValid(u16 teamId, u32 slot)
+{
+    if (teamId >= TOTAL_RENTAL_TEAMS || slot >= RB_TEAM_SLOTS)
+        return FALSE;
+    return sRentalTeams[teamId].mons[slot].species != SPECIES_NONE;
+}
+
+// ---------------------------------------------------------------------
+// Icone
+// ---------------------------------------------------------------------
+static void RB_FreeIcons(void)
 {
     u32 i;
-    u8 numValidMons = 0;
 
-    if (sRentalSummaryMons != NULL)
-        Free(sRentalSummaryMons);
+    for (i = 0; i < RB_TEAM_SLOTS; i++)
+    {
+        if (sRB.itemSpriteIds[i] < MAX_SPRITES)
+            DestroySprite(&gSprites[sRB.itemSpriteIds[i]]);
+        if (sRB.monIconSpriteIds[i] < MAX_SPRITES)
+            FreeAndDestroyMonIconSprite(&gSprites[sRB.monIconSpriteIds[i]]);
+        sRB.itemSpriteIds[i] = SPRITE_NONE;
+        sRB.monIconSpriteIds[i] = SPRITE_NONE;
+    }
+}
 
-    sRentalSummaryMons = AllocZeroed(sizeof(struct Pokemon) * 6);
+// Solo il Pokémon selezionato nell'anteprima saltella.
+static void RB_UpdateBounce(void)
+{
+    u32 i;
 
-    for (i = 0; i < 6; i++)
+    for (i = 0; i < RB_TEAM_SLOTS; i++)
+    {
+        u32 spriteId = sRB.monIconSpriteIds[i];
+        if (spriteId >= MAX_SPRITES)
+            continue;
+        gSprites[spriteId].x2 = 0;
+        gSprites[spriteId].y2 = 0;
+        if (sRB.focus == FOCUS_PREVIEW_MONS && i == sRB.monIdx)
+            gSprites[spriteId].callback = SpriteCB_BounceRentalMonIcon;
+        else
+            gSprites[spriteId].callback = SpriteCB_MonIcon;
+    }
+}
+
+static void RB_CreateIcons(void)
+{
+    u32 i;
+    u16 teamId = RB_CurrentTeam();
+
+    RB_FreeIcons();
+    if (teamId == RB_NO_TEAM)
+        return;
+
+    for (i = 0; i < RB_TEAM_SLOTS; i++)
     {
         const struct PresetRentalMon *rMon = &sRentalTeams[teamId].mons[i];
+        u32 spriteId;
+
         if (rMon->species == SPECIES_NONE)
             continue;
-        BuildRentalPokemon(&sRentalSummaryMons[numValidMons], rMon);
-        numValidMons++;
-    }
+        spriteId = CreateMonIcon(rMon->species, SpriteCB_MonIcon, sRB_IconCoords[i][0], sRB_IconCoords[i][1], 0, 0);
+        if (spriteId >= MAX_SPRITES)
+            continue;
+        gSprites[spriteId].oam.priority = 0;
+        gSprites[spriteId].subpriority = 2;
+        sRB.monIconSpriteIds[i] = spriteId;
 
-    if (numValidMons == 0)
-    {
-        Free(sRentalSummaryMons);
-        sRentalSummaryMons = NULL;
-        return;
-    }
-
-    if (monIdx >= numValidMons)
-        monIdx = 0;
-
-    gTasks[taskId].data[0] = monIdx;
-    gTasks[taskId].data[1] = numValidMons;
-    gTasks[taskId].func = Task_RentalTeams_FadeOutToSummary;
-    BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
-}
-
-static void CB2_InitRentalTeams(void);
-
-static void CB2_ReturnToRentalTeamsFromSummary(void)
-{
-    if (sRentalSummaryMons != NULL)
-    {
-        Free(sRentalSummaryMons);
-        sRentalSummaryMons = NULL;
-    }
-    if (sRentalTeamsData != NULL)
-    {
-        sRentalTeamsData->previewMonIdx = gLastViewedMonIndex;
-        sRentalTeamsData->focusMode = FOCUS_TEAM_LIST;
-    }
-    SetMainCallback2(CB2_InitRentalTeams);
-}
-
-static void Task_RentalTeams_HandleInput(u8 taskId)
-{
-    if (gPaletteFade.active)
-        return;
-
-    if (sRentalTeamsData->focusMode == FOCUS_PREVIEW_MONS)
-    {
-        s32 teamId = sRentalTeamsData->currentTeamId;
-        if (teamId < 0 || teamId >= TOTAL_RENTAL_TEAMS)
+        if (rMon->item != ITEM_NONE)
         {
-            sRentalTeamsData->focusMode = FOCUS_TEAM_LIST;
-            return;
-        }
-
-        if (JOY_NEW(B_BUTTON))
-        {
-            PlaySE(SE_SELECT);
-            SetPreviewMonBouncing(sRentalTeamsData->previewMonIdx, FALSE);
-            sRentalTeamsData->focusMode = FOCUS_TEAM_LIST;
-            if (sRentalTeamsData->arrowSpriteId < MAX_SPRITES)
-                gSprites[sRentalTeamsData->arrowSpriteId].invisible = TRUE;
-            UpdatePreviewText(teamId);
-            return;
-        }
-
-        if (JOY_NEW(START_BUTTON))
-        {
-            PlaySE(SE_SELECT);
-            gSpecialVar_Result = teamId;
-            BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
-            gTasks[taskId].func = Task_RentalTeams_FadeOutAndExit;
-            return;
-        }
-
-        if (JOY_NEW(A_BUTTON))
-        {
-            PlaySE(SE_SELECT);
-            ListMenuGetScrollAndRow(sRentalTeamsData->listTaskId, &sRentalTeamsData->scrollOffset, &sRentalTeamsData->selectedRow);
-            OpenSummaryScreenForRentalTeam(taskId, teamId, sRentalTeamsData->previewMonIdx);
-            return;
-        }
-
-        if (JOY_NEW(DPAD_UP))
-        {
-            if (sRentalTeamsData->previewMonIdx >= 2)
-                UpdatePreviewFocus(sRentalTeamsData->previewMonIdx - 2);
-            return;
-        }
-
-        if (JOY_NEW(DPAD_DOWN))
-        {
-            if (sRentalTeamsData->previewMonIdx <= 3)
-                UpdatePreviewFocus(sRentalTeamsData->previewMonIdx + 2);
-            return;
-        }
-
-        if (JOY_NEW(DPAD_LEFT))
-        {
-            if ((sRentalTeamsData->previewMonIdx % 2) == 1)
+            u32 itemSpriteId = CreateSprite(&sSpriteTemplate_RentalHeldItem, sRB_IconCoords[i][0] + 9, sRB_IconCoords[i][1] + 8, 1);
+            if (itemSpriteId < MAX_SPRITES)
             {
-                UpdatePreviewFocus(sRentalTeamsData->previewMonIdx - 1);
+                gSprites[itemSpriteId].oam.priority = 0;
+                gSprites[itemSpriteId].data[7] = spriteId;
+                StartSpriteAnim(&gSprites[itemSpriteId], ItemIsMail(rMon->item));
+                sRB.itemSpriteIds[i] = itemSpriteId;
             }
-            else
-            {
-                PlaySE(SE_SELECT);
-                SetPreviewMonBouncing(sRentalTeamsData->previewMonIdx, FALSE);
-                sRentalTeamsData->focusMode = FOCUS_TEAM_LIST;
-                UpdatePreviewText(teamId);
-            }
-            return;
-        }
-
-        if (JOY_NEW(DPAD_RIGHT))
-        {
-            if ((sRentalTeamsData->previewMonIdx % 2) == 0)
-                UpdatePreviewFocus(sRentalTeamsData->previewMonIdx + 1);
-            return;
-        }
-
-        return;
-    }
-
-    if (JOY_NEW(DPAD_RIGHT))
-    {
-        s32 teamId = sRentalTeamsData->currentTeamId;
-        if (teamId >= 0 && teamId < TOTAL_RENTAL_TEAMS)
-        {
-            PlaySE(SE_SELECT);
-            sRentalTeamsData->focusMode = FOCUS_PREVIEW_MONS;
-            sRentalTeamsData->previewMonIdx = 0;
-            SetPreviewMonBouncing(0, TRUE);
-            UpdatePreviewText(teamId);
-            return;
         }
     }
-
-    if (JOY_NEW(SELECT_BUTTON))
-    {
-        PlaySE(SE_SELECT);
-        u16 randIdx = Random() % sRentalTeamsData->numTeams;
-        u16 teamId;
-        if (sRentalTeamsData->category == CATEGORY_ALL)
-            teamId = randIdx;
-        else
-            teamId = sRentalCategories[sRentalTeamsData->category].teamIndices[randIdx];
-
-        gSpecialVar_Result = teamId;
-        BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
-        gTasks[taskId].func = Task_RentalTeams_FadeOutAndExit;
-        return;
-    }
-
-    s32 input = ListMenu_ProcessInput(sRentalTeamsData->listTaskId);
-    if (input == LIST_CANCEL)
-    {
-        PlaySE(SE_SELECT);
-        gSpecialVar_Result = 0xFFFF;
-        BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
-        gTasks[taskId].func = Task_RentalTeams_FadeOutAndExit;
-    }
-    else if (input != LIST_NOTHING_CHOSEN)
-    {
-        PlaySE(SE_SELECT);
-        if (input == ITEM_ID_RANDOM)
-        {
-            u16 randIdx = Random() % sRentalTeamsData->numTeams;
-            u16 teamId;
-            if (sRentalTeamsData->category == CATEGORY_ALL)
-                teamId = randIdx;
-            else
-                teamId = sRentalCategories[sRentalTeamsData->category].teamIndices[randIdx];
-            gSpecialVar_Result = teamId;
-        }
-        else
-        {
-            gSpecialVar_Result = input;
-        }
-        BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
-        gTasks[taskId].func = Task_RentalTeams_FadeOutAndExit;
-    }
+    RB_UpdateBounce();
 }
 
-static void BuildRentalTeamsList(void)
+// ---------------------------------------------------------------------
+// Disegno
+// ---------------------------------------------------------------------
+// Sceglie il font più largo che sta in maxWidth pixel.
+static u32 RB_FitFont(const u8 *str, u32 maxWidth, u32 font1, u32 font2, u32 font3)
 {
-    u16 i;
-    u16 cat = sRentalTeamsData->category;
-    u16 count;
+    if (GetStringWidth(font1, str, 0) <= maxWidth)
+        return font1;
+    if (GetStringWidth(font2, str, 0) <= maxWidth)
+        return font2;
+    return font3;
+}
 
-    if (cat == CATEGORY_ALL)
-        count = TOTAL_RENTAL_TEAMS;
+static void RB_DrawHeader(void)
+{
+    FillWindowPixelBuffer(WIN_HEADER, PIXEL_FILL(TEXT_COLOR_WHITE));
+    if (sRB.focus == FOCUS_PREVIEW_MONS)
+    {
+        u32 font = RB_FitFont(sText_KeyHelpPreview, 212, FONT_NORMAL, FONT_NARROW, FONT_NARROWER);
+        AddTextPrinterParameterized3(WIN_HEADER, font, 6, 1, sRB_ColRed, TEXT_SKIP_DRAW, sText_KeyHelpPreview);
+    }
     else
-        count = sRentalCategories[cat].count;
-
-    sRentalTeamsData->numTeams = count;
-    sRentalTeamsData->numItems = count + 1;
-
-    if (sRentalTeamsData->menuItems != NULL)
-        Free(sRentalTeamsData->menuItems);
-    sRentalTeamsData->menuItems = AllocZeroed(sizeof(struct ListMenuItem) * (sRentalTeamsData->numItems + 1));
-
-    // First item is always Random Team
-    sRentalTeamsData->menuItems[0].name = sText_RandomTeamOption;
-    sRentalTeamsData->menuItems[0].id = ITEM_ID_RANDOM;
-
-    for (i = 0; i < count; i++)
     {
-        u16 teamId;
-        if (cat == CATEGORY_ALL)
-            teamId = i;
+        u8 *ptr = StringCopy(gStringVar4, sText_HeaderPrefix);
+        u32 font;
+
+        if (sRB.category == CATEGORY_ALL)
+            StringCopy(ptr, sText_AllTeamsCategory);
         else
-            teamId = sRentalCategories[cat].teamIndices[i];
-
-        sRentalTeamsData->menuItems[i + 1].name = sRentalTeams[teamId].listName;
-        sRentalTeamsData->menuItems[i + 1].id = teamId;
+            StringCopy(ptr, sRentalCategories[sRB.category].name);
+        font = RB_FitFont(gStringVar4, 212, FONT_NORMAL, FONT_NARROW, FONT_NARROWER);
+        AddTextPrinterParameterized3(WIN_HEADER, font, 6, 1, sRB_ColDark, TEXT_SKIP_DRAW, gStringVar4);
     }
-
-    gMultiuseListMenuTemplate.items = sRentalTeamsData->menuItems;
-    gMultiuseListMenuTemplate.totalItems = sRentalTeamsData->numItems;
-    gMultiuseListMenuTemplate.windowId = WIN_TEAM_LIST;
-    gMultiuseListMenuTemplate.header_X = 0;
-    gMultiuseListMenuTemplate.item_X = 8;
-    gMultiuseListMenuTemplate.cursor_X = 0;
-    gMultiuseListMenuTemplate.upText_Y = 1;
-    gMultiuseListMenuTemplate.cursorPal = 2;
-    gMultiuseListMenuTemplate.fillValue = 1;
-    gMultiuseListMenuTemplate.cursorShadowPal = 3;
-    gMultiuseListMenuTemplate.lettersSpacing = 0;
-    gMultiuseListMenuTemplate.itemVerticalPadding = 0;
-    gMultiuseListMenuTemplate.scrollMultiple = LIST_MULTIPLE_SCROLL_L_R;
-    gMultiuseListMenuTemplate.fontId = FONT_NORMAL;
-    gMultiuseListMenuTemplate.cursorKind = CURSOR_BLACK_ARROW;
-    gMultiuseListMenuTemplate.maxShowed = 7;
-    gMultiuseListMenuTemplate.moveCursorFunc = RentalTeams_MoveCursor;
-    gMultiuseListMenuTemplate.itemPrintFunc = NULL;
+    CopyWindowToVram(WIN_HEADER, COPYWIN_GFX);
 }
 
-static void CB2_InitRentalTeams(void)
+static void RB_DrawList(void)
 {
-    SetGpuReg(REG_OFFSET_DISPCNT, 0);
-    SetVBlankCallback(NULL);
-    ResetVramOamAndBgCntRegs();
-    ResetBgsAndClearDma3BusyFlags(0);
+    u32 i;
+    const u8 *cursorColors = (sRB.focus == FOCUS_TEAM_LIST) ? sRB_ColRed : sRB_ColGray;
+
+    FillWindowPixelBuffer(WIN_TEAM_LIST, PIXEL_FILL(TEXT_COLOR_WHITE));
+    for (i = 0; i < RB_ROWS; i++)
+    {
+        u32 row = sRB.scroll + i;
+        u16 teamId;
+        const u8 *name;
+        u32 font;
+
+        if (row > sRB.numTeams)
+            break;
+        teamId = RB_TeamIdAtRow(row);
+        if (row == 0)
+            name = sText_RandomTeamOption;
+        else if (teamId == RB_NO_TEAM)
+            name = sText_UnknownTeam;
+        else
+            name = sRentalTeams[teamId].listName;
+
+        font = RB_FitFont(name, 104, FONT_NORMAL, FONT_NARROW, FONT_NARROWER);
+        AddTextPrinterParameterized3(WIN_TEAM_LIST, font, 10, RB_ROW_H * i, sRB_ColDark, TEXT_SKIP_DRAW, name);
+        if (row == sRB.cursor)
+            AddTextPrinterParameterized3(WIN_TEAM_LIST, FONT_NORMAL, 0, RB_ROW_H * i, cursorColors, TEXT_SKIP_DRAW, sText_RB_Cursor);
+    }
+    // Indicatori "c'è altro sopra / sotto"
+    if (sRB.scroll > 0)
+        AddTextPrinterParameterized3(WIN_TEAM_LIST, FONT_SMALL, 118, 0, sRB_ColRed, TEXT_SKIP_DRAW, sText_RB_Up);
+    if (sRB.scroll + RB_ROWS <= sRB.numTeams)
+        AddTextPrinterParameterized3(WIN_TEAM_LIST, FONT_SMALL, 118, RB_ROW_H * (RB_ROWS - 1) + 2, sRB_ColRed, TEXT_SKIP_DRAW, sText_RB_Down);
+    CopyWindowToVram(WIN_TEAM_LIST, COPYWIN_GFX);
+}
+
+static void RB_DrawPreview(void)
+{
+    u16 teamId = RB_CurrentTeam();
+
+    FillWindowPixelBuffer(WIN_PREVIEW, PIXEL_FILL(TEXT_COLOR_WHITE));
+    if (teamId == RB_NO_TEAM)
+    {
+        AddTextPrinterParameterized3(WIN_PREVIEW, FONT_NORMAL, 16, 2, sRB_ColDark, TEXT_SKIP_DRAW, sText_CasualeHeader);
+        AddTextPrinterParameterized3(WIN_PREVIEW, FONT_SMALL, 4, 26, sRB_ColDark, TEXT_SKIP_DRAW, sText_CasualeDescription);
+        AddTextPrinterParameterized3(WIN_PREVIEW, FONT_SMALL, 4, 100, sRB_ColDark, TEXT_SKIP_DRAW, sText_KeyHelpRandom);
+    }
+    else if (sRB.focus == FOCUS_PREVIEW_MONS && RB_MonValid(teamId, sRB.monIdx))
+    {
+        const struct PresetRentalMon *rMon = &sRentalTeams[teamId].mons[sRB.monIdx];
+        s32 cx = sRB_IconCoords[sRB.monIdx][0] - RB_PREVIEW_X;
+        s32 cy = sRB_IconCoords[sRB.monIdx][1] - RB_PREVIEW_Y;
+        u8 *ptr;
+        u32 font;
+
+        // Riquadro rosso dietro al Pokémon selezionato (le icone sono sprite, stanno sopra).
+        FillWindowPixelRect(WIN_PREVIEW, PIXEL_FILL(TEXT_COLOR_RED), cx - 16, cy - 13, 32, 28);
+        FillWindowPixelRect(WIN_PREVIEW, PIXEL_FILL(TEXT_COLOR_LIGHT_RED), cx - 14, cy - 11, 28, 24);
+
+        // "(n/6) Specie"
+        ptr = StringCopy(gStringVar4, sText_MonIdxOpen);
+        ptr = ConvertIntToDecimalStringN(ptr, sRB.monIdx + 1, STR_CONV_MODE_LEFT_ALIGN, 1);
+        ptr = StringCopy(ptr, sText_MonIdxSep);
+        StringCopy(ptr, GetSpeciesName(rMon->species));
+        font = RB_FitFont(gStringVar4, 84, FONT_SMALL, FONT_SMALL_NARROW, FONT_SMALL_NARROWER);
+        AddTextPrinterParameterized3(WIN_PREVIEW, font, 2, 0, sRB_ColDark, TEXT_SKIP_DRAW, gStringVar4);
+
+        // "Str: strumento"
+        if (rMon->item != ITEM_NONE)
+        {
+            ptr = StringCopy(gStringVar4, sText_StrPrefix);
+            CopyItemName(rMon->item, ptr);
+        }
+        else
+        {
+            StringCopy(gStringVar4, sText_StrNone);
+        }
+        font = RB_FitFont(gStringVar4, 84, FONT_SMALL, FONT_SMALL_NARROW, FONT_SMALL_NARROWER);
+        AddTextPrinterParameterized3(WIN_PREVIEW, font, 2, 100, sRB_ColDark, TEXT_SKIP_DRAW, gStringVar4);
+    }
+    else
+    {
+        u32 font = RB_FitFont(sText_KeyHelpList, 84, FONT_SMALL, FONT_SMALL_NARROW, FONT_SMALL_NARROWER);
+        AddTextPrinterParameterized3(WIN_PREVIEW, FONT_NORMAL, 12, 0, sRB_ColDark, TEXT_SKIP_DRAW, sText_AnteprimaHeader);
+        AddTextPrinterParameterized3(WIN_PREVIEW, font, 2, 100, sRB_ColDark, TEXT_SKIP_DRAW, sText_KeyHelpList);
+    }
+    CopyWindowToVram(WIN_PREVIEW, COPYWIN_GFX);
+}
+
+// Il cursore della lista è cambiato: nuove icone e nuova anteprima.
+static void RB_OnCursorMoved(void)
+{
+    PlaySE(SE_SELECT);
+    RB_CreateIcons();
+    RB_DrawList();
+    RB_DrawPreview();
+}
+
+// È cambiato il fuoco (lista <-> anteprima) o il Pokémon selezionato.
+static void RB_OnFocusChanged(void)
+{
+    PlaySE(SE_SELECT);
+    RB_UpdateBounce();
+    RB_DrawHeader();
+    RB_DrawList();
+    RB_DrawPreview();
+}
+
+// ---------------------------------------------------------------------
+// Ciclo della schermata
+// ---------------------------------------------------------------------
+static void VBlankCB_RB(void)
+{
+    LoadOam();
+    ProcessSpriteCopyRequests();
+    TransferPlttBuffer();
+}
+
+static void CB2_RB_Main(void)
+{
+    RunTasks();
+    AnimateSprites();
+    BuildOamBuffer();
+    DoScheduledBgTilemapCopiesToVram();
+    UpdatePaletteFade();
+}
+
+static void CB2_RB_Init(void)
+{
+    u32 i;
+
+    switch (gMain.state)
+    {
+    case 0:
+        SetVBlankCallback(NULL);
+        SetHBlankCallback(NULL);
+        SetGpuReg(REG_OFFSET_DISPCNT, 0);
+        gMain.state++;
+        break;
+    case 1:
+        DmaClearLarge16(3, (void *)(VRAM), VRAM_SIZE, 0x1000);
+        DmaClear32(3, OAM, OAM_SIZE);
+        DmaClear16(3, PLTT, PLTT_SIZE);
+        ScanlineEffect_Stop();
+        ResetPaletteFade();
+        ResetTasks();
+        ResetSpriteData();
+        FreeAllSpritePalettes();
         ClearScheduledBgCopiesToVram();
-    DeactivateAllTextPrinters();
-    ResetPaletteFade();
-    ResetTasks();
+        for (i = 0; i < RB_TEAM_SLOTS; i++)
+        {
+            sRB.monIconSpriteIds[i] = SPRITE_NONE;
+            sRB.itemSpriteIds[i] = SPRITE_NONE;
+        }
+        gMain.state++;
+        break;
+    case 2:
+        ResetBgsAndClearDma3BusyFlags(0);
+        InitBgsFromTemplates(0, sRB_BgTemplates, ARRAY_COUNT(sRB_BgTemplates));
+        memset(sRB_Tilemap, 0, sizeof(sRB_Tilemap));
+        SetBgTilemapBuffer(0, sRB_Tilemap); // statico: le finestre non allocano il tilemap
+        ChangeBgX(0, 0, BG_COORD_SET);
+        ChangeBgY(0, 0, BG_COORD_SET);
+        InitWindows(sRB_WinTemplates);
+        DeactivateAllTextPrinters();
+        gMain.state++;
+        break;
+    case 3:
+        LoadUserWindowBorderGfx(WIN_HEADER, RB_FRAME_TILE, BG_PLTT_ID(RB_FRAME_PAL));
+        LoadPalette(gStandardMenuPalette, BG_PLTT_ID(RB_TEXT_PAL), PLTT_SIZE_4BPP);
+        LoadMonIconPalettes();
+        LoadHeldItemIcons();
+        gMain.state++;
+        break;
+    case 4:
+        // DrawStdFrame... riempie la finestra di bianco: il contenuto va disegnato dopo.
+        DrawStdFrameWithCustomTileAndPalette(WIN_HEADER, FALSE, RB_FRAME_TILE, RB_FRAME_PAL);
+        DrawStdFrameWithCustomTileAndPalette(WIN_TEAM_LIST, FALSE, RB_FRAME_TILE, RB_FRAME_PAL);
+        DrawStdFrameWithCustomTileAndPalette(WIN_PREVIEW, FALSE, RB_FRAME_TILE, RB_FRAME_PAL);
+        RB_CreateIcons();
+        RB_DrawHeader();
+        RB_DrawList();
+        RB_DrawPreview();
+        CopyBgTilemapBufferToVram(0);
+        gMain.state++;
+        break;
+    default:
+        ShowBg(0);
+        SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_OBJ_ON | DISPCNT_OBJ_1D_MAP | DISPCNT_BG0_ON);
+        SetGpuReg(REG_OFFSET_BLDCNT, 0);
+        SetBackdropFromColor(RGB(8, 12, 18));
+        BeginNormalPaletteFade(PALETTES_ALL, 0, 16, 0, RGB_BLACK);
+        SetVBlankCallback(VBlankCB_RB);
+        SetMainCallback2(CB2_RB_Main);
+        CreateTask(Task_RB_Input, 0);
+        break;
+    }
+}
+
+// Libera tutto ciò che la schermata ha creato. Dopo questa chiamata non resta nulla sull'heap.
+static void RB_Teardown(void)
+{
+    SetVBlankCallback(NULL);
+    RB_FreeIcons();
     ResetSpriteData();
     FreeAllSpritePalettes();
     ClearScheduledBgCopiesToVram();
-
-    InitBgsFromTemplates(0, sRentalTeamsBgTemplates, ARRAY_COUNT(sRentalTeamsBgTemplates));
-    ResetAllBgsCoordinates();
-
-    FillBgTilemapBufferRect_Palette0(0, 0, 0, 0, 32, 32);
-    FillBgTilemapBufferRect_Palette0(1, 0, 0, 0, 32, 32);
-    CopyBgTilemapBufferToVram(0);
-    CopyBgTilemapBufferToVram(1);
-
-    
-    InitWindows(sRentalTeamsWindowTemplates);
-
-    LoadCompressedSpriteSheet(&sArrowCursorSpriteSheet);
-    LoadSpritePalette(&sArrowCursorSpritePal);
-    sRentalTeamsData->arrowSpriteId = CreateSprite(&sSpriteTemplate_ArrowCursor, 0, 0, 0);
-    gSprites[sRentalTeamsData->arrowSpriteId].invisible = TRUE;
-    gSprites[sRentalTeamsData->arrowSpriteId].subpriority = 0;
-
-    LoadUserWindowBorderGfx(WIN_HEADER, 0x0200, BG_PLTT_ID(14));
-    LoadPalette(gStandardMenuPalette, BG_PLTT_ID(15), PLTT_SIZE_4BPP);
-
-    DrawStdFrameWithCustomTileAndPalette(WIN_HEADER, FALSE, 0x0200, 14);
-    DrawStdFrameWithCustomTileAndPalette(WIN_TEAM_LIST, FALSE, 0x0200, 14);
-    DrawStdFrameWithCustomTileAndPalette(WIN_PREVIEW, FALSE, 0x0200, 14);
-
-    PutWindowTilemap(WIN_HEADER);
-    PutWindowTilemap(WIN_TEAM_LIST);
-    PutWindowTilemap(WIN_PREVIEW);
-
-    FillWindowPixelBuffer(WIN_HEADER, PIXEL_FILL(1));
-    FillWindowPixelBuffer(WIN_TEAM_LIST, PIXEL_FILL(1));
-    FillWindowPixelBuffer(WIN_PREVIEW, PIXEL_FILL(1));
-
-    {
-        u8 titleBuf[64];
-        const u8 *catName;
-        if (sRentalTeamsData->category == CATEGORY_ALL)
-            catName = sText_AllTeamsCategory;
-        else
-            catName = sRentalCategories[sRentalTeamsData->category].name;
-
-        StringCopy(titleBuf, sText_HeaderPrefix);
-        StringAppend(titleBuf, catName);
-        AddTextPrinterParameterized(WIN_HEADER, FONT_NORMAL, titleBuf, 6, 2, TEXT_SKIP_DRAW, NULL);
-    }
-
-    CopyWindowToVram(WIN_HEADER, COPYWIN_FULL);
-    CopyWindowToVram(WIN_TEAM_LIST, COPYWIN_FULL);
-    CopyWindowToVram(WIN_PREVIEW, COPYWIN_FULL);
-    ScheduleBgCopyTilemapToVram(0);
-
-    LoadMonIconPalettes();
-    LoadHeldItemIcons();
-    BuildRentalTeamsList();
-
-    sRentalTeamsData->listTaskId = ListMenuInit(&gMultiuseListMenuTemplate, sRentalTeamsData->scrollOffset, sRentalTeamsData->selectedRow);
-
-    sRentalTeamsData->scrollArrowsTaskId = AddScrollIndicatorArrowPairParameterized(
-        SCROLL_ARROW_UP,
-        76,
-        28,
-        146,
-        (sRentalTeamsData->numItems > 7) ? (sRentalTeamsData->numItems - 7) : 0,
-        TAG_RENTAL_SCROLL_ARROW,
-        TAG_RENTAL_SCROLL_ARROW,
-        &sRentalTeamsData->scrollOffset
-    );
-
-    if (sRentalTeamsData->focusMode == FOCUS_PREVIEW_MONS)
-    {
-        SetPreviewMonBouncing(sRentalTeamsData->previewMonIdx, TRUE);
-        UpdatePreviewText(sRentalTeamsData->currentTeamId);
-    }
-
-    SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_MODE_0 | DISPCNT_OBJ_1D_MAP | DISPCNT_OBJ_ON);
-    ShowBg(0);
-    ShowBg(1);
-    SetBackdropFromColor(RGB(8, 12, 18));
-    BeginNormalPaletteFade(PALETTES_ALL, 0, 16, 0, RGB_BLACK);
-    CreateTask(Task_RentalTeams_HandleInput, 10);
-
-    SetVBlankCallback(VBlankCB_RentalTeams);
-    SetMainCallback2(CB2_RentalTeamsMain);
+    FreeAllWindowBuffers();
+    UnsetBgTilemapBuffer(0);
 }
 
-static void Task_RentalTeams_WaitForFadeOut(u8 taskId)
+static void RB_StartExitToField(u8 taskId, u16 result)
 {
-    if (!gPaletteFade.active)
+    PlaySE(SE_SELECT);
+    sRB.result = result;
+    BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
+    gTasks[taskId].func = Task_RB_ExitToField;
+}
+
+static void Task_RB_ExitToField(u8 taskId)
+{
+    if (gPaletteFade.active)
+        return;
+    DestroyTask(taskId);
+    RB_Teardown();
+    gSpecialVar_Result = sRB.result;
+    gFieldCallback = FieldCB_ContinueScriptHandleMusic;
+    SetMainCallback2(CB2_ReturnToField);
+}
+
+static void Task_RB_ExitToSummary(u8 taskId)
+{
+    u32 i, start = 0;
+    u16 teamId;
+
+    if (gPaletteFade.active)
+        return;
+    DestroyTask(taskId);
+
+    teamId = RB_CurrentTeam();
+    sRentalSummaryCount = 0;
+    for (i = 0; i < RB_TEAM_SLOTS; i++)
     {
-        CleanupOverworldWindowsAndTilemaps();
-        SetMainCallback1(CB1_Overworld);
-        SetMainCallback2(CB2_InitRentalTeams);
-        gFieldCallback = FieldCB_ContinueScriptHandleMusic;
-        DestroyTask(taskId);
+        if (!RB_MonValid(teamId, i))
+            continue;
+        BuildRentalPokemon(&sRentalSummaryMons[sRentalSummaryCount], &sRentalTeams[teamId].mons[i]);
+        sRentalSummarySlots[sRentalSummaryCount] = i;
+        if (i == sRB.monIdx)
+            start = sRentalSummaryCount;
+        sRentalSummaryCount++;
     }
+
+    RB_Teardown();
+    if (sRentalSummaryCount == 0)
+    {
+        // Non dovrebbe succedere (si entra nell'anteprima solo con un Pokémon valido).
+        sRB.focus = FOCUS_TEAM_LIST;
+        SetMainCallback2(CB2_RB_Init);
+        return;
+    }
+    // LOCK_MOVES: sola lettura, niente rinomina / ricorda-mosse.
+    ShowPokemonSummaryScreen(SUMMARY_MODE_LOCK_MOVES, sRentalSummaryMons, start, sRentalSummaryCount - 1, CB2_RB_ReturnFromSummary);
+}
+
+static void CB2_RB_ReturnFromSummary(void)
+{
+    if (gLastViewedMonIndex < sRentalSummaryCount)
+        sRB.monIdx = sRentalSummarySlots[gLastViewedMonIndex];
+    sRB.focus = FOCUS_PREVIEW_MONS;
+    SetMainCallback2(CB2_RB_Init);
+}
+
+// ---------------------------------------------------------------------
+// Input
+// ---------------------------------------------------------------------
+static void RB_MoveCursorTo(s32 newCursor)
+{
+    if (newCursor < 0)
+        newCursor = 0;
+    if (newCursor > sRB.numTeams)
+        newCursor = sRB.numTeams;
+    if (newCursor == sRB.cursor)
+        return;
+    sRB.cursor = newCursor;
+    if (sRB.cursor < sRB.scroll)
+        sRB.scroll = sRB.cursor;
+    else if (sRB.cursor >= sRB.scroll + RB_ROWS)
+        sRB.scroll = sRB.cursor - (RB_ROWS - 1);
+    RB_OnCursorMoved();
+}
+
+static void RB_SelectMon(u32 slot)
+{
+    if (!RB_MonValid(RB_CurrentTeam(), slot) || slot == sRB.monIdx)
+        return;
+    sRB.monIdx = slot;
+    RB_OnFocusChanged();
+}
+
+static void RB_BackToList(void)
+{
+    sRB.focus = FOCUS_TEAM_LIST;
+    RB_OnFocusChanged();
+}
+
+static void Task_RB_Input(u8 taskId)
+{
+    u16 teamId;
+
+    if (gPaletteFade.active)
+        return;
+
+    teamId = RB_CurrentTeam();
+
+    if (sRB.focus == FOCUS_PREVIEW_MONS)
+    {
+        if (teamId == RB_NO_TEAM || !RB_MonValid(teamId, sRB.monIdx))
+        {
+            RB_BackToList();
+        }
+        else if (JOY_NEW(B_BUTTON))
+        {
+            RB_BackToList();
+        }
+        else if (JOY_NEW(A_BUTTON))
+        {
+            PlaySE(SE_SELECT);
+            BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
+            gTasks[taskId].func = Task_RB_ExitToSummary;
+        }
+        else if (JOY_NEW(START_BUTTON))
+        {
+            RB_StartExitToField(taskId, teamId);
+        }
+        else if (JOY_NEW(DPAD_UP))
+        {
+            if (sRB.monIdx >= 2)
+                RB_SelectMon(sRB.monIdx - 2);
+        }
+        else if (JOY_NEW(DPAD_DOWN))
+        {
+            if (sRB.monIdx + 2 < RB_TEAM_SLOTS)
+                RB_SelectMon(sRB.monIdx + 2);
+        }
+        else if (JOY_NEW(DPAD_RIGHT))
+        {
+            if ((sRB.monIdx % 2) == 0)
+                RB_SelectMon(sRB.monIdx + 1);
+        }
+        else if (JOY_NEW(DPAD_LEFT))
+        {
+            if ((sRB.monIdx % 2) == 1 && RB_MonValid(teamId, sRB.monIdx - 1))
+                RB_SelectMon(sRB.monIdx - 1);
+            else
+                RB_BackToList();
+        }
+        return;
+    }
+
+    // Fuoco sulla lista
+    if (JOY_REPEAT(DPAD_UP))
+    {
+        RB_MoveCursorTo((s32)sRB.cursor - 1);
+    }
+    else if (JOY_REPEAT(DPAD_DOWN))
+    {
+        RB_MoveCursorTo((s32)sRB.cursor + 1);
+    }
+    else if (JOY_REPEAT(L_BUTTON))
+    {
+        RB_MoveCursorTo((s32)sRB.cursor - RB_ROWS);
+    }
+    else if (JOY_REPEAT(R_BUTTON))
+    {
+        RB_MoveCursorTo((s32)sRB.cursor + RB_ROWS);
+    }
+    else if (JOY_NEW(DPAD_RIGHT))
+    {
+        u32 slot;
+        // Entra nell'anteprima sul primo Pokémon del team.
+        for (slot = 0; slot < RB_TEAM_SLOTS; slot++)
+        {
+            if (RB_MonValid(teamId, slot))
+            {
+                sRB.monIdx = slot;
+                sRB.focus = FOCUS_PREVIEW_MONS;
+                RB_OnFocusChanged();
+                break;
+            }
+        }
+    }
+    else if (JOY_NEW(A_BUTTON))
+    {
+        RB_StartExitToField(taskId, (teamId == RB_NO_TEAM) ? RB_RandomTeam() : teamId);
+    }
+    else if (JOY_NEW(SELECT_BUTTON))
+    {
+        RB_StartExitToField(taskId, RB_RandomTeam());
+    }
+    else if (JOY_NEW(B_BUTTON))
+    {
+        RB_StartExitToField(taskId, RB_NO_TEAM);
+    }
+}
+
+// ---------------------------------------------------------------------
+// Ingresso dallo script (special con waitstate)
+// VAR_0x8004 = categoria; al ritorno VAR_RESULT = team scelto, 0xFFFF = annullato.
+// ---------------------------------------------------------------------
+static void Task_RB_WaitFadeAndOpen(u8 taskId)
+{
+    if (gPaletteFade.active)
+        return;
+    DestroyTask(taskId);
+    CleanupOverworldWindowsAndTilemaps();
+    SetMainCallback2(CB2_RB_Init);
 }
 
 void OpenRentalTeamBrowser(void)
 {
+    u32 i;
     u16 cat = gSpecialVar_0x8004;
+
     if (cat > CATEGORY_ALL)
         cat = CATEGORY_ALL;
 
-    sRentalTeamsData = AllocZeroed(sizeof(struct RentalTeamsMenuData));
-    sRentalTeamsData->category = cat;
-    sRentalTeamsData->scrollArrowsTaskId = TASK_NONE;
-    sRentalTeamsData->arrowSpriteId = MAX_SPRITES;
-    sRentalTeamsData->currentTeamId = ITEM_ID_RANDOM;
-    sRentalTeamsData->focusMode = FOCUS_TEAM_LIST;
-    sRentalTeamsData->previewMonIdx = 0;
-
-    u8 i;
-    for (i = 0; i < 6; i++)
+    memset(&sRB, 0, sizeof(sRB));
+    sRB.category = cat;
+    sRB.numTeams = (cat == CATEGORY_ALL) ? TOTAL_RENTAL_TEAMS : sRentalCategories[cat].count;
+    sRB.result = RB_NO_TEAM;
+    sRB.focus = FOCUS_TEAM_LIST;
+    for (i = 0; i < RB_TEAM_SLOTS; i++)
     {
-        sRentalTeamsData->monIconSpriteIds[i] = SPRITE_NONE;
-        sRentalTeamsData->itemSpriteIds[i] = SPRITE_NONE;
+        sRB.monIconSpriteIds[i] = SPRITE_NONE;
+        sRB.itemSpriteIds[i] = SPRITE_NONE;
     }
 
     LockPlayerFieldControls();
-    CreateTask(Task_RentalTeams_WaitForFadeOut, 10);
+    CreateTask(Task_RB_WaitFadeAndOpen, 10);
     BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
 }
 
