@@ -302,12 +302,10 @@ LittlerootTown_EventScript_CategorySVRarelyUsed::
 	end
 
 LittlerootTown_EventScript_ShowCategoryTeams::
-	special PopulateRentalCategoryTeams
-	dynmultipush LittlerootTown_Text_Cancel, 0xFFFF
-	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_SHOW_RENTAL_TEAM
-	switch VAR_RESULT
-	case 0xFFFF, LittlerootTown_EventScript_RentalMenu
-	case MULTI_B_PRESSED, LittlerootTown_EventScript_RentalMenu
+	@ Schermata intera: lista team + anteprima. Destra = entra nell'anteprima, A = sommario.
+	@ VAR_0x8004 = categoria, VAR_RESULT = team scelto (0xFFFF = annullato).
+	special OpenRentalTeamBrowser
+	goto_if_eq VAR_RESULT, 0xFFFF, LittlerootTown_EventScript_RentalMenu
 	copyvar VAR_0x8005, VAR_RESULT
 	special BufferRentalTeamName
 	goto LittlerootTown_EventScript_ConfirmTeam
@@ -1184,7 +1182,7 @@ LittlerootTown_Text_CatSVRarelyUsed:
 
 LittlerootTown_Text_ConfirmTeamPreview:
 	.string "Vuoi ricevere la squadra\n"
-	.string "{STR_VAR_1} nei tuoi Box del PC?$"
+	.string "{STR_VAR_1}?$"
 
 LittlerootTown_Text_ReceivedTeam:
 	.string "{PLAYER} ha ricevuto il team\n"
