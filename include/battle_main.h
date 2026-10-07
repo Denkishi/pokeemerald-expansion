@@ -98,6 +98,7 @@ u8 IsRunningFromBattleImpossible(enum BattlerId battler);
 void SwitchTwoBattlersInParty(enum BattlerId battler, enum BattlerId battler2);
 void SwitchPartyOrder(enum BattlerId battler);
 void SwapTurnOrder(u8 id1, u8 id2);
+void ScalePartiesToBattleLevel(void);
 u32 GetBattlerTotalSpeedStat(enum BattlerId battler, enum Ability ability, enum HoldEffect holdEffect);
 s32 GetChosenMovePriority(enum BattlerId battler, enum Ability ability);
 s32 GetBattleMovePriority(enum BattlerId battler, enum Ability ability, enum Move move);

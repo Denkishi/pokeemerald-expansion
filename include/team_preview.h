@@ -19,4 +19,13 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder);
 bool32 TeamPreview_HasEnemyPreview(void);
 bool32 TeamPreview_GetEnemyPreviewMon(u32 index, u16 *species, u32 *battleSlot);
 
+// --- Al meglio di tre ---------------------------------------------------
+// Da chiamare a fine lotta, dopo TeamPreview_RestorePlayerParty. TRUE = la serie continua
+// ed è già stata avviata la gara successiva (il chiamante deve solo uscire).
+bool32 TeamPreview_SeriesHandleBattleEnd(void);
+// Salva ciò che l'AI ha scoperto sui nostri Pokémon; va chiamata prima di liberare i dati dell'AI.
+void TeamPreview_SeriesCaptureAiKnowledge(void);
+// Rimette nell'AI ciò che aveva scoperto nelle gare precedenti della serie.
+void TeamPreview_SeriesInjectAiKnowledge(void);
+
 #endif // GUARD_TEAM_PREVIEW_H

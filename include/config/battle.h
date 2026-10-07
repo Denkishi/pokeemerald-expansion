@@ -430,7 +430,7 @@
 #define SHOW_TYPES_ALWAYS   1                    // Always show types in battle.
 #define SHOW_TYPES_CAUGHT   2                    // Only show types if you've caught a Pokémon of that species.
 #define SHOW_TYPES_SEEN     3                    // Only show types if you've seen a Pokémon of that species.
-#define B_SHOW_TYPES        SHOW_TYPES_ALWAYS    // When to show type indicators next to Pokémon HP bars, while choosing a move after selecting a target Pokémon.
+#define B_SHOW_TYPES        SHOW_TYPES_NEVER     // When to show type indicators next to Pokémon HP bars, while choosing a move after selecting a target Pokémon.
 
 #define SHOW_EFFECTIVENESS_NEVER    0           // Never show type effectiveness when selecting moves.
 #define SHOW_EFFECTIVENESS_ALWAYS   1           // Always show type effectiveness when selecting moves.

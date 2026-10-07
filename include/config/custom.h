@@ -63,11 +63,16 @@
 
 // --- 11. Informazioni e comodità stile simulatore ------------------------
 #define CUSTOM_OPPONENT_HP_PERCENT          TRUE    // PS avversario in % al posto di "Lv50" sul riquadro
-#define CUSTOM_BATTLE_HUD                   TRUE    // modifiche statistiche accanto ai riquadri + meteo/terreno in alto a destra
-#define CUSTOM_MOVE_DATA_IN_MENU            TRUE    // tipo, categoria, potenza e precisione nel menu mosse
-#define CUSTOM_DAMAGE_PREVIEW               TRUE    // intervallo di danno stimato in % accanto al badge di efficacia
+#define CUSTOM_BATTLE_HUD                   FALSE   // spento: etichette statistiche e meteo a schermo (restano in Info lotta)
+#define CUSTOM_MOVE_CATEGORY_ICON           TRUE    // icona fisico/speciale/stato accanto al tipo nel menu mosse
+#define CUSTOM_DAMAGE_PREVIEW               FALSE   // intervallo di danno stimato in % accanto al badge di efficacia
 #define CUSTOM_SWITCH_EFFECTIVENESS         TRUE    // nel menu squadra in lotta: efficacia peggiore subita dalle mosse rivelate
 #define CUSTOM_HEAL_AFTER_BATTLE            TRUE    // cura completa dopo ogni lotta vinta contro un allenatore
 #define CUSTOM_BATTLE_AUTO_TEXT             TRUE    // i messaggi di lotta avanzano da soli (A/B li fanno avanzare subito)
+
+// --- 12. Formato della lotta ---------------------------------------------
+// Prima di ogni lotta con team preview si sceglie Bo1 o Bo3 (al meglio di tre: stesse squadre,
+// si rifà la scelta dei 4 a ogni gara; l'AI ricorda ciò che ha visto nelle gare precedenti).
+#define CUSTOM_BEST_OF_THREE                TRUE
 
 #endif // GUARD_CONFIG_CUSTOM_H

@@ -872,6 +872,24 @@ void InitBattlerHealthboxCoords(enum BattlerId battler)
     UpdateSpritePos(gHealthboxSpriteIds[battler], x, y);
 }
 
+// Larghezza in pixel del nome (con il simbolo del sesso) stampato sul riquadro di ogni avversario.
+static EWRAM_DATA u8 sOpponentNameWidth[MAX_BATTLERS_COUNT] = {0};
+
+// Con la percentuale al posto del livello, l'icona Mega/Tera dell'avversario va subito dopo
+// il nome e il sesso, altrimenti coprirebbe la percentuale.
+static void RepositionOpponentIndicator(u8 healthboxSpriteId)
+{
+    enum BattlerId battler = gSprites[healthboxSpriteId].hMain_Battler;
+
+    if (!CUSTOM_OPPONENT_HP_PERCENT || battler >= MAX_BATTLERS_COUNT || IsOnPlayerSide(battler))
+        return;
+    if (GetIndicatorPalTag(battler) == TAG_NONE || sOpponentNameWidth[battler] == 0)
+        return;
+    // Il nome parte 24 px a sinistra del centro del riquadro; l'icona è larga 8 e la sua
+    // posizione standard è 40 px a destra del centro.
+    SetIndicatorXDelta(healthboxSpriteId, (s32)sOpponentNameWidth[battler] - 24 + 2 + 4 - 40);
+}
+
 // PS dell'avversario in percentuale, nello spazio del livello (tutte le lotte sono a Lv50).
 void UpdateOpponentHpPercentInHealthbox(u8 healthboxSpriteId, s32 hp, s32 maxHp)
 {
@@ -931,6 +949,7 @@ static void UpdateLvlInHealthbox(u8 healthboxSpriteId, u8 lvl)
     {
         struct Pokemon *mon = GetBattlerMon(battler);
         UpdateOpponentHpPercentInHealthbox(healthboxSpriteId, GetMonData(mon, MON_DATA_HP), GetMonData(mon, MON_DATA_MAX_HP));
+        RepositionOpponentIndicator(healthboxSpriteId);
     }
     else
     {
@@ -1861,10 +1880,13 @@ void UpdateNickInHealthbox(u8 healthboxSpriteId, struct Pokemon *mon)
     {
         FillSpriteRectColor(healthboxSpriteId, 8, 5, 55, 11, HEALTHBOX_BG_INDEX);
         AddSpriteTextPrinterParameterized6(healthboxSpriteId, fontId, 8, 3, 0, 0, sHealthBoxTextColor, 0, gDisplayedStringBattle);
+        if (gSprites[healthboxSpriteId].hMain_Battler < MAX_BATTLERS_COUNT)
+            sOpponentNameWidth[gSprites[healthboxSpriteId].hMain_Battler] = min(GetStringWidth(fontId, gDisplayedStringBattle, 0), 55);
     }
 
     gSprites[healthboxSpriteId].data[1] = savedValue1;
     gSprites[healthboxSpriteId2].data[1] = savedValue2;
+    RepositionOpponentIndicator(healthboxSpriteId);
 }
 
 void TryAddPokeballIconToHealthbox(u8 healthboxSpriteId, bool8 noStatus)

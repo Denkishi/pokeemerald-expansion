@@ -506,6 +506,33 @@ void CB2_InitBattle(void)
     }
 }
 
+// Tutte le lotte sono a Lv50: porta ogni Pokémon di ogni squadra a quel livello.
+// Chiamata anche dalla team preview, così l'AI sceglie con le statistiche giuste.
+void ScalePartiesToBattleLevel(void)
+{
+    u32 i;
+
+    for (enum BattleTrainer trainer = B_TRAINER_PLAYER; trainer < MAX_BATTLE_TRAINERS; trainer++)
+    {
+        for (i = 0; i < PARTY_SIZE; i++)
+        {
+            struct Pokemon *mon = &gParties[trainer][i];
+            enum Species species = GetMonData(mon, MON_DATA_SPECIES);
+            if (species != SPECIES_NONE && !GetMonData(mon, MON_DATA_IS_EGG))
+            {
+                u8 growthRate = gSpeciesInfo[species].growthRate;
+                u32 exp = gExperienceTables[growthRate][50];
+                SetMonData(mon, MON_DATA_EXP, &exp);
+                CalculateMonStats(mon);
+                u32 maxHp = GetMonData(mon, MON_DATA_MAX_HP);
+                u32 curHp = GetMonData(mon, MON_DATA_HP);
+                if (curHp > 0)
+                    SetMonData(mon, MON_DATA_HP, &maxHp);
+            }
+        }
+    }
+}
+
 static void CB2_InitBattleInternal(void)
 {
     s32 i;
@@ -591,25 +618,7 @@ static void CB2_InitBattleInternal(void)
     gSaveBlock2Ptr->frontier.disableRecordBattle = FALSE;
     BattleInfo_ResetBattle();
 
-    for (enum BattleTrainer trainer = B_TRAINER_PLAYER; trainer < MAX_BATTLE_TRAINERS; trainer++)
-    {
-        for (i = 0; i < PARTY_SIZE; i++)
-        {
-            struct Pokemon *mon = &gParties[trainer][i];
-            enum Species species = GetMonData(mon, MON_DATA_SPECIES);
-            if (species != SPECIES_NONE && !GetMonData(mon, MON_DATA_IS_EGG))
-            {
-                u8 growthRate = gSpeciesInfo[species].growthRate;
-                u32 exp = gExperienceTables[growthRate][50];
-                SetMonData(mon, MON_DATA_EXP, &exp);
-                CalculateMonStats(mon);
-                u32 maxHp = GetMonData(mon, MON_DATA_MAX_HP);
-                u32 curHp = GetMonData(mon, MON_DATA_HP);
-                if (curHp > 0)
-                    SetMonData(mon, MON_DATA_HP, &maxHp);
-            }
-        }
-    }
+    ScalePartiesToBattleLevel();
 
     for (i = 0; i < PARTY_SIZE; i++)
     {

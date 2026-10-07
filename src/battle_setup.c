@@ -1587,6 +1587,9 @@ static bool32 TryResetAfterCustomTrainer(void)
 static void CB2_EndTrainerBattle(void)
 {
     TeamPreview_RestorePlayerParty();
+    // Al meglio di tre non ancora deciso: si riparte dalla team preview.
+    if (TeamPreview_SeriesHandleBattleEnd())
+        return;
     HandleBattleVariantEndParty();
     if (TryResetAfterCustomTrainer())
         return;

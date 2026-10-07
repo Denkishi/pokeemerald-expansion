@@ -1,4 +1,5 @@
 #include "global.h"
+#include "team_preview.h"
 #include "battle.h"
 #include "battle_anim.h"
 #include "battle_controllers.h"
@@ -76,6 +77,7 @@ void FreeBattleResources(void)
         FreeTrainerHillBattleStruct();
 
     gFieldTimers.terrain = 0;
+    TeamPreview_SeriesCaptureAiKnowledge(); // prima che i dati dell'AI vengano liberati
     if (gBattleResources != NULL)
     {
         FREE_AND_SET_NULL(gBattleStruct);

@@ -1,4 +1,5 @@
 #include "global.h"
+#include "team_preview.h"
 #include "main.h"
 #include "malloc.h"
 #include "battle.h"
@@ -673,6 +674,9 @@ void Ai_InitPartyStruct(void)
             }
         }
     }
+
+    // Al meglio di tre: l'AI parte già sapendo ciò che ha visto nelle gare precedenti.
+    TeamPreview_SeriesInjectAiKnowledge();
 }
 
 void Ai_UpdateSwitchInData(enum BattlerId battler)

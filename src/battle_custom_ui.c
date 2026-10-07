@@ -9,6 +9,7 @@
 #include "battle_util.h"
 #include "menu.h"
 #include "move.h"
+#include "pokemon_summary_screen.h"
 #include "sprite.h"
 #include "string_util.h"
 #include "text.h"
@@ -542,9 +543,62 @@ static void CreateDmgText(enum BattlerId atk, enum BattlerId def)
     gSprites[spriteId].invisible = TRUE;
 }
 
+// ---------------------------------------------------------------------
+// Icona della categoria (fisico / speciale / stato) nel riquadro del tipo.
+// ---------------------------------------------------------------------
+#define MOVE_CATEGORY_ICON_X    222
+#define MOVE_CATEGORY_ICON_Y    144
+
+static void SpriteCB_MoveCategoryIcon(struct Sprite *sprite)
+{
+    enum BattlerId atk = sprite->data[0];
+    enum Move move;
+
+    if (!IsInMoveSelection(atk))
+    {
+        DestroySprite(sprite);
+        return;
+    }
+    move = CurrentSelectedMove(atk);
+    if ((s16)move != sprite->data[3])
+    {
+        sprite->data[3] = move;
+        StartSpriteAnim(sprite, GetMoveCategory(move));
+    }
+    // Con la descrizione aperta (L) c'è già la sua icona.
+    sprite->invisible = (move == MOVE_NONE || gBattleStruct->descriptionSubmenu);
+}
+
+static void CreateMoveCategoryIcon(enum BattlerId battler)
+{
+    u32 i, spriteId;
+
+    if (!CUSTOM_MOVE_CATEGORY_ICON)
+        return;
+    if (GetSpriteTileStartByTag(gSpriteSheet_CategoryIcons.tag) == 0xFFFF)
+        return; // grafica non caricata
+    for (i = 0; i < MAX_SPRITES; i++)
+    {
+        if (gSprites[i].inUse && gSprites[i].callback == SpriteCB_MoveCategoryIcon)
+        {
+            gSprites[i].data[0] = battler;
+            return;
+        }
+    }
+    spriteId = CreateSprite(&gSpriteTemplate_CategoryIcons, MOVE_CATEGORY_ICON_X, MOVE_CATEGORY_ICON_Y, 0);
+    if (spriteId == MAX_SPRITES)
+        return;
+    gSprites[spriteId].oam.priority = 0;
+    gSprites[spriteId].data[0] = battler;
+    gSprites[spriteId].data[3] = -1;
+    gSprites[spriteId].callback = SpriteCB_MoveCategoryIcon;
+}
+
 void CreateEffectivenessBadges(enum BattlerId battler)
 {
     enum BattlerId def;
+
+    CreateMoveCategoryIcon(battler);
 
     if (!CUSTOM_EFFECTIVENESS_BADGES)
         return;

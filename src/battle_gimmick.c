@@ -441,6 +441,14 @@ void UpdateIndicatorLevelData(u32 healthboxId, u32 level)
     gSprites[GetIndicatorSpriteId(healthboxId)].tLevelXDelta = xDelta;
 }
 
+// Sposta l'icona in orizzontale rispetto alla posizione standard.
+void SetIndicatorXDelta(u32 healthboxId, s32 xDelta)
+{
+    if (GetIndicatorSpriteId(healthboxId) == 0)
+        return;
+    gSprites[GetIndicatorSpriteId(healthboxId)].tLevelXDelta = xDelta;
+}
+
 static const s8 sIndicatorPositions[][2] =
 {
     [B_POSITION_PLAYER_LEFT] = {49, -9},

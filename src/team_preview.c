@@ -27,6 +27,7 @@
 #include "sprite.h"
 #include "string_util.h"
 #include "script_pokemon_util.h"
+#include "battle_ai_main.h"
 #include "task.h"
 #include "text.h"
 #include "text_window.h"
@@ -48,6 +49,7 @@ enum
     MENU_NONE,
     MENU_ACTION,   // Info / Scegli / Annulla
     MENU_CONFIRM,  // Lotta! / Indietro
+    MENU_FORMAT,   // Bo1 / Bo3
 };
 
 enum
@@ -89,6 +91,86 @@ static EWRAM_DATA bool8 sPartyReduced = FALSE;
 // Ultima scelta fatta (per SELECT): si riconoscono i Pokémon dalla personalità.
 static EWRAM_DATA u32 sLastPickPersonality[PARTY_SIZE] = {0};
 static EWRAM_DATA u8 sLastPickCount = 0;
+
+// --- Al meglio di tre -------------------------------------------------
+struct SeriesState
+{
+    u8 game;        // 0 = nessuna serie in corso; altrimenti numero della gara (1..3)
+    u8 bestOf;      // 1 o 3
+    u8 playerWins;
+    u8 enemyWins;
+    u16 trainerId;
+    u32 battleTypeFlags;
+    MainCallback savedCallback;
+};
+
+// Ciò che l'AI ricorda di un nostro Pokémon dalle gare precedenti (riconosciuto dalla personalità).
+struct SeriesMonMemory
+{
+    u32 personality;
+    u16 moves[MAX_MON_MOVES];   // mosse viste
+    u16 ability;                // ABILITY_NONE = non vista
+    u16 item;                   // ITEM_NONE = non visto
+    u8 timesBrought;
+    u8 timesLead;
+};
+
+static EWRAM_DATA struct SeriesState sSeries = {0};
+static EWRAM_DATA struct Pokemon sSeriesEnemyParty[PARTY_SIZE] = {0}; // squadra avversaria completa
+static EWRAM_DATA struct SeriesMonMemory sSeriesMemory[PARTY_SIZE] = {0};
+static EWRAM_DATA u8 sSeriesMemoryCount = 0;
+
+static bool32 SeriesIsBestOfThree(void)
+{
+    return sSeries.game != 0 && sSeries.bestOf == 3;
+}
+
+static struct SeriesMonMemory *SeriesFindMemory(u32 personality)
+{
+    u32 i;
+
+    if (!SeriesIsBestOfThree())
+        return NULL;
+    for (i = 0; i < sSeriesMemoryCount; i++)
+    {
+        if (sSeriesMemory[i].personality == personality)
+            return &sSeriesMemory[i];
+    }
+    return NULL;
+}
+
+static struct SeriesMonMemory *SeriesFindOrAddMemory(u32 personality)
+{
+    struct SeriesMonMemory *mem = SeriesFindMemory(personality);
+
+    if (mem != NULL || !SeriesIsBestOfThree() || sSeriesMemoryCount >= PARTY_SIZE)
+        return mem;
+    mem = &sSeriesMemory[sSeriesMemoryCount++];
+    memset(mem, 0, sizeof(*mem));
+    mem->personality = personality;
+    return mem;
+}
+
+static void SeriesRememberMove(struct SeriesMonMemory *mem, u16 move)
+{
+    u32 i;
+
+    if (move == MOVE_NONE)
+        return;
+    for (i = 0; i < MAX_MON_MOVES; i++)
+    {
+        if (mem->moves[i] == move)
+            return;
+    }
+    for (i = 0; i < MAX_MON_MOVES; i++)
+    {
+        if (mem->moves[i] == MOVE_NONE)
+        {
+            mem->moves[i] = move;
+            return;
+        }
+    }
+}
 static EWRAM_DATA u16 *sTilemaps[2] = {NULL};
 // Squadra avversaria com'era in anteprima (serve alla schermata Info lotta).
 static EWRAM_DATA bool8 sEnemyPreviewValid = FALSE;
@@ -120,6 +202,10 @@ static const u8 sText_Unpick[]   = _("Togli");
 static const u8 sText_Cancel[]   = _("Annulla");
 static const u8 sText_Fight[]    = _("Lotta!");
 static const u8 sText_Back[]     = _("Indietro");
+static const u8 sText_Bo1[]      = _("Bo1");
+static const u8 sText_Bo3[]      = _("Bo3");
+static const u8 sText_FormatHint[] = _("Formato: 1 lotta o meglio di 3?");
+static const u8 sText_SeriesHeader[] = _("G{STR_VAR_1} {STR_VAR_2}-{STR_VAR_3}  SCEGLI ");
 static const u8 sText_Space[]    = _(" ");
 static const u8 sText_KO[]       = _("KO");
 static const u8 sText_Egg[]      = _("UOVO");
@@ -346,6 +432,30 @@ static u32 BestStabPct(struct Pokemon *atk, struct Pokemon *def)
     return max(a, b);
 }
 
+// Come BestMovePct ma solo sulle mosse che l'AI ha visto usare.
+static u32 BestRememberedMovePct(struct Pokemon *atk, struct Pokemon *def, const struct SeriesMonMemory *mem)
+{
+    u32 i, best = 0;
+
+    for (i = 0; i < MAX_MON_MOVES; i++)
+    {
+        enum Move move = mem->moves[i];
+        u32 power;
+        enum DamageCategory cat;
+
+        if (move == MOVE_NONE)
+            continue;
+        cat = GetMoveCategory(move);
+        if (cat == DAMAGE_CATEGORY_STATUS)
+            continue;
+        power = GetMovePower(move);
+        if (power <= 1)
+            power = 60;
+        best = max(best, CalcPct(atk, def, power, GetMoveType(move), cat == DAMAGE_CATEGORY_PHYSICAL));
+    }
+    return best;
+}
+
 static u32 HitsToKo(u32 pct)
 {
     if (pct == 0)
@@ -495,8 +605,13 @@ static s16 sMatch[PARTY_SIZE][PARTY_SIZE]; // [enemy][player]
 // Punteggio 1v1: + buono per il nemico (AI), - buono per il giocatore.
 static s32 Matchup(struct Pokemon *e, struct Pokemon *p, bool32 omniscient)
 {
+    const struct SeriesMonMemory *mem = SeriesFindMemory(GetMonData(p, MON_DATA_PERSONALITY));
     u32 off = BestMovePct(e, p);
     u32 def = omniscient ? BestMovePct(p, e) : max(BestStabPct(p, e), BestMovePct(p, e) / 2);
+
+    // Gare precedenti della serie: le mosse viste contano per intero.
+    if (!omniscient && mem != NULL)
+        def = max(def, BestRememberedMovePct(p, e, mem));
     u32 hitsE = HitsToKo(off), hitsP = HitsToKo(def);
     bool32 eFaster = GetMonData(e, MON_DATA_SPEED) > GetMonData(p, MON_DATA_SPEED);
     s32 s = (s32)min(off, 150) - (s32)min(def, 150);
@@ -560,8 +675,14 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                 threat -= sMatch[i][j];
         }
         weight[j] = 100 + threat / (s32)nEnemy;
-        if (j < 2) // i giocatori spesso tengono i lead in cima
-            weight[j] += 25;
+        {
+            // Chi abbiamo portato (e messo in lead) nelle gare precedenti pesa di più.
+            const struct SeriesMonMemory *mem = SeriesFindMemory(GetMonData(&player[playerSlots[j]], MON_DATA_PERSONALITY));
+            if (mem != NULL)
+                weight[j] += 40 * min(mem->timesBrought, 2) + 30 * min(mem->timesLead, 2);
+            else if (j < 2 && sSeriesMemoryCount == 0) // i giocatori spesso tengono i lead in cima
+                weight[j] += 25;
+        }
     }
     for (i = 0; i < nEnemy; i++)
     {
@@ -728,11 +849,34 @@ bool32 TeamPreview_ShouldRun(void)
 
 void CB2_TeamPreview(void)
 {
-    u32 usable = CountUsable(gPlayerParty);
+    u32 usable;
 
+    // Serie nuova (o contro un altro allenatore): si riparte da zero e si chiede il formato.
+    if (sSeries.game == 0 || sSeries.trainerId != TRAINER_BATTLE_PARAM.opponentA)
+    {
+        memset(&sSeries, 0, sizeof(sSeries));
+        sSeriesMemoryCount = 0;
+        sSeries.trainerId = TRAINER_BATTLE_PARAM.opponentA;
+        ScalePartiesToBattleLevel(); // l'AI deve scegliere con le statistiche a Lv50
+    }
+
+    usable = CountUsable(gPlayerParty);
     memset(&sTP, 0, sizeof(sTP));
     sTP.required = min(CUSTOM_TEAM_PREVIEW_PICKS, usable);
     sTP.active = TRUE;
+    if (sSeries.game == 0)
+    {
+        if (CUSTOM_BEST_OF_THREE)
+        {
+            sTP.menu = MENU_FORMAT;
+            sTP.menuCursor = 0;
+        }
+        else
+        {
+            sSeries.game = 1;
+            sSeries.bestOf = 1;
+        }
+    }
     gMain.state = 0;
     SetMainCallback2(CB2_TeamPreviewInit);
 }
@@ -903,8 +1047,21 @@ static void DrawHeader(void)
     FillWindowPixelRect(WIN_HEADER, PIXEL_FILL(COL_E_LIGHT), 120, 15, 120, 1);
 
     // Sinistra: "SCEGLI 4 POKéMON" + contatore allineato a destra.
-    ConvertIntToDecimalStringN(gStringVar1, sTP.required, STR_CONV_MODE_LEFT_ALIGN, 1);
-    StringExpandPlaceholders(gStringVar4, sText_Header);
+    if (SeriesIsBestOfThree())
+    {
+        // "G2 1-0  SCEGLI 4": gara e punteggio della serie
+        u8 *end;
+        ConvertIntToDecimalStringN(gStringVar1, sSeries.game, STR_CONV_MODE_LEFT_ALIGN, 1);
+        ConvertIntToDecimalStringN(gStringVar2, sSeries.playerWins, STR_CONV_MODE_LEFT_ALIGN, 1);
+        ConvertIntToDecimalStringN(gStringVar3, sSeries.enemyWins, STR_CONV_MODE_LEFT_ALIGN, 1);
+        end = StringExpandPlaceholders(gStringVar4, sText_SeriesHeader);
+        ConvertIntToDecimalStringN(end, sTP.required, STR_CONV_MODE_LEFT_ALIGN, 1);
+    }
+    else
+    {
+        ConvertIntToDecimalStringN(gStringVar1, sTP.required, STR_CONV_MODE_LEFT_ALIGN, 1);
+        StringExpandPlaceholders(gStringVar4, sText_Header);
+    }
     AddTextPrinterParameterized3(WIN_HEADER, FONT_SMALL, 4, 2, sColWhite, TEXT_SKIP_DRAW, gStringVar4);
     ptr = ConvertIntToDecimalStringN(gStringVar2, sTP.numPicks, STR_CONV_MODE_LEFT_ALIGN, 1);
     ptr = StringCopy(ptr, sText_Slash);
@@ -913,7 +1070,11 @@ static void DrawHeader(void)
                                  left == 0 ? sColGreen : sColYellow, TEXT_SKIP_DRAW, gStringVar2);
 
     // Destra: cosa puoi fare adesso.
-    if (left == 0)
+    if (sTP.menu == MENU_FORMAT)
+    {
+        AddTextPrinterParameterized3(WIN_HEADER, GetFontIdToFit(sText_FormatHint, FONT_SMALL, 0, 112), 126, 2, sColYellow, TEXT_SKIP_DRAW, sText_FormatHint);
+    }
+    else if (left == 0)
     {
         AddTextPrinterParameterized3(WIN_HEADER, FONT_SMALL, 126, 2, sColGreen, TEXT_SKIP_DRAW, sText_Ready);
     }
@@ -1107,6 +1268,11 @@ static void DrawMenu(void)
         items[1] = sTP.pickOrder[sTP.cursor] ? sText_Unpick : sText_Pick;
         items[2] = sText_Cancel;
     }
+    else if (sTP.menu == MENU_FORMAT)
+    {
+        items[0] = sText_Bo1;
+        items[1] = sText_Bo3;
+    }
     else
     {
         items[0] = sText_Fight;
@@ -1271,11 +1437,22 @@ static void Task_TeamPreviewInput(u8 taskId)
     }
     else if (JOY_NEW(B_BUTTON))
     {
+        if (sTP.menu == MENU_FORMAT)
+            return; // il formato va scelto
         PlaySE(SE_SELECT);
         CloseMenu();
     }
     else if (JOY_NEW(A_BUTTON))
     {
+        if (sTP.menu == MENU_FORMAT)
+        {
+            PlaySE(SE_SELECT);
+            sSeries.game = 1;
+            sSeries.bestOf = (sTP.menuCursor == 1) ? 3 : 1;
+            CloseMenu();
+            DrawAll();
+            return;
+        }
         if (sTP.menu == MENU_ACTION)
         {
             switch (sTP.menuCursor)
@@ -1386,6 +1563,23 @@ static void ApplyPartySelections(void)
     for (k = 0; k < sSavedPicks; k++)
         sLastPickPersonality[k] = GetMonData(&sSavedParty[sSavedOrder[k]], MON_DATA_PERSONALITY);
 
+    // Serie: serve la squadra avversaria intera per le gare successive, e l'AI prende nota
+    // di chi abbiamo portato e messo in lead.
+    sSeries.battleTypeFlags = gBattleTypeFlags;
+    sSeries.savedCallback = gMain.savedCallback;
+    for (i = 0; i < PARTY_SIZE; i++)
+        sSeriesEnemyParty[i] = gEnemyParty[i];
+    for (k = 0; k < sSavedPicks; k++)
+    {
+        struct SeriesMonMemory *mem = SeriesFindOrAddMemory(sLastPickPersonality[k]);
+        if (mem == NULL)
+            continue;
+        if (mem->timesBrought < 255)
+            mem->timesBrought++;
+        if (k < ((gBattleTypeFlags & BATTLE_TYPE_DOUBLE) ? 2u : 1u) && mem->timesLead < 255)
+            mem->timesLead++;
+    }
+
     for (k = 0; k < PARTY_SIZE; k++)
     {
         if (k < sSavedPicks)
@@ -1439,6 +1633,110 @@ bool32 TeamPreview_GetEnemyPreviewMon(u32 index, u16 *species, u32 *battleSlot)
 bool32 TeamPreview_HasEnemyPreview(void)
 {
     return sEnemyPreviewValid;
+}
+
+// Chiamata mentre la lotta sta finendo, prima che i dati dell'AI vengano liberati:
+// la squadra è ancora quella ridotta, quindi gli slot coincidono con quelli dell'AI.
+void TeamPreview_SeriesCaptureAiKnowledge(void)
+{
+    u32 slot, i;
+
+    if (!SeriesIsBestOfThree() || gAiPartyData == NULL || !sPartyReduced)
+        return;
+    for (slot = 0; slot < PARTY_SIZE; slot++)
+    {
+        struct Pokemon *mon = &gPlayerParty[slot];
+        const struct AiPartyMon *known = &gAiPartyData->mons[B_TRAINER_PLAYER][slot];
+        struct SeriesMonMemory *mem;
+
+        if (GetMonData(mon, MON_DATA_SPECIES) == SPECIES_NONE || !known->wasSentInBattle)
+            continue;
+        mem = SeriesFindOrAddMemory(GetMonData(mon, MON_DATA_PERSONALITY));
+        if (mem == NULL)
+            continue;
+        for (i = 0; i < MAX_MON_MOVES; i++)
+            SeriesRememberMove(mem, known->moves[i]);
+        if (known->ability != ABILITY_NONE)
+            mem->ability = known->ability;
+        if (known->heldEffect != HOLD_EFFECT_NONE)
+            mem->item = GetMonData(mon, MON_DATA_HELD_ITEM);
+    }
+}
+
+// Chiamata all'inizio di ogni lotta, dopo che l'AI ha azzerato ciò che sa.
+void TeamPreview_SeriesInjectAiKnowledge(void)
+{
+    u32 slot, i, j;
+
+    if (!SeriesIsBestOfThree() || gAiPartyData == NULL)
+        return;
+    for (slot = 0; slot < PARTY_SIZE; slot++)
+    {
+        struct Pokemon *mon = &gPlayerParty[slot];
+        struct AiPartyMon *known = &gAiPartyData->mons[B_TRAINER_PLAYER][slot];
+        const struct SeriesMonMemory *mem;
+
+        if (GetMonData(mon, MON_DATA_SPECIES) == SPECIES_NONE)
+            continue;
+        mem = SeriesFindMemory(GetMonData(mon, MON_DATA_PERSONALITY));
+        if (mem == NULL)
+            continue;
+        // Le mosse vanno nello stesso slot in cui il Pokémon le ha davvero.
+        for (i = 0; i < MAX_MON_MOVES; i++)
+        {
+            u16 actual = GetMonData(mon, MON_DATA_MOVE1 + i);
+            if (actual == MOVE_NONE)
+                continue;
+            for (j = 0; j < MAX_MON_MOVES; j++)
+            {
+                if (mem->moves[j] == actual)
+                    known->moves[i] = actual;
+            }
+        }
+        if (mem->ability != ABILITY_NONE)
+            known->ability = mem->ability;
+        if (mem->item != ITEM_NONE && GetMonData(mon, MON_DATA_HELD_ITEM) == mem->item)
+        {
+            known->item = mem->item;
+            known->heldEffect = GetItemHoldEffect(mem->item);
+        }
+        if (mem->timesBrought != 0)
+            known->species = GetMonData(mon, MON_DATA_SPECIES);
+    }
+}
+
+// A fine lotta. TRUE = la serie non è decisa: squadre rimesse a posto e nuova team preview.
+bool32 TeamPreview_SeriesHandleBattleEnd(void)
+{
+    u32 i;
+
+    if (!SeriesIsBestOfThree())
+    {
+        sSeries.game = 0;
+        return FALSE;
+    }
+    if (gBattleOutcome == B_OUTCOME_WON)
+        sSeries.playerWins++;
+    else
+        sSeries.enemyWins++;
+
+    if (sSeries.playerWins >= 2 || sSeries.enemyWins >= 2 || sSeries.game >= 3)
+    {
+        // Serie finita: l'esito dell'ultima gara è quello della serie, il resto lo fa il gioco.
+        sSeries.game = 0;
+        return FALSE;
+    }
+
+    sSeries.game++;
+    HealPlayerParty();
+    for (i = 0; i < PARTY_SIZE; i++)
+        gEnemyParty[i] = sSeriesEnemyParty[i];
+    CalculateEnemyPartyCount();
+    gBattleTypeFlags = sSeries.battleTypeFlags;
+    gMain.savedCallback = sSeries.savedCallback;
+    PlayBattleBGM();
+    SetMainCallback2(CB2_TeamPreview);
+    return TRUE;
 }
 
 static void RestoreReducedParty(void)

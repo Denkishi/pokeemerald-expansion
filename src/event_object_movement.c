@@ -3209,6 +3209,11 @@ const struct ObjectEventGraphicsInfo *GetObjectEventGraphicsInfo(u16 graphicsId)
     if (graphicsId >= NUM_OBJ_EVENT_GFX)
         graphicsId = OBJ_EVENT_GFX_NINJA_BOY;
 
+    // Voce vuota nella tabella (es. OBJ_EVENT_GFX_UNUSED_*): senza questo controllo lo sprite
+    // veniva creato da dati nulli e il gioco prima o poi si riavviava.
+    if (gObjectEventGraphicsInfoPointers[graphicsId] == NULL)
+        graphicsId = OBJ_EVENT_GFX_NINJA_BOY;
+
     return gObjectEventGraphicsInfoPointers[graphicsId];
 }
 

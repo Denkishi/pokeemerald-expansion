@@ -1788,37 +1788,11 @@ static void MoveSelectionDisplayMoveType(enum BattlerId battler)
         struct Pokemon *mon = GetBattlerMon(battler);
         type = CheckDynamicMoveType(mon, move, battler, MON_IN_BATTLE);
     }
-    if (CUSTOM_MOVE_DATA_IN_MENU)
+    if (CUSTOM_MOVE_CATEGORY_ICON)
     {
-        // "Tipo F120 85": tipo, categoria (F/S) + potenza, precisione. "St" = mossa di stato.
-        static const u8 sText_Physical[] = _("F");
-        static const u8 sText_Special[] = _("S");
-        static const u8 sText_StatusMove[] = _("St");
-        static const u8 sText_Dash[] = _("-");
-        static const u8 sText_Gap[] = _(" ");
-        enum DamageCategory category = GetMoveCategory(move);
-        u32 power = GetMovePower(move), accuracy = GetMoveAccuracy(move);
-
+        // Solo il nome del tipo: a destra c'è l'icona fisico/speciale/stato (battle_custom_ui.c).
         end = StringCopy(gDisplayedStringBattle, gTypesInfo[type].name);
-        end = StringCopy(end, sText_Gap);
-        if (category == DAMAGE_CATEGORY_STATUS)
-        {
-            end = StringCopy(end, sText_StatusMove);
-        }
-        else
-        {
-            end = StringCopy(end, (category == DAMAGE_CATEGORY_PHYSICAL) ? sText_Physical : sText_Special);
-            if (power > 1)
-                end = ConvertIntToDecimalStringN(end, power, STR_CONV_MODE_LEFT_ALIGN, 3);
-            else
-                end = StringCopy(end, sText_Dash);
-        }
-        if (accuracy != 0)
-        {
-            end = StringCopy(end, sText_Gap);
-            end = ConvertIntToDecimalStringN(end, accuracy, STR_CONV_MODE_LEFT_ALIGN, 3);
-        }
-        PrependFontIdToFit(gDisplayedStringBattle, end, FONT_NORMAL, WindowWidthPx(B_WIN_MOVE_TYPE) - 2);
+        PrependFontIdToFit(gDisplayedStringBattle, end, FONT_NORMAL, WindowWidthPx(B_WIN_MOVE_TYPE) - 22);
         BattlePutTextOnWindow(gDisplayedStringBattle, B_WIN_MOVE_TYPE);
         return;
     }
