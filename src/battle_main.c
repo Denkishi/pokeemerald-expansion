@@ -1805,6 +1805,7 @@ static void StopIdleBreath(struct IdleBreath *state)
 static void ResetBattlerIdleBreath(void)
 {
     memset(sIdleBreath, 0, sizeof(sIdleBreath));
+    ResetTrainerPicIdle();
 }
 
 static void UpdateBattlerIdleBreath(void)
@@ -1888,6 +1889,7 @@ static void UpdateBattlerIdleBreath(void)
 void BattleMainCB2(void)
 {
     UpdateBattlerIdleBreath();
+    UpdateTrainerPicIdle();
     AnimateSprites();
     BuildOamBuffer();
     RunTextPrinters();

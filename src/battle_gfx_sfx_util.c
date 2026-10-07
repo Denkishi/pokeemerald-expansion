@@ -430,61 +430,134 @@ static void UNUSED UnusedDoBattleSpriteAffineAnim(struct Sprite *sprite, bool8 p
 }
 
 // --- Ritratto dell'allenatore da fermo: si schiaccia quando arriva, poi "respira" ---------
-// Lo sprite ha già una matrice affine (stesso modello dei Pokémon avversari); la mettiamo in
-// pausa per scriverla a mano. StopTrainerPicIdle va chiamata prima di farlo ripartire.
-#define sIdleTimer data[1]
+// IMPORTANTE: la funzione dello sprite deve restare SpriteCallbackDummy. L'ingresso in lotta
+// aspetta proprio quello per mandare in campo i Pokémon: con una funzione diversa si blocca.
+// Per questo l'animazione è applicata da fuori, a ogni fotogramma, da UpdateTrainerPicIdle.
 #define TRAINER_LAND_FRAMES     16
 #define TRAINER_BREATH_PERIOD   128
+#define TRAINER_IDLE_SLOTS      4
 
-static void SpriteCB_TrainerPicIdle(struct Sprite *sprite)
+struct TrainerPicIdle
 {
-    s32 t = sprite->sIdleTimer;
-    s32 yScale;
+    u8 active;
+    u8 spriteId;
+    u8 matrixNum;
+    u16 timer;
+    s16 a;      // ultimi valori scritti: se cambiano, qualcun altro sta usando lo sprite
+    s16 d;
+    s16 y2;
+};
 
-    if (t < TRAINER_LAND_FRAMES)
-        yScale = 256 - Sin(t * (128 / TRAINER_LAND_FRAMES), 28);          // atterraggio: fino a -11% e ritorno
-    else
-        yScale = 252 + Sin(((t - TRAINER_LAND_FRAMES) * 2) & 0xFF, 4);     // respiro: 248..256, mai oltre il 100%
+static EWRAM_DATA struct TrainerPicIdle sTrainerPicIdle[TRAINER_IDLE_SLOTS] = {0};
 
-    SetOamMatrixRotationScaling(sprite->oam.matrixNum, 256, yScale, 0);
-    sprite->y2 = (32 * (256 - yScale)) / 256; // tiene fermi i piedi (lo sprite è alto 64)
-
-    if (++t >= TRAINER_LAND_FRAMES + TRAINER_BREATH_PERIOD)
-        t = TRAINER_LAND_FRAMES;
-    sprite->sIdleTimer = t;
+void ResetTrainerPicIdle(void)
+{
+    memset(sTrainerPicIdle, 0, sizeof(sTrainerPicIdle));
 }
 
+// restore = rimetti scala 100% e posizione, se sono ancora quelle scritte da noi.
+static void ReleaseTrainerPicIdle(struct TrainerPicIdle *state, bool32 restore)
+{
+    struct Sprite *sprite = &gSprites[state->spriteId];
+
+    state->active = FALSE;
+    if (!restore)
+        return;
+    if (gOamMatrices[state->matrixNum].a == state->a && gOamMatrices[state->matrixNum].d == state->d)
+        SetOamMatrix(state->matrixNum, 0x100, 0, 0, 0x100);
+    if (sprite->inUse && sprite->oam.matrixNum == state->matrixNum && (sprite->oam.affineMode & ST_OAM_AFFINE_ON_MASK))
+    {
+        if (sprite->y2 == state->y2)
+            sprite->y2 = 0;
+        sprite->affineAnimPaused = FALSE;
+    }
+}
+
+// Il ritratto ha finito di scorrere: torna "fermo" per il gioco e viene registrato per il respiro.
 static void StartTrainerPicIdle(struct Sprite *sprite)
 {
-    if (CUSTOM_BATTLE_BOUNCE && sprite->oam.affineMode == ST_OAM_AFFINE_NORMAL)
+    u32 i, spriteId = sprite - gSprites;
+    struct TrainerPicIdle *state = NULL;
+
+    sprite->callback = SpriteCallbackDummy;
+    if (!CUSTOM_BATTLE_BOUNCE || sprite->oam.affineMode != ST_OAM_AFFINE_NORMAL || sprite->y2 != 0)
+        return;
+    for (i = 0; i < TRAINER_IDLE_SLOTS; i++)
     {
-        sprite->sIdleTimer = 0;
-        sprite->affineAnimPaused = TRUE;
-        sprite->callback = SpriteCB_TrainerPicIdle;
+        if (sTrainerPicIdle[i].active && sTrainerPicIdle[i].spriteId == spriteId)
+        {
+            state = &sTrainerPicIdle[i];
+            break;
+        }
+        if (!sTrainerPicIdle[i].active && state == NULL)
+            state = &sTrainerPicIdle[i];
     }
-    else
+    if (state == NULL)
+        return;
+    state->active = TRUE;
+    state->spriteId = spriteId;
+    state->matrixNum = sprite->oam.matrixNum;
+    state->timer = 0;
+    state->a = gOamMatrices[state->matrixNum].a;
+    state->d = gOamMatrices[state->matrixNum].d;
+    state->y2 = 0;
+    sprite->affineAnimPaused = TRUE; // altrimenti l'animazione affine "ferma" riscrive il 100% ogni fotogramma
+}
+
+// Chiamata a ogni fotogramma della lotta, prima di AnimateSprites.
+void UpdateTrainerPicIdle(void)
+{
+    u32 i;
+
+    if (!CUSTOM_BATTLE_BOUNCE)
+        return;
+    for (i = 0; i < TRAINER_IDLE_SLOTS; i++)
     {
-        sprite->callback = SpriteCallbackDummy;
+        struct TrainerPicIdle *state = &sTrainerPicIdle[i];
+        struct Sprite *sprite = &gSprites[state->spriteId];
+        struct OamMatrix *matrix = &gOamMatrices[state->matrixNum];
+        s32 t, yScale;
+
+        if (!state->active)
+            continue;
+        // Lo sprite non è più quello fermo che abbiamo lasciato: ci facciamo da parte.
+        if (!sprite->inUse || sprite->callback != SpriteCallbackDummy
+         || sprite->oam.affineMode != ST_OAM_AFFINE_NORMAL || sprite->oam.matrixNum != state->matrixNum
+         || matrix->a != state->a || matrix->d != state->d || sprite->y2 != state->y2)
+        {
+            ReleaseTrainerPicIdle(state, TRUE);
+            continue;
+        }
+
+        t = state->timer;
+        if (t < TRAINER_LAND_FRAMES)
+            yScale = 256 - Sin(t * (128 / TRAINER_LAND_FRAMES), 28);          // atterraggio: fino a -11% e ritorno
+        else
+            yScale = 252 + Sin(((t - TRAINER_LAND_FRAMES) * 2) & 0xFF, 4);     // respiro: 248..256, mai oltre il 100%
+
+        SetOamMatrixRotationScaling(state->matrixNum, 256, yScale, 0);
+        sprite->y2 = (32 * (256 - yScale)) / 256; // tiene fermi i piedi (lo sprite è alto 64)
+        state->a = matrix->a;
+        state->d = matrix->d;
+        state->y2 = sprite->y2;
+
+        if (++t >= TRAINER_LAND_FRAMES + TRAINER_BREATH_PERIOD)
+            t = TRAINER_LAND_FRAMES;
+        state->timer = t;
     }
 }
 
 // Rimette il ritratto com'era (scala 100%, nessuno spostamento) prima che scivoli via.
 void StopTrainerPicIdle(u32 spriteId)
 {
-    struct Sprite *sprite;
+    u32 i;
 
-    if (spriteId >= MAX_SPRITES)
-        return;
-    sprite = &gSprites[spriteId];
-    if (!sprite->inUse || sprite->callback != SpriteCB_TrainerPicIdle)
-        return;
-    SetOamMatrix(sprite->oam.matrixNum, 0x100, 0, 0, 0x100);
-    sprite->y2 = 0;
-    sprite->affineAnimPaused = FALSE;
-    sprite->callback = SpriteCallbackDummy;
+    for (i = 0; i < TRAINER_IDLE_SLOTS; i++)
+    {
+        if (sTrainerPicIdle[i].active && sTrainerPicIdle[i].spriteId == spriteId)
+            ReleaseTrainerPicIdle(&sTrainerPicIdle[i], TRUE);
+    }
 }
-
-#undef sIdleTimer
 
 #define sSpeedX data[0]
 
