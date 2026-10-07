@@ -1729,6 +1729,8 @@ static void MoveSelectionDisplayMoveNames(enum BattlerId battler)
 
 static void MoveSelectionDisplayPPString(enum BattlerId battler)
 {
+    if (CUSTOM_MOVE_INFO_BOX)
+        return; // disegnato da DrawMoveInfoBox
     StringCopy(gDisplayedStringBattle, gText_MoveInterfacePP);
     BattlePutTextOnWindow(gDisplayedStringBattle, B_WIN_PP);
 }
@@ -1737,6 +1739,9 @@ static void MoveSelectionDisplayPPNumber(enum BattlerId battler)
 {
     u8 *txtPtr;
     struct ChooseMoveStruct *moveInfo;
+
+    if (CUSTOM_MOVE_INFO_BOX)
+        return; // disegnato da DrawMoveInfoBox
 
     if (gBattleResources->bufferA[battler][2] == TRUE) // check if we didn't want to display PP number
         return;
@@ -1748,6 +1753,64 @@ static void MoveSelectionDisplayPPNumber(enum BattlerId battler)
     ConvertIntToDecimalStringN(txtPtr, moveInfo->maxPP[gMoveSelectionCursor[battler]], STR_CONV_MODE_RIGHT_ALIGN, 2);
 
     BattlePutTextOnWindow(gDisplayedStringBattle, B_WIN_PP_REMAINING);
+}
+
+// Riquadro in basso a destra, tre righe:
+//   PP        10/10
+//   Pot 90     100%
+//   Tipo        [icona categoria, vedi battle_custom_ui.c]
+// Usa la finestra da 64x32 che copre l'intero riquadro (la stessa di "Switch which?").
+static void DrawMoveInfoBox(enum BattlerId battler, enum Move move, enum Type type)
+{
+    static const u8 sText_PP[] = _("PP");
+    static const u8 sText_Pot[] = _("Pot ");
+    static const u8 sText_Dash[] = _("-");
+    static const u8 sText_Percent[] = _("%");
+    static const u8 sColLabel[] = {14, 13, 15}; // {sfondo, testo, ombra} della palette del menu mosse
+    static const u8 sColPP[] = {14, 12, 11};    // colore che cambia quando i PP calano
+    struct ChooseMoveStruct *moveInfo = (struct ChooseMoveStruct *)(&gBattleResources->bufferA[battler][4]);
+    u32 win = B_WIN_SWITCH_PROMPT;
+    u32 width = WindowWidthPx(win);
+    u32 power = GetMovePower(move), accuracy = GetMoveAccuracy(move);
+    u8 text[24];
+    u8 *ptr;
+
+    FillWindowPixelBuffer(win, PIXEL_FILL(0xE));
+
+    // Riga 1: PP
+    AddTextPrinterParameterized3(win, FONT_SMALL, 1, 0, sColLabel, TEXT_SKIP_DRAW, sText_PP);
+    if (gBattleResources->bufferA[battler][2] != TRUE)
+    {
+        SetPPNumbersPaletteInMoveSelection(battler);
+        ptr = ConvertIntToDecimalStringN(text, moveInfo->currentPP[gMoveSelectionCursor[battler]], STR_CONV_MODE_LEFT_ALIGN, 2);
+        *ptr++ = CHAR_SLASH;
+        ConvertIntToDecimalStringN(ptr, moveInfo->maxPP[gMoveSelectionCursor[battler]], STR_CONV_MODE_LEFT_ALIGN, 2);
+        AddTextPrinterParameterized3(win, FONT_SMALL, width - 2 - GetStringWidth(FONT_SMALL, text, 0), 0, sColPP, TEXT_SKIP_DRAW, text);
+    }
+
+    // Riga 2: potenza a sinistra, precisione a destra
+    ptr = StringCopy(text, sText_Pot);
+    if (GetMoveCategory(move) != DAMAGE_CATEGORY_STATUS && power > 1)
+        ConvertIntToDecimalStringN(ptr, power, STR_CONV_MODE_LEFT_ALIGN, 3);
+    else
+        StringCopy(ptr, sText_Dash);
+    AddTextPrinterParameterized3(win, FONT_SMALL, 1, 10, sColLabel, TEXT_SKIP_DRAW, text);
+    if (accuracy != 0)
+    {
+        ptr = ConvertIntToDecimalStringN(text, accuracy, STR_CONV_MODE_LEFT_ALIGN, 3);
+        StringCopy(ptr, sText_Percent);
+    }
+    else
+    {
+        StringCopy(text, sText_Dash); // non può fallire
+    }
+    AddTextPrinterParameterized3(win, FONT_SMALL, width - 2 - GetStringWidth(FONT_SMALL, text, 0), 10, sColLabel, TEXT_SKIP_DRAW, text);
+
+    // Riga 3: tipo (a destra resta lo spazio per l'icona fisico/speciale/stato)
+    AddTextPrinterParameterized3(win, GetFontIdToFit(gTypesInfo[type].name, FONT_SMALL, 0, width - 20), 1, 20, sColLabel, TEXT_SKIP_DRAW, gTypesInfo[type].name);
+
+    PutWindowTilemap(win);
+    CopyWindowToVram(win, COPYWIN_FULL);
 }
 
 static void MoveSelectionDisplayMoveType(enum BattlerId battler)
@@ -1788,12 +1851,9 @@ static void MoveSelectionDisplayMoveType(enum BattlerId battler)
         struct Pokemon *mon = GetBattlerMon(battler);
         type = CheckDynamicMoveType(mon, move, battler, MON_IN_BATTLE);
     }
-    if (CUSTOM_MOVE_CATEGORY_ICON)
+    if (CUSTOM_MOVE_INFO_BOX)
     {
-        // Solo il nome del tipo: a destra c'è l'icona fisico/speciale/stato (battle_custom_ui.c).
-        end = StringCopy(gDisplayedStringBattle, gTypesInfo[type].name);
-        PrependFontIdToFit(gDisplayedStringBattle, end, FONT_NORMAL, WindowWidthPx(B_WIN_MOVE_TYPE) - 22);
-        BattlePutTextOnWindow(gDisplayedStringBattle, B_WIN_MOVE_TYPE);
+        DrawMoveInfoBox(battler, move, type);
         return;
     }
 
@@ -2562,6 +2622,9 @@ static u32 CheckTargetTypeEffectiveness(enum BattlerId battler)
 
 static void MoveSelectionDisplayMoveEffectiveness(u32 foeEffectiveness, enum BattlerId battler)
 {
+    if (CUSTOM_MOVE_INFO_BOX)
+        return; // niente moltiplicatore accanto ai PP: restano i badge sui bersagli
+
     static const u8 noIcon[] =  _("");
     // Custom: testo chiaro invece dei simboli.
     static const u8 effectiveIcon[] =  _("{FONT_SMALL_NARROW}×1");

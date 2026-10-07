@@ -2,6 +2,7 @@
 #include "battle.h"
 #include "battle_ai_main.h"
 #include "battle_info.h"
+#include "config/custom.h"
 #include "battle_ai_util.h"
 #include "battle_anim.h"
 #include "battle_arena.h"
@@ -2262,6 +2263,8 @@ static void Controller_HitAnimation(enum BattlerId battler)
     {
         gSprites[spriteId].data[1] = 0;
         gSprites[spriteId].invisible = FALSE;
+        if (CUSTOM_BATTLE_BOUNCE)
+            gSprites[spriteId].x2 = 0;
         gDoingBattleAnim = FALSE;
         BtlController_Complete(battler);
     }
@@ -2269,6 +2272,14 @@ static void Controller_HitAnimation(enum BattlerId battler)
     {
         if ((gSprites[spriteId].data[1] % 4) == 0)
             gSprites[spriteId].invisible ^= 1;
+        if (CUSTOM_BATTLE_BOUNCE)
+        {
+            // Scatto all'indietro (via dall'avversario) che rientra in 12 fotogrammi.
+            static const s8 sRecoil[] = {4, 4, 4, 3, 3, 3, 2, 2, 1, 1, 1, 0};
+            s32 frame = gSprites[spriteId].data[1];
+            s32 offset = (frame < (s32)ARRAY_COUNT(sRecoil)) ? sRecoil[frame] : 0;
+            gSprites[spriteId].x2 = IsOnPlayerSide(battler) ? -offset : offset;
+        }
         gSprites[spriteId].data[1]++;
     }
 }
@@ -2553,6 +2564,7 @@ void BtlController_HandleTrainerSlide(enum BattlerId battler, enum TrainerPicID 
 
 void BtlController_HandleTrainerSlideBack(enum BattlerId battler, s16 data0, bool32 startAnim)
 {
+    StopTrainerPicIdle(gBattleStruct->trainerSlideSpriteIds[battler]);
     SetSpritePrimaryCoordsFromSecondaryCoords(&gSprites[gBattleStruct->trainerSlideSpriteIds[battler]]);
     gSprites[gBattleStruct->trainerSlideSpriteIds[battler]].data[0] = data0;
     gSprites[gBattleStruct->trainerSlideSpriteIds[battler]].data[2] = IsOnPlayerSide(battler) ? -40 : 280;
@@ -2882,6 +2894,7 @@ void BtlController_HandleIntroTrainerBallThrow(enum BattlerId battler, u16 tagTr
     u8 taskId;
     enum BattleSide side = GetBattlerSide(battler);
 
+    StopTrainerPicIdle(gBattleStruct->trainerSlideSpriteIds[battler]);
     SetSpritePrimaryCoordsFromSecondaryCoords(&gSprites[gBattleStruct->trainerSlideSpriteIds[battler]]);
     if (side == B_SIDE_PLAYER)
     {

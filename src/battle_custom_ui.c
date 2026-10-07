@@ -547,7 +547,7 @@ static void CreateDmgText(enum BattlerId atk, enum BattlerId def)
 // Icona della categoria (fisico / speciale / stato) nel riquadro del tipo.
 // ---------------------------------------------------------------------
 #define MOVE_CATEGORY_ICON_X    222
-#define MOVE_CATEGORY_ICON_Y    144
+#define MOVE_CATEGORY_ICON_Y    146 // terza riga del riquadro della mossa
 
 static void SpriteCB_MoveCategoryIcon(struct Sprite *sprite)
 {

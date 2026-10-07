@@ -75,4 +75,9 @@
 // si rifà la scelta dei 4 a ogni gara; l'AI ricorda ciò che ha visto nelle gare precedenti).
 #define CUSTOM_BEST_OF_THREE                TRUE
 
+// --- 13. Riquadro della mossa e animazioni ---------------------------------
+#define CUSTOM_MOVE_INFO_BOX                TRUE    // riquadro in basso a destra: PP, potenza e precisione, tipo + icona categoria
+#define CUSTOM_BATTLE_BOUNCE                TRUE    // lotta: respiro dei Pokémon e dell'allenatore, schiacciamento all'arrivo, rinculo al colpo
+#define CUSTOM_RUN_BOUNCE                   TRUE    // mappa: la corsa ha un piccolo rimbalzo verticale
+
 #endif // GUARD_CONFIG_CUSTOM_H

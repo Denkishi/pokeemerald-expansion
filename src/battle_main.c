@@ -10,6 +10,7 @@
 #include "battle_interface.h"
 #include "battle_main.h"
 #include "battle_info.h"
+#include "config/custom.h"
 #include "battle_message.h"
 #include "battle_pyramid.h"
 #include "battle_scripts.h"
@@ -102,6 +103,7 @@ static void SpriteCB_WildMonAnimate(struct Sprite *sprite);
 static void SpriteCB_AnimFaintOpponent(struct Sprite *sprite);
 static void SpriteCB_BlinkVisible(struct Sprite *sprite);
 static void SpriteCB_Idle(struct Sprite *sprite);
+static void ResetBattlerIdleBreath(void);
 static void SpriteCB_BattleSpriteSlideLeft(struct Sprite *sprite);
 static void TurnValuesCleanUp(bool32 endTurn);
 static void SpriteCB_BounceEffect(struct Sprite *sprite);
@@ -617,6 +619,7 @@ static void CB2_InitBattleInternal(void)
     gMain.inBattle = TRUE;
     gSaveBlock2Ptr->frontier.disableRecordBattle = FALSE;
     BattleInfo_ResetBattle();
+    ResetBattlerIdleBreath();
 
     ScalePartiesToBattleLevel();
 
@@ -1758,8 +1761,133 @@ static void CB2_HandleStartMultiBattle(void)
     }
 }
 
+// --- Respiro dei Pokémon in campo ------------------------------------------------------
+// Da fermo ogni Pokémon si abbassa e si rialza di qualche punto percentuale (mai oltre il 100%,
+// così lo sprite non viene tagliato). Regole per non disturbare nessun'altra animazione:
+//  - gira PRIMA di AnimateSprites e dei task: chiunque altro scriva dopo ha la precedenza;
+//  - parte solo su uno sprite fermo da un po', a scala 100% e senza spostamenti;
+//  - a ogni fotogramma controlla che matrice e y2 siano ancora quelli scritti da lui:
+//    se qualcun altro li ha toccati, si fa da parte senza rimettere mano a nulla.
+struct IdleBreath
+{
+    u8 active;
+    u8 spriteId;
+    u8 matrixNum;
+    u8 savedPaused;
+    u8 stableFrames;
+    s16 a;
+    s16 d;
+    s16 y2;
+};
+
+#define IDLE_BREATH_WAIT_FRAMES 90
+
+static EWRAM_DATA struct IdleBreath sIdleBreath[MAX_BATTLERS_COUNT] = {0};
+static EWRAM_DATA u16 sIdleBreathTimer = 0;
+
+static void StopIdleBreath(struct IdleBreath *state)
+{
+    struct Sprite *sprite = &gSprites[state->spriteId];
+
+    state->active = FALSE;
+    state->stableFrames = 0;
+    // Ripristina solo ciò che è ancora "suo".
+    if (gOamMatrices[state->matrixNum].a == state->a && gOamMatrices[state->matrixNum].d == state->d)
+        SetOamMatrix(state->matrixNum, 0x100, 0, 0, 0x100);
+    if (sprite->inUse && sprite->oam.matrixNum == state->matrixNum && (sprite->oam.affineMode & ST_OAM_AFFINE_ON_MASK))
+    {
+        if (sprite->y2 == state->y2)
+            sprite->y2 = 0;
+        sprite->affineAnimPaused = state->savedPaused;
+    }
+}
+
+static void ResetBattlerIdleBreath(void)
+{
+    memset(sIdleBreath, 0, sizeof(sIdleBreath));
+}
+
+static void UpdateBattlerIdleBreath(void)
+{
+    u32 battler;
+
+    if (!CUSTOM_BATTLE_BOUNCE || gBattleSpritesDataPtr == NULL || gBattleSpritesDataPtr->healthBoxesData == NULL)
+        return;
+    sIdleBreathTimer++;
+
+    for (battler = 0; battler < MAX_BATTLERS_COUNT; battler++)
+    {
+        struct IdleBreath *state = &sIdleBreath[battler];
+        u32 spriteId = gBattlerSpriteIds[battler];
+        struct Sprite *sprite = &gSprites[spriteId < MAX_SPRITES ? spriteId : 0];
+        struct BattleHealthboxInfo *info = &gBattleSpritesDataPtr->healthBoxesData[battler];
+        struct OamMatrix *matrix;
+        s32 yScale;
+        bool32 idle;
+
+        idle = battler < gBattlersCount
+            && spriteId < MAX_SPRITES
+            && sprite->inUse
+            && !sprite->invisible
+            && !(gAbsentBattlerFlags & (1u << battler))
+            && sprite->oam.affineMode == ST_OAM_AFFINE_NORMAL
+            && (sprite->callback == SpriteCallbackDummy || sprite->callback == SpriteCallbackDummy_2 || sprite->callback == SpriteCB_Idle)
+            && !gAnimScriptActive
+            && !gDoingBattleAnim
+            && !info->ballAnimActive
+            && !info->statusAnimActive
+            && !info->animFromTableActive
+            && !info->specialAnimActive
+            && !info->battlerIsBouncing;
+
+        if (state->active)
+        {
+            matrix = &gOamMatrices[state->matrixNum];
+            if (!idle || state->spriteId != spriteId || sprite->oam.matrixNum != state->matrixNum
+             || matrix->a != state->a || matrix->d != state->d || sprite->y2 != state->y2)
+            {
+                StopIdleBreath(state);
+                continue;
+            }
+        }
+        else
+        {
+            if (!idle)
+            {
+                state->stableFrames = 0;
+                continue;
+            }
+            matrix = &gOamMatrices[sprite->oam.matrixNum];
+            if (matrix->a != 0x100 || matrix->b != 0 || matrix->c != 0 || matrix->d != 0x100 || sprite->y2 != 0)
+            {
+                state->stableFrames = 0;
+                continue;
+            }
+            if (state->stableFrames < IDLE_BREATH_WAIT_FRAMES)
+            {
+                state->stableFrames++;
+                continue;
+            }
+            state->active = TRUE;
+            state->spriteId = spriteId;
+            state->matrixNum = sprite->oam.matrixNum;
+            state->savedPaused = sprite->affineAnimPaused;
+            sprite->affineAnimPaused = TRUE; // altrimenti l'animazione affine "ferma" riscrive il 100% a ogni fotogramma
+        }
+
+        // 248..256, sfasato tra un Pokémon e l'altro
+        yScale = 252 + Sin((sIdleBreathTimer * 2 + battler * 64) & 0xFF, 4);
+        SetOamMatrixRotationScaling(state->matrixNum, 256, yScale, 0);
+        sprite->y2 = (32 * (256 - yScale)) / 256; // piedi fermi
+        state->a = matrix->a;
+        state->d = matrix->d;
+        state->y2 = sprite->y2;
+    }
+}
+
 void BattleMainCB2(void)
 {
+    UpdateBattlerIdleBreath();
     AnimateSprites();
     BuildOamBuffer();
     RunTextPrinters();

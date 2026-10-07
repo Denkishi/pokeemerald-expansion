@@ -3,6 +3,8 @@
 #include "battle_controllers.h"
 #include "battle_ai_main.h"
 #include "battle_anim.h"
+#include "trig.h"
+#include "config/custom.h"
 #include "constants/battle_anim.h"
 #include "battle_interface.h"
 #include "main.h"
@@ -427,6 +429,63 @@ static void UNUSED UnusedDoBattleSpriteAffineAnim(struct Sprite *sprite, bool8 p
     AnimateSprite(sprite);
 }
 
+// --- Ritratto dell'allenatore da fermo: si schiaccia quando arriva, poi "respira" ---------
+// Lo sprite ha già una matrice affine (stesso modello dei Pokémon avversari); la mettiamo in
+// pausa per scriverla a mano. StopTrainerPicIdle va chiamata prima di farlo ripartire.
+#define sIdleTimer data[1]
+#define TRAINER_LAND_FRAMES     16
+#define TRAINER_BREATH_PERIOD   128
+
+static void SpriteCB_TrainerPicIdle(struct Sprite *sprite)
+{
+    s32 t = sprite->sIdleTimer;
+    s32 yScale;
+
+    if (t < TRAINER_LAND_FRAMES)
+        yScale = 256 - Sin(t * (128 / TRAINER_LAND_FRAMES), 28);          // atterraggio: fino a -11% e ritorno
+    else
+        yScale = 252 + Sin(((t - TRAINER_LAND_FRAMES) * 2) & 0xFF, 4);     // respiro: 248..256, mai oltre il 100%
+
+    SetOamMatrixRotationScaling(sprite->oam.matrixNum, 256, yScale, 0);
+    sprite->y2 = (32 * (256 - yScale)) / 256; // tiene fermi i piedi (lo sprite è alto 64)
+
+    if (++t >= TRAINER_LAND_FRAMES + TRAINER_BREATH_PERIOD)
+        t = TRAINER_LAND_FRAMES;
+    sprite->sIdleTimer = t;
+}
+
+static void StartTrainerPicIdle(struct Sprite *sprite)
+{
+    if (CUSTOM_BATTLE_BOUNCE && sprite->oam.affineMode == ST_OAM_AFFINE_NORMAL)
+    {
+        sprite->sIdleTimer = 0;
+        sprite->affineAnimPaused = TRUE;
+        sprite->callback = SpriteCB_TrainerPicIdle;
+    }
+    else
+    {
+        sprite->callback = SpriteCallbackDummy;
+    }
+}
+
+// Rimette il ritratto com'era (scala 100%, nessuno spostamento) prima che scivoli via.
+void StopTrainerPicIdle(u32 spriteId)
+{
+    struct Sprite *sprite;
+
+    if (spriteId >= MAX_SPRITES)
+        return;
+    sprite = &gSprites[spriteId];
+    if (!sprite->inUse || sprite->callback != SpriteCB_TrainerPicIdle)
+        return;
+    SetOamMatrix(sprite->oam.matrixNum, 0x100, 0, 0, 0x100);
+    sprite->y2 = 0;
+    sprite->affineAnimPaused = FALSE;
+    sprite->callback = SpriteCallbackDummy;
+}
+
+#undef sIdleTimer
+
 #define sSpeedX data[0]
 
 void SpriteCB_TrainerSlideIn(struct Sprite *sprite)
@@ -439,7 +498,7 @@ void SpriteCB_TrainerSlideIn(struct Sprite *sprite)
             if (sprite->y2 != 0)
                 sprite->callback = SpriteCB_TrainerSlideVertical;
             else
-                sprite->callback = SpriteCallbackDummy;
+                StartTrainerPicIdle(sprite);
         }
     }
 }
@@ -452,7 +511,7 @@ void SpriteCB_TrainerSpawn(struct Sprite *sprite)
         if (sprite->y2 != 0)
             sprite->callback = SpriteCB_TrainerSlideVertical;
         else
-            sprite->callback = SpriteCallbackDummy;
+            StartTrainerPicIdle(sprite);
     }
 }
 

@@ -649,6 +649,7 @@ gSpecials::
 	def_special SetMonTeraTypeSpecial
 	def_special PopulateRentalCategoryTeams
 	def_special BufferRentalTeamPreview
+	def_special TeamPreview_SetFormatFromScript
 	def_special GiveRandomMonOfSpecies
 	def_special ChooseRandomMonSpecies
 	def_special PopulateGenerationSpecies

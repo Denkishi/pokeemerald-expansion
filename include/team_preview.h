@@ -28,4 +28,7 @@ void TeamPreview_SeriesCaptureAiKnowledge(void);
 // Rimette nell'AI ciò che aveva scoperto nelle gare precedenti della serie.
 void TeamPreview_SeriesInjectAiKnowledge(void);
 
+// special per gli script: VAR_0x8004 = 1 (Bo1) o 3 (Bo3), prima di trainerbattle.
+void TeamPreview_SetFormatFromScript(void);
+
 #endif // GUARD_TEAM_PREVIEW_H

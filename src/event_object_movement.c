@@ -1,4 +1,5 @@
 #include "global.h"
+#include "config/custom.h"
 #include "malloc.h"
 #include "battle_anim.h"
 #include "battle_pyramid.h"
@@ -6810,6 +6811,40 @@ u8 ObjectEventGetHeldMovementActionId(struct ObjectEvent *objectEvent)
     return MOVEMENT_ACTION_NONE;
 }
 
+// --- Corsa con rimbalzo ---------------------------------------------------------------
+// Durante la corsa lo sprite sale di 1-2 pixel nei fotogrammi della falcata (quelli pari
+// dell'animazione) e torna giù in quelli d'appoggio. sRunBounceMask ricorda chi ha lo
+// spostamento attivo, così viene azzerato anche se la corsa viene interrotta.
+static EWRAM_DATA u16 sRunBounceMask = 0;
+
+static void ApplyRunBounce(struct ObjectEvent *objectEvent, struct Sprite *sprite)
+{
+    u32 id = objectEvent - gObjectEvents;
+
+    if (!CUSTOM_RUN_BOUNCE || id >= OBJECT_EVENTS_COUNT)
+        return;
+    if (sprite->animCmdIndex & 1)
+        sprite->y2 = 0;
+    else
+        sprite->y2 = (sprite->animDelayCounter >= 1 && sprite->animDelayCounter <= 3) ? -2 : -1;
+    sRunBounceMask |= 1u << id;
+}
+
+static void ClearRunBounceIfDone(struct ObjectEvent *objectEvent, struct Sprite *sprite)
+{
+    u32 id = objectEvent - gObjectEvents;
+
+    if (id >= OBJECT_EVENTS_COUNT || !(sRunBounceMask & (1u << id)))
+        return;
+    if (!objectEvent->heldMovementActive || objectEvent->heldMovementFinished
+     || objectEvent->movementActionId < MOVEMENT_ACTION_PLAYER_RUN_DOWN
+     || objectEvent->movementActionId > MOVEMENT_ACTION_PLAYER_RUN_RIGHT)
+    {
+        sprite->y2 = 0;
+        sRunBounceMask &= ~(1u << id);
+    }
+}
+
 void UpdateObjectEventCurrentMovement(struct ObjectEvent *objectEvent, struct Sprite *sprite, bool8 (*callback)(struct ObjectEvent *, struct Sprite *))
 {
     DoGroundEffects_OnSpawn(objectEvent, sprite);
@@ -6825,6 +6860,7 @@ void UpdateObjectEventCurrentMovement(struct ObjectEvent *objectEvent, struct Sp
     UpdateObjectEventSpriteAnimPause(objectEvent, sprite);
     UpdateObjectEventVisibility(objectEvent, sprite);
     ObjectEventUpdateSubpriority(objectEvent, sprite);
+    ClearRunBounceIfDone(objectEvent, sprite);
 }
 
 #define dirn_to_anim(name, table)\
@@ -8188,6 +8224,7 @@ bool8 MovementAction_PlayerRunDown_Step0(struct ObjectEvent *objectEvent, struct
 
 bool8 MovementAction_PlayerRunDown_Step1(struct ObjectEvent *objectEvent, struct Sprite *sprite)
 {
+    ApplyRunBounce(objectEvent, sprite);
     if (UpdateMovementNormal(objectEvent, sprite))
     {
         sprite->sActionFuncId = 2;
@@ -8204,6 +8241,7 @@ bool8 MovementAction_PlayerRunUp_Step0(struct ObjectEvent *objectEvent, struct S
 
 bool8 MovementAction_PlayerRunUp_Step1(struct ObjectEvent *objectEvent, struct Sprite *sprite)
 {
+    ApplyRunBounce(objectEvent, sprite);
     if (UpdateMovementNormal(objectEvent, sprite))
     {
         sprite->sActionFuncId = 2;
@@ -8223,6 +8261,7 @@ bool8 MovementAction_PlayerRunLeft_Step0(struct ObjectEvent *objectEvent, struct
 
 bool8 MovementAction_PlayerRunLeft_Step1(struct ObjectEvent *objectEvent, struct Sprite *sprite)
 {
+    ApplyRunBounce(objectEvent, sprite);
     if (UpdateMovementNormal(objectEvent, sprite))
     {
         sprite->sActionFuncId = 2;
@@ -8242,6 +8281,7 @@ bool8 MovementAction_PlayerRunRight_Step0(struct ObjectEvent *objectEvent, struc
 
 bool8 MovementAction_PlayerRunRight_Step1(struct ObjectEvent *objectEvent, struct Sprite *sprite)
 {
+    ApplyRunBounce(objectEvent, sprite);
     if (UpdateMovementNormal(objectEvent, sprite))
     {
         sprite->sActionFuncId = 2;

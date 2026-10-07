@@ -119,6 +119,14 @@ static EWRAM_DATA struct SeriesState sSeries = {0};
 static EWRAM_DATA struct Pokemon sSeriesEnemyParty[PARTY_SIZE] = {0}; // squadra avversaria completa
 static EWRAM_DATA struct SeriesMonMemory sSeriesMemory[PARTY_SIZE] = {0};
 static EWRAM_DATA u8 sSeriesMemoryCount = 0;
+// Formato già scelto nel dialogo prima della lotta (0 = va chiesto nella team preview).
+static EWRAM_DATA u8 sPendingBestOf = 0;
+
+// special: VAR_0x8004 = 1 (Bo1) oppure 3 (Bo3). Da chiamare nello script prima di trainerbattle.
+void TeamPreview_SetFormatFromScript(void)
+{
+    sPendingBestOf = (gSpecialVar_0x8004 == 3) ? 3 : 1;
+}
 
 static bool32 SeriesIsBestOfThree(void)
 {
@@ -866,7 +874,13 @@ void CB2_TeamPreview(void)
     sTP.active = TRUE;
     if (sSeries.game == 0)
     {
-        if (CUSTOM_BEST_OF_THREE)
+        if (CUSTOM_BEST_OF_THREE && sPendingBestOf != 0)
+        {
+            // Formato già scelto parlando con l'allenatore.
+            sSeries.game = 1;
+            sSeries.bestOf = sPendingBestOf;
+        }
+        else if (CUSTOM_BEST_OF_THREE)
         {
             sTP.menu = MENU_FORMAT;
             sTP.menuCursor = 0;
@@ -877,6 +891,7 @@ void CB2_TeamPreview(void)
             sSeries.bestOf = 1;
         }
     }
+    sPendingBestOf = 0;
     gMain.state = 0;
     SetMainCallback2(CB2_TeamPreviewInit);
 }

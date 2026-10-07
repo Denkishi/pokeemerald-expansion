@@ -1266,7 +1266,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
                 .moves = {MOVE_SWORDS_DANCE, MOVE_CEASELESS_EDGE, MOVE_SUCKER_PUNCH, MOVE_ENCORE},
             },
             {
-                .species = SPECIES_FLOETTE,
+                .species = SPECIES_FLOETTE_ETERNAL,
                 .item = ITEM_FLOETTITE,
                 .level = 50,
                 .nature = NATURE_BOLD,
@@ -2013,7 +2013,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
                 .moves = {MOVE_SWORDS_DANCE, MOVE_CLOSE_COMBAT, MOVE_DIRE_CLAW, MOVE_ACROBATICS},
             },
             {
-                .species = SPECIES_FLOETTE,
+                .species = SPECIES_FLOETTE_ETERNAL,
                 .item = ITEM_FLOETTITE,
                 .level = 50,
                 .nature = NATURE_BOLD,
