@@ -1315,74 +1315,137 @@ static bool32 VgcCanHurtFoe(enum BattlerId battler, enum BattlerId foe)
     return hits != 0 && hits <= 4;
 }
 
+static bool32 VgcIsSwitchinSafeFromField(enum BattlerId battler, u32 targetMonIndex, struct Pokemon *party)
+{
+    u32 currentHp, maxHp, hazardDmg;
+    s32 weatherImpact;
+    enum Ability ability;
+    enum HoldEffect heldItemEffect;
+    enum Type type1, type2;
+    enum BattleSide side = GetBattlerSide(battler);
+    u32 weather;
+
+    if (party == NULL || targetMonIndex >= PARTY_SIZE)
+        return TRUE;
+
+    currentHp = GetMonData(&party[targetMonIndex], MON_DATA_HP);
+    maxHp = GetMonData(&party[targetMonIndex], MON_DATA_MAX_HP);
+    if (currentHp == 0 || maxHp == 0)
+        return FALSE;
+
+    ability = GetPartyMonAbilityForSwitchCalc(battler, targetMonIndex, &party[targetMonIndex]);
+    heldItemEffect = ItemId_GetHoldEffect(GetMonData(&party[targetMonIndex], MON_DATA_HELD_ITEM));
+    type1 = gSpeciesInfo[GetMonData(&party[targetMonIndex], MON_DATA_SPECIES)].types[0];
+    type2 = gSpeciesInfo[GetMonData(&party[targetMonIndex], MON_DATA_SPECIES)].types[1];
+
+    // Controllo Hazard (Spikes, Stealth Rock, Steelsurge, Toxic Spikes)
+    hazardDmg = 0;
+    if (ability != ABILITY_MAGIC_GUARD && heldItemEffect != HOLD_EFFECT_HEAVY_DUTY_BOOTS)
+    {
+        if (IsHazardOnSide(side, HAZARDS_STEALTH_ROCK))
+            hazardDmg += GetStealthHazardDamage(TYPE_SIDE_HAZARD_POINTED_STONES, battler);
+        if (IsHazardOnSide(side, HAZARDS_STEELSURGE))
+            hazardDmg += GetStealthHazardDamage(TYPE_SIDE_HAZARD_SHARP_STEEL, battler);
+        if (IsHazardOnSide(side, HAZARDS_SPIKES) && (type1 != TYPE_FLYING && type2 != TYPE_FLYING && ability != ABILITY_LEVITATE))
+        {
+            u32 spikesDmg = maxHp / ((5 - gSideTimers[side].spikesAmount) * 2);
+            hazardDmg += (spikesDmg == 0) ? 1 : spikesDmg;
+        }
+        if (IsHazardOnSide(side, HAZARDS_TOXIC_SPIKES) && (type1 != TYPE_FLYING && type2 != TYPE_FLYING && ability != ABILITY_LEVITATE))
+        {
+            if (type1 != TYPE_POISON && type2 != TYPE_POISON && type1 != TYPE_STEEL && type2 != TYPE_STEEL
+             && ability != ABILITY_IMMUNITY && ability != ABILITY_POISON_HEAL)
+            {
+                u32 tSpikesDmg = (gSideTimers[side].toxicSpikesAmount == 1) ? (maxHp / 8) : (maxHp / 16);
+                hazardDmg += (tSpikesDmg == 0) ? 1 : tSpikesDmg;
+            }
+        }
+    }
+
+    if (hazardDmg >= currentHp)
+        return FALSE; // Morirebbe subito all'entrata per le hazard
+
+    // Se le hazard tolgono più del 35% dei PS rimanenti, evita di switchare se non strettamente necessario
+    if (hazardDmg * 100 / currentHp >= 35)
+        return FALSE;
+
+    // Controllo Meteo sfavorevole (Sabbia, Grandine/Neve, Sole per Dry Skin)
+    weather = AI_GetSwitchinWeather(battler);
+    weatherImpact = 0;
+    if (heldItemEffect != HOLD_EFFECT_SAFETY_GOGGLES && ability != ABILITY_MAGIC_GUARD && ability != ABILITY_OVERCOAT)
+    {
+        if ((weather & B_WEATHER_HAIL) && type1 != TYPE_ICE && type2 != TYPE_ICE
+         && ability != ABILITY_SNOW_CLOAK && ability != ABILITY_ICE_BODY)
+            weatherImpact += maxHp / 16;
+        else if ((weather & B_WEATHER_SANDSTORM) && type1 != TYPE_ROCK && type2 != TYPE_ROCK
+              && type1 != TYPE_GROUND && type2 != TYPE_GROUND && type1 != TYPE_STEEL && type2 != TYPE_STEEL
+              && ability != ABILITY_SAND_VEIL && ability != ABILITY_SAND_RUSH && ability != ABILITY_SAND_FORCE)
+            weatherImpact += maxHp / 16;
+    }
+    if ((weather & B_WEATHER_SUN) && heldItemEffect != HOLD_EFFECT_UTILITY_UMBRELLA && ability == ABILITY_DRY_SKIN)
+        weatherImpact += maxHp / 8;
+
+    if (hazardDmg + weatherImpact >= currentHp)
+        return FALSE; // Muore prima ancora di poter agire tra hazard e meteo
+
+    return TRUE;
+}
+
 static enum VgcSwitchResult VgcShouldSwitch(struct SwitchAiContext *switchContext)
 {
     enum BattlerId battler = switchContext->battler;
     enum BattlerId foeL = GetBattlerLeftFoe(battler), foeR = GetBattlerRightFoe(battler);
     bool32 foeLAlive = IsBattlerAlive(foeL), foeRAlive = IsBattlerAlive(foeR);
-    bool32 threatL = foeLAlive && CanTargetFaintAi(foeL, battler);
-    bool32 threatR = foeRAlive && CanTargetFaintAi(foeR, battler);
+    // Firma corretta: CanTargetFaintAi(battlerDef, battlerAtk) -> il difensore è battler, l'attaccante è il nemico
+    bool32 threatL = foeLAlive && CanTargetFaintAi(battler, foeL);
+    bool32 threatR = foeRAlive && CanTargetFaintAi(battler, foeR);
     bool32 slowerL = foeLAlive && AI_IsSlower(battler, foeL, MOVE_NONE, MOVE_NONE, DONT_CONSIDER_PRIORITY);
     bool32 slowerR = foeRAlive && AI_IsSlower(battler, foeR, MOVE_NONE, MOVE_NONE, DONT_CONSIDER_PRIORITY);
     bool32 canHurt = VgcCanHurtFoe(battler, foeL) || VgcCanHurtFoe(battler, foeR);
     bool32 canKo = (foeLAlive && CanAIFaintTarget(battler, foeL, 1)) || (foeRAlive && CanAIFaintTarget(battler, foeR, 1));
     u32 hpPct = gBattleMons[battler].hp * 100 / max(gBattleMons[battler].maxHP, 1);
+    u32 bestSwitchin;
 
     if (!(gAiThinkingStruct->aiFlags[battler] & AI_FLAG_VGC_DOUBLES) || !IsDoubleBattle())
         return VGC_SWITCH_UNDECIDED;
 
-    // Piano di squadra: la modalità è attiva (Trick Room / Tailwind / meteo) ma in campo non c'è
-    // la win condition e questo Pokémon non ha KO: si manda dentro chi deve vincere la lotta.
-    if (AI_VgcPlanModeActive(battler) && !canKo
-     && !AI_VgcPlanIsWinCon(TRAINER_BATTLE_PARAM.opponentA, gBattleMons[battler].species)
-     && !((threatL && slowerL) || (threatR && slowerR)) && Random() % 100 < 45)
-    {
-        struct Pokemon *party = GetBattlerParty(battler);
-        enum BattlerId partner = GetPartnerBattler(battler);
-        u32 i;
-        for (i = 0; i < PARTY_SIZE; i++)
-        {
-            if (!(switchContext->eligiblePartyMons & (1u << i)))
-                continue;
-            if (gBattlerPartyIndexes[battler] == i || (IsBattlerAlive(partner) && gBattlerPartyIndexes[partner] == i))
-                continue;
-            if (AI_VgcPlanIsWinCon(TRAINER_BATTLE_PARAM.opponentA, GetMonData(&party[i], MON_DATA_SPECIES)))
-                return SetSwitchinAndSwitch(battler, i) ? VGC_SWITCH_GO : VGC_SWITCH_STAY;
-        }
-    }
-
-    // Intimidate: rientrare con Arcanine / Gyarados contro un attaccante fisico vale il turno.
-    if (!((threatL && slowerL) && (threatR && slowerR)) && !AI_VgcOwnSpeedControlActive(battler)
-     && ShouldSwitchIfIntimidateBenefit(switchContext) && Random() % 100 < 50)
-        return SetSwitchinAndSwitch(battler, PARTY_SIZE) ? VGC_SWITCH_GO : VGC_SWITCH_STAY;
-
-    // Nessun sostituto sensato: si resta.
-    if (gAiLogicData->mostSuitableMonId[battler] == PARTY_SIZE)
+    // Se l'AI può mandare KO un bersaglio questo turno: NON si cambia MAI, si prende il KO!
+    if (canKo)
         return VGC_SWITCH_STAY;
 
-    // I turni del nostro Tailwind / Trick Room non si sprecano a cambiare, a meno che restare sia morire.
+    // Nessun sostituto valido o sensato: resta categoricamente
+    bestSwitchin = gAiLogicData->mostSuitableMonId[battler];
+    if (bestSwitchin == PARTY_SIZE)
+        return VGC_SWITCH_STAY;
+
+    // Controllo campo e hazard per il candidato allo switch: non switchare su trappole letali o meteo letale
+    if (!VgcIsSwitchinSafeFromField(battler, bestSwitchin, switchContext->party))
+        return VGC_SWITCH_STAY;
+
+    // I turni del nostro controllo velocità (Tailwind / Trick Room) non si sprecano a switchare a meno di morte certa
     if (AI_VgcOwnSpeedControlActive(battler) && !((threatL && slowerL) || (threatR && slowerR)))
         return VGC_SWITCH_STAY;
 
-    // Un setup / supporto importante in mano vale più del cambio.
+    // Un setup / supporto importante in mano (es. Follow Me, Helping Hand, schermi) vale più del cambio se non siamo a terra
     if (switchContext->hasImportantStatusMove && !((threatL && slowerL) && (threatR && slowerR)))
         return VGC_SWITCH_STAY;
 
-    // Peso morto: non fa male a nessuno dei due e non ha nulla da fare.
+    // Se siamo chiusi in una mossa Choice del tutto inefficace contro entrambi gli avversari, lo switch è doveroso
+    if (ShouldSwitchIfBadChoiceLock(switchContext))
+        return VGC_SWITCH_GO;
+
+    // Entrambi gli avversari sono vivi, più veloci e possono mandarci KO prima che ci muoviamo:
+    // salvare il Pokémon ha senso solo se ha ancora salute (>= 50%) e il sostituto entra sano
+    if ((threatL && slowerL) && (threatR && slowerR) && hpPct >= 50 && Random() % 100 < 50)
+        return SetSwitchinAndSwitch(battler, PARTY_SIZE) ? VGC_SWITCH_GO : VGC_SWITCH_STAY;
+
+    // Peso morto totale: non fa nemmeno 4HKO a nessuno dei due avversari, non ha mosse di supporto (Follow Me, Helping Hand, setup)
     if (!canHurt && !switchContext->hasImportantStatusMove && !HasMoveWithEffect(battler, EFFECT_FOLLOW_ME)
-     && !HasMoveWithEffect(battler, EFFECT_HELPING_HAND) && Random() % 100 < 75)
+     && !HasMoveWithEffect(battler, EFFECT_HELPING_HAND) && Random() % 100 < 40)
         return SetSwitchinAndSwitch(battler, PARTY_SIZE) ? VGC_SWITCH_GO : VGC_SWITCH_STAY;
 
-    // Va KO prima di muoversi da entrambi, senza poter rispondere con un KO: si salva il Pokémon.
-    if ((threatL && slowerL) && (threatR && slowerR) && !canKo && hpPct >= 50 && Random() % 100 < 60)
-        return SetSwitchinAndSwitch(battler, PARTY_SIZE) ? VGC_SWITCH_GO : VGC_SWITCH_STAY;
-
-    // Va KO dalla minaccia più veloce, non ha KO, e il sostituto resiste: cambio "a risparmio".
-    if (((threatL && slowerL) || (threatR && slowerR)) && !canKo && hpPct >= 70 && !switchContext->hasEffectiveMove
-     && Random() % 100 < 35)
-        return SetSwitchinAndSwitch(battler, PARTY_SIZE) ? VGC_SWITCH_GO : VGC_SWITCH_STAY;
-
-    return VGC_SWITCH_UNDECIDED;
+    // In doppio VGC, di default si resta e si gioca la partita
+    return VGC_SWITCH_STAY;
 }
 
 bool32 ShouldSwitchDynFuncExample(struct SwitchAiContext *switchContext)
