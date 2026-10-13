@@ -5,7 +5,8 @@
 @ Schema (uguale per tutti): dialogo -> sì/no -> formato -> trainerbattle (doppia, rilottabile) -> frase finale.
 
 	.macro vgc_trainer_script name:req, trainer:req
-VgcTrainer_EventScript_\name\()::
+	.global VgcTrainer_EventScript_\name
+VgcTrainer_EventScript_\name:
 	lock
 	faceplayer
 	msgbox VgcTrainer_Text_\name\()_AskBattle, MSGBOX_YESNO
@@ -23,7 +24,8 @@ VgcTrainer_EventScript_\name\()::
 	release
 	end
 
-VgcTrainer_EventScript_\name\()_Decline::
+	.global VgcTrainer_EventScript_\name\()_Decline
+VgcTrainer_EventScript_\name\()_Decline:
 	msgbox VgcTrainer_Text_\name\()_Decline, MSGBOX_DEFAULT
 	release
 	end

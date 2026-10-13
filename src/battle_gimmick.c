@@ -129,7 +129,8 @@ static bool32 CanMonMegaEvolve(struct Pokemon *mon)
     return FALSE;
 }
 
-static bool32 DoesTrainerHaveAvailableMegaMon(enum BattlerId battler)
+// UNUSED: nella build dei test (TESTING) ShouldTrainerBattlerUseGimmick non la chiama.
+static UNUSED bool32 DoesTrainerHaveAvailableMegaMon(enum BattlerId battler)
 {
     enum BattleTrainer trainer = GetBattlerTrainer(battler);
     u32 i;
