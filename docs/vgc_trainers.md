@@ -87,8 +87,35 @@ Flag già presenti nel gioco (pokeemerald-expansion), e cosa fanno qui:
 | `Prefer Highest Damage Move` | piccolo bonus alla mossa che fa più danno |
 | **`Vgc Doubles`** (nuovo) | il modulo qui sotto |
 
-Tolto rispetto a prima: `Powerful Status`, che dava +10 fisso a Trick Room / Tailwind / schermi
-anche quando non servivano (era uno dei motivi del "sempre la stessa cosa").
+Tolti rispetto a prima: `Smart Trainer` (conteneva `Omniscient`) e `Powerful Status`, che dava
++10 fisso a Trick Room / Tailwind / schermi anche quando non servivano (era uno dei motivi del
+"sempre la stessa cosa").
+
+### 3.1b Lettura del giocatore ("predict") senza imbrogli
+
+L'IA non vede le tue scelte. Stima **Protect** e **cambio** con:
+- ciò che è lecito sapere: Protect lo considera solo se te l'ha visto usare; cambio solo se hai
+  Pokémon in panchina;
+- la situazione: sei "sotto KO" (uno dei suoi può mandarti KO) o "perdi il matchup" (lei ti manda
+  KO, tu non mandi KO nessuno dei suoi);
+- il tuo comportamento nella serie, per Pokémon: quante volte hai protetto quando eri sotto KO,
+  quante volte hai cambiato quando perdevi il matchup. Memoria mantenuta tra le gare del Bo3
+  (`AI_VgcNotePlayerMove`, `AI_VgcNotePlayerSwitch` in `src/battle_ai_vgc.c`).
+
+`P(Protect)`: base 20, +30 se sotto KO, −35 se hai protetto il turno scorso, +10 se è il primo
+turno, hai Trick Room e lei ha Fake Out; poi media con la tua statistica reale (da 2 turni
+osservati in su). `P(cambio)`: base 8, +30 se perdi il matchup, media con la tua statistica.
+
+Se la lettura è forte (≥ 50%) e "ci crede" (tiro casuale una volta a turno, 70%: così non è
+sfruttabile):
+- colpire chi probabilmente si protegge: −3 (−1 per mosse ad area); Fake Out su di lui: −3;
+- ha protetto il turno scorso ed è di nuovo sotto KO: +1 a insistere;
+- il colpo da KO su chi probabilmente cambia: −2; Knock Off / mosse ad area: +1;
+  Encore / Taunt / Disable su di lui: −3;
+- turno "regalato" (lei si aspetta Protect o cambio): setup e controllo velocità +2.
+
+Vantaggio numerico (Pokémon utilizzabili): in vantaggio di 2+ evita mosse imprecise (< 85%)
+e protegge un po' di più; in svantaggio di 2+ cerca i KO.
 
 ### 3.2 Il modulo nuovo: `AI_FLAG_VGC_DOUBLES` (`src/battle_ai_vgc.c`)
 

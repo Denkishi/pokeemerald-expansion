@@ -16886,7 +16886,7 @@ Gender: Male
 Music: Intense
 Double Battle: Yes
 Mugshot: Purple
-AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
+AI: Basic Trainer / Smart Switching / Smart Mon Choices / Pp Stall Prevention / Randomize Switchin / Know Opponent Party / Assume Stab / Assume Status Moves / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
 
 Smeargle @ Focus Sash
 Ability: Moody
@@ -16950,7 +16950,7 @@ Pic: Cooltrainer M
 Gender: Male
 Music: Male
 Double Battle: Yes
-AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
+AI: Basic Trainer / Smart Switching / Smart Mon Choices / Pp Stall Prevention / Randomize Switchin / Know Opponent Party / Assume Stab / Assume Status Moves / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
 
 Machamp (M) @ Flame Orb
 Ability: Guts
@@ -17014,7 +17014,7 @@ Pic: Pokemon Breeder M
 Gender: Male
 Music: Male
 Double Battle: Yes
-AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
+AI: Basic Trainer / Smart Switching / Smart Mon Choices / Pp Stall Prevention / Randomize Switchin / Know Opponent Party / Assume Stab / Assume Status Moves / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
 
 Mimikyu (F) @ Mental Herb
 Ability: Disguise
@@ -17078,7 +17078,7 @@ Pic: Picnicker
 Gender: Female
 Music: Female
 Double Battle: Yes
-AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
+AI: Basic Trainer / Smart Switching / Smart Mon Choices / Pp Stall Prevention / Randomize Switchin / Know Opponent Party / Assume Stab / Assume Status Moves / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
 
 Ceruledge @ Focus Sash
 Ability: Weak Armor
@@ -17141,7 +17141,7 @@ Pic: Black Belt
 Gender: Male
 Music: Male
 Double Battle: Yes
-AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
+AI: Basic Trainer / Smart Switching / Smart Mon Choices / Pp Stall Prevention / Randomize Switchin / Know Opponent Party / Assume Stab / Assume Status Moves / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
 
 Roaring Moon @ Roseli Berry
 Ability: Protosynthesis
@@ -17205,7 +17205,7 @@ Pic: Expert M
 Gender: Male
 Music: Male
 Double Battle: Yes
-AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
+AI: Basic Trainer / Smart Switching / Smart Mon Choices / Pp Stall Prevention / Randomize Switchin / Know Opponent Party / Assume Stab / Assume Status Moves / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
 
 Bollitore (Sinistcha) @ Colbur Berry
 Ability: Hospitality
@@ -17268,7 +17268,7 @@ Pic: Hiker
 Gender: Male
 Music: Male
 Double Battle: Yes
-AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
+AI: Basic Trainer / Smart Switching / Smart Mon Choices / Pp Stall Prevention / Randomize Switchin / Know Opponent Party / Assume Stab / Assume Status Moves / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
 
 Sceptile @ Sceptilite
 Ability: Overgrow
@@ -17332,7 +17332,7 @@ Pic: Fisherman
 Gender: Male
 Music: Male
 Double Battle: Yes
-AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
+AI: Basic Trainer / Smart Switching / Smart Mon Choices / Pp Stall Prevention / Randomize Switchin / Know Opponent Party / Assume Stab / Assume Status Moves / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
 
 Hariyama @ Flame Orb
 Ability: Guts
@@ -17380,7 +17380,7 @@ Pic: Rich Boy
 Gender: Male
 Music: Male
 Double Battle: Yes
-AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
+AI: Basic Trainer / Smart Switching / Smart Mon Choices / Pp Stall Prevention / Randomize Switchin / Know Opponent Party / Assume Stab / Assume Status Moves / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
 
 Gholdengo @ Life Orb
 Ability: Good as Gold
@@ -17444,7 +17444,7 @@ Pic: Sailor
 Gender: Male
 Music: Male
 Double Battle: Yes
-AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
+AI: Basic Trainer / Smart Switching / Smart Mon Choices / Pp Stall Prevention / Randomize Switchin / Know Opponent Party / Assume Stab / Assume Status Moves / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
 
 Pelipper @ Focus Sash
 Ability: Drizzle
@@ -17508,7 +17508,7 @@ Pic: Gentleman
 Gender: Male
 Music: Male
 Double Battle: Yes
-AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
+AI: Basic Trainer / Smart Switching / Smart Mon Choices / Pp Stall Prevention / Randomize Switchin / Know Opponent Party / Assume Stab / Assume Status Moves / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
 
 Venusaur (F) @ Sitrus Berry
 Ability: Chlorophyll

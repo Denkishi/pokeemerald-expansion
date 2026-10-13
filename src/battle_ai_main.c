@@ -902,6 +902,8 @@ void SetAiLogicDataForTurn(struct AiLogicData *aiData)
     gBattleStruct->dynamicMoveType = TYPE_NONE;
     gBattleStruct->dynamicMoveCategory = DAMAGE_CATEGORY_NONE;
 
+    AI_VgcTurnStart(); // lettura del giocatore (IA VGC): fotografa chi è sotto KO / perde il matchup
+
     AIDebugTimerEnd();
     gAiLogicData->aiCalcInProgress = FALSE;
 }

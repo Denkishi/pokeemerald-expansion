@@ -277,6 +277,214 @@ static bool32 FoeThreatensFakeOut(enum BattlerId battler)
 }
 
 // ---------------------------------------------------------------------
+// Lettura dell'avversario ("predict") SENZA imbrogliare
+// ---------------------------------------------------------------------
+// L'IA non legge le scelte del giocatore: stima Protect e cambio da ciò che è lecito sapere
+// (mosse viste, situazione in campo) e da come il giocatore si è comportato finora nella serie
+// (quante volte ha protetto quando era sotto KO, quante volte ha cambiato quando perdeva
+// il matchup). La memoria è per Pokémon (personalità) e resiste tra le gare del Bo3.
+struct VgcBehaviour
+{
+    u32 personality;
+    u8 threatenedTurns;         // turni in cui l'IA poteva mandarlo KO
+    u8 protectsWhenThreatened;  // ...e lui ha usato Protect
+    u8 losingTurns;             // turni in cui perdeva il matchup (noi KO, lui no) con panchina disponibile
+    u8 switchesWhenLosing;      // ...e lui ha cambiato
+};
+
+static EWRAM_DATA struct VgcBehaviour sVgcMem[PARTY_SIZE] = {0};
+static EWRAM_DATA u8 sVgcMemCount = 0;
+static EWRAM_DATA u8 sVgcThreatened = 0;        // bitmask battler del giocatore sotto KO questo turno
+static EWRAM_DATA u8 sVgcLosing = 0;            // bitmask battler del giocatore che perdono il matchup
+static EWRAM_DATA u8 sVgcProtectedLastTurn = 0; // bitmask battler che hanno usato Protect al turno scorso
+static EWRAM_DATA u8 sVgcProtectedThisTurn = 0;
+static EWRAM_DATA u8 sVgcReadRoll = 0;          // 0..99, tirato una volta a turno: quanto fidarsi della lettura
+
+void AI_VgcResetMemory(void)
+{
+    memset(sVgcMem, 0, sizeof(sVgcMem));
+    sVgcMemCount = 0;
+    sVgcThreatened = sVgcLosing = sVgcProtectedLastTurn = sVgcProtectedThisTurn = 0;
+}
+
+static struct VgcBehaviour *VgcFindOrAddBehaviour(enum BattlerId battler)
+{
+    u32 i, personality;
+
+    if (gBattleMons[battler].species == SPECIES_NONE)
+        return NULL;
+    personality = GetMonData(GetBattlerMon(battler), MON_DATA_PERSONALITY);
+    for (i = 0; i < sVgcMemCount; i++)
+    {
+        if (sVgcMem[i].personality == personality)
+            return &sVgcMem[i];
+    }
+    if (sVgcMemCount >= PARTY_SIZE)
+        return NULL;
+    memset(&sVgcMem[sVgcMemCount], 0, sizeof(struct VgcBehaviour));
+    sVgcMem[sVgcMemCount].personality = personality;
+    return &sVgcMem[sVgcMemCount++];
+}
+
+static bool32 VgcAnyAiBattlerCanKo(enum BattlerId playerBattler)
+{
+    enum BattlerId b;
+    for (b = 0; b < gBattlersCount; b++)
+    {
+        if (IsOnPlayerSide(b) || !IsBattlerAlive(b))
+            continue;
+        if (CanAIFaintTarget(b, playerBattler, 1))
+            return TRUE;
+    }
+    return FALSE;
+}
+
+static bool32 VgcPlayerCanKoAnyAi(enum BattlerId playerBattler)
+{
+    enum BattlerId b;
+    for (b = 0; b < gBattlersCount; b++)
+    {
+        if (IsOnPlayerSide(b) || !IsBattlerAlive(b))
+            continue;
+        if (CanTargetFaintAi(playerBattler, b))
+            return TRUE;
+    }
+    return FALSE;
+}
+
+// A inizio turno, dopo che i danni stimati sono pronti: fotografa la situazione del giocatore.
+void AI_VgcTurnStart(void)
+{
+    enum BattlerId b;
+
+    if (!IsDoubleBattle() || !(gBattleTypeFlags & BATTLE_TYPE_TRAINER))
+        return;
+    sVgcProtectedLastTurn = sVgcProtectedThisTurn;
+    sVgcProtectedThisTurn = 0;
+    sVgcThreatened = sVgcLosing = 0;
+    sVgcReadRoll = Random() % 100;
+    for (b = 0; b < gBattlersCount; b++)
+    {
+        struct VgcBehaviour *mem;
+        bool32 threatened, losing;
+
+        if (!IsOnPlayerSide(b) || !IsBattlerAlive(b))
+            continue;
+        threatened = VgcAnyAiBattlerCanKo(b);
+        losing = threatened && !VgcPlayerCanKoAnyAi(b) && CountUsablePartyMons(b) > 0;
+        if (threatened)
+            sVgcThreatened |= 1u << b;
+        if (losing)
+            sVgcLosing |= 1u << b;
+        mem = VgcFindOrAddBehaviour(b);
+        if (mem == NULL)
+            continue;
+        if (threatened && mem->threatenedTurns < 255)
+            mem->threatenedTurns++;
+        if (losing && mem->losingTurns < 255)
+            mem->losingTurns++;
+    }
+}
+
+// Il giocatore ha usato una mossa (chiamata quando l'azione viene eseguita, non quando la sceglie).
+void AI_VgcNotePlayerMove(enum BattlerId battler, enum Move move)
+{
+    struct VgcBehaviour *mem;
+
+    if (!IsOnPlayerSide(battler) || !IsDoubleBattle() || !(gBattleTypeFlags & BATTLE_TYPE_TRAINER))
+        return;
+    if (GetMoveEffect(move) != EFFECT_PROTECT)
+        return;
+    sVgcProtectedThisTurn |= 1u << battler;
+    mem = VgcFindOrAddBehaviour(battler);
+    if (mem != NULL && (sVgcThreatened & (1u << battler)) && mem->protectsWhenThreatened < 255)
+        mem->protectsWhenThreatened++;
+}
+
+// Il giocatore ha cambiato Pokémon.
+void AI_VgcNotePlayerSwitch(enum BattlerId battler)
+{
+    struct VgcBehaviour *mem;
+
+    if (!IsOnPlayerSide(battler) || !IsDoubleBattle() || !(gBattleTypeFlags & BATTLE_TYPE_TRAINER))
+        return;
+    mem = VgcFindOrAddBehaviour(battler);
+    if (mem != NULL && (sVgcLosing & (1u << battler)) && mem->switchesWhenLosing < 255)
+        mem->switchesWhenLosing++;
+}
+
+// Probabilità stimata (0..100) che questo avversario usi Protect in questo turno.
+static u32 VgcProtectChance(enum BattlerId foe)
+{
+    struct VgcBehaviour *mem;
+    s32 p;
+
+    if (!IsBattlerAlive(foe) || !HasMoveWithEffect(foe, EFFECT_PROTECT)) // solo se l'abbiamo visto
+        return 0;
+    p = 20;
+    if (sVgcThreatened & (1u << foe))
+        p += 30;
+    if (sVgcProtectedLastTurn & (1u << foe))
+        p -= 35; // due di fila falliscono spesso: i giocatori lo sanno
+    if (IsBattlersFirstTurn(foe) && FoeThreatensFakeOut(foe) && HasMoveWithEffect(foe, EFFECT_TRICK_ROOM))
+        p += 10; // setter che aspetta che passi il nostro Fake Out
+    mem = VgcFindOrAddBehaviour(foe);
+    if (mem != NULL && mem->threatenedTurns >= 2)
+        p = (p + (s32)(100 * mem->protectsWhenThreatened / mem->threatenedTurns)) / 2;
+    if (p < 0) p = 0;
+    if (p > 95) p = 95;
+    return p;
+}
+
+// Probabilità stimata (0..100) che questo avversario cambi Pokémon in questo turno.
+static u32 VgcSwitchChance(enum BattlerId foe)
+{
+    struct VgcBehaviour *mem;
+    s32 p;
+
+    if (!IsBattlerAlive(foe) || CountUsablePartyMons(foe) == 0)
+        return 0;
+    p = 8;
+    if (sVgcLosing & (1u << foe))
+        p += 30;
+    if (gBattleMons[foe].volatiles.escapePrevention || gBattleMons[foe].volatiles.wrapped)
+        return 0;
+    mem = VgcFindOrAddBehaviour(foe);
+    if (mem != NULL && mem->losingTurns >= 2)
+        p = (p + (s32)(100 * mem->switchesWhenLosing / mem->losingTurns)) / 2;
+    if (p < 0) p = 0;
+    if (p > 90) p = 90;
+    return p;
+}
+
+// La lettura si applica solo se "ci crediamo" questo turno: evita che il giocatore impari
+// a sfruttare un'IA che reagisce sempre allo stesso modo.
+static bool32 VgcTrustRead(u32 chance)
+{
+    return chance >= 50 && sVgcReadRoll < 70;
+}
+
+// Vantaggio numerico: >0 l'IA ha più Pokémon utilizzabili del giocatore.
+static s32 VgcMaterialEdge(enum BattlerId battlerAtk)
+{
+    enum BattlerId b;
+    s32 ai = 0, player = 0;
+
+    for (b = 0; b < gBattlersCount; b++)
+    {
+        if (!IsBattlerAlive(b))
+            continue;
+        if (IsOnPlayerSide(b))
+            player++;
+        else
+            ai++;
+    }
+    ai += CountUsablePartyMons(battlerAtk);
+    player += CountUsablePartyMons(GetBattlerLeftFoe(battlerAtk));
+    return ai - player;
+}
+
+// ---------------------------------------------------------------------
 // Valutazione principale
 // ---------------------------------------------------------------------
 s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Move move, s32 score)
@@ -296,9 +504,23 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
     bool32 threatened = threatL || threatR;
     bool32 safeTurn = !threatened || PartnerIsRedirecting(battlerAtk);
     u32 hp = gBattleMons[battlerAtk].hp, maxHp = gBattleMons[battlerAtk].maxHP;
+    u32 protectP = 0, switchP = 0;
+    bool32 defProtectLikely = FALSE, defSwitchLikely = FALSE, anyFoeProtectLikely = FALSE;
+    s32 edge;
 
     if (!IsDoubleBattle())
         return score;
+
+    // Letture sul giocatore (solo info lecita + comportamento osservato).
+    if (!targetingPartner && IsBattlerAlive(battlerDef))
+    {
+        protectP = VgcProtectChance(battlerDef);
+        switchP = VgcSwitchChance(battlerDef);
+        defProtectLikely = VgcTrustRead(protectP);
+        defSwitchLikely = VgcTrustRead(switchP);
+    }
+    anyFoeProtectLikely = (foeLAlive && VgcTrustRead(VgcProtectChance(foeL))) || (foeRAlive && VgcTrustRead(VgcProtectChance(foeR)));
+    edge = VgcMaterialEdge(battlerAtk);
 
     // ---------------- 1. Apertura ----------------
     if (effect == EFFECT_FIRST_TURN_ONLY && firstTurn && !targetingPartner && IsFlinchGuaranteed(battlerAtk, battlerDef, move))
@@ -315,7 +537,15 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
         // Bersaglio con Focus Sash / Disguise: Fake Out lo rompe senza sprecare un colpo vero.
         if (gAiLogicData->holdEffects[battlerDef] == HOLD_EFFECT_FOCUS_SASH || gAiLogicData->abilities[battlerDef] == ABILITY_DISGUISE)
             ADJUST_SCORE(1);
+        // Se probabilmente si protegge, il Fake Out va sull'altro.
+        if (defProtectLikely)
+            ADJUST_SCORE(-3);
     }
+
+    // Turno "regalato": se un avversario quasi certamente si protegge o cambia, setup e controllo
+    // velocità valgono di più (si usa il turno in cui loro non attaccano).
+    if (isStatus && !targetingPartner && IsVgcSetupMove(move) && (anyFoeProtectLikely || defSwitchLikely))
+        ADJUST_SCORE(2);
 
     if (effect == EFFECT_TRICK_ROOM && !targetingPartner)
     {
@@ -524,7 +754,40 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
         // Sotto Trick Room avversario con il nostro Pokémon veloce: conviene attaccare subito ciò che si può.
         if (FoeTrickRoomActive(battlerAtk) && CanIndexMoveFaintTarget(battlerAtk, battlerDef, moveIndex, AI_ATTACKING))
             ADJUST_SCORE(1);
+
+        // Lettura Protect: colpire chi probabilmente si protegge è un turno perso; le mosse ad area
+        // perdono meno (colpiscono comunque l'altro).
+        if (defProtectLikely)
+            ADJUST_SCORE(IsSpreadMove(AI_GetBattlerMoveTargetType(battlerAtk, move)) ? -1 : -3);
+        // Ha protetto il turno scorso ed è di nuovo sotto KO: difficilmente lo rifà, si insiste.
+        else if ((sVgcProtectedLastTurn & (1u << battlerDef)) && (sVgcThreatened & (1u << battlerDef)))
+            ADJUST_SCORE(1);
+        // Lettura cambio: il colpo "da KO" finisce sul sostituto; meglio l'altro bersaglio o una mossa
+        // che punisce l'entrata (Knock Off, mosse ad area, stato).
+        if (defSwitchLikely)
+        {
+            if (CanIndexMoveFaintTarget(battlerAtk, battlerDef, moveIndex, AI_ATTACKING))
+                ADJUST_SCORE(-2);
+            if (move == MOVE_KNOCK_OFF || IsSpreadMove(AI_GetBattlerMoveTargetType(battlerAtk, move)))
+                ADJUST_SCORE(1);
+        }
+
+        // Vantaggio numerico netto: si gioca pulito (KO sicuri, niente mosse imprecise);
+        // in svantaggio si cercano i colpi che ribaltano.
+        if (edge >= 2 && gAiLogicData->moveAccuracy[battlerAtk][battlerDef][moveIndex] < 85)
+            ADJUST_SCORE(-1);
+        if (edge <= -2 && CanIndexMoveFaintTarget(battlerAtk, battlerDef, moveIndex, AI_ATTACKING))
+            ADJUST_SCORE(1);
     }
+
+    // Stato / Spore / Encore su chi probabilmente cambia: lo prende il sostituto, non lui.
+    if (isStatus && !targetingPartner && defSwitchLikely && AI_GetBattlerMoveTargetType(battlerAtk, move) == TARGET_SELECTED
+     && (effect == EFFECT_ENCORE || effect == EFFECT_DISABLE || effect == EFFECT_TAUNT))
+        ADJUST_SCORE(-3);
+
+    // In vantaggio netto: Protect sotto minaccia vale un filo di più (si conserva il vantaggio).
+    if (effect == EFFECT_PROTECT && !targetingPartner && edge >= 2 && threatened)
+        ADJUST_SCORE(1);
 
     // ---------------- 5. Supporto ----------------
     if (effect == EFFECT_FOLLOW_ME && hasPartner)

@@ -28,6 +28,7 @@
 #include "string_util.h"
 #include "script_pokemon_util.h"
 #include "battle_ai_main.h"
+#include "battle_ai_vgc.h"
 #include "task.h"
 #include "text.h"
 #include "text_window.h"
@@ -905,6 +906,7 @@ void CB2_TeamPreview(void)
     {
         memset(&sSeries, 0, sizeof(sSeries));
         sSeriesMemoryCount = 0;
+        AI_VgcResetMemory(); // anche la memoria di comportamento (Protect / cambi) riparte da zero
         sSeries.trainerId = TRAINER_BATTLE_PARAM.opponentA;
         ScalePartiesToBattleLevel(); // l'AI deve scegliere con le statistiche a Lv50
     }

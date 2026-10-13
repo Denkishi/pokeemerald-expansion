@@ -34,6 +34,7 @@
 #include "battle_message.h"
 #include "battle_ai_record.h"
 #include "battle_ai_util.h"
+#include "battle_ai_vgc.h"
 #include "event_data.h"
 #include "link.h"
 #include "malloc.h"
@@ -486,6 +487,7 @@ void HandleAction_UseMove(void)
     }
 
     gCurrMovePos = gChosenMovePos = gBattleStruct->chosenMovePositions[gBattlerAttacker];
+    AI_VgcNotePlayerMove(gBattlerAttacker, gBattleMons[gBattlerAttacker].moves[gCurrMovePos]); // IA VGC: memoria comportamento
 
     // choose move
     if (gProtectStructs[gBattlerAttacker].noValidMoves)
@@ -598,6 +600,7 @@ void HandleAction_UseMove(void)
 void HandleAction_Switch(void)
 {
     gBattlerAttacker = gBattlerByTurnOrder[gCurrentTurnActionNumber];
+    AI_VgcNotePlayerSwitch(gBattlerAttacker); // IA VGC: memoria comportamento
 
     enum BattlerId partnerAtk = GetPartnerBattler(gBattlerAttacker);
     // if switching to a mon that is already on field, cancel switch

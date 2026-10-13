@@ -18,4 +18,11 @@ bool32 AI_VgcTeamBenefitsFromTailwind(enum BattlerId battler, u32 minCount);
 // ha ancora più di un turno: in questi turni non si spreca tempo.
 bool32 AI_VgcOwnSpeedControlActive(enum BattlerId battler);
 
+// Lettura del giocatore senza imbrogli: memoria di comportamento (Protect sotto KO, cambi quando
+// perde il matchup), per Pokémon, mantenuta tra le gare del Bo3.
+void AI_VgcResetMemory(void);                                   // nuova serie / nuovo avversario
+void AI_VgcTurnStart(void);                                     // dopo SetAiLogicDataForTurn
+void AI_VgcNotePlayerMove(enum BattlerId battler, enum Move move); // quando il giocatore esegue una mossa
+void AI_VgcNotePlayerSwitch(enum BattlerId battler);            // quando il giocatore cambia
+
 #endif // GUARD_BATTLE_AI_VGC_H
