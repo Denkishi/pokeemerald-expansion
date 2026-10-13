@@ -17073,10 +17073,10 @@ Bold Nature
 
 === TRAINER_PATATINA ===
 Name: PATATINA
-Class: Picnicker
-Pic: Picnicker
-Gender: Female
-Music: Female
+Class: Scientist Frlg
+Pic: Scientist Frlg
+Gender: Male
+Music: Male
 Double Battle: Yes
 AI: Basic Trainer / Smart Switching / Smart Mon Choices / Pp Stall Prevention / Randomize Switchin / Know Opponent Party / Assume Stab / Assume Status Moves / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
 
@@ -17439,8 +17439,8 @@ Adamant Nature
 
 === TRAINER_CARLETTO ===
 Name: CARLETTO
-Class: Sailor
-Pic: Sailor
+Class: Hiker
+Pic: Hiker
 Gender: Male
 Music: Male
 Double Battle: Yes
