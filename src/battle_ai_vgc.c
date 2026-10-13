@@ -748,7 +748,7 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
     edge = VgcMaterialEdge(battlerAtk);
 
     // Mosse a priorità bloccate da Campo Psichico su bersaglio a terra.
-    if (!targetingPartner && IsBattlerAlive(battlerDef) && (gFieldStatuses & STATUS_FIELD_PSYCHIC_TERRAIN) && AI_IsBattlerGrounded(battlerDef))
+    if (!targetingPartner && IsBattlerAlive(battlerDef) && (gFieldTimers.terrain == B_TERRAIN_PSYCHIC) && AI_IsBattlerGrounded(battlerDef))
     {
         s32 prio = GetMovePriority(move);
         if (gAiLogicData->abilities[battlerAtk] == ABILITY_PRANKSTER && isStatus)
