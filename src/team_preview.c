@@ -102,6 +102,15 @@ struct SeriesState
     u16 trainerId;
     u32 battleTypeFlags;
     MainCallback savedCallback;
+    // Storia delle gare della serie: cosa ha portato l'AI e com'è andata, per non ripetere
+    // un piano che ha perso (e insistere su uno che ha vinto).
+    struct
+    {
+        u8 valid;
+        u8 aiWon;
+        u8 enemyLead[2];    // slot originali (nel party completo) dei due lead dell'AI
+        u8 enemyMask;       // bitmask degli slot originali portati
+    } history[3];
 };
 
 // Ciò che l'AI ricorda di un nostro Pokémon dalle gare precedenti (riconosciuto dalla personalità).
@@ -113,6 +122,7 @@ struct SeriesMonMemory
     u16 item;                   // ITEM_NONE = non visto
     u8 timesBrought;
     u8 timesLead;
+    u8 kos;                     // quanti Pokémon dell'AI ha mandato KO
 };
 
 static EWRAM_DATA struct SeriesState sSeries = {0};
@@ -687,7 +697,7 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
             // Chi abbiamo portato (e messo in lead) nelle gare precedenti pesa di più.
             const struct SeriesMonMemory *mem = SeriesFindMemory(GetMonData(&player[playerSlots[j]], MON_DATA_PERSONALITY));
             if (mem != NULL)
-                weight[j] += 40 * min(mem->timesBrought, 2) + 30 * min(mem->timesLead, 2);
+                weight[j] += 40 * min(mem->timesBrought, 2) + 30 * min(mem->timesLead, 2) + 45 * min(mem->kos, 2);
             else if (j < 2 && sSeriesMemoryCount == 0) // i giocatori spesso tengono i lead in cima
                 weight[j] += 25;
         }
@@ -730,6 +740,19 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
             if (weak >= 3)
                 score -= 40 * (weak - 2);
         }
+        // Gare precedenti della serie: lo stesso gruppo di 4 che ha perso vale meno, quello che ha vinto un po' di più.
+        if (SeriesIsBestOfThree())
+        {
+            u32 g, origMask = 0;
+            for (i = 0; i < nEnemy; i++)
+                if (mask & (1u << i))
+                    origMask |= 1u << enemySlots[i];
+            for (g = 0; g < 3; g++)
+            {
+                if (sSeries.history[g].valid && sSeries.history[g].enemyMask == origMask)
+                    score += sSeries.history[g].aiWon ? 30 : -70;
+            }
+        }
         if (score > bestScore)
         {
             bestScore = score;
@@ -771,6 +794,24 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                     s += PairSynergy(&enemy[enemySlots[ea]], &enemy[enemySlots[eb]]);
                 }
                 s += Random() % 16; // un po' di varietà: lead meno leggibile
+                // Gare precedenti: non si rifà il lead che ha perso; quello che ha vinto si ripropone.
+                if (SeriesIsBestOfThree())
+                {
+                    u32 g, la = enemySlots[ea], lb = (leadCount == 2) ? enemySlots[eb] : 0xFF;
+                    for (g = 0; g < 3; g++)
+                    {
+                        const u8 *h = sSeries.history[g].enemyLead;
+                        bool32 same;
+                        if (!sSeries.history[g].valid)
+                            continue;
+                        if (leadCount == 2)
+                            same = (h[0] == la && h[1] == lb) || (h[0] == lb && h[1] == la);
+                        else
+                            same = (h[0] == la);
+                        if (same)
+                            s += sSeries.history[g].aiWon ? 40 : -150;
+                    }
+                }
                 if (s > bestLead)
                 {
                     bestLead = s;
@@ -1620,6 +1661,18 @@ static void ApplyPartySelections(void)
             for (k = 0; k < sTP.enemyPicks; k++)
                 sEnemyPreviewBattleSlot[sTP.enemyOrder[k]] = k;
             sEnemyPreviewValid = TRUE;
+            // Serie: si annota il piano di questa gara (lead e gruppo portato).
+            if (SeriesIsBestOfThree() && sSeries.game >= 1 && sSeries.game <= 3)
+            {
+                u32 g = sSeries.game - 1;
+                sSeries.history[g].valid = TRUE;
+                sSeries.history[g].aiWon = FALSE;
+                sSeries.history[g].enemyLead[0] = sTP.enemyOrder[0];
+                sSeries.history[g].enemyLead[1] = (sTP.enemyPicks >= 2) ? sTP.enemyOrder[1] : 0xFF;
+                sSeries.history[g].enemyMask = 0;
+                for (k = 0; k < sTP.enemyPicks; k++)
+                    sSeries.history[g].enemyMask |= 1u << sTP.enemyOrder[k];
+            }
             for (k = 0; k < PARTY_SIZE; k++)
             {
                 if (k < sTP.enemyPicks)
@@ -1720,6 +1773,23 @@ void TeamPreview_SeriesInjectAiKnowledge(void)
     }
 }
 
+// Un Pokémon è andato KO: se era dell'AI e l'ha mandato KO un Pokémon del giocatore, se lo segna.
+void TeamPreview_SeriesNoteFaint(enum BattlerId fainted)
+{
+    struct SeriesMonMemory *mem;
+    enum BattlerId attacker = gBattlerAttacker;
+
+    if (!SeriesIsBestOfThree() || !(gBattleTypeFlags & BATTLE_TYPE_TRAINER))
+        return;
+    if (IsOnPlayerSide(fainted) || attacker >= gBattlersCount || !IsOnPlayerSide(attacker))
+        return;
+    if (gBattleMons[attacker].hp == 0)
+        return;
+    mem = SeriesFindOrAddMemory(GetMonData(GetBattlerMon(attacker), MON_DATA_PERSONALITY));
+    if (mem != NULL && mem->kos < 255)
+        mem->kos++;
+}
+
 // A fine lotta. TRUE = la serie non è decisa: squadre rimesse a posto e nuova team preview.
 bool32 TeamPreview_SeriesHandleBattleEnd(void)
 {
@@ -1734,6 +1804,8 @@ bool32 TeamPreview_SeriesHandleBattleEnd(void)
         sSeries.playerWins++;
     else
         sSeries.enemyWins++;
+    if (sSeries.game >= 1 && sSeries.game <= 3)
+        sSeries.history[sSeries.game - 1].aiWon = (gBattleOutcome != B_OUTCOME_WON);
 
     if (sSeries.playerWins >= 2 || sSeries.enemyWins >= 2 || sSeries.game >= 3)
     {

@@ -4,6 +4,7 @@
 #include "battle_ai_main.h"
 #include "battle_ai_switch.h"
 #include "battle_ai_util.h"
+#include "battle_ai_vgc.h"
 #include "battle_util.h"
 #include "battle_anim.h"
 #include "battle_controllers.h"
@@ -1294,6 +1295,71 @@ bool32 ShouldSwitchIfLoses1v1(struct SwitchAiContext *switchContext)
     return FALSE;
 }
 
+// --- Cambi in doppio stile VGC (AI_FLAG_VGC_DOUBLES) --------------------------------------
+// In doppio un cambio costa un turno di tempo: si fa solo quando il Pokémon in campo è un peso
+// morto, e mai mentre il nostro controllo di velocità sta scorrendo.
+enum VgcSwitchResult
+{
+    VGC_SWITCH_UNDECIDED,
+    VGC_SWITCH_STAY,
+    VGC_SWITCH_GO,
+};
+
+static bool32 VgcCanHurtFoe(enum BattlerId battler, enum BattlerId foe)
+{
+    u32 hits;
+
+    if (!IsBattlerAlive(foe))
+        return FALSE;
+    hits = GetBestNoOfHitsToKO(battler, foe, AI_ATTACKING);
+    return hits != 0 && hits <= 4;
+}
+
+static enum VgcSwitchResult VgcShouldSwitch(struct SwitchAiContext *switchContext)
+{
+    enum BattlerId battler = switchContext->battler;
+    enum BattlerId foeL = GetBattlerLeftFoe(battler), foeR = GetBattlerRightFoe(battler);
+    bool32 foeLAlive = IsBattlerAlive(foeL), foeRAlive = IsBattlerAlive(foeR);
+    bool32 threatL = foeLAlive && CanTargetFaintAi(foeL, battler);
+    bool32 threatR = foeRAlive && CanTargetFaintAi(foeR, battler);
+    bool32 slowerL = foeLAlive && AI_IsSlower(battler, foeL, MOVE_NONE, MOVE_NONE, DONT_CONSIDER_PRIORITY);
+    bool32 slowerR = foeRAlive && AI_IsSlower(battler, foeR, MOVE_NONE, MOVE_NONE, DONT_CONSIDER_PRIORITY);
+    bool32 canHurt = VgcCanHurtFoe(battler, foeL) || VgcCanHurtFoe(battler, foeR);
+    bool32 canKo = (foeLAlive && CanAIFaintTarget(battler, foeL, 1)) || (foeRAlive && CanAIFaintTarget(battler, foeR, 1));
+    u32 hpPct = gBattleMons[battler].hp * 100 / max(gBattleMons[battler].maxHP, 1);
+
+    if (!(gAiThinkingStruct->aiFlags[battler] & AI_FLAG_VGC_DOUBLES) || !IsDoubleBattle())
+        return VGC_SWITCH_UNDECIDED;
+
+    // Nessun sostituto sensato: si resta.
+    if (gAiLogicData->mostSuitableMonId[battler] == PARTY_SIZE)
+        return VGC_SWITCH_STAY;
+
+    // I turni del nostro Tailwind / Trick Room non si sprecano a cambiare, a meno che restare sia morire.
+    if (AI_VgcOwnSpeedControlActive(battler) && !((threatL && slowerL) || (threatR && slowerR)))
+        return VGC_SWITCH_STAY;
+
+    // Un setup / supporto importante in mano vale più del cambio.
+    if (switchContext->hasImportantStatusMove && !((threatL && slowerL) && (threatR && slowerR)))
+        return VGC_SWITCH_STAY;
+
+    // Peso morto: non fa male a nessuno dei due e non ha nulla da fare.
+    if (!canHurt && !switchContext->hasImportantStatusMove && !HasMoveWithEffect(battler, EFFECT_FOLLOW_ME)
+     && !HasMoveWithEffect(battler, EFFECT_HELPING_HAND) && Random() % 100 < 75)
+        return SetSwitchinAndSwitch(battler, PARTY_SIZE) ? VGC_SWITCH_GO : VGC_SWITCH_STAY;
+
+    // Va KO prima di muoversi da entrambi, senza poter rispondere con un KO: si salva il Pokémon.
+    if ((threatL && slowerL) && (threatR && slowerR) && !canKo && hpPct >= 50 && Random() % 100 < 60)
+        return SetSwitchinAndSwitch(battler, PARTY_SIZE) ? VGC_SWITCH_GO : VGC_SWITCH_STAY;
+
+    // Va KO dalla minaccia più veloce, non ha KO, e il sostituto resiste: cambio "a risparmio".
+    if (((threatL && slowerL) || (threatR && slowerR)) && !canKo && hpPct >= 70 && !switchContext->hasEffectiveMove
+     && Random() % 100 < 35)
+        return SetSwitchinAndSwitch(battler, PARTY_SIZE) ? VGC_SWITCH_GO : VGC_SWITCH_STAY;
+
+    return VGC_SWITCH_UNDECIDED;
+}
+
 bool32 ShouldSwitchDynFuncExample(struct SwitchAiContext *switchContext)
 {
     // Chance to switch if trainer class is Guitarist, perhaps thematic for Jugglers
@@ -1439,6 +1505,17 @@ bool32 ShouldSwitch(enum BattlerId battler)
     // NOTE: needs to always end with `return SetSwitchinAndSwitch` or `return FALSE`
     if (gDynamicAiSwitchFunc != NULL && gDynamicAiSwitchFunc(&switchContext)) // Create custom AI functions for specific battles via "setdynamicswitchaifunc" cmd
         return TRUE;
+
+    // Doppio stile VGC: decide prima (e può vietare il cambio) la logica dedicata.
+    switch (VgcShouldSwitch(&switchContext))
+    {
+    case VGC_SWITCH_GO:
+        return TRUE;
+    case VGC_SWITCH_STAY:
+        return FALSE;
+    default:
+        break;
+    }
 
     // NOTE: The sequence of the below functions matter! Do not change unless you have carefully considered the outcome.
     // Since the order is sequential, and some of these functions prompt switch to specific party members.

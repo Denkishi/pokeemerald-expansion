@@ -1742,6 +1742,7 @@ EventScript_PalletTown_PlayersHouse_2F_TurnOnPC::
 	.include "data/maps/gamb_int1_2/scripts.inc"
 
 	.include "data/maps/GambEsterno/scripts.inc"
+	.include "data/scripts/vgc_trainers.inc"
 
 	.include "data/maps/gamb_int1/scripts.inc"
 

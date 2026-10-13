@@ -860,13 +860,25 @@
 #define TRAINER_BRENDAN_PLACEHOLDER         853
 #define TRAINER_MAY_PLACEHOLDER             854
 #define TRAINER_ENZO                        855
+// Allenatori VGC (squadre in src/data/trainers.party, script in data/scripts/vgc_trainers.inc)
+#define TRAINER_SIMONE                      856
+#define TRAINER_ELIA                        857
+#define TRAINER_PATATINA                    858
+#define TRAINER_TONY                        859
+#define TRAINER_MARIO_LETT                  860
+#define TRAINER_TATORE                      861
+#define TRAINER_MARIO                       862
+#define TRAINER_GEROZZ                      863
+#define TRAINER_CARLETTO                    864
+#define TRAINER_GIGI_PINTO                  865
 
 // NOTE: Because each Trainer uses a flag to determine when they are defeated, there is only space for 9 additional trainers before trainer flag space overflows
 //       More space can be made by shifting flags around in constants/flags.h or changing how trainer flags are handled
 //       MAX_TRAINERS_COUNT can be increased but will take up additional saveblock space
+// (alzato a 880 per gli allenatori VGC: i flag di sistema si spostano, i salvataggi vecchi non sono compatibili)
 
-#define TRAINERS_COUNT_EMERALD     856
-#define MAX_TRAINERS_COUNT_EMERALD 864
+#define TRAINERS_COUNT_EMERALD     866
+#define MAX_TRAINERS_COUNT_EMERALD 880
 
 #if IS_FRLG
 #define TRAINERS_COUNT                      TRAINERS_COUNT_FRLG

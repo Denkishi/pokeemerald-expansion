@@ -16886,66 +16886,687 @@ Gender: Male
 Music: Intense
 Double Battle: Yes
 Mugshot: Purple
-AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Powerful Status / Prefer Highest Damage Move
+AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
+
+Smeargle @ Focus Sash
+Ability: Moody
+EVs: 252 HP / 4 SpA / 252 Spe
+Timid Nature
+- Gravity
+- Icy Wind
+- Encore
+- Spore
 
 Annihilape @ Choice Scarf
 Ability: Defiant
-Tera Type: Ghost
-EVs: 252 Atk / 4 Def / 252 Spe
+EVs: 4 HP / 252 Atk / 252 Spe
 Jolly Nature
 - Close Combat
-- Shadow Claw
+- Final Gambit
 - Ice Punch
-- U Turn
+- Rage Fist
 
-Smeargle @ Focus Sash
-Ability: Own Tempo
-Tera Type: Grass
-EVs: 252 HP / 4 Def / 252 Spe
+Rillaboom @ Assault Vest
+Ability: Grassy Surge
+EVs: 4 HP / 252 Atk / 252 Spe
 Jolly Nature
-IVs: 0 Spe
-- Spore
-- Follow Me
+- Grassy Glide
+- Wood Hammer
+- High Horsepower
 - Fake Out
+
+Gengar @ Gengarite
+Ability: Cursed Body
+EVs: 4 HP / 252 SpA / 252 Spe
+Timid Nature
+Shiny: Yes
+- Shadow Ball
+- Hypnosis
+- Protect
+- Dream Eater
+
+Aerodactyl @ Aerodactylite
+Ability: Unnerve
+EVs: 4 HP / 252 Atk / 252 Spe
+Jolly Nature
+- Tailwind
+- Rock Slide
+- Protect
+- Dual Wingbeat
+
+Grimmsnarl @ Light Clay
+Ability: Prankster
+EVs: 252 HP / 4 Atk / 252 SpD
+Careful Nature
+- Light Screen
+- Reflect
+- Taunt
+- Spirit Break
+
+=== TRAINER_SIMONE ===
+Name: SIMONE
+Class: Cooltrainer
+Pic: Cooltrainer M
+Gender: Male
+Music: Male
+Double Battle: Yes
+AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
+
+Machamp (M) @ Flame Orb
+Ability: Guts
+EVs: 248 HP / 252 Atk / 8 SpD
+Adamant Nature
+- Close Combat
+- Knock Off
+- Facade
+- Bullet Punch
+
+Kori (Arcanine) (M) @ Assault Vest
+Ability: Intimidate
+EVs: 24 HP / 116 Atk / 92 Def / 92 SpD / 184 Spe
+Adamant Nature
+- Flare Blitz
+- Snarl
+- Extreme Speed
+- Play Rough
+
+Jailbreak (Rotom-Mow) @ Choice Scarf
+Ability: Levitate
+EVs: 4 HP / 252 SpA / 252 Spe
+Timid Nature
+Shiny: Yes
+- Leaf Storm
+- Thunderbolt
+- Volt Switch
+- Discharge
+
+Porygon-Z @ Life Orb
+Ability: Download
+EVs: 252 SpA / 4 SpD / 252 Spe
+Timid Nature
+- Simple Beam
+- Tri Attack
+- Ice Beam
 - Protect
 
-Rillaboom @ Eject Button
-Ability: Grassy Surge
-Tera Type: Grass
+Aggron (M) @ Aggronite
+Ability: Heavy Metal
+EVs: 248 HP / 8 Atk / 252 Def
+Impish Nature
+- Heavy Slam
+- Body Press
+- Rock Slide
+- Protect
+
+Polpamabile (Toedscruel) (M) @ Sitrus Berry
+Ability: Mycelium Might
+EVs: 252 HP / 4 Def / 252 Spe
+Timid Nature
+- Trick Room
+- Spore
+- Earth Power
+- Rage Powder
+
+=== TRAINER_ELIA ===
+Name: ELIA
+Class: Pkmn Breeder
+Pic: Pokemon Breeder M
+Gender: Male
+Music: Male
+Double Battle: Yes
+AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
+
+Mimikyu (F) @ Mental Herb
+Ability: Disguise
+EVs: 252 HP / 4 Atk / 252 SpD
+Sassy Nature
+- Trick Room
+- Protect
+- Play Rough
+- Shadow Sneak
+
+Goodra-Hisui @ Assault Vest
+Ability: Sap Sipper
+EVs: 252 HP / 4 Atk / 252 SpA
+Quiet Nature
+- Draco Meteor
+- Acid Spray
+- Knock Off
+- Dragon Tail
+
+Banette (F) @ Banettite
+Ability: Frisk
+EVs: 252 HP / 4 Atk / 252 SpD
+Sassy Nature
+- Trick Room
+- Protect
+- Sucker Punch
+- Shadow Claw
+
+Elia (Lickitung) (M) @ Eviolite
+Ability: Oblivious
+EVs: 252 HP / 252 Def / 4 SpD
+Bold Nature
+Shiny: Yes
+- Body Press
+- Iron Defense
+- Disable
+- Helping Hand
+
+Xanax (Vaporeon) (F) @ Sitrus Berry
+Ability: Water Absorb
+EVs: 248 HP / 8 SpA / 252 SpD
+Calm Nature
+- Tickle
+- Muddy Water
+- Yawn
+- Helping Hand
+
+Miltank @ Leftovers
+Ability: Thick Fat
+EVs: 252 HP / 252 Def / 4 SpD
+Bold Nature
+- After You
+- Helping Hand
+- Body Press
+- Thunder Wave
+
+=== TRAINER_PATATINA ===
+Name: PATATINA
+Class: Picnicker
+Pic: Picnicker
+Gender: Female
+Music: Female
+Double Battle: Yes
+AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
+
+Ceruledge @ Focus Sash
+Ability: Weak Armor
+EVs: 252 Atk / 4 SpD / 252 Spe
+Jolly Nature
+- Bitter Blade
+- Swords Dance
+- Shadow Sneak
+- Protect
+
+Copperajah (F) @ Leftovers
+Ability: Heavy Metal
+EVs: 252 HP / 4 Atk / 252 Def
+Impish Nature
+- Iron Defense
+- Body Press
+- Protect
+- Heavy Slam
+
+Armarouge @ Life Orb
+Ability: Flash Fire
+EVs: 252 SpA / 4 SpD / 252 Spe
+Timid Nature
+- Armor Cannon
+- Aura Sphere
+- Expanding Force
+- Protect
+
+Indeedee-F @ Mental Herb
+Ability: Psychic Surge
+EVs: 248 HP / 8 SpA / 252 SpD
+Sassy Nature
+- Trick Room
+- Helping Hand
+- Follow Me
+- Psyshock
+
+Altaria @ Altarianite
+Ability: Cloud Nine
+EVs: 252 SpA / 4 SpD / 252 Spe
+Timid Nature
+- Tailwind
+- Protect
+- Hyper Voice
+- Dragon Pulse
+
+Rotom-Wash @ Sitrus Berry
+Ability: Levitate
+EVs: 4 HP / 252 SpA / 252 Spe
+Timid Nature
+- Icy Wind
+- Thunderbolt
+- Hydro Pump
+- Protect
+
+=== TRAINER_TONY ===
+Name: TONY
+Class: Black Belt
+Pic: Black Belt
+Gender: Male
+Music: Male
+Double Battle: Yes
+AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
+
+Roaring Moon @ Roseli Berry
+Ability: Protosynthesis
+EVs: 252 Atk / 4 SpD / 252 Spe
+Jolly Nature
+- Tailwind
+- Protect
+- Rock Slide
+- Crunch
+
+Charizard (F) @ Charizardite Y
+Ability: Solar Power
+EVs: 252 SpA / 4 SpD / 252 Spe
+Timid Nature
+Shiny: Yes
+- Heat Wave
+- Weather Ball
+- Protect
+- Solar Beam
+
+Gyarados @ Gyaradosite
+Ability: Intimidate
+EVs: 252 Atk / 4 SpD / 252 Spe
+Adamant Nature
+- Dragon Dance
+- Waterfall
+- Crunch
+- Protect
+
+Shino (Slither Wing) @ Assault Vest
+Ability: Protosynthesis
+EVs: 252 Atk / 4 SpD / 252 Spe
+Jolly Nature
+- Close Combat
+- Flare Blitz
+- U-turn
+- High Horsepower
+
+Brute Bonnet @ Sitrus Berry
+Ability: Protosynthesis
+EVs: 252 HP / 4 Atk / 252 SpD
+Careful Nature
+- Rage Powder
+- Synthesis
+- Spore
+- Sucker Punch
+
+Sableye @ Mental Herb
+Ability: Prankster
+EVs: 248 HP / 8 Atk / 252 Def
+Relaxed Nature
+- Icy Wind
+- Taunt
+- Fake Out
+- Sunny Day
+
+=== TRAINER_MARIO_LETT ===
+Name: MARIO LETT
+Class: Expert
+Pic: Expert M
+Gender: Male
+Music: Male
+Double Battle: Yes
+AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
+
+Bollitore (Sinistcha) @ Colbur Berry
+Ability: Hospitality
+EVs: 252 HP / 252 Def / 4 SpA
+Relaxed Nature
+- Life Dew
+- Matcha Gotcha
+- Rage Powder
+- Trick Room
+
+Chatot @ Focus Sash
+Ability: Keen Eye
+EVs: 248 HP / 8 SpD / 252 Spe
+Timid Nature
+- Tailwind
+- Encore
+- Taunt
+- Parting Shot
+
+Gionta (Dondozo) @ Assault Vest
+Ability: Oblivious
+EVs: 248 HP / 252 Atk / 8 SpD
+Adamant Nature
+- Order Up
+- Earthquake
+- Heavy Slam
+- Wave Crash
+
+Gionta (Tatsugiri) @ Choice Scarf
+Ability: Commander
+EVs: 4 HP / 252 SpA / 252 Spe
+Timid Nature
+- Draco Meteor
+- Dragon Pulse
+- Icy Wind
+- Muddy Water
+
+Weezing-Galar @ Sitrus Berry
+Ability: Neutralizing Gas
+EVs: 252 HP / 4 SpA / 252 SpD
+Calm Nature
+- Protect
+- Will-O-Wisp
+- Dazzling Gleam
+- Clear Smog
+
+Slaking @ Life Orb
+Ability: Truant
+EVs: 4 HP / 252 Atk / 252 Spe
+Jolly Nature
+- Protect
+- High Horsepower
+- Return
+- Sucker Punch
+
+=== TRAINER_TATORE ===
+Name: TATORE
+Class: Hiker
+Pic: Hiker
+Gender: Male
+Music: Male
+Double Battle: Yes
+AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
+
+Sceptile @ Sceptilite
+Ability: Overgrow
+EVs: 4 HP / 252 SpA / 252 Spe
+Timid Nature
+- Energy Ball
+- Protect
+- Dragon Pulse
+- Quick Guard
+
+Lapras @ Leftovers
+Ability: Shell Armor
+EVs: 248 HP / 252 Def / 8 SpA
+Bold Nature
+- Protect
+- Freeze-Dry
+- Scald
+- Life Dew
+
+Dusclops @ Eviolite
+Ability: Frisk
+EVs: 252 HP / 4 SpA / 252 SpD
+Sassy Nature
+- Icy Wind
+- Will-O-Wisp
+- Trick Room
+- Helping Hand
+
+Kecleon @ Focus Sash
+Ability: Protean
+EVs: 252 HP / 252 Atk / 4 SpD
+Adamant Nature
+Shiny: Yes
+- Fake Out
+- Helping Hand
+- Shadow Sneak
+- Taunt
+
+Armaldo @ Clear Amulet
+Ability: Battle Armor
+EVs: 252 HP / 252 Atk / 4 SpD
+Adamant Nature
+- Protect
+- Rock Slide
+- Swords Dance
+- Sacred Sword
+
+Scream Tail @ Booster Energy
+Ability: Protosynthesis
+EVs: 252 HP / 4 SpA / 252 SpD
+Sassy Nature
+- Trick Room
+- Dazzling Gleam
+- Encore
+- Helping Hand
+
+=== TRAINER_MARIO ===
+Name: MARIO
+Class: Fisherman
+Pic: Fisherman
+Gender: Male
+Music: Male
+Double Battle: Yes
+AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
+
+Hariyama @ Flame Orb
+Ability: Guts
 EVs: 252 HP / 252 Atk / 4 SpD
 Adamant Nature
 - Fake Out
-- Grassy Glide
-- Wood Hammer
-- U Turn
-
-Infernape @ Life Orb
-Ability: Blaze
-Tera Type: Fighting
-EVs: 4 Def / 252 SpA / 252 Spe
-Modest Nature
-- Heat Wave
-- Aura Sphere
-- Overheat
+- Close Combat
 - Protect
+- Heavy Slam
 
-Gengar @ Choice Specs
-Ability: Cursed Body
-Tera Type: Ghost
-EVs: 4 Def / 252 SpA / 252 Spe
-Timid Nature
-IVs: 0 Atk
-- Shadow Ball
-- Sludge Bomb
-- Icy Wind
-- Dazzling Gleam
-
-Golisopod @ Golisopite
-Ability: Emergency Exit
-EVs: 2 HP / 252 Atk / 252 Spe
+Iron Hands @ Booster Energy
+Ability: Quark Drive
+EVs: 248 HP / 252 Atk / 8 SpD
 Adamant Nature
-- Drill Run
-- Iron Head
-- Leech Life
+- Wild Charge
+- Close Combat
+- Detect
+- Play Rough
+
+Meganium
+Ability: Overgrow
+Serious Nature
+
+Politoed
+Ability: Water Absorb
+Serious Nature
+
+Golduck
+Ability: Damp
+Serious Nature
+
+Oranguru @ Sitrus Berry
+Ability: Inner Focus
+EVs: 248 HP / 8 Def / 252 SpD
+Sassy Nature
+- Trick Room
+- Foul Play
+- Helping Hand
+- Instruct
+
+=== TRAINER_GEROZZ ===
+Name: GEROZZ
+Class: Rich Boy
+Pic: Rich Boy
+Gender: Male
+Music: Male
+Double Battle: Yes
+AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
+
+Gholdengo @ Life Orb
+Ability: Good as Gold
+EVs: 4 HP / 252 SpA / 252 Spe
+Timid Nature
+Shiny: Yes
+- Make It Rain
+- Nasty Plot
 - Protect
+- Shadow Ball
+
+Porygon2 @ Eviolite
+Ability: Download
+EVs: 252 HP / 100 Def / 4 SpA / 152 SpD
+Sassy Nature
+- Trick Room
+- Thunderbolt
+- Ice Beam
+- Recover
+
+Great Tusk @ Booster Energy
+Ability: Protosynthesis
+EVs: 252 HP / 252 Atk / 4 SpD
+Adamant Nature
+- Protect
+- Close Combat
+- Headlong Rush
+- Bulk Up
+
+Rotom-Heat @ Sitrus Berry
+Ability: Levitate
+EVs: 4 HP / 252 SpA / 252 Spe
+Timid Nature
+- Overheat
+- Thunderbolt
+- Will-O-Wisp
+- Protect
+
+Trecase (Dugtrio-Alola) @ Focus Sash
+Ability: Sand Force
+EVs: 4 HP / 252 Atk / 252 Spe
+Jolly Nature
+- Protect
+- Earthquake
+- Iron Head
+- Rock Slide
+
+Tyranitar @ Tyranitarite
+Ability: Sand Stream
+EVs: 252 HP / 252 Atk / 4 SpD
+Adamant Nature
+- Protect
+- Ice Punch
+- Crunch
+- Rock Slide
+
+=== TRAINER_CARLETTO ===
+Name: CARLETTO
+Class: Sailor
+Pic: Sailor
+Gender: Male
+Music: Male
+Double Battle: Yes
+AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
+
+Pelipper @ Focus Sash
+Ability: Drizzle
+EVs: 4 HP / 252 SpA / 252 Spe
+Timid Nature
+- Protect
+- Scald
+- Hurricane
+- Wide Guard
+
+Ludicolo @ Assault Vest
+Ability: Swift Swim
+EVs: 4 Atk / 252 SpA / 252 Spe
+Mild Nature
+- Fake Out
+- Energy Ball
+- Scald
+- Ice Beam
+
+IL BOSS (Kingambit) @ Life Orb
+Ability: Defiant
+EVs: 252 HP / 252 Atk / 4 SpD
+Adamant Nature
+Shiny: Yes
+- Sucker Punch
+- Low Kick
+- Protect
+- Iron Head
+
+Snorlax @ Sitrus Berry
+Ability: Gluttony
+EVs: 252 HP / 252 Atk / 4 SpD
+Adamant Nature
+- Recycle
+- Belly Drum
+- Heavy Slam
+- High Horsepower
+
+Amoonguss @ Rocky Helmet
+Ability: Regenerator
+EVs: 248 HP / 168 Def / 92 SpD
+Bold Nature
+- Spore
+- Rage Powder
+- Clear Smog
+- Pollen Puff
+
+Malamar @ Malamarite
+Ability: Contrary
+EVs: 248 HP / 252 Atk / 8 SpD
+Brave Nature
+- Baton Pass
+- Knock Off
+- Superpower
+- Trick Room
+
+=== TRAINER_GIGI_PINTO ===
+Name: GIGI PINTO
+Class: Gentleman
+Pic: Gentleman
+Gender: Male
+Music: Male
+Double Battle: Yes
+AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
+
+Venusaur (F) @ Sitrus Berry
+Ability: Chlorophyll
+EVs: 4 HP / 252 SpA / 252 Spe
+Modest Nature
+Shiny: Yes
+- Protect
+- Weather Ball
+- Giga Drain
+- Sleep Powder
+
+Torkoal (F) @ Charcoal
+Ability: Drought
+EVs: 248 HP / 252 SpA / 8 SpD
+Modest Nature
+Shiny: Yes
+- Protect
+- Earth Power
+- Eruption
+- Heat Wave
+
+Lilligant @ Focus Sash
+Ability: Chlorophyll
+EVs: 248 HP / 8 SpA / 252 Spe
+Timid Nature
+Shiny: Yes
+- After You
+- Encore
+- Energy Ball
+- Helping Hand
+
+Tremiti (Garganacl) (F) @ Leftovers
+Ability: Clear Body
+EVs: 252 HP / 4 Atk / 252 Def
+Impish Nature
+Shiny: Yes
+- Salt Cure
+- Heavy Slam
+- Body Press
+- Protect
+
+Hatterene @ Life Orb
+Ability: Magic Bounce
+EVs: 252 HP / 108 Def / 4 SpA / 144 SpD
+Sassy Nature
+Shiny: Yes
+- Trick Room
+- Protect
+- Dazzling Gleam
+- Psyshock
+
+Cannone (Blastoise) @ Blastoisinite
+Ability: Rain Dish
+EVs: 252 HP / 252 SpA / 4 SpD
+Modest Nature
+IVs: 0 Atk
+- Protect
+- Dark Pulse
+- Dragon Pulse
+- Water Spout
 

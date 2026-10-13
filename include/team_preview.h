@@ -30,5 +30,7 @@ void TeamPreview_SeriesInjectAiKnowledge(void);
 
 // special per gli script: VAR_0x8004 = 1 (Bo1) o 3 (Bo3), prima di trainerbattle.
 void TeamPreview_SetFormatFromScript(void);
+// Chiamata quando un Pokémon va KO in lotta: in Bo3 l'AI segna chi del giocatore ha fatto il KO.
+void TeamPreview_SeriesNoteFaint(enum BattlerId fainted);
 
 #endif // GUARD_TEAM_PREVIEW_H

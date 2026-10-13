@@ -2,6 +2,7 @@
 #include "battle.h"
 #include "battle_anim.h"
 #include "battle_ai_main.h"
+#include "team_preview.h"
 #include "battle_ai_record.h"
 #include "battle_arena.h"
 #include "battle_controllers.h"
@@ -3246,6 +3247,7 @@ void FaintClearSetData(enum BattlerId battler)
     }
 
     Ai_UpdateFaintData(battler);
+    TeamPreview_SeriesNoteFaint(battler); // Bo3: l'AI ricorda chi le ha mandato KO un Pokémon
     TryBattleFormChange(battler, FORM_CHANGE_FAINT, GetBattlerAbility(battler));
 }
 

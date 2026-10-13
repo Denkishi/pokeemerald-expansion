@@ -9,6 +9,7 @@
 #include "battle_ai_switch.h"
 #include "battle_ai_main.h"
 #include "battle_ai_record.h"
+#include "battle_ai_vgc.h"
 #include "battle_stat_change.h"
 #include "battle_controllers.h"
 #include "battle_factory.h"
@@ -121,7 +122,7 @@ static s32 (*const sBattleAiFuncTable[])(enum BattlerId, enum BattlerId, enum Mo
     [34] = NULL,                     // AI_FLAG_ABILITY_OMNISCIENCE
     [35] = NULL,                     // AI_FLAG_ITEM_OMNISCIENCE
     [36] = NULL,                     // AI_FLAG_MOVE_OMNISCIENCE
-    [37] = NULL,                     // Unused
+    [37] = AI_VgcDoubles,            // AI_FLAG_VGC_DOUBLES
     [38] = NULL,                     // Unused
     [39] = NULL,                     // Unused
     [40] = NULL,                     // Unused
