@@ -25,6 +25,7 @@
 #include "battle_ai_util.h"
 #include "battle_ai_vgc.h"
 #include "battle_main.h"
+#include "battle_setup.h"
 #include "battle_util.h"
 #include "move.h"
 #include "pokemon.h"
@@ -34,6 +35,224 @@
 #include "constants/battle_move_effects.h"
 #include "constants/hold_effects.h"
 #include "constants/moves.h"
+#include "constants/opponents.h"
+#include "data/vgc_gameplans.h"
+
+// ---------------------------------------------------------------------
+// Piano di squadra (src/data/vgc_gameplans.h)
+// ---------------------------------------------------------------------
+const struct VgcGameplan *AI_VgcGetPlan(u16 trainerId)
+{
+    u32 i;
+    for (i = 0; i < ARRAY_COUNT(sVgcGameplans); i++)
+    {
+        if (sVgcGameplans[i].trainerId == trainerId)
+            return &sVgcGameplans[i];
+    }
+    return NULL;
+}
+
+static bool32 PlanListHas(const u16 *list, u32 n, u16 species)
+{
+    u32 i;
+    species = GET_BASE_SPECIES_ID(species);
+    for (i = 0; i < n; i++)
+    {
+        if (list[i] != SPECIES_NONE && list[i] == species)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+bool32 AI_VgcPlanIsWinCon(u16 trainerId, u16 species)
+{
+    const struct VgcGameplan *plan = AI_VgcGetPlan(trainerId);
+    return plan != NULL && PlanListHas(plan->winCons, 2, species);
+}
+
+bool32 AI_VgcPlanIsSetter(u16 trainerId, u16 species)
+{
+    const struct VgcGameplan *plan = AI_VgcGetPlan(trainerId);
+    return plan != NULL && PlanListHas(plan->setters, 2, species);
+}
+
+bool32 AI_VgcPlanIsBack(u16 trainerId, u16 species)
+{
+    const struct VgcGameplan *plan = AI_VgcGetPlan(trainerId);
+    return plan != NULL && PlanListHas(plan->back, 2, species);
+}
+
+// Una modalità "conviene" contro la squadra attuale del giocatore?
+static bool32 PlanModeViable(u8 mode, bool32 trViable, bool32 twViable)
+{
+    switch (mode)
+    {
+    case VGC_PLAN_TRICK_ROOM: return trViable;
+    case VGC_PLAN_TAILWIND:   return twViable;
+    default:                  return TRUE;
+    }
+}
+
+// Bonus (team preview) per la coppia di lead a+b secondo il piano. trViable / twViable: se Trick
+// Room / Tailwind convengono contro la squadra del giocatore (calcolato dal chiamante).
+s32 AI_VgcPlanLeadBonus(u16 trainerId, u16 a, u16 b, bool32 trViable, bool32 twViable)
+{
+    const struct VgcGameplan *plan = AI_VgcGetPlan(trainerId);
+    u32 i;
+    s32 bonus = 0;
+
+    if (plan == NULL)
+        return 0;
+    a = GET_BASE_SPECIES_ID(a);
+    b = GET_BASE_SPECIES_ID(b);
+    for (i = 0; i < VGC_PLAN_LEADS; i++)
+    {
+        const struct VgcLeadPair *p = &plan->leads[i];
+        if (p->a == SPECIES_NONE)
+            continue;
+        if ((p->a == a && p->b == b) || (p->a == b && p->b == a))
+        {
+            bonus = 120 - 30 * (s32)i;
+            if (!PlanModeViable(p->mode, trViable, twViable))
+                bonus /= 2;
+            break;
+        }
+    }
+    // Chi di norma sta dietro non va in lead.
+    if (PlanListHas(plan->back, 2, a))
+        bonus -= 40;
+    if (PlanListHas(plan->back, 2, b))
+        bonus -= 40;
+    return bonus;
+}
+
+// Bonus (team preview) a portare questa specie tra i 4.
+s32 AI_VgcPlanBringBonus(u16 trainerId, u16 species, bool32 trViable, bool32 twViable)
+{
+    const struct VgcGameplan *plan = AI_VgcGetPlan(trainerId);
+    s32 bonus = 0;
+
+    if (plan == NULL)
+        return 0;
+    if (PlanListHas(plan->winCons, 2, species))
+        bonus += 50;
+    if (PlanListHas(plan->setters, 2, species))
+        bonus += PlanModeViable(plan->modeA, trViable, twViable) ? 35 : 15;
+    return bonus;
+}
+
+// Quanto il piano vuole questa mossa (controllo velocità / meteo) adesso.
+static s32 PlanMoveBonus(const struct VgcGameplan *plan, enum BattlerId battlerAtk, enum Move move)
+{
+    enum BattleMoveEffects effect = GetMoveEffect(move);
+    u8 want = VGC_PLAN_BALANCE;
+
+    if (plan == NULL)
+        return 0;
+    switch (effect)
+    {
+    case EFFECT_TRICK_ROOM: want = VGC_PLAN_TRICK_ROOM; break;
+    case EFFECT_TAILWIND:   want = VGC_PLAN_TAILWIND; break;
+    case EFFECT_WEATHER:
+        switch (GetMoveWeatherType(move))
+        {
+        case BATTLE_WEATHER_SUN:       want = VGC_PLAN_SUN; break;
+        case BATTLE_WEATHER_RAIN:      want = VGC_PLAN_RAIN; break;
+        case BATTLE_WEATHER_SANDSTORM: want = VGC_PLAN_SAND; break;
+        default: break;
+        }
+        break;
+    default:
+        break;
+    }
+    if (want == VGC_PLAN_BALANCE)
+        return 0;
+    if (want == plan->modeA)
+        return 3;
+    if (want == plan->modeB)
+        return 2;
+    return 0;
+}
+
+// La modalità del piano è attiva in campo adesso (per decidere i cambi verso la win condition).
+bool32 AI_VgcPlanModeActive(enum BattlerId battler)
+{
+    const struct VgcGameplan *plan = AI_VgcGetPlan(TRAINER_BATTLE_PARAM.opponentA);
+    u8 modes[2];
+    u32 i;
+
+    if (plan == NULL)
+        return FALSE;
+    modes[0] = plan->modeA;
+    modes[1] = plan->modeB;
+    for (i = 0; i < 2; i++)
+    {
+        switch (modes[i])
+        {
+        case VGC_PLAN_TRICK_ROOM:
+            if ((gFieldStatuses & STATUS_FIELD_TRICK_ROOM) && gFieldTimers.trickRoomTimer > 1)
+                return TRUE;
+            break;
+        case VGC_PLAN_TAILWIND:
+            if ((gSideStatuses[GetBattlerSide(battler)] & SIDE_STATUS_TAILWIND) && gSideTimers[GetBattlerSide(battler)].tailwindTimer > 1)
+                return TRUE;
+            break;
+        case VGC_PLAN_SUN:
+            if (IsWeatherActive(B_WEATHER_SUN) != WEATHER_INACTIVE)
+                return TRUE;
+            break;
+        case VGC_PLAN_RAIN:
+            if (IsWeatherActive(B_WEATHER_RAIN) != WEATHER_INACTIVE)
+                return TRUE;
+            break;
+        case VGC_PLAN_SAND:
+            if (IsWeatherActive(B_WEATHER_SANDSTORM) != WEATHER_INACTIVE)
+                return TRUE;
+            break;
+        default:
+            break;
+        }
+    }
+    return FALSE;
+}
+
+// Mossa ad area dannosa nota di un avversario (per Wide Guard).
+static bool32 FoeHasKnownSpreadMove(enum BattlerId foe)
+{
+    enum Move *moves;
+    u32 i;
+
+    if (!IsBattlerAlive(foe))
+        return FALSE;
+    moves = GetMovesArray(foe);
+    for (i = 0; i < MAX_MON_MOVES; i++)
+    {
+        if (moves[i] == MOVE_NONE || moves[i] == MOVE_UNAVAILABLE || IsBattleMoveStatus(moves[i]))
+            continue;
+        if (IsSpreadMove(AI_GetBattlerMoveTargetType(foe, moves[i])))
+            return TRUE;
+    }
+    return FALSE;
+}
+
+// Mossa con priorità nota di un avversario (per Quick Guard).
+static bool32 FoeHasKnownPriorityMove(enum BattlerId foe)
+{
+    enum Move *moves;
+    u32 i;
+
+    if (!IsBattlerAlive(foe))
+        return FALSE;
+    moves = GetMovesArray(foe);
+    for (i = 0; i < MAX_MON_MOVES; i++)
+    {
+        if (moves[i] == MOVE_NONE || moves[i] == MOVE_UNAVAILABLE || IsBattleMoveStatus(moves[i]))
+            continue;
+        if (GetMovePriority(moves[i]) > 0)
+            return TRUE;
+    }
+    return FALSE;
+}
 
 // ---------------------------------------------------------------------
 // Utilità sulla squadra (campo + panchina)
@@ -521,6 +740,68 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
     }
     anyFoeProtectLikely = (foeLAlive && VgcTrustRead(VgcProtectChance(foeL))) || (foeRAlive && VgcTrustRead(VgcProtectChance(foeR)));
     edge = VgcMaterialEdge(battlerAtk);
+
+    // ---------------- 0. Piano di squadra ----------------
+    {
+        const struct VgcGameplan *plan = AI_VgcGetPlan(TRAINER_BATTLE_PARAM.opponentA);
+        u16 trainerId = TRAINER_BATTLE_PARAM.opponentA;
+        bool32 iAmWinCon = AI_VgcPlanIsWinCon(trainerId, gBattleMons[battlerAtk].species);
+        bool32 partnerIsWinCon = hasPartner && AI_VgcPlanIsWinCon(trainerId, gBattleMons[partner].species);
+        bool32 doomed = threatened && !PartnerIsRedirecting(battlerAtk)
+                     && ((threatL && AI_IsSlower(battlerAtk, foeL, move, MOVE_NONE, CONSIDER_PRIORITY) && !CanAIFaintTarget(battlerAtk, foeL, 1))
+                      || (threatR && AI_IsSlower(battlerAtk, foeR, move, MOVE_NONE, CONSIDER_PRIORITY) && !CanAIFaintTarget(battlerAtk, foeR, 1)));
+
+        if (plan != NULL && !targetingPartner)
+        {
+            // Controllo velocità / meteo previsti dal piano: si impostano volentieri (se convengono:
+            // i controlli di convenienza sono nei blocchi 1 e 6, qui solo la preferenza).
+            ADJUST_SCORE(PlanMoveBonus(plan, battlerAtk, move));
+
+            if (iAmWinCon)
+            {
+                // La win condition si conserva e si prepara.
+                if (effect == EFFECT_PROTECT && threatened)
+                    ADJUST_SCORE(1);
+                if (isStatus && IsStatRaisingMove(move) && safeTurn)
+                    ADJUST_SCORE(1);
+            }
+            if (partnerIsWinCon)
+            {
+                // Il partner è la win condition: lo si copre.
+                if (effect == EFFECT_FOLLOW_ME)
+                    ADJUST_SCORE(2);
+                if (effect == EFFECT_HELPING_HAND)
+                    ADJUST_SCORE(1);
+                if (effect == EFFECT_FIRST_TURN_ONLY && firstTurn && IsBattlerAlive(battlerDef) && CanTargetFaintAi(battlerDef, partner))
+                    ADJUST_SCORE(1);
+            }
+        }
+
+        // ---------------- Risposte tattiche ----------------
+        // Provocazione sul setter / supporto prima che si muova.
+        if (effect == EFFECT_TAUNT && !targetingPartner && IsBattlerAlive(battlerDef)
+         && BattlerHasVgcSetupMove(battlerDef) && AI_IsFaster(battlerAtk, battlerDef, move, MOVE_NONE, CONSIDER_PRIORITY)
+         && !gBattleMons[battlerDef].volatiles.tauntTimer)
+            ADJUST_SCORE(3);
+        // Ampioguardia quando un avversario ha una mossa ad area nota (e non ci ha visto usarla di continuo).
+        if (effect == EFFECT_PROTECT && !targetingPartner && GetMoveProtectMethod(move) == PROTECT_WIDE_GUARD
+         && gBattleMons[battlerAtk].volatiles.consecutiveMoveUses == 0
+         && (FoeHasKnownSpreadMove(foeL) || FoeHasKnownSpreadMove(foeR)))
+            ADJUST_SCORE(2);
+        // Anticipo contro Fake Out / priorità note, soprattutto al primo turno.
+        if (effect == EFFECT_PROTECT && !targetingPartner && GetMoveProtectMethod(move) == PROTECT_QUICK_GUARD
+         && gBattleMons[battlerAtk].volatiles.consecutiveMoveUses == 0
+         && (FoeHasKnownPriorityMove(foeL) || FoeHasKnownPriorityMove(foeR)))
+            ADJUST_SCORE(firstTurn && FoeThreatensFakeOut(battlerAtk) ? 3 : 1);
+        // Pokémon spacciato (più lento, va KO, non ha KO): Ultimascommessa / mossa che vale il turno.
+        if (doomed && effect == EFFECT_FINAL_GAMBIT && !targetingPartner && IsBattlerAlive(battlerDef)
+         && gBattleMons[battlerDef].hp <= hp && (!HasMoveWithEffect(battlerDef, EFFECT_PROTECT) || !defProtectLikely))
+            ADJUST_SCORE(5);
+        // Sonno (Spora, Ipnosi, Sbadiglio) su chi ha setup / controllo velocità: lo si toglie dalla lotta.
+        if (isStatus && !targetingPartner && IsBattlerAlive(battlerDef) && GetMoveNonVolatileStatus(move) == MOVE_EFFECT_SLEEP
+         && BattlerHasVgcSetupMove(battlerDef) && !defSwitchLikely)
+            ADJUST_SCORE(1);
+    }
 
     // ---------------- 1. Apertura ----------------
     if (effect == EFFECT_FIRST_TURN_ONLY && firstTurn && !targetingPartner && IsFlinchGuaranteed(battlerAtk, battlerDef, move))

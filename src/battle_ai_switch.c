@@ -1331,6 +1331,31 @@ static enum VgcSwitchResult VgcShouldSwitch(struct SwitchAiContext *switchContex
     if (!(gAiThinkingStruct->aiFlags[battler] & AI_FLAG_VGC_DOUBLES) || !IsDoubleBattle())
         return VGC_SWITCH_UNDECIDED;
 
+    // Piano di squadra: la modalità è attiva (Trick Room / Tailwind / meteo) ma in campo non c'è
+    // la win condition e questo Pokémon non ha KO: si manda dentro chi deve vincere la lotta.
+    if (AI_VgcPlanModeActive(battler) && !canKo
+     && !AI_VgcPlanIsWinCon(TRAINER_BATTLE_PARAM.opponentA, gBattleMons[battler].species)
+     && !((threatL && slowerL) || (threatR && slowerR)) && Random() % 100 < 45)
+    {
+        struct Pokemon *party = GetBattlerParty(battler);
+        enum BattlerId partner = GetPartnerBattler(battler);
+        u32 i;
+        for (i = 0; i < PARTY_SIZE; i++)
+        {
+            if (!(switchContext->eligiblePartyMons & (1u << i)))
+                continue;
+            if (gBattlerPartyIndexes[battler] == i || (IsBattlerAlive(partner) && gBattlerPartyIndexes[partner] == i))
+                continue;
+            if (AI_VgcPlanIsWinCon(TRAINER_BATTLE_PARAM.opponentA, GetMonData(&party[i], MON_DATA_SPECIES)))
+                return SetSwitchinAndSwitch(battler, i) ? VGC_SWITCH_GO : VGC_SWITCH_STAY;
+        }
+    }
+
+    // Intimidate: rientrare con Arcanine / Gyarados contro un attaccante fisico vale il turno.
+    if (!((threatL && slowerL) && (threatR && slowerR)) && !AI_VgcOwnSpeedControlActive(battler)
+     && ShouldSwitchIfIntimidateBenefit(switchContext) && Random() % 100 < 50)
+        return SetSwitchinAndSwitch(battler, PARTY_SIZE) ? VGC_SWITCH_GO : VGC_SWITCH_STAY;
+
     // Nessun sostituto sensato: si resta.
     if (gAiLogicData->mostSuitableMonId[battler] == PARTY_SIZE)
         return VGC_SWITCH_STAY;

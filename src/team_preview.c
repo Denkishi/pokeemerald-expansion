@@ -661,6 +661,8 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
     u32 forcedMask = 0;
     bool32 foeHasFakeOut = FALSE;
     u32 chosen[PARTY_SIZE], nChosen = 0, order = 0;
+    bool32 planTrViable = FALSE, planTwViable = FALSE;
+    u16 trainerId = TRAINER_BATTLE_PARAM.opponentA;
 
     for (i = 0; i < PARTY_SIZE; i++)
     {
@@ -676,6 +678,25 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
         picks = nEnemy;
     if (nEnemy == 0)
         return;
+
+    // Piano di squadra: Trick Room conviene se il giocatore è più veloce della nostra media,
+    // Tailwind se è più veloce ma lo supereremmo raddoppiando.
+    {
+        u32 sum = 0, fastFoes = 0, twFoes = 0;
+        for (i = 0; i < nEnemy; i++)
+            sum += GetMonData(&enemy[enemySlots[i]], MON_DATA_SPEED);
+        sum /= nEnemy;
+        for (j = 0; j < nPlayer; j++)
+        {
+            u32 spd = GetMonData(&player[playerSlots[j]], MON_DATA_SPEED);
+            if (spd > sum)
+                fastFoes++;
+            if (spd > sum && spd < sum * 2)
+                twFoes++;
+        }
+        planTrViable = fastFoes * 2 >= nPlayer;      // almeno metà dei loro è più veloce di noi
+        planTwViable = twFoes >= 1 && fastFoes >= 1;
+    }
 
     // Ace: l'ultimo del party originale va sempre portato (e tenuto in fondo).
     if (aiFlags & (AI_FLAG_ACE_POKEMON | AI_FLAG_DOUBLE_ACE_POKEMON))
@@ -728,7 +749,7 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
         }
         for (i = 0; i < nEnemy; i++)
             if (mask & (1u << i))
-                score += depth[i];
+                score += depth[i] + AI_VgcPlanBringBonus(trainerId, GetMonData(&enemy[enemySlots[i]], MON_DATA_SPECIES), planTrViable, planTwViable);
         // Troppi Pokémon deboli allo stesso tipo = male.
         for (t = TYPE_NORMAL; t < NUMBER_OF_MON_TYPES; t++)
         {
@@ -793,6 +814,9 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                 {
                     s += LeadRoleBonus(&enemy[enemySlots[eb]], isDouble, foeHasFakeOut);
                     s += PairSynergy(&enemy[enemySlots[ea]], &enemy[enemySlots[eb]]);
+                    // Piano di squadra: coppie di lead preferite, chi sta dietro non leada.
+                    s += AI_VgcPlanLeadBonus(trainerId, GetMonData(&enemy[enemySlots[ea]], MON_DATA_SPECIES),
+                                             GetMonData(&enemy[enemySlots[eb]], MON_DATA_SPECIES), planTrViable, planTwViable);
                 }
                 s += Random() % 16; // un po' di varietà: lead meno leggibile
                 // Gare precedenti: non si rifà il lead che ha perso; quello che ha vinto si ripropone.

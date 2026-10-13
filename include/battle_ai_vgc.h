@@ -18,6 +18,16 @@ bool32 AI_VgcTeamBenefitsFromTailwind(enum BattlerId battler, u32 minCount);
 // ha ancora più di un turno: in questi turni non si spreca tempo.
 bool32 AI_VgcOwnSpeedControlActive(enum BattlerId battler);
 
+// Piano di squadra per allenatore (src/data/vgc_gameplans.h).
+struct VgcGameplan;
+const struct VgcGameplan *AI_VgcGetPlan(u16 trainerId);
+bool32 AI_VgcPlanIsWinCon(u16 trainerId, u16 species);
+bool32 AI_VgcPlanIsSetter(u16 trainerId, u16 species);
+bool32 AI_VgcPlanIsBack(u16 trainerId, u16 species);
+s32 AI_VgcPlanLeadBonus(u16 trainerId, u16 a, u16 b, bool32 trViable, bool32 twViable);
+s32 AI_VgcPlanBringBonus(u16 trainerId, u16 species, bool32 trViable, bool32 twViable);
+bool32 AI_VgcPlanModeActive(enum BattlerId battler);
+
 // Lettura del giocatore senza imbrogli: memoria di comportamento (Protect sotto KO, cambi quando
 // perde il matchup), per Pokémon, mantenuta tra le gare del Bo3.
 void AI_VgcResetMemory(void);                                   // nuova serie / nuovo avversario

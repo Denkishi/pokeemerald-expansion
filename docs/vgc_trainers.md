@@ -193,6 +193,41 @@ Pokémon, scelta del gruppo di 4 che ha una risposta a tutti, lead scelti per ma
 (Trick Room con partner lento, meteo con chi lo sfrutta, Fake Out con setter...), un pizzico di
 casualità per non essere leggibile.
 
+### 3.3b Piano di squadra per allenatore (`src/data/vgc_gameplans.h`)
+
+Ogni allenatore ha un piano scritto: modalità principale e di riserva, setter, win condition,
+chi sta dietro, tre coppie di lead preferite (con la modalità a cui appartengono). Il piano è
+un **bonus** sopra il matchup, non un obbligo: contro una squadra che lo punisce l'IA cambia.
+
+| Allenatore | Modalità A / B | Setter | Win condition | Lead preferite (in ordine) |
+|---|---|---|---|---|
+| SIMONE | Bilanciato / Trick Room | Toedscruel | Machamp, Aggron | Arcanine+Machamp; Toedscruel+Machamp (TR); Arcanine+Porygon-Z |
+| ELIA | Trick Room / Bilanciato | Mimikyu, Banette | Goodra-H, Lickitung | Mimikyu+Goodra-H; Banette+Vaporeon; Mimikyu+Miltank |
+| PATATINA | Campo Psichico / Tailwind | Indeedee-F, Altaria | Armarouge, Ceruledge | Indeedee+Armarouge; Altaria+Ceruledge (TW); Indeedee+Copperajah (TR) |
+| TONY | Sole / Tailwind | Charizard, Sableye | Roaring Moon, Charizard | Charizard+Sableye; Charizard+Roaring Moon; Roaring Moon+Brute Bonnet |
+| MARIO LETT | Bilanciato / Tailwind | Chatot, Sinistcha | Dondozo, Tatsugiri | Dondozo+Tatsugiri; Chatot+Dondozo (TW); Sinistcha+Dondozo (TR) |
+| TATORE | Trick Room / Bilanciato | Dusclops, Scream Tail | Armaldo, Sceptile | Dusclops+Lapras; Kecleon+Sceptile; Scream Tail+Armaldo |
+| MARIO | Bilanciato / Trick Room | Oranguru | Iron Hands, Hariyama | Hariyama+Iron Hands; Oranguru+Iron Hands (TR); Hariyama+Oranguru |
+| ENZO | Tailwind / Bilanciato | Aerodactyl, Grimmsnarl | Annihilape, Gengar | Aerodactyl+Rillaboom; Smeargle+Grimmsnarl; Smeargle+Aerodactyl |
+| GEROZZ | Sabbia / Trick Room | Tyranitar, Porygon2 | Gholdengo, Great Tusk | Tyranitar+Dugtrio-A; Porygon2+Great Tusk (TR); Tyranitar+Rotom-Heat |
+| CARLETTO | Pioggia / Trick Room | Pelipper, Malamar | Kingambit, Snorlax | Pelipper+Ludicolo; Amoonguss+Snorlax; Malamar+Amoonguss (TR) |
+| GIGI PINTO | Sole / Trick Room | Torkoal, Hatterene | Venusaur, Torkoal | Torkoal+Venusaur; Torkoal+Lilligant; Hatterene+Torkoal (TR) |
+
+Come viene usato:
+- **Team preview**: coppia di lead preferita +120 / +90 / +60 (dimezzato se la sua modalità non
+  conviene: Trick Room conviene se almeno metà dei tuoi è più veloce della sua media, Tailwind se
+  sei più veloce ma non del doppio); win condition portata +50; setter +35; chi "sta dietro" −40 come lead.
+- **In lotta**: la mossa che imposta la modalità del piano +3 (riserva +2), sempre dopo i
+  controlli di convenienza; la win condition si protegge (+1) e fa setup (+1) nei turni sicuri;
+  se il partner è la win condition: Segui Me +2, Aiuto +1, Fake Out sulla sua minaccia +1.
+- **Cambi**: con la modalità attiva (Trick Room / Tailwind / meteo) e la win condition in panchina,
+  il Pokémon in campo senza KO lascia il posto (45%) alla win condition. Rientro con Intimidate
+  contro attaccanti fisici (50%), mai durante il proprio controllo di velocità.
+
+Risposte tattiche aggiunte: Provocazione sul setter se più veloci (+3), Ampioguardia contro mosse
+ad area note (+2), Anticipo contro Fake Out / priorità note (+3 al primo turno), Ultimascommessa
+quando il Pokémon è spacciato (+5), sonno su chi ha setup (+1).
+
 ### 3.4 Al meglio di tre: cosa impara tra una gara e l'altra
 
 - Mosse, abilità e strumenti **visti** restano noti nella gara dopo (già prima).
