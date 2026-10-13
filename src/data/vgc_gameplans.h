@@ -20,6 +20,7 @@ enum VgcPlanMode
     VGC_PLAN_RAIN,
     VGC_PLAN_SAND,
     VGC_PLAN_PSYCHIC_TERRAIN,
+    VGC_PLAN_GRAVITY,
 };
 
 struct VgcLeadPair
@@ -44,159 +45,159 @@ struct VgcGameplan
 
 static const struct VgcGameplan sVgcGameplans[] =
 {
-    // SIMONE: forza bruta con Intimidate davanti; Trick Room di Toedscruel come riserva per
-    // Machamp e Mega Aggron (lenti). Rotom-Mow scarf chiude.
+    // SIMONE: Bulky Offense / Simple Tech con Porygon-Z + Toedscruel; Arcanine + Rotom-Mow lead primaria
+    // per debuff e scouting veloce. Mega Aggron Filtro e Machamp come win condition.
     {
         .trainerId = TRAINER_SIMONE,
         .modeA = VGC_PLAN_BALANCE, .modeB = VGC_PLAN_TRICK_ROOM,
-        .setters = { SPECIES_TOEDSCRUEL, SPECIES_NONE },
-        .winCons = { SPECIES_MACHAMP, SPECIES_AGGRON },
-        .back = { SPECIES_AGGRON, SPECIES_ROTOM_MOW },
+        .setters = { SPECIES_PORYGON_Z, SPECIES_TOEDSCRUEL },
+        .winCons = { SPECIES_AGGRON, SPECIES_MACHAMP },
+        .back = { SPECIES_AGGRON, SPECIES_MACHAMP },
         .leads = {
+            { SPECIES_ARCANINE, SPECIES_ROTOM_MOW, VGC_PLAN_BALANCE },
+            { SPECIES_PORYGON_Z, SPECIES_TOEDSCRUEL, VGC_PLAN_BALANCE },
             { SPECIES_ARCANINE, SPECIES_MACHAMP, VGC_PLAN_BALANCE },
-            { SPECIES_TOEDSCRUEL, SPECIES_MACHAMP, VGC_PLAN_TRICK_ROOM },
-            { SPECIES_ARCANINE, SPECIES_PORYGON_Z, VGC_PLAN_BALANCE },
         },
     },
-    // ELIA: Trick Room puro. Mimikyu (Disguise + Erbamentale) e Mega Banette lo impostano,
-    // Goodra-Hisui e Lickitung (Ferrodifesa + Schiacciacorpo) vincono; Vaporeon e Miltank
-    // (Aiuto, Dopo di te, Tuonoonda) sono supporto.
+    // ELIA: Hard Trick Room difensivo. Mimikyu (Disguise + Erbamentale) e Mega Banette lo impostano;
+    // Goodra-Hisui e Lickitung (Ferrodifesa + Schiacciacorpo) vincono; Vaporeon e Miltank supporto.
     {
         .trainerId = TRAINER_ELIA,
         .modeA = VGC_PLAN_TRICK_ROOM, .modeB = VGC_PLAN_BALANCE,
         .setters = { SPECIES_MIMIKYU, SPECIES_BANETTE },
         .winCons = { SPECIES_GOODRA_HISUI, SPECIES_LICKITUNG },
-        .back = { SPECIES_LICKITUNG, SPECIES_MILTANK },
+        .back = { SPECIES_LICKITUNG, SPECIES_GOODRA_HISUI },
         .leads = {
+            { SPECIES_MIMIKYU, SPECIES_LICKITUNG, VGC_PLAN_TRICK_ROOM },
+            { SPECIES_BANETTE, SPECIES_MILTANK, VGC_PLAN_TRICK_ROOM },
             { SPECIES_MIMIKYU, SPECIES_GOODRA_HISUI, VGC_PLAN_TRICK_ROOM },
-            { SPECIES_BANETTE, SPECIES_VAPOREON, VGC_PLAN_TRICK_ROOM },
-            { SPECIES_MIMIKYU, SPECIES_MILTANK, VGC_PLAN_TRICK_ROOM },
         },
     },
-    // PATATINA: Indeedee-F (Psychic Surge + Segui Me) con Armarouge Forzespansa; in riserva
-    // Mega Altaria Tailwind con Ceruledge Danza di Spada; Copperajah Ferrodifesa sotto Trick Room.
+    // PATATINA: PsySpam Offensivo (Campo Psichico + Expanding Force di Armarouge con Indeedee-F);
+    // riserva con Mega Altaria Pellefolletto Tailwind + Ceruledge Danzaspada; Copperajah TR.
     {
         .trainerId = TRAINER_PATATINA,
         .modeA = VGC_PLAN_PSYCHIC_TERRAIN, .modeB = VGC_PLAN_TAILWIND,
         .setters = { SPECIES_INDEEDEE_F, SPECIES_ALTARIA },
         .winCons = { SPECIES_ARMAROUGE, SPECIES_CERULEDGE },
-        .back = { SPECIES_COPPERAJAH, SPECIES_ROTOM_WASH },
+        .back = { SPECIES_CERULEDGE, SPECIES_COPPERAJAH },
         .leads = {
             { SPECIES_INDEEDEE_F, SPECIES_ARMAROUGE, VGC_PLAN_PSYCHIC_TERRAIN },
-            { SPECIES_ALTARIA, SPECIES_CERULEDGE, VGC_PLAN_TAILWIND },
+            { SPECIES_ALTARIA, SPECIES_ROTOM_WASH, VGC_PLAN_TAILWIND },
             { SPECIES_INDEEDEE_F, SPECIES_COPPERAJAH, VGC_PLAN_TRICK_ROOM },
         },
     },
-    // TONY: sole. Mega Charizard Y lo porta da solo, Sableye (Fake Out, Giornodisole, Provocazione)
-    // lo copre; Roaring Moon e Slither Wing (Protosynthesis) chiudono, Mega Gyarados Dragondanza.
+    // TONY: Sun Hyper-Offense. Mega Charizard Y porta il Sole, Sableye Fake Out/Giornodisole;
+    // Roaring Moon e Slither Wing (Protosintesi) sfondano; Brute Bonnet reindirizza.
     {
         .trainerId = TRAINER_TONY,
         .modeA = VGC_PLAN_SUN, .modeB = VGC_PLAN_TAILWIND,
         .setters = { SPECIES_CHARIZARD, SPECIES_SABLEYE },
-        .winCons = { SPECIES_ROARING_MOON, SPECIES_CHARIZARD },
-        .back = { SPECIES_GYARADOS, SPECIES_SLITHER_WING },
+        .winCons = { SPECIES_CHARIZARD, SPECIES_ROARING_MOON },
+        .back = { SPECIES_SLITHER_WING, SPECIES_BRUTE_BONNET },
         .leads = {
-            { SPECIES_CHARIZARD, SPECIES_SABLEYE, VGC_PLAN_SUN },
+            { SPECIES_SABLEYE, SPECIES_CHARIZARD, VGC_PLAN_SUN },
+            { SPECIES_ROARING_MOON, SPECIES_SLITHER_WING, VGC_PLAN_TAILWIND },
             { SPECIES_CHARIZARD, SPECIES_ROARING_MOON, VGC_PLAN_SUN },
-            { SPECIES_ROARING_MOON, SPECIES_BRUTE_BONNET, VGC_PLAN_TAILWIND },
         },
     },
-    // MARIO LETT: Dondozo + Tatsugiri (Commander) è il piano; Chatot Tailwind / Provocazione lo
-    // apre, Sinistcha Trick Room è la riserva, Weezing-Galar spegne le abilità scomode.
+    // MARIO LETT: Split ad alta varianza. Due binari rigidi e separati:
+    // Modalità A (Anti-Ability): Weezing-Galar + Slaking (Neutralizing Gas sblocca Truant).
+    // Modalità B (Commander): Chatot + Dondozo (Parting Shot o Tailwind per far entrare Tatsugiri).
     {
         .trainerId = TRAINER_MARIO_LETT,
         .modeA = VGC_PLAN_BALANCE, .modeB = VGC_PLAN_TAILWIND,
         .setters = { SPECIES_CHATOT, SPECIES_SINISTCHA },
-        .winCons = { SPECIES_DONDOZO, SPECIES_TATSUGIRI },
-        .back = { SPECIES_SLAKING, SPECIES_WEEZING_GALAR },
+        .winCons = { SPECIES_SLAKING, SPECIES_DONDOZO },
+        .back = { SPECIES_TATSUGIRI, SPECIES_SINISTCHA },
         .leads = {
-            { SPECIES_DONDOZO, SPECIES_TATSUGIRI, VGC_PLAN_BALANCE },
+            { SPECIES_WEEZING_GALAR, SPECIES_SLAKING, VGC_PLAN_BALANCE },
             { SPECIES_CHATOT, SPECIES_DONDOZO, VGC_PLAN_TAILWIND },
             { SPECIES_SINISTCHA, SPECIES_DONDOZO, VGC_PLAN_TRICK_ROOM },
         },
     },
-    // TATORE: Trick Room con Dusclops / Scream Tail, Armaldo Danza di Spada e Lapras sotto;
-    // in riserva Kecleon Fake Out + Mega Sceptile veloce.
+    // TATORE: Bulky Trick Room con Dusclops / Scream Tail. Kecleon Fake Out apre la strada;
+    // Armaldo Danzaspada sfonda sotto TR; Mega Sceptile Quick Guard e cleaner veloce.
     {
         .trainerId = TRAINER_TATORE,
         .modeA = VGC_PLAN_TRICK_ROOM, .modeB = VGC_PLAN_BALANCE,
         .setters = { SPECIES_DUSCLOPS, SPECIES_SCREAM_TAIL },
         .winCons = { SPECIES_ARMALDO, SPECIES_SCEPTILE },
-        .back = { SPECIES_ARMALDO, SPECIES_LAPRAS },
+        .back = { SPECIES_ARMALDO, SPECIES_SCEPTILE },
         .leads = {
+            { SPECIES_KECLEON, SPECIES_DUSCLOPS, VGC_PLAN_TRICK_ROOM },
+            { SPECIES_SCEPTILE, SPECIES_SCREAM_TAIL, VGC_PLAN_BALANCE },
             { SPECIES_DUSCLOPS, SPECIES_LAPRAS, VGC_PLAN_TRICK_ROOM },
-            { SPECIES_KECLEON, SPECIES_SCEPTILE, VGC_PLAN_BALANCE },
-            { SPECIES_SCREAM_TAIL, SPECIES_ARMALDO, VGC_PLAN_TRICK_ROOM },
         },
     },
-    // MARIO: Hariyama Fake Out + Iron Hands davanti; Oranguru Trick Room / Ordine come riserva.
+    // MARIO: Dual Mode rigorosa: Instruct TR (Oranguru + Hariyama / Iron Hands)
+    // oppure Swift Swim Rain veloce (Politoed + Golduck + Mega Meganium Schermi).
     {
         .trainerId = TRAINER_MARIO,
-        .modeA = VGC_PLAN_BALANCE, .modeB = VGC_PLAN_TRICK_ROOM,
-        .setters = { SPECIES_ORANGURU, SPECIES_NONE },
-        .winCons = { SPECIES_IRON_HANDS, SPECIES_HARIYAMA },
-        .back = { SPECIES_ORANGURU, SPECIES_NONE },
+        .modeA = VGC_PLAN_TRICK_ROOM, .modeB = VGC_PLAN_RAIN,
+        .setters = { SPECIES_ORANGURU, SPECIES_POLITOED },
+        .winCons = { SPECIES_HARIYAMA, SPECIES_GOLDUCK },
+        .back = { SPECIES_IRON_HANDS, SPECIES_MEGANIUM },
         .leads = {
-            { SPECIES_HARIYAMA, SPECIES_IRON_HANDS, VGC_PLAN_BALANCE },
-            { SPECIES_ORANGURU, SPECIES_IRON_HANDS, VGC_PLAN_TRICK_ROOM },
             { SPECIES_HARIYAMA, SPECIES_ORANGURU, VGC_PLAN_TRICK_ROOM },
+            { SPECIES_POLITOED, SPECIES_GOLDUCK, VGC_PLAN_RAIN },
+            { SPECIES_MEGANIUM, SPECIES_GOLDUCK, VGC_PLAN_RAIN },
         },
     },
-    // ENZO: Tailwind di Mega Aerodactyl e schermi di Grimmsnarl per Annihilape / Mega Gengar;
-    // Smeargle (Spora, Ventogelato, Ripeti) e Rillaboom Fake Out aprono.
+    // ENZO: Gravity Sleep Trap / Final Gambit. Smeargle piazza Gravità per Hypnosis e Spore al 100%
+    // con Mega Gengar Shadow Tag; Annihilape Scarf Final Gambit per il 4v3 istantaneo.
     {
         .trainerId = TRAINER_ENZO,
-        .modeA = VGC_PLAN_TAILWIND, .modeB = VGC_PLAN_BALANCE,
-        .setters = { SPECIES_AERODACTYL, SPECIES_GRIMMSNARL },
-        .winCons = { SPECIES_ANNIHILAPE, SPECIES_GENGAR },
-        .back = { SPECIES_ANNIHILAPE, SPECIES_GENGAR },
+        .modeA = VGC_PLAN_GRAVITY, .modeB = VGC_PLAN_TAILWIND,
+        .setters = { SPECIES_SMEARGLE, SPECIES_AERODACTYL },
+        .winCons = { SPECIES_GENGAR, SPECIES_ANNIHILAPE },
+        .back = { SPECIES_RILLABOOM, SPECIES_AERODACTYL },
         .leads = {
+            { SPECIES_SMEARGLE, SPECIES_GENGAR, VGC_PLAN_GRAVITY },
+            { SPECIES_ANNIHILAPE, SPECIES_GRIMMSNARL, VGC_PLAN_BALANCE },
             { SPECIES_AERODACTYL, SPECIES_RILLABOOM, VGC_PLAN_TAILWIND },
-            { SPECIES_SMEARGLE, SPECIES_GRIMMSNARL, VGC_PLAN_BALANCE },
-            { SPECIES_SMEARGLE, SPECIES_AERODACTYL, VGC_PLAN_TAILWIND },
         },
     },
-    // GEROZZ: sabbia di Mega Tyranitar con Dugtrio-Alola (Forzasabbia); Gholdengo Nasty Plot
-    // e Great Tusk Bulk Up vincono; Porygon2 Trick Room come riserva.
+    // GEROZZ: Tempesta di sabbia con Mega Tyranitar e Dugtrio-Alola Silicoforza; Gholdengo Nasty Plot;
+    // Terremoto coordinato con Rotom-Heat immune via Levitazione; Porygon2 TR come riserva.
     {
         .trainerId = TRAINER_GEROZZ,
         .modeA = VGC_PLAN_SAND, .modeB = VGC_PLAN_TRICK_ROOM,
         .setters = { SPECIES_TYRANITAR, SPECIES_PORYGON2 },
-        .winCons = { SPECIES_GHOLDENGO, SPECIES_GREAT_TUSK },
-        .back = { SPECIES_GHOLDENGO, SPECIES_ROTOM_HEAT },
+        .winCons = { SPECIES_GHOLDENGO, SPECIES_DUGTRIO_ALOLA },
+        .back = { SPECIES_GREAT_TUSK, SPECIES_ROTOM_HEAT },
         .leads = {
             { SPECIES_TYRANITAR, SPECIES_DUGTRIO_ALOLA, VGC_PLAN_SAND },
-            { SPECIES_PORYGON2, SPECIES_GREAT_TUSK, VGC_PLAN_TRICK_ROOM },
+            { SPECIES_PORYGON2, SPECIES_ROTOM_HEAT, VGC_PLAN_TRICK_ROOM },
             { SPECIES_TYRANITAR, SPECIES_ROTOM_HEAT, VGC_PLAN_SAND },
         },
     },
-    // CARLETTO: pioggia di Pelipper con Ludicolo Swift Swim; Kingambit chiude dalla panchina,
-    // Amoonguss reindirizza per il Belly Drum di Snorlax; Mega Malamar Trick Room in riserva.
+    // CARLETTO: Pressione idrica con Pelipper Drizzle + Ludicolo Swift Swim;
+    // Asse setup con Amoonguss Rage Powder + Snorlax Belly Drum / Mega Malamar Superpower TR.
     {
         .trainerId = TRAINER_CARLETTO,
         .modeA = VGC_PLAN_RAIN, .modeB = VGC_PLAN_TRICK_ROOM,
         .setters = { SPECIES_PELIPPER, SPECIES_MALAMAR },
-        .winCons = { SPECIES_KINGAMBIT, SPECIES_SNORLAX },
-        .back = { SPECIES_KINGAMBIT, SPECIES_SNORLAX },
+        .winCons = { SPECIES_SNORLAX, SPECIES_KINGAMBIT },
+        .back = { SPECIES_SNORLAX, SPECIES_KINGAMBIT },
         .leads = {
             { SPECIES_PELIPPER, SPECIES_LUDICOLO, VGC_PLAN_RAIN },
-            { SPECIES_AMOONGUSS, SPECIES_SNORLAX, VGC_PLAN_BALANCE },
-            { SPECIES_MALAMAR, SPECIES_AMOONGUSS, VGC_PLAN_TRICK_ROOM },
+            { SPECIES_AMOONGUSS, SPECIES_MALAMAR, VGC_PLAN_TRICK_ROOM },
+            { SPECIES_AMOONGUSS, SPECIES_SNORLAX, VGC_PLAN_TRICK_ROOM },
         },
     },
-    // GIGI PINTO: sole di Torkoal con Venusaur / Lilligant Clorofilla (Dopo di te, Aiuto);
-    // Hatterene Trick Room con Torkoal Eruzione in riserva; Garganacl Salinfusione e
-    // Mega Blastoise Idrovortice chiudono.
+    // GIGI PINTO: After You Eruption solare istantanea con Lilligant Clorofilla + Torkoal Siccità;
+    // Asse alternativo con Hatterene Magispecchio Trick Room + Torkoal / Garganacl.
     {
         .trainerId = TRAINER_GIGI_PINTO,
         .modeA = VGC_PLAN_SUN, .modeB = VGC_PLAN_TRICK_ROOM,
         .setters = { SPECIES_TORKOAL, SPECIES_HATTERENE },
-        .winCons = { SPECIES_VENUSAUR, SPECIES_TORKOAL },
-        .back = { SPECIES_GARGANACL, SPECIES_BLASTOISE },
+        .winCons = { SPECIES_TORKOAL, SPECIES_VENUSAUR },
+        .back = { SPECIES_GARGANACL, SPECIES_VENUSAUR },
         .leads = {
+            { SPECIES_LILLIGANT, SPECIES_TORKOAL, VGC_PLAN_SUN },
+            { SPECIES_HATTERENE, SPECIES_GARGANACL, VGC_PLAN_TRICK_ROOM },
             { SPECIES_TORKOAL, SPECIES_VENUSAUR, VGC_PLAN_SUN },
-            { SPECIES_TORKOAL, SPECIES_LILLIGANT, VGC_PLAN_SUN },
-            { SPECIES_HATTERENE, SPECIES_TORKOAL, VGC_PLAN_TRICK_ROOM },
         },
     },
 };

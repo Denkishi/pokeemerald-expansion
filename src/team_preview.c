@@ -750,6 +750,63 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
         for (i = 0; i < nEnemy; i++)
             if (mask & (1u << i))
                 score += depth[i] + AI_VgcPlanBringBonus(trainerId, GetMonData(&enemy[enemySlots[i]], MON_DATA_SPECIES), planTrViable, planTwViable);
+
+        // Risoluzione conflitti interni di squadra (Team Preview):
+        // 1. Mario Lett: MAI selezionare Weezing-Galar con Dondozo o Tatsugiri (Neutralizing Gas annulla Commander).
+        if (trainerId == TRAINER_MARIO_LETT)
+        {
+            bool32 hasWeezing = FALSE, hasDondozo = FALSE;
+            for (i = 0; i < nEnemy; i++)
+            {
+                if (mask & (1u << i))
+                {
+                    u16 sp = GET_BASE_SPECIES_ID(GetMonData(&enemy[enemySlots[i]], MON_DATA_SPECIES));
+                    if (sp == SPECIES_WEEZING || sp == SPECIES_WEEZING_GALAR)
+                        hasWeezing = TRUE;
+                    if (sp == SPECIES_DONDOZO || sp == SPECIES_TATSUGIRI)
+                        hasDondozo = TRUE;
+                }
+            }
+            if (hasWeezing && hasDondozo)
+                score -= 1000;
+        }
+        // 2. Tony: MAI schierare Mega Charizard Y e Gyarados insieme (il sole dimezza Waterfall ed entrambi competono per la Mega).
+        else if (trainerId == TRAINER_TONY)
+        {
+            bool32 hasZard = FALSE, hasGyara = FALSE;
+            for (i = 0; i < nEnemy; i++)
+            {
+                if (mask & (1u << i))
+                {
+                    u16 sp = GET_BASE_SPECIES_ID(GetMonData(&enemy[enemySlots[i]], MON_DATA_SPECIES));
+                    if (sp == SPECIES_CHARIZARD)
+                        hasZard = TRUE;
+                    if (sp == SPECIES_GYARADOS)
+                        hasGyara = TRUE;
+                }
+            }
+            if (hasZard && hasGyara)
+                score -= 600;
+        }
+        // 3. Gigi Pinto: MAI schierare Mega Blastoise e Torkoal insieme sotto il sole a meno di counter-pick contro pioggia/sabbia.
+        else if (trainerId == TRAINER_GIGI_PINTO)
+        {
+            bool32 hasTorkoal = FALSE, hasBlastoise = FALSE;
+            for (i = 0; i < nEnemy; i++)
+            {
+                if (mask & (1u << i))
+                {
+                    u16 sp = GET_BASE_SPECIES_ID(GetMonData(&enemy[enemySlots[i]], MON_DATA_SPECIES));
+                    if (sp == SPECIES_TORKOAL)
+                        hasTorkoal = TRUE;
+                    if (sp == SPECIES_BLASTOISE)
+                        hasBlastoise = TRUE;
+                }
+            }
+            if (hasTorkoal && hasBlastoise)
+                score -= 600;
+        }
+
         // Troppi Pokémon deboli allo stesso tipo = male.
         for (t = TYPE_NORMAL; t < NUMBER_OF_MON_TYPES; t++)
         {

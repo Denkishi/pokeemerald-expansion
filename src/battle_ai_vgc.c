@@ -36,6 +36,7 @@
 #include "constants/hold_effects.h"
 #include "constants/moves.h"
 #include "constants/opponents.h"
+#include "constants/species.h"
 #include "data/vgc_gameplans.h"
 
 // ---------------------------------------------------------------------
@@ -153,6 +154,7 @@ static s32 PlanMoveBonus(const struct VgcGameplan *plan, enum BattlerId battlerA
     {
     case EFFECT_TRICK_ROOM: want = VGC_PLAN_TRICK_ROOM; break;
     case EFFECT_TAILWIND:   want = VGC_PLAN_TAILWIND; break;
+    case EFFECT_GRAVITY:    want = VGC_PLAN_GRAVITY; break;
     case EFFECT_WEATHER:
         switch (GetMoveWeatherType(move))
         {
@@ -195,6 +197,10 @@ bool32 AI_VgcPlanModeActive(enum BattlerId battler)
             break;
         case VGC_PLAN_TAILWIND:
             if ((gSideStatuses[GetBattlerSide(battler)] & SIDE_STATUS_TAILWIND) && gSideTimers[GetBattlerSide(battler)].tailwindTimer > 1)
+                return TRUE;
+            break;
+        case VGC_PLAN_GRAVITY:
+            if ((gFieldStatuses & STATUS_FIELD_GRAVITY) && gFieldTimers.gravityTimer > 1)
                 return TRUE;
             break;
         case VGC_PLAN_SUN:
@@ -741,6 +747,18 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
     anyFoeProtectLikely = (foeLAlive && VgcTrustRead(VgcProtectChance(foeL))) || (foeRAlive && VgcTrustRead(VgcProtectChance(foeR)));
     edge = VgcMaterialEdge(battlerAtk);
 
+    // Mosse a priorità bloccate da Campo Psichico su bersaglio a terra.
+    if (!targetingPartner && IsBattlerAlive(battlerDef) && (gFieldStatuses & STATUS_FIELD_PSYCHIC_TERRAIN) && AI_IsBattlerGrounded(battlerDef))
+    {
+        s32 prio = GetMovePriority(move);
+        if (gAiLogicData->abilities[battlerAtk] == ABILITY_PRANKSTER && isStatus)
+            prio++;
+        if (gAiLogicData->abilities[battlerAtk] == ABILITY_GALE_WINGS && GetMoveType(move) == TYPE_FLYING && hp == maxHp)
+            prio++;
+        if (prio > 0)
+            ADJUST_SCORE(-10);
+    }
+
     // ---------------- 0. Piano di squadra ----------------
     {
         const struct VgcGameplan *plan = AI_VgcGetPlan(TRAINER_BATTLE_PARAM.opponentA);
@@ -788,11 +806,11 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
          && gBattleMons[battlerAtk].volatiles.consecutiveMoveUses == 0
          && (FoeHasKnownSpreadMove(foeL) || FoeHasKnownSpreadMove(foeR)))
             ADJUST_SCORE(2);
-        // Anticipo contro Fake Out / priorità note, soprattutto al primo turno.
+        // Anticipo contro Fake Out / priorità note, soprattutto al primo turno (Sceptile Mega ecc.).
         if (effect == EFFECT_PROTECT && !targetingPartner && GetMoveProtectMethod(move) == PROTECT_QUICK_GUARD
          && gBattleMons[battlerAtk].volatiles.consecutiveMoveUses == 0
-         && (FoeHasKnownPriorityMove(foeL) || FoeHasKnownPriorityMove(foeR)))
-            ADJUST_SCORE(firstTurn && FoeThreatensFakeOut(battlerAtk) ? 3 : 1);
+         && (FoeHasKnownPriorityMove(foeL) || FoeHasKnownPriorityMove(foeR) || FoeThreatensFakeOut(battlerAtk)))
+            ADJUST_SCORE(firstTurn ? 5 : 2);
         // Pokémon spacciato (più lento, va KO, non ha KO): Ultimascommessa / mossa che vale il turno.
         if (doomed && effect == EFFECT_FINAL_GAMBIT && !targetingPartner && IsBattlerAlive(battlerDef)
          && gBattleMons[battlerDef].hp <= hp && (!HasMoveWithEffect(battlerDef, EFFECT_PROTECT) || !defProtectLikely))
@@ -801,6 +819,10 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
         if (isStatus && !targetingPartner && IsBattlerAlive(battlerDef) && GetMoveNonVolatileStatus(move) == MOVE_EFFECT_SLEEP
          && BattlerHasVgcSetupMove(battlerDef) && !defSwitchLikely)
             ADJUST_SCORE(1);
+        // Ipnosi / Spora sotto Gravity: accuratezza al 100%, valore enorme (Enzo Gravity Hypnosis).
+        if (isStatus && !targetingPartner && IsBattlerAlive(battlerDef) && GetMoveNonVolatileStatus(move) == MOVE_EFFECT_SLEEP
+         && (gFieldStatuses & STATUS_FIELD_GRAVITY) && gBattleMons[battlerDef].status1 == STATUS1_NONE && !defSwitchLikely)
+            ADJUST_SCORE(5);
     }
 
     // ---------------- 1. Apertura ----------------
@@ -835,7 +857,15 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
 
         if (!trUp)
         {
-            if (weAreSlow)
+            if (gSideStatuses[GetBattlerSide(battlerAtk)] & SIDE_STATUS_TAILWIND)
+            {
+                ADJUST_SCORE(-8); // Conflitto con Ventoincoda
+            }
+            else if ((gBattleWeather & B_WEATHER_RAIN) && hasPartner && gAiLogicData->abilities[partner] == ABILITY_SWIFT_SWIM)
+            {
+                ADJUST_SCORE(-10); // Swift Swim attivo sotto pioggia
+            }
+            else if (weAreSlow)
             {
                 ADJUST_SCORE(5);
                 // Ci servono subito: siamo più lenti e sotto minaccia, il partner non risolve da solo.
@@ -888,6 +918,22 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
         }
     }
 
+    if (effect == EFFECT_GRAVITY && !targetingPartner)
+    {
+        bool32 gravUp = (gFieldStatuses & STATUS_FIELD_GRAVITY) != 0;
+        if (!gravUp)
+        {
+            if (firstTurn || HasMove(battlerAtk, MOVE_HYPNOSIS) || (hasPartner && HasMove(partner, MOVE_HYPNOSIS)))
+                ADJUST_SCORE(6);
+            else
+                ADJUST_SCORE(3);
+        }
+        else
+        {
+            ADJUST_SCORE(-10);
+        }
+    }
+
     // ---------------- 6. Meteo con chi lo sfrutta in panchina ----------------
     if (effect == EFFECT_WEATHER && !targetingPartner && TeamHasWeatherAbuser(battlerAtk, move))
         ADJUST_SCORE(3);
@@ -918,6 +964,8 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
                 ADJUST_SCORE(2);
             if (effect == EFFECT_BELLY_DRUM && hp * 100 / maxHp > 60)
                 ADJUST_SCORE(2);
+            if (effect == EFFECT_BELLY_DRUM && hasPartner && PartnerIsRedirecting(battlerAtk) && hp * 100 / maxHp > 50)
+                ADJUST_SCORE(5); // Snorlax Panciata con Amoonguss Polverabbia
         }
         else if (slowerThanThreat)
         {
@@ -940,6 +988,15 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
         // Primo turno con Fake Out avversario: il setup salta.
         if (firstTurn && FoeThreatensFakeOut(battlerAtk) && !PartnerIsRedirecting(battlerAtk))
             ADJUST_SCORE(-3);
+    }
+
+    // Troppopugno con Inversione (Malamar) vs Danzaspada (Armaldo).
+    if (move == MOVE_SUPERPOWER && !targetingPartner)
+    {
+        if (gAiLogicData->abilities[battlerAtk] == ABILITY_CONTRARY)
+            ADJUST_SCORE(4); // Setup offensivo: +1 Atk e +1 Def
+        else if (gBattleMons[battlerAtk].statStages[STAT_ATK] > DEFAULT_STAT_STAGE)
+            ADJUST_SCORE(-3); // Non vanificare Danzaspada
     }
 
     // ---------------- 3. Protect "safe" ----------------
@@ -1059,6 +1116,44 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
             ADJUST_SCORE(-1);
         if (edge <= -2 && CanIndexMoveFaintTarget(battlerAtk, battlerDef, moveIndex, AI_ATTACKING))
             ADJUST_SCORE(1);
+
+        // Eruzione cala drasticamente con gli HP persi: sotto 65% meglio Ondacalda / Lanciafiamme (Gigi Pinto).
+        if (move == MOVE_ERUPTION)
+        {
+            if (hp * 100 / maxHp < 65)
+                ADJUST_SCORE(-4);
+            else
+                ADJUST_SCORE(2);
+        }
+
+        // Swift Swim Golduck sotto pioggia: pressione massima (Mario).
+        if ((gBattleWeather & B_WEATHER_RAIN) && gAiLogicData->abilities[battlerAtk] == ABILITY_SWIFT_SWIM
+         && GetMoveType(move) == TYPE_WATER)
+            ADJUST_SCORE(3);
+
+        // Fuoco amico su Terremoto e mosse ad area totali (TARGET_FOES_AND_ALLY - Gerozz).
+        if (AI_GetBattlerMoveTargetType(battlerAtk, move) == TARGET_FOES_AND_ALLY)
+        {
+            bool32 partnerImmune = FALSE;
+            if (gAiLogicData->abilities[partner] == ABILITY_TELEPATHY)
+            {
+                partnerImmune = TRUE;
+            }
+            else if (GetMoveType(move) == TYPE_GROUND && !AI_IsBattlerGrounded(partner))
+            {
+                partnerImmune = TRUE; // Levitazione (Rotom-Heat), Volante, Palloncino
+            }
+            else
+            {
+                u32 pIdx;
+                enum BattlerId pTarget;
+                enum Move pMove = PartnerChosenMove(battlerAtk, &pIdx, &pTarget);
+                if (pMove != MOVE_NONE && GetMoveEffect(pMove) == EFFECT_PROTECT)
+                    partnerImmune = TRUE;
+            }
+            if (!partnerImmune)
+                ADJUST_SCORE(-5);
+        }
     }
 
     // Stato / Spore / Encore su chi probabilmente cambia: lo prende il sostituto, non lui.
@@ -1092,6 +1187,58 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
             u32 d = gAiLogicData->simulatedDmg[partner][pTarget][pIdx].median;
             if (d < gBattleMons[pTarget].hp && d * 3 / 2 >= gBattleMons[pTarget].hp)
                 ADJUST_SCORE(3); // da 2HKO a OHKO
+        }
+    }
+
+    // Instruct (Oranguru): fa ripetere una potente mossa offensiva al partner (Mario).
+    if (effect == EFFECT_INSTRUCT && hasPartner)
+    {
+        if (targetingPartner)
+        {
+            u32 pIdx;
+            enum BattlerId pTarget;
+            enum Move pMove = PartnerChosenMove(battlerAtk, &pIdx, &pTarget);
+            u32 lastMove = gAiLogicData->lastUsedMove[partner];
+            enum Move mToRepeat = (pMove != MOVE_NONE) ? pMove : lastMove;
+            if (mToRepeat != MOVE_NONE && !IsBattleMoveStatus(mToRepeat) && !IsMoveInstructBanned(mToRepeat))
+                ADJUST_SCORE(5);
+        }
+        else
+        {
+            ADJUST_SCORE(-10);
+        }
+    }
+
+    // After You (Lilligant): dà subito il turno al partner (es. Torkoal con Eruzione sotto Sole - Gigi Pinto).
+    if (move == MOVE_AFTER_YOU && hasPartner)
+    {
+        if (targetingPartner)
+        {
+            if (gBattleMons[partner].species == SPECIES_TORKOAL && (gBattleWeather & B_WEATHER_SUN)
+             && (gBattleMons[partner].hp * 100 / max(gBattleMons[partner].maxHP, 1) >= 70))
+                ADJUST_SCORE(6);
+            else if (AI_IsFaster(battlerAtk, partner, move, MOVE_NONE, CONSIDER_PRIORITY))
+                ADJUST_SCORE(3);
+        }
+        else
+        {
+            ADJUST_SCORE(-10);
+        }
+    }
+
+    // Simple Beam (Simone): sblocca Spore su Toedscruel (rimuove Mycelium Might), MAI su Machamp (toglierebbe Guts).
+    if (move == MOVE_SIMPLE_BEAM)
+    {
+        if (targetingPartner && hasPartner)
+        {
+            if (gBattleMons[partner].species == SPECIES_TOEDSCRUEL && gAiLogicData->abilities[partner] == ABILITY_MYCELIUM_MIGHT)
+                ADJUST_SCORE(6);
+            else if (gBattleMons[partner].species == SPECIES_MACHAMP)
+                ADJUST_SCORE(-20);
+        }
+        else if (targetingPartner)
+        {
+            ADJUST_SCORE(-10);
         }
     }
 

@@ -254,9 +254,7 @@ static void PutPageWindowTilemaps(u8);
 static void ClearPageWindowTilemaps(u8);
 static void RemoveWindowByIndex(u8);
 static void PrintPageSpecificText(u8);
-static void CreateTextPrinterTask(u8);
 static void PrintInfoPageText(void);
-static void Task_PrintInfoPage(u8);
 static void PrintMonOTName(void);
 static void PrintMonOTID(void);
 static void PrintMonAbilityName(void);
@@ -272,7 +270,6 @@ static void PrintEggOTName(void);
 static void PrintEggOTID(void);
 static void PrintEggState(void);
 static void PrintEggMemo(void);
-static void Task_PrintSkillsPage(u8);
 static void PrintHeldItemName(void);
 static void PrintSkillsPageText(void);
 static void PrintRibbonCount(void);
@@ -282,10 +279,8 @@ static void BufferRightColumnStats(void);
 static void PrintRightColumnStats(void);
 static void PrintExpPointsNextLevel(void);
 static void PrintBattleMoves(void);
-static void Task_PrintBattleMoves(u8);
 static void PrintMoveNameAndPP(u8);
 static void PrintContestMoves(void);
-static void Task_PrintContestMoves(u8);
 static void PrintContestMoveDescription(u8);
 static void PrintMoveDetails(enum Move move);
 static void PrintNewMoveDetailsOrCancelText(void);
@@ -758,14 +753,6 @@ static void (*const sTextPrinterFunctions[])(void) =
     [PSS_PAGE_SKILLS] = PrintSkillsPageText,
     [PSS_PAGE_BATTLE_MOVES] = PrintBattleMoves,
     [PSS_PAGE_CONTEST_MOVES] = PrintContestMoves
-};
-
-static const TaskFunc sTextPrinterTasks[] =
-{
-    [PSS_PAGE_INFO] = Task_PrintInfoPage,
-    [PSS_PAGE_SKILLS] = Task_PrintSkillsPage,
-    [PSS_PAGE_BATTLE_MOVES] = Task_PrintBattleMoves,
-    [PSS_PAGE_CONTEST_MOVES] = Task_PrintContestMoves
 };
 
 static const u8 sText_Relearn[] = _("{START_BUTTON} RELEARN"); // future note: don't decap this, because it mimics the summary screen BG graphics which will not get decapped
@@ -2060,6 +2047,7 @@ static void Task_ChangeSummaryMon(u8 taskId)
         break;
     case 11:
         PrintPageSpecificText(sMonSummaryScreen->currPageIndex);
+        PutPageWindowTilemaps(sMonSummaryScreen->currPageIndex);
         LimitEggSummaryPageDisplay();
         break;
     case 12:
@@ -2162,7 +2150,6 @@ static void ChangePage(u8 taskId, s8 delta)
         SetTaskFuncWithFollowupFunc(taskId, PssScrollRight, gTasks[taskId].func);
     else
         SetTaskFuncWithFollowupFunc(taskId, PssScrollLeft, gTasks[taskId].func);
-    CreateTextPrinterTask(currPageIndex);
     HidePageSpecificSprites();
 
     if (currPageIndex == PSS_PAGE_SKILLS
@@ -2182,6 +2169,8 @@ static void ChangePage(u8 taskId, s8 delta)
     {
         ShowUtilityPrompt(SUMMARY_MODE_NORMAL);
     }
+
+    PrintPageSpecificText(currPageIndex);
 }
 
 static void PssScrollRight(u8 taskId) // Scroll right
@@ -3444,11 +3433,6 @@ static void PrintPageSpecificText(u8 pageIndex)
     sTextPrinterFunctions[pageIndex]();
 }
 
-static void CreateTextPrinterTask(u8 pageIndex)
-{
-    CreateTask(sTextPrinterTasks[pageIndex], 16);
-}
-
 static void PrintInfoPageText(void)
 {
     if (sMonSummaryScreen->summary.isEgg)
@@ -3467,36 +3451,6 @@ static void PrintInfoPageText(void)
         BufferMonTrainerMemo();
         PrintMonTrainerMemo();
     }
-}
-
-static void Task_PrintInfoPage(u8 taskId)
-{
-    s16 *data = gTasks[taskId].data;
-    switch (data[0])
-    {
-    case 1:
-        PrintMonOTName();
-        break;
-    case 2:
-        PrintMonOTID();
-        break;
-    case 3:
-        PrintMonAbilityName();
-        break;
-    case 4:
-        PrintMonAbilityDescription();
-        break;
-    case 5:
-        BufferMonTrainerMemo();
-        break;
-    case 6:
-        PrintMonTrainerMemo();
-        break;
-    case 7:
-        DestroyTask(taskId);
-        return;
-    }
-    data[0]++;
 }
 
 static void PrintMonOTName(void)
@@ -3743,43 +3697,6 @@ static void PrintSkillsPageText(void)
     PrintExpPointsNextLevel();
 }
 
-static void Task_PrintSkillsPage(u8 taskId)
-{
-    s16 *data = gTasks[taskId].data;
-
-    switch (data[0])
-    {
-    case 1:
-        PrintHeldItemName();
-        break;
-    case 2:
-        PrintRibbonCount();
-        break;
-    case 3:
-        ChangeStatLabel(SUMMARY_SKILLS_MODE_STATS);
-        break;
-    case 4:
-        BufferLeftColumnStats();
-        break;
-    case 5:
-        PrintLeftColumnStats();
-        break;
-    case 6:
-        BufferRightColumnStats();
-        break;
-    case 7:
-        PrintRightColumnStats();
-        break;
-    case 8:
-        PrintExpPointsNextLevel();
-        break;
-    case 9:
-        DestroyTask(taskId);
-        return;
-    }
-    data[0]++;
-}
-
 static void PrintHeldItemName(void)
 {
     const u8 *text;
@@ -3993,51 +3910,6 @@ static void PrintBattleMoves(void)
     }
 }
 
-static void Task_PrintBattleMoves(u8 taskId)
-{
-    s16 *data = gTasks[taskId].data;
-
-    switch (data[0])
-    {
-    case 1:
-        PrintMoveNameAndPP(0);
-        break;
-    case 2:
-        PrintMoveNameAndPP(1);
-        break;
-    case 3:
-        PrintMoveNameAndPP(2);
-        break;
-    case 4:
-        PrintMoveNameAndPP(3);
-        break;
-    case 5:
-        if (sMonSummaryScreen->mode == SUMMARY_MODE_SELECT_MOVE)
-            PrintNewMoveDetailsOrCancelText();
-        break;
-    case 6:
-        if (sMonSummaryScreen->mode == SUMMARY_MODE_SELECT_MOVE)
-        {
-            if (sMonSummaryScreen->firstMoveIndex == MAX_MON_MOVES)
-                data[1] = sMonSummaryScreen->newMove;
-            else
-                data[1] = sMonSummaryScreen->summary.moves[sMonSummaryScreen->firstMoveIndex];
-        }
-        break;
-    case 7:
-        if (sMonSummaryScreen->mode == SUMMARY_MODE_SELECT_MOVE)
-        {
-            if (sMonSummaryScreen->newMove != MOVE_NONE || sMonSummaryScreen->firstMoveIndex != MAX_MON_MOVES)
-                PrintMoveDetails(data[1]);
-        }
-        break;
-    case 8:
-        DestroyTask(taskId);
-        return;
-    }
-    data[0]++;
-}
-
 static void PrintMoveNameAndPP(u8 moveIndex)
 {
     u8 pp;
@@ -4120,42 +3992,6 @@ static void PrintContestMoves(void)
         PrintNewMoveDetailsOrCancelText();
         PrintContestMoveDescription(sMonSummaryScreen->firstMoveIndex);
     }
-}
-
-static void Task_PrintContestMoves(u8 taskId)
-{
-    s16 *data = gTasks[taskId].data;
-
-    switch (data[0])
-    {
-    case 1:
-        PrintMoveNameAndPP(0);
-        break;
-    case 2:
-        PrintMoveNameAndPP(1);
-        break;
-    case 3:
-        PrintMoveNameAndPP(2);
-        break;
-    case 4:
-        PrintMoveNameAndPP(3);
-        break;
-    case 5:
-        if (sMonSummaryScreen->mode == SUMMARY_MODE_SELECT_MOVE)
-            PrintNewMoveDetailsOrCancelText();
-        break;
-    case 6:
-        if (sMonSummaryScreen->mode == SUMMARY_MODE_SELECT_MOVE)
-        {
-            if (sMonSummaryScreen->newMove != MOVE_NONE || sMonSummaryScreen->firstMoveIndex != MAX_MON_MOVES)
-                PrintContestMoveDescription(sMonSummaryScreen->firstMoveIndex);
-        }
-        break;
-    case 7:
-        DestroyTask(taskId);
-        return;
-    }
-    data[0]++;
 }
 
 static void PrintContestMoveDescription(u8 moveSlot)

@@ -251,23 +251,30 @@ LittlerootTown_EventScript_Cancel::
 LittlerootTown_EventScript_RentalMenu::
 	msgbox LittlerootTown_Text_SelectCategoryPrompt, MSGBOX_DEFAULT
 	dynmultipush LittlerootTown_Text_RandomTeamAll, 0
-	dynmultipush LittlerootTown_Text_CatAnythingGoes, 1
-	dynmultipush LittlerootTown_Text_CatChampionsMeta, 2
-	dynmultipush LittlerootTown_Text_CatSVOverused, 3
-	dynmultipush LittlerootTown_Text_CatSVUbers, 4
-	dynmultipush LittlerootTown_Text_CatSVRarelyUsed, 5
-	dynmultipush LittlerootTown_Text_Cancel, 6
+	dynmultipush LittlerootTown_Text_CatViaGambardella, 1
+	dynmultipush LittlerootTown_Text_CatAnythingGoes, 2
+	dynmultipush LittlerootTown_Text_CatChampionsMeta, 3
+	dynmultipush LittlerootTown_Text_CatSVOverused, 4
+	dynmultipush LittlerootTown_Text_CatSVUbers, 5
+	dynmultipush LittlerootTown_Text_CatSVRarelyUsed, 6
+	dynmultipush LittlerootTown_Text_Cancel, 7
 	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
 	switch VAR_RESULT
 	case 0, LittlerootTown_EventScript_RandomRentalTeam
-	case 1, LittlerootTown_EventScript_CategoryAnythingGoes
-	case 2, LittlerootTown_EventScript_CategoryChampionsMeta
-	case 3, LittlerootTown_EventScript_CategorySVOverused
-	case 4, LittlerootTown_EventScript_CategorySVUbers
-	case 5, LittlerootTown_EventScript_CategorySVRarelyUsed
-	case 6, LittlerootTown_EventScript_Cancel
+	case 1, LittlerootTown_EventScript_CategoryViaGambardella
+	case 2, LittlerootTown_EventScript_CategoryAnythingGoes
+	case 3, LittlerootTown_EventScript_CategoryChampionsMeta
+	case 4, LittlerootTown_EventScript_CategorySVOverused
+	case 5, LittlerootTown_EventScript_CategorySVUbers
+	case 6, LittlerootTown_EventScript_CategorySVRarelyUsed
+	case 7, LittlerootTown_EventScript_Cancel
 	case MULTI_B_PRESSED, LittlerootTown_EventScript_Cancel
 	release
+	end
+
+LittlerootTown_EventScript_CategoryViaGambardella::
+	setvar VAR_0x8004, 5
+	goto LittlerootTown_EventScript_ShowCategoryTeams
 	end
 
 LittlerootTown_EventScript_RandomRentalTeam::
@@ -1165,6 +1172,9 @@ LittlerootTown_Text_SelectCategoryPrompt:
 
 LittlerootTown_Text_RandomTeamAll:
 	.string "Team Casuale (Tutti)$"
+
+LittlerootTown_Text_CatViaGambardella:
+	.string "Via Gambardella VGC (11)$"
 
 LittlerootTown_Text_CatAnythingGoes:
 	.string "Anything Goes (9)$"
