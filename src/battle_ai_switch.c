@@ -1334,7 +1334,7 @@ static bool32 VgcIsSwitchinSafeFromField(enum BattlerId battler, u32 targetMonIn
         return FALSE;
 
     ability = GetPartyMonAbilityForSwitchCalc(battler, targetMonIndex, &party[targetMonIndex]);
-    heldItemEffect = ItemId_GetHoldEffect(GetMonData(&party[targetMonIndex], MON_DATA_HELD_ITEM));
+    heldItemEffect = GetItemHoldEffect(GetMonData(&party[targetMonIndex], MON_DATA_HELD_ITEM));
     type1 = gSpeciesInfo[GetMonData(&party[targetMonIndex], MON_DATA_SPECIES)].types[0];
     type2 = gSpeciesInfo[GetMonData(&party[targetMonIndex], MON_DATA_SPECIES)].types[1];
 
@@ -1396,9 +1396,8 @@ static enum VgcSwitchResult VgcShouldSwitch(struct SwitchAiContext *switchContex
     enum BattlerId battler = switchContext->battler;
     enum BattlerId foeL = GetBattlerLeftFoe(battler), foeR = GetBattlerRightFoe(battler);
     bool32 foeLAlive = IsBattlerAlive(foeL), foeRAlive = IsBattlerAlive(foeR);
-    // Firma corretta: CanTargetFaintAi(battlerDef, battlerAtk) -> il difensore è battler, l'attaccante è il nemico
-    bool32 threatL = foeLAlive && CanTargetFaintAi(battler, foeL);
-    bool32 threatR = foeRAlive && CanTargetFaintAi(battler, foeR);
+    bool32 threatL = foeLAlive && CanTargetFaintAi(foeL, battler); // CanTargetFaintAi(chi attacca, chi subisce): il nemico ci manda KO
+    bool32 threatR = foeRAlive && CanTargetFaintAi(foeR, battler);
     bool32 slowerL = foeLAlive && AI_IsSlower(battler, foeL, MOVE_NONE, MOVE_NONE, DONT_CONSIDER_PRIORITY);
     bool32 slowerR = foeRAlive && AI_IsSlower(battler, foeR, MOVE_NONE, MOVE_NONE, DONT_CONSIDER_PRIORITY);
     bool32 canHurt = VgcCanHurtFoe(battler, foeL) || VgcCanHurtFoe(battler, foeR);
