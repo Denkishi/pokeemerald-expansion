@@ -71,14 +71,22 @@ Le frasi di Enzo restano in `data/maps/GambEsterno/scripts.inc`.
 Tutti gli allenatori VGC (Enzo compreso) hanno:
 
 ```
-AI: Smart Trainer / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
+AI: Basic Trainer / Smart Switching / Smart Mon Choices / Pp Stall Prevention / Randomize Switchin / Know Opponent Party / Assume Stab / Assume Status Moves / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
 ```
+
+**Niente `Omniscient`**: l'IA non legge i tuoi set. Sa le specie dei tuoi 4 (team preview, lecito),
+le mosse / abilità / strumenti che ha **visto**, e nel Bo3 ciò che ha visto nelle gare precedenti.
+Prima di vederle assume mosse STAB e le mosse di stato tipiche (`Assume Stab`, `Assume Status Moves`).
 
 Flag già presenti nel gioco (pokeemerald-expansion), e cosa fanno qui:
 
 | Flag | Cosa fa |
 |---|---|
-| `Smart Trainer` | = Check Bad Move + Try To Faint + Check Viability + **Omniscient** (conosce mosse, abilità e strumenti del giocatore) + Smart Switching + Smart Mon Choices + PP Stall Prevention + Randomize Switchin |
+| `Basic Trainer` | = Check Bad Move + Try To Faint + Check Viability |
+| `Smart Switching / Smart Mon Choices / Randomize Switchin` | scelta del sostituto intelligente (e non sempre lo stesso) |
+| `Pp Stall Prevention` | non si fa stallare i PP |
+| `Know Opponent Party` | conosce le specie della tua squadra (viste in team preview) |
+| `Assume Stab / Assume Status Moves` | finché non le vede, assume mosse STAB e mosse di stato tipiche |
 | `Prediction` | = Predict Move + Predict Switch + Predict Incoming Mon: stima la mossa che useresti (la stessa che userebbe lei al tuo posto) e se stai per cambiare |
 | `Hp Aware` | pesa le mosse in base ai PS propri e del bersaglio (niente setup a PS bassi, niente stato su chi sta per morire) |
 | `Try To 2hko` | bonus alle mosse che fanno OHKO o 2HKO |
@@ -202,6 +210,7 @@ casualità per non essere leggibile.
 - Le percentuali dei cambi in `VgcShouldSwitch`.
 - I pesi del Bo3 (−150 / −70 / +40 / +30 / +45) in `TeamPreview_AiSelectEnemyTeam`.
 - Per un allenatore "stupido" basta togliere `Vgc Doubles` (e magari `Prediction`) dalla sua riga `AI:`.
-- Per un allenatore che non conosce il tuo set, sostituire `Smart Trainer` con
-  `Basic Trainer / Smart Switching / Smart Mon Choices`: così vede solo ciò che hai usato
-  (e nel Bo3 ciò che ha visto nelle gare precedenti).
+- Per un allenatore che "bara" (conosce i tuoi set): sostituire `Basic Trainer` con `Smart Trainer`
+  (contiene `Omniscient`).
+- Le probabilità della lettura (base 20 / 8, bonus +30, fiducia 70%) in `VgcProtectChance`,
+  `VgcSwitchChance`, `VgcTrustRead` in `src/battle_ai_vgc.c`.
