@@ -243,6 +243,9 @@ _Static_assert(sizeof(gMovesInfo[0].additionalEffects[0].argument) == 3, "Additi
 
 static inline enum Move SanitizeMoveId(enum Move moveId)
 {
+    if (moveId == MOVE_UNAVAILABLE)
+        return MOVE_NONE;
+
     assertf(moveId < MOVES_COUNT_ALL, "invalid move: %d", moveId)
     {
         return MOVE_NONE;

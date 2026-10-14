@@ -24,6 +24,8 @@
 #include "constants/rgb.h"
 #include "constants/songs.h"
 #include "constants/sound.h"
+#include "config/custom.h"
+
 
 /*
     The intro is grouped into the following scenes
@@ -925,7 +927,13 @@ static void SerialCB_CopyrightScreen(void)
 
 bool8 SetUpCopyrightScreenFrlg(void)
 {
+#if CUSTOM_SKIP_INTRO_CINEMATICS == TRUE
+    SetMainCallback2(CB2_InitTitleScreen);
+    return FALSE;
+#endif
+
     switch (gMain.state)
+
     {
     case 0:
         SetVBlankCallback(NULL);

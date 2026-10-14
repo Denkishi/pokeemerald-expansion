@@ -2543,7 +2543,7 @@ bool32 GetMoveSelectionDamageRange(enum BattlerId battlerAtk, enum BattlerId bat
     ctx.battlerAtk = battlerAtk;
     ctx.battlerDef = battlerDef;
     ctx.move = moveInfo->moves[gMoveSelectionCursor[battlerAtk]];
-    if (ctx.move == MOVE_NONE || IsBattleMoveStatus(ctx.move) || maxHp == 0)
+    if (ctx.move == MOVE_NONE || ctx.move == MOVE_UNAVAILABLE || IsBattleMoveStatus(ctx.move) || maxHp == 0)
         return FALSE;
     ctx.chosenMove = ctx.move;
     ctx.moveType = CheckDynamicMoveType(GetBattlerMon(battlerAtk), ctx.move, battlerAtk, MON_IN_BATTLE);
@@ -2615,7 +2615,9 @@ static void MoveSelectionDisplayMoveEffectiveness(u32 foeEffectiveness, enum Bat
 
     txtPtr = StringCopy(gDisplayedStringBattle, gText_MoveInterfacePP);
 
-    if (!IsBattleMoveStatus(moveInfo->moves[gMoveSelectionCursor[battler]]))
+    if (moveInfo->moves[gMoveSelectionCursor[battler]] != MOVE_NONE
+     && moveInfo->moves[gMoveSelectionCursor[battler]] != MOVE_UNAVAILABLE
+     && !IsBattleMoveStatus(moveInfo->moves[gMoveSelectionCursor[battler]]))
     {
         switch (foeEffectiveness)
         {

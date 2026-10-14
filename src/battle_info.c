@@ -259,7 +259,7 @@ s32 BattleInfo_WorstIncomingEffectiveness(struct Pokemon *mon)
             u32 modifier;
             s32 percent;
 
-            if (move == MOVE_NONE || GetMoveCategory(move) == DAMAGE_CATEGORY_STATUS)
+            if (move == MOVE_NONE || move == MOVE_UNAVAILABLE || GetMoveCategory(move) == DAMAGE_CATEGORY_STATUS)
                 continue;
             moveType = GetMoveType(move);
             modifier = GetTypeModifier(moveType, type1);
@@ -1145,9 +1145,14 @@ static enum Item DetailItem(u32 side, u32 slot)
 
 static enum Move DetailMove(u32 side, u32 slot, u32 index)
 {
+    enum Move move;
     if (side == BI_SIDE_PLAYER)
-        return GetMonData(&SideParty(side)[slot], MON_DATA_MOVE1 + index);
-    return sRevealed[slot].moves[index];
+        move = GetMonData(&SideParty(side)[slot], MON_DATA_MOVE1 + index);
+    else
+        move = sRevealed[slot].moves[index];
+    if (move == MOVE_UNAVAILABLE)
+        return MOVE_NONE;
+    return move;
 }
 
 static void DrawDetailRow(u32 row, s32 x, s32 y)

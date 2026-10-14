@@ -323,14 +323,17 @@ static void DestroyBadge(struct Sprite *sprite)
 static enum Move CurrentSelectedMove(enum BattlerId battler)
 {
     struct ChooseMoveStruct *moveInfo = (struct ChooseMoveStruct *)(&gBattleResources->bufferA[battler][4]);
-    return moveInfo->moves[gMoveSelectionCursor[battler]];
+    enum Move move = moveInfo->moves[gMoveSelectionCursor[battler]];
+    if (move == MOVE_UNAVAILABLE)
+        return MOVE_NONE;
+    return move;
 }
 
 static bool32 ShouldShowOnTarget(enum BattlerId atk, enum BattlerId def, enum Move move)
 {
     enum MoveTarget target;
 
-    if (!IsBattlerAlive(def) || move == MOVE_NONE || IsBattleMoveStatus(move))
+    if (!IsBattlerAlive(def) || move == MOVE_NONE || move == MOVE_UNAVAILABLE || IsBattleMoveStatus(move))
         return FALSE;
     if (!IsBattlerAlly(atk, def))
         return TRUE;

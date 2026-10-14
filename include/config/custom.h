@@ -87,4 +87,12 @@
 // Nel Bo3 l'IA ricorda anche lead e gruppo portato in ogni gara e chi le ha fatto i KO
 // (src/team_preview.c, "history" e "kos"): dopo una sconfitta cambia lead e gruppo.
 
+// --- 15. Salto filmati intro ------------------------------------------------
+// Salta i filmati d'apertura e porta direttamente alla schermata del titolo.
+// TRUE (1) = Avvio istantaneo direttamente alla Title Screen (Press Start), senza filmati né attese
+// 2        = Mostra il copyright (saltabile con A/B/Start), poi passa direttamente alla Title Screen
+// FALSE    = Comportamento standard (riproduce l'intro RHH e i filmati Rayquaza)
+#define CUSTOM_SKIP_INTRO_CINEMATICS        TRUE
+
 #endif // GUARD_CONFIG_CUSTOM_H
+

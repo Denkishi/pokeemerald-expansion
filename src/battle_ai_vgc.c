@@ -421,7 +421,7 @@ static bool32 BattlerHasVgcSetupMove(enum BattlerId battler)
     for (i = 0; i < MAX_MON_MOVES; i++)
     {
         enum Move m = gBattleMons[battler].moves[i];
-        if (m != MOVE_NONE && IsVgcSetupMove(m))
+        if (m != MOVE_NONE && m != MOVE_UNAVAILABLE && IsVgcSetupMove(m))
             return TRUE;
     }
     return FALSE;
@@ -442,6 +442,10 @@ static enum Move PartnerChosenMove(enum BattlerId battler, u32 *moveIndex, enum 
         return MOVE_NONE;
     *moveIndex = gAiBattleData->chosenMoveIndex[partner];
     *target = gAiBattleData->chosenTarget[partner];
+    if (*moveIndex >= MAX_MON_MOVES)
+        return MOVE_NONE;
+    if (gBattleMons[partner].moves[*moveIndex] == MOVE_UNAVAILABLE)
+        return MOVE_NONE;
     return gBattleMons[partner].moves[*moveIndex];
 }
 

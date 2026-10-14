@@ -29,6 +29,8 @@
 #include "constants/rgb.h"
 #include "constants/battle_anim.h"
 #include "pokemon.h"
+#include "config/custom.h"
+
 
 /*
     The intro is grouped into the following scenes
@@ -1051,6 +1053,12 @@ static void SerialCB_CopyrightScreen(void)
 
 static u8 SetUpCopyrightScreen(void)
 {
+#if CUSTOM_SKIP_INTRO_CINEMATICS == TRUE
+    SetMainCallback2(CB2_InitTitleScreen);
+    SetSerialCallback(SerialCB);
+    return 0;
+#endif
+
     if (IS_FRLG)
         return SetUpCopyrightScreenFrlg();
 
@@ -1093,6 +1101,10 @@ static u8 SetUpCopyrightScreen(void)
         UpdatePaletteFade();
         gMain.state++;
         GameCubeMultiBoot_Main(&gMultibootProgramStruct);
+#if CUSTOM_SKIP_INTRO_CINEMATICS
+        if (JOY_NEW(A_BUTTON | B_BUTTON | START_BUTTON))
+            gMain.state = COPYRIGHT_START_FADE;
+#endif
         break;
     case COPYRIGHT_START_FADE:
         GameCubeMultiBoot_Main(&gMultibootProgramStruct);
@@ -1105,13 +1117,16 @@ static u8 SetUpCopyrightScreen(void)
     case COPYRIGHT_START_INTRO:
         if (UpdatePaletteFade())
             break;
-#if EXPANSION_INTRO == TRUE
+#if CUSTOM_SKIP_INTRO_CINEMATICS
+        SetMainCallback2(CB2_InitTitleScreen);
+#elif EXPANSION_INTRO == TRUE
         SetMainCallback2(CB2_ExpansionIntro);
         CreateTask(Task_HandleExpansionIntro, 0);
 #else
         CreateTask(Task_Scene1_Load, 0);
         SetMainCallback2(MainCB2_Intro);
 #endif
+
         if (gMultibootProgramStruct.gcmb_field_2 != 0)
         {
             if (gMultibootProgramStruct.gcmb_field_2 == 2)
