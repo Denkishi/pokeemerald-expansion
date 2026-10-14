@@ -752,10 +752,13 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                 score += depth[i] + AI_VgcPlanBringBonus(trainerId, GetMonData(&enemy[enemySlots[i]], MON_DATA_SPECIES), planTrViable, planTwViable);
 
         // Risoluzione conflitti interni di squadra (Team Preview):
-        // 1. Mario Lett: MAI selezionare Weezing-Galar con Dondozo o Tatsugiri (Neutralizing Gas annulla Commander).
+        // 1. Mario Lett:
+        // - MAI selezionare Weezing-Galar con Dondozo o Tatsugiri (Neutralizing Gas annulla Commander).
+        // - Dondozo e Tatsugiri devono sempre essere scelti INSIEME (mai uno senza l'altro).
+        // - Slaking può essere scelto SOLO se presente Weezing.
         if (trainerId == TRAINER_MARIO_LETT)
         {
-            bool32 hasWeezing = FALSE, hasDondozo = FALSE;
+            bool32 hasWeezing = FALSE, hasSlaking = FALSE, hasDondozo = FALSE, hasTatsugiri = FALSE;
             for (i = 0; i < nEnemy; i++)
             {
                 if (mask & (1u << i))
@@ -763,17 +766,27 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                     u16 sp = GET_BASE_SPECIES_ID(GetMonData(&enemy[enemySlots[i]], MON_DATA_SPECIES));
                     if (sp == SPECIES_WEEZING || sp == SPECIES_WEEZING_GALAR)
                         hasWeezing = TRUE;
-                    if (sp == SPECIES_DONDOZO || sp == SPECIES_TATSUGIRI)
+                    else if (sp == SPECIES_SLAKING)
+                        hasSlaking = TRUE;
+                    else if (sp == SPECIES_DONDOZO)
                         hasDondozo = TRUE;
+                    else if (sp == SPECIES_TATSUGIRI)
+                        hasTatsugiri = TRUE;
                 }
             }
-            if (hasWeezing && hasDondozo)
-                score -= 1000;
+            if (hasWeezing && (hasDondozo || hasTatsugiri))
+                score -= 5000;
+            if (hasSlaking && !hasWeezing)
+                score -= 5000;
+            if (hasDondozo != hasTatsugiri)
+                score -= 5000;
         }
-        // 2. Tony: MAI schierare Mega Charizard Y e Gyarados insieme (il sole dimezza Waterfall ed entrambi competono per la Mega).
+        // 2. Tony:
+        // - MAI schierare Mega Charizard Y e Gyarados insieme (il sole dimezza Waterfall ed entrambi competono per la Mega).
+        // - Se sta usando una forma paleo (Roaring Moon, Slither Wing, Brute Bonnet), DEVE portare Charizard per garantire il Sole.
         else if (trainerId == TRAINER_TONY)
         {
-            bool32 hasZard = FALSE, hasGyara = FALSE;
+            bool32 hasZard = FALSE, hasGyara = FALSE, hasPaleo = FALSE;
             for (i = 0; i < nEnemy; i++)
             {
                 if (mask & (1u << i))
@@ -781,12 +794,16 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                     u16 sp = GET_BASE_SPECIES_ID(GetMonData(&enemy[enemySlots[i]], MON_DATA_SPECIES));
                     if (sp == SPECIES_CHARIZARD)
                         hasZard = TRUE;
-                    if (sp == SPECIES_GYARADOS)
+                    else if (sp == SPECIES_GYARADOS)
                         hasGyara = TRUE;
+                    else if (sp == SPECIES_ROARING_MOON || sp == SPECIES_SLITHER_WING || sp == SPECIES_BRUTE_BONNET)
+                        hasPaleo = TRUE;
                 }
             }
             if (hasZard && hasGyara)
-                score -= 600;
+                score -= 3000;
+            if (hasPaleo && !hasZard)
+                score -= 5000;
         }
         // 3. Gigi Pinto: MAI schierare Mega Blastoise e Torkoal insieme sotto il sole a meno di counter-pick contro pioggia/sabbia.
         else if (trainerId == TRAINER_GIGI_PINTO)
@@ -874,6 +891,61 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                     // Piano di squadra: coppie di lead preferite, chi sta dietro non leada.
                     s += AI_VgcPlanLeadBonus(trainerId, GetMonData(&enemy[enemySlots[ea]], MON_DATA_SPECIES),
                                              GetMonData(&enemy[enemySlots[eb]], MON_DATA_SPECIES), planTrViable, planTwViable);
+
+                    if (trainerId == TRAINER_MARIO_LETT)
+                    {
+                        u16 spA = GET_BASE_SPECIES_ID(GetMonData(&enemy[enemySlots[ea]], MON_DATA_SPECIES));
+                        u16 spB = GET_BASE_SPECIES_ID(GetMonData(&enemy[enemySlots[eb]], MON_DATA_SPECIES));
+                        bool32 dondozoLead = (spA == SPECIES_DONDOZO || spB == SPECIES_DONDOZO);
+                        bool32 tatsugiriLead = (spA == SPECIES_TATSUGIRI || spB == SPECIES_TATSUGIRI);
+                        bool32 slakingLead = (spA == SPECIES_SLAKING || spB == SPECIES_SLAKING);
+                        bool32 weezingLead = (spA == SPECIES_WEEZING || spA == SPECIES_WEEZING_GALAR || spB == SPECIES_WEEZING || spB == SPECIES_WEEZING_GALAR);
+
+                        // Se starta con Dondozo deve portare sempre in lead anche Tatsugiri
+                        if (dondozoLead && !tatsugiriLead)
+                            s -= 10000;
+                        if (tatsugiriLead && !dondozoLead)
+                            s -= 10000;
+                        // Slaking solo in coppia con Weezing
+                        if (slakingLead && !weezingLead)
+                            s -= 10000;
+                    }
+                    else if (trainerId == TRAINER_TONY)
+                    {
+                        u16 spA = GET_BASE_SPECIES_ID(GetMonData(&enemy[enemySlots[ea]], MON_DATA_SPECIES));
+                        u16 spB = GET_BASE_SPECIES_ID(GetMonData(&enemy[enemySlots[eb]], MON_DATA_SPECIES));
+                        bool32 aIsPaleo = (spA == SPECIES_ROARING_MOON || spA == SPECIES_SLITHER_WING || spA == SPECIES_BRUTE_BONNET);
+                        bool32 bIsPaleo = (spB == SPECIES_ROARING_MOON || spB == SPECIES_SLITHER_WING || spB == SPECIES_BRUTE_BONNET);
+                        bool32 aIsZard = (spA == SPECIES_CHARIZARD);
+                        bool32 bIsZard = (spB == SPECIES_CHARIZARD);
+
+                        // Controlla se la squadra scelta ha almeno un Pokémon paleo
+                        bool32 teamHasPaleo = FALSE;
+                        u32 cIdx;
+                        for (cIdx = 0; cIdx < nChosen; cIdx++)
+                        {
+                            u16 spC = GET_BASE_SPECIES_ID(GetMonData(&enemy[enemySlots[chosen[cIdx]]], MON_DATA_SPECIES));
+                            if (spC == SPECIES_ROARING_MOON || spC == SPECIES_SLITHER_WING || spC == SPECIES_BRUTE_BONNET)
+                            {
+                                teamHasPaleo = TRUE;
+                                break;
+                            }
+                        }
+
+                        if (teamHasPaleo)
+                        {
+                            // Se sta usando una forma paleo, DEVE partire con forma paleo + Mega Charizard Y per il sole immediato
+                            bool32 validSunPaleoLead = (aIsZard && bIsPaleo) || (bIsZard && aIsPaleo);
+                            if (!validSunPaleoLead)
+                                s -= 10000;
+                        }
+                        else
+                        {
+                            // Se non ha paleo in squadra, un Pokémon paleo comunque non può leadare senza sole
+                            if ((aIsPaleo || bIsPaleo) && !(aIsZard || bIsZard))
+                                s -= 10000;
+                        }
+                    }
                 }
                 s += Random() % 16; // un po' di varietà: lead meno leggibile
                 // Gare precedenti: non si rifà il lead che ha perso; quello che ha vinto si ripropone.

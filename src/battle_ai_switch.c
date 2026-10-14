@@ -1421,6 +1421,18 @@ static enum VgcSwitchResult VgcShouldSwitch(struct SwitchAiContext *switchContex
     if (!VgcIsSwitchinSafeFromField(battler, bestSwitchin, switchContext->party))
         return VGC_SWITCH_STAY;
 
+    // Mario Lett: Se siamo Weezing e il partner è Slaking vivo, NON switchare (altrimenti Slaking riattiva Truant)
+    {
+        enum BattlerId partner = BATTLE_PARTNER(battler);
+        if (IsBattlerAlive(partner))
+        {
+            u16 mySpecies = GET_BASE_SPECIES_ID(gBattleMons[battler].species);
+            u16 partnerSpecies = GET_BASE_SPECIES_ID(gBattleMons[partner].species);
+            if ((mySpecies == SPECIES_WEEZING || mySpecies == SPECIES_WEEZING_GALAR) && partnerSpecies == SPECIES_SLAKING)
+                return VGC_SWITCH_STAY;
+        }
+    }
+
     // I turni del nostro controllo velocità (Tailwind / Trick Room) non si sprecano a switchare a meno di morte certa
     if (AI_VgcOwnSpeedControlActive(battler) && !((threatL && slowerL) || (threatR && slowerR)))
         return VGC_SWITCH_STAY;

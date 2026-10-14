@@ -87,33 +87,33 @@ static const struct VgcGameplan sVgcGameplans[] =
             { SPECIES_INDEEDEE_F, SPECIES_COPPERAJAH, VGC_PLAN_TRICK_ROOM },
         },
     },
-    // TONY: Sun Hyper-Offense. Mega Charizard Y porta il Sole, Sableye Fake Out/Giornodisole;
-    // Roaring Moon e Slither Wing (Protosintesi) sfondano; Brute Bonnet reindirizza.
+    // TONY: Sun Hyper-Offense. Mega Charizard Y porta il Sole;
+    // Roaring Moon, Slither Wing e Brute Bonnet (Protosintesi) partono sotto il Sole con Charizard Y.
     {
         .trainerId = TRAINER_TONY,
         .modeA = VGC_PLAN_SUN, .modeB = VGC_PLAN_TAILWIND,
         .setters = { SPECIES_CHARIZARD, SPECIES_SABLEYE },
         .winCons = { SPECIES_CHARIZARD, SPECIES_ROARING_MOON },
-        .back = { SPECIES_SLITHER_WING, SPECIES_BRUTE_BONNET },
+        .back = { SPECIES_SABLEYE, SPECIES_GYARADOS },
         .leads = {
-            { SPECIES_SABLEYE, SPECIES_CHARIZARD, VGC_PLAN_SUN },
-            { SPECIES_ROARING_MOON, SPECIES_SLITHER_WING, VGC_PLAN_TAILWIND },
             { SPECIES_CHARIZARD, SPECIES_ROARING_MOON, VGC_PLAN_SUN },
+            { SPECIES_CHARIZARD, SPECIES_SLITHER_WING, VGC_PLAN_SUN },
+            { SPECIES_CHARIZARD, SPECIES_BRUTE_BONNET, VGC_PLAN_SUN },
         },
     },
     // MARIO LETT: Split ad alta varianza. Due binari rigidi e separati:
-    // Modalità A (Anti-Ability): Weezing-Galar + Slaking (Neutralizing Gas sblocca Truant).
-    // Modalità B (Commander): Chatot + Dondozo (Parting Shot o Tailwind per far entrare Tatsugiri).
+    // Binario A (Commander): Dondozo + Tatsugiri in lead (Commander immediato al turno 1).
+    // Binario B (Anti-Ability): Weezing-Galar + Slaking in lead (Neutralizing Gas sblocca Truant).
     {
         .trainerId = TRAINER_MARIO_LETT,
         .modeA = VGC_PLAN_BALANCE, .modeB = VGC_PLAN_TAILWIND,
         .setters = { SPECIES_CHATOT, SPECIES_SINISTCHA },
         .winCons = { SPECIES_SLAKING, SPECIES_DONDOZO },
-        .back = { SPECIES_TATSUGIRI, SPECIES_SINISTCHA },
+        .back = { SPECIES_SINISTCHA, SPECIES_CHATOT },
         .leads = {
+            { SPECIES_DONDOZO, SPECIES_TATSUGIRI, VGC_PLAN_BALANCE },
             { SPECIES_WEEZING_GALAR, SPECIES_SLAKING, VGC_PLAN_BALANCE },
-            { SPECIES_CHATOT, SPECIES_DONDOZO, VGC_PLAN_TAILWIND },
-            { SPECIES_SINISTCHA, SPECIES_DONDOZO, VGC_PLAN_TRICK_ROOM },
+            { SPECIES_CHATOT, SPECIES_SINISTCHA, VGC_PLAN_TAILWIND },
         },
     },
     // TATORE: Bulky Trick Room con Dusclops / Scream Tail. Kecleon Fake Out apre la strada;
