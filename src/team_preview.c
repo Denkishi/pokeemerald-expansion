@@ -582,40 +582,148 @@ static bool32 BenefitsFromWeather(struct Pokemon *mon, enum Ability setter)
     }
 }
 
+static enum Ability MonWeatherAbility(struct Pokemon *mon)
+{
+    u16 item = GetMonData(mon, MON_DATA_HELD_ITEM);
+    if (item == ITEM_CHARIZARDITE_Y)
+        return ABILITY_DROUGHT;
+    if (item == ITEM_TYRANITARITE)
+        return ABILITY_SAND_STREAM;
+    return GetMonAbility(mon);
+}
+
+static bool32 MonKnowsSetupMove(struct Pokemon *mon)
+{
+    u32 i;
+    for (i = 0; i < MAX_MON_MOVES; i++)
+    {
+        enum Move move = GetMonData(mon, MON_DATA_MOVE1 + i);
+        if (move != MOVE_NONE && Scout_MoveHasRole(move, SCOUT_SETUP))
+            return TRUE;
+    }
+    return FALSE;
+}
+
+static bool32 MonIsSupport(struct Pokemon *mon)
+{
+    enum Ability ab = GetMonAbility(mon);
+    if (MonKnowsEffect(mon, EFFECT_TRICK_ROOM)
+     || MonKnowsEffect(mon, EFFECT_TAILWIND)
+     || MonKnowsEffect(mon, EFFECT_FOLLOW_ME)
+     || MonKnowsEffect(mon, EFFECT_HELPING_HAND)
+     || HasFakeOut(mon)
+     || MonKnowsMove(mon, MOVE_SPORE)
+     || MonKnowsMove(mon, MOVE_QUICK_GUARD)
+     || MonKnowsMove(mon, MOVE_WIDE_GUARD)
+     || ab == ABILITY_INTIMIDATE
+     || ab == ABILITY_PRANKSTER)
+        return TRUE;
+    return FALSE;
+}
+
 static s32 PairSynergy(struct Pokemon *a, struct Pokemon *b)
 {
     s32 s = 0;
     u32 t;
+    bool32 aTr = MonKnowsEffect(a, EFFECT_TRICK_ROOM);
+    bool32 bTr = MonKnowsEffect(b, EFFECT_TRICK_ROOM);
+    bool32 aTw = MonKnowsEffect(a, EFFECT_TAILWIND);
+    bool32 bTw = MonKnowsEffect(b, EFFECT_TAILWIND);
+    bool32 aFo = HasFakeOut(a);
+    bool32 bFo = HasFakeOut(b);
+    bool32 aRedir = MonKnowsEffect(a, EFFECT_FOLLOW_ME);
+    bool32 bRedir = MonKnowsEffect(b, EFFECT_FOLLOW_ME);
+    bool32 aHh = MonKnowsEffect(a, EFFECT_HELPING_HAND);
+    bool32 bHh = MonKnowsEffect(b, EFFECT_HELPING_HAND);
+    bool32 aSetup = MonKnowsSetupMove(a);
+    bool32 bSetup = MonKnowsSetupMove(b);
 
     // Trick Room + partner lento
-    if (MonKnowsEffect(a, EFFECT_TRICK_ROOM) && BaseSpeed(b) <= 60) s += 40;
-    if (MonKnowsEffect(b, EFFECT_TRICK_ROOM) && BaseSpeed(a) <= 60) s += 40;
+    if (aTr && BaseSpeed(b) <= 60) s += 120;
+    if (bTr && BaseSpeed(a) <= 60) s += 120;
+    // Trick Room + partner veloce che odia la Distorsione
+    if (aTr && BaseSpeed(b) >= 105 && !bTr) s -= 80;
+    if (bTr && BaseSpeed(a) >= 105 && !aTr) s -= 80;
+
     // Trick Room + Tailwind insieme = conflitto
-    if ((MonKnowsEffect(a, EFFECT_TRICK_ROOM) && MonKnowsEffect(b, EFFECT_TAILWIND))
-     || (MonKnowsEffect(b, EFFECT_TRICK_ROOM) && MonKnowsEffect(a, EFFECT_TAILWIND)))
-        s -= 30;
+    if ((aTr && bTw) || (bTr && aTw))
+        s -= 150;
+
     // Tailwind + attaccante
-    if (MonKnowsEffect(a, EFFECT_TAILWIND) && BaseSpeed(b) >= 70) s += 20;
-    if (MonKnowsEffect(b, EFFECT_TAILWIND) && BaseSpeed(a) >= 70) s += 20;
+    if (aTw && BaseSpeed(b) >= 70) s += 60;
+    if (bTw && BaseSpeed(a) >= 70) s += 60;
+
     // Meteo / terreno + chi ne beneficia
-    if (BenefitsFromWeather(b, GetMonAbility(a))) s += 35;
-    if (BenefitsFromWeather(a, GetMonAbility(b))) s += 35;
-    // Fake Out / redirect + setup
-    if ((HasFakeOut(a) || MonKnowsEffect(a, EFFECT_FOLLOW_ME))
-     && (MonKnowsEffect(b, EFFECT_TRICK_ROOM) || MonKnowsEffect(b, EFFECT_TAILWIND)))
-        s += 20;
-    if ((HasFakeOut(b) || MonKnowsEffect(b, EFFECT_FOLLOW_ME))
-     && (MonKnowsEffect(a, EFFECT_TRICK_ROOM) || MonKnowsEffect(a, EFFECT_TAILWIND)))
-        s += 20;
-    if (HasFakeOut(a) && HasFakeOut(b))
-        s -= 10;
-    // Debolezze in comune
+    if (BenefitsFromWeather(b, MonWeatherAbility(a))) s += 120;
+    if (BenefitsFromWeather(a, MonWeatherAbility(b))) s += 120;
+
+    // Fake Out / redirect + setup / speed control
+    if ((aFo || aRedir) && (bTr || bTw || bSetup))
+        s += 100;
+    if ((bFo || bRedir) && (aTr || aTw || aSetup))
+        s += 100;
+
+    // Helping Hand + attaccante
+    if (aHh && (GetMonData(b, MON_DATA_ATK) >= 90 || GetMonData(b, MON_DATA_SPATK) >= 90))
+        s += 50;
+    if (bHh && (GetMonData(a, MON_DATA_ATK) >= 90 || GetMonData(a, MON_DATA_SPATK) >= 90))
+        s += 50;
+
+    // Redirect + attaccante fragile o da setup
+    if (aRedir && (bSetup || BaseSpeed(b) <= 60))
+        s += 80;
+    if (bRedir && (aSetup || BaseSpeed(a) <= 60))
+        s += 80;
+
+    // Due Fake Out insieme: non si possono usare entrambi
+    if (aFo && bFo)
+        s -= 60;
+
+    // Terremoto: immunità partner o danno al compagno
+    if (MonKnowsMove(a, MOVE_EARTHQUAKE))
+    {
+        if (TypeVsMonPct(TYPE_GROUND, b) == 0)
+            s += 80;
+        else if (!MonKnowsEffect(b, EFFECT_PROTECT))
+            s -= 100;
+    }
+    if (MonKnowsMove(b, MOVE_EARTHQUAKE))
+    {
+        if (TypeVsMonPct(TYPE_GROUND, a) == 0)
+            s += 80;
+        else if (!MonKnowsEffect(a, EFFECT_PROTECT))
+            s -= 100;
+    }
+
+    // Scarica: immunità partner
+    if (MonKnowsMove(a, MOVE_DISCHARGE))
+    {
+        if (TypeVsMonPct(TYPE_ELECTRIC, b) == 0)
+            s += 80;
+        else if (!MonKnowsEffect(b, EFFECT_PROTECT))
+            s -= 80;
+    }
+    if (MonKnowsMove(b, MOVE_DISCHARGE))
+    {
+        if (TypeVsMonPct(TYPE_ELECTRIC, a) == 0)
+            s += 80;
+        else if (!MonKnowsEffect(a, EFFECT_PROTECT))
+            s -= 80;
+    }
+
+    // Debolezze in comune e coperture difensive
     for (t = TYPE_NORMAL; t < NUMBER_OF_MON_TYPES; t++)
     {
         if (t == TYPE_MYSTERY || t == TYPE_STELLAR)
             continue;
-        if (TypeVsMonPct(t, a) >= 200 && TypeVsMonPct(t, b) >= 200)
-            s -= 12;
+        u32 effA = TypeVsMonPct(t, a);
+        u32 effB = TypeVsMonPct(t, b);
+        if (effA >= 200 && effB >= 200)
+            s -= 25;
+        else if (effA >= 200 && effB <= 50)
+            s += 15;
+        else if (effB >= 200 && effA <= 50)
+            s += 15;
     }
     return s;
 }
@@ -1197,6 +1305,92 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
             if (mask & (1u << i))
                 score += depth[i] + AI_VgcPlanBringBonus(trainerId, GetMonData(&enemy[enemySlots[i]], MON_DATA_SPECIES), planTrViable, planTwViable);
 
+        // Valutazione sinergia 2v2 e coerenza di squadra per TUTTI gli allenatori nei doppi:
+        if (isDouble)
+        {
+            u32 i1, i2;
+            u32 trSetters = 0, twSetters = 0, slowSweepers = 0, supportCount = 0;
+
+            for (i1 = 0; i1 < nEnemy; i1++)
+            {
+                if (!(mask & (1u << i1)))
+                    continue;
+
+                struct Pokemon *m1 = &enemy[enemySlots[i1]];
+                bool32 isTr = MonKnowsEffect(m1, EFFECT_TRICK_ROOM);
+                bool32 isTw = MonKnowsEffect(m1, EFFECT_TAILWIND);
+
+                if (isTr)
+                    trSetters++;
+                if (isTw)
+                    twSetters++;
+                if (BaseSpeed(m1) <= 60 && !isTr)
+                    slowSweepers++;
+                if (MonIsSupport(m1))
+                    supportCount++;
+
+                // Sinergia a coppie nei 4 scelti
+                for (i2 = i1 + 1; i2 < nEnemy; i2++)
+                {
+                    if (mask & (1u << i2))
+                    {
+                        struct Pokemon *m2 = &enemy[enemySlots[i2]];
+                        score += PairSynergy(m1, m2);
+                    }
+                }
+            }
+
+            // Coerenza del controllo velocità per TUTTI nei doppi:
+            if (slowSweepers >= 2 && trSetters == 0)
+                score -= 600 * slowSweepers; // Mai portare attaccanti lenti senza setter
+            else if (slowSweepers >= 1 && trSetters == 0)
+                score -= 300;
+            else if (slowSweepers >= 1 && trSetters >= 1)
+                score += 200; // Squadra coerente con Trick Room
+
+            if (trSetters >= 3)
+                score -= 400; // Troppi setter passivi
+            if (trSetters > 0 && twSetters > 0)
+                score -= 150; // Conflitto di velocità
+
+            // Compensazione per Pokémon di supporto nei doppi:
+            score += 150 * min(supportCount, 2);
+
+            // Coerenza meteo / terreno per TUTTI nei doppi:
+            for (i1 = 0; i1 < nEnemy; i1++)
+            {
+                if (!(mask & (1u << i1)))
+                    continue;
+                struct Pokemon *m1 = &enemy[enemySlots[i1]];
+                enum Ability ab1 = GetMonAbility(m1);
+
+                if (ab1 == ABILITY_SWIFT_SWIM || ab1 == ABILITY_CHLOROPHYLL
+                 || ab1 == ABILITY_SAND_RUSH || ab1 == ABILITY_SLUSH_RUSH)
+                {
+                    bool32 hasSetter = FALSE;
+                    for (i2 = 0; i2 < nEnemy; i2++)
+                    {
+                        if (mask & (1u << i2))
+                        {
+                            enum Ability ab2 = MonWeatherAbility(&enemy[enemySlots[i2]]);
+                            if (ab1 == ABILITY_SWIFT_SWIM && (ab2 == ABILITY_DRIZZLE || ab2 == ABILITY_PRIMORDIAL_SEA))
+                                hasSetter = TRUE;
+                            else if (ab1 == ABILITY_CHLOROPHYLL && (ab2 == ABILITY_DROUGHT || ab2 == ABILITY_ORICHALCUM_PULSE))
+                                hasSetter = TRUE;
+                            else if (ab1 == ABILITY_SAND_RUSH && ab2 == ABILITY_SAND_STREAM)
+                                hasSetter = TRUE;
+                            else if (ab1 == ABILITY_SLUSH_RUSH && ab2 == ABILITY_SNOW_WARNING)
+                                hasSetter = TRUE;
+                        }
+                    }
+                    if (!hasSetter)
+                        score -= 500; // Non portare chi dipende dal meteo senza il suo setter
+                    else
+                        score += 150;
+                }
+            }
+        }
+
         // Risoluzione conflitti interni di squadra (Team Preview):
         // 1. Mario Lett:
         // - MAI selezionare Weezing-Galar con Dondozo o Tatsugiri (Neutralizing Gas annulla Commander).
@@ -1365,6 +1559,91 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                     // Piano di squadra: coppie di lead preferite, chi sta dietro non leada.
                     s += AI_VgcPlanLeadBonus(trainerId, GetMonData(&enemy[enemySlots[ea]], MON_DATA_SPECIES),
                                              GetMonData(&enemy[enemySlots[eb]], MON_DATA_SPECIES), planTrViable, planTwViable);
+
+                    {
+                        struct Pokemon *monA = &enemy[enemySlots[ea]];
+                        struct Pokemon *monB = &enemy[enemySlots[eb]];
+                        bool32 aIsTr = MonKnowsEffect(monA, EFFECT_TRICK_ROOM);
+                        bool32 bIsTr = MonKnowsEffect(monB, EFFECT_TRICK_ROOM);
+                        bool32 aIsSlow = BaseSpeed(monA) <= 65;
+                        bool32 bIsSlow = BaseSpeed(monB) <= 65;
+                        bool32 aIsSupp = MonIsSupport(monA);
+                        bool32 bIsSupp = MonIsSupport(monB);
+                        bool32 squadHasTr = FALSE;
+                        u32 cIdx;
+
+                        // Compensazione supporto in 2v2:
+                        // I mon di supporto (TR, Fake Out, Redirection, Helping Hand) hanno sMatch 1v1 basso,
+                        // ma in lead abilitano il compagno:
+                        if (aIsSupp || bIsSupp)
+                            s += 150;
+
+                        // 1) Logica universale Distorsione in lead per TUTTI:
+                        for (cIdx = 0; cIdx < nChosen; cIdx++)
+                        {
+                            if (MonKnowsEffect(&enemy[enemySlots[chosen[cIdx]]], EFFECT_TRICK_ROOM))
+                            {
+                                squadHasTr = TRUE;
+                                break;
+                            }
+                        }
+
+                        if (squadHasTr)
+                        {
+                            if (!aIsTr && !bIsTr)
+                            {
+                                // Squadra con Distorsione: mai aprire con attaccante lento senza Distorsione attiva!
+                                if (aIsSlow || bIsSlow)
+                                    s -= 5000;
+                                else
+                                    s -= 300;
+                            }
+                            else if (aIsTr && bIsTr)
+                            {
+                                // Due setter di Distorsione insieme in apertura = zero pressione offensiva
+                                s -= 3000;
+                            }
+                            else
+                            {
+                                struct Pokemon *partner = aIsTr ? monB : monA;
+
+                                if (MonKnowsEffect(partner, EFFECT_FOLLOW_ME))
+                                    s += 500; // Segui Me / Polverabbia garantisce TR
+                                else if (HasFakeOut(partner))
+                                    s += 400; // Bruciapelo assicura il primo turno
+                                else if (MonKnowsMove(partner, MOVE_QUICK_GUARD) || MonKnowsEffect(partner, EFFECT_PROTECT))
+                                    s += 200;
+                                else if (!MonIsSupport(partner))
+                                    s += 250; // Pressione offensiva immediata
+                            }
+                        }
+
+                        // 2) Logica universale Meteo in lead per TUTTI:
+                        {
+                            enum Ability abA = GetMonAbility(monA);
+                            enum Ability abB = GetMonAbility(monB);
+                            bool32 aAbuser = (abA == ABILITY_SWIFT_SWIM || abA == ABILITY_CHLOROPHYLL || abA == ABILITY_SAND_RUSH || abA == ABILITY_SLUSH_RUSH);
+                            bool32 bAbuser = (abB == ABILITY_SWIFT_SWIM || abB == ABILITY_CHLOROPHYLL || abB == ABILITY_SAND_RUSH || abB == ABILITY_SLUSH_RUSH);
+
+                            if (aAbuser && !BenefitsFromWeather(monA, MonWeatherAbility(monB)))
+                                s -= 3000; // Mai leadare abuser senza setter
+                            if (bAbuser && !BenefitsFromWeather(monB, MonWeatherAbility(monA)))
+                                s -= 3000;
+
+                            if ((aAbuser && BenefitsFromWeather(monA, MonWeatherAbility(monB)))
+                             || (bAbuser && BenefitsFromWeather(monB, MonWeatherAbility(monA))))
+                                s += 400; // Setter + Abuser in lead
+                        }
+
+                        // 3) Logica universale Redirection + Setup in lead:
+                        if ((MonKnowsEffect(monA, EFFECT_FOLLOW_ME) && MonKnowsSetupMove(monB))
+                         || (MonKnowsEffect(monB, EFFECT_FOLLOW_ME) && MonKnowsSetupMove(monA)))
+                            s += 400;
+
+                        // 4) Due Pokémon puramente di supporto insieme:
+                        if (aIsSupp && bIsSupp && !aIsTr && !bIsTr)
+                            s -= 2000;
+                    }
 
                     if (trainerId == TRAINER_MARIO_LETT)
                     {

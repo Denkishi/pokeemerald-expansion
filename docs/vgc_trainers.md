@@ -31,8 +31,8 @@ con team preview. Sono rilottabili all'infinito (come Enzo).
 | TONY | `TRAINER_TONY` | `VgcTrainer_EventScript_Tony` | Black Belt / Black Belt | Sole: Charizard Y, Roaring Moon e Slither Wing (Protosynthesis), Sableye Prankster con Sunny Day e Fake Out, Mega Gyarados, Brute Bonnet |
 | MARIO LETT | `TRAINER_MARIO_LETT` | `VgcTrainer_EventScript_MarioLett` | Expert / Expert M | Dondozo + Tatsugiri (Commander), Sinistcha Trick Room, Chatot Tailwind, Weezing-Galar, Slaking |
 | TATORE | `TRAINER_TATORE` | `VgcTrainer_EventScript_Tatore` | Nel Chill / sprite custom | Misto: Mega Sceptile, Lapras, Dusclops e Scream Tail Trick Room, Kecleon Fake Out, Armaldo Swords Dance |
-| MARIO | `TRAINER_MARIO` | `VgcTrainer_EventScript_Mario` | Fisherman / Fisherman | Hariyama, Iron Hands, Oranguru Trick Room; Meganium, Politoed e Golduck **senza set** (come dal file: niente mosse, strumenti, EV) |
-| ENZO (aggiornato) | `TRAINER_ENZO` | già in mappa (`GambEsterno_EventScript_Enzo`) | PKMN Trainer / sprite custom | Smeargle Spore/Encore, Annihilape scarf, Rillaboom, Mega Gengar, Mega Aerodactyl Tailwind, Grimmsnarl schermi |
+| MARIO | `TRAINER_MARIO` | `VgcTrainer_EventScript_Mario` | Fisherman / Fisherman | Trick Room & Rain: Hariyama, Iron Hands, Oranguru Trick Room; Meganium schermi, Politoed e Golduck Nuotovelox |
+| ENZO (aggiornato) | `TRAINER_ENZO` | già in mappa (`GambEsterno_EventScript_Enzo`) | PKMN Trainer / sprite custom | Smeargle Gravità/Spora/Follow Me, Annihilape scarf, Rillaboom, Mega Gengar, Mega Aerodactyl Tailwind, Grimmsnarl schermi |
 | GEROZZ | `TRAINER_GEROZZ` | `VgcTrainer_EventScript_Gerozz` | Rich Boy / Rich Boy | Sabbia: Mega Tyranitar, Dugtrio-Alola Sand Force, Gholdengo Nasty Plot, Great Tusk Bulk Up, Porygon2 Trick Room, Rotom-Heat |
 | CARLETTO | `TRAINER_CARLETTO` | `VgcTrainer_EventScript_Carletto` | Sailor / Sailor | Pioggia: Pelipper, Ludicolo Fake Out, Kingambit, Snorlax Belly Drum, Amoonguss, Mega Malamar Trick Room |
 | GIGI PINTO | `TRAINER_GIGI_PINTO` | `VgcTrainer_EventScript_GigiPinto` | Gentleman / Gentleman | Sole: Torkoal, Venusaur e Lilligant Chlorophyll, Garganacl, Hatterene Trick Room, Mega Blastoise |
@@ -40,7 +40,6 @@ con team preview. Sono rilottabili all'infinito (come Enzo).
 Note sulle squadre:
 - Tera Type ignorato (il Tera è spento). Nickname, shiny, EV, nature e IV sono quelli del file.
 - "La patatina" è diventata `PATATINA` (max 10 caratteri per il nome).
-- I tre Pokémon vuoti di MARIO hanno solo le mosse di livello.
 
 ## 2. Frasi (segnaposto)
 

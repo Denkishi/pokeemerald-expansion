@@ -16893,8 +16893,8 @@ Ability: Moody
 EVs: 252 HP / 4 SpA / 252 Spe
 Timid Nature
 - Gravity
-- Icy Wind
-- Encore
+- Follow Me
+- Fake Out
 - Spore
 
 Annihilape @ Choice Scarf
@@ -16917,13 +16917,14 @@ Jolly Nature
 
 Gengar @ Gengarite
 Ability: Cursed Body
+Shiny: Yes
 EVs: 4 HP / 252 SpA / 252 Spe
 Timid Nature
-Shiny: Yes
+IVs: 0 Atk
 - Shadow Ball
 - Hypnosis
 - Protect
-- Dream Eater
+- Sludge Bomb
 
 Aerodactyl @ Aerodactylite
 Ability: Unnerve
@@ -16972,9 +16973,9 @@ Adamant Nature
 
 Jailbreak (Rotom-Mow) @ Choice Scarf
 Ability: Levitate
+Shiny: Yes
 EVs: 4 HP / 252 SpA / 252 Spe
 Timid Nature
-Shiny: Yes
 - Leaf Storm
 - Thunderbolt
 - Volt Switch
@@ -17028,6 +17029,7 @@ Sassy Nature
 
 Goodra-Hisui @ Assault Vest
 Ability: Sap Sipper
+Tera Type: Fairy
 EVs: 252 HP / 4 Atk / 252 SpA
 Quiet Nature
 - Draco Meteor
@@ -17046,9 +17048,9 @@ Sassy Nature
 
 Elia (Lickitung) (M) @ Eviolite
 Ability: Oblivious
+Shiny: Yes
 EVs: 252 HP / 252 Def / 4 SpD
 Bold Nature
-Shiny: Yes
 - Body Press
 - Iron Defense
 - Disable
@@ -17155,9 +17157,9 @@ Jolly Nature
 
 Charizard (F) @ Charizardite Y
 Ability: Solar Power
+Shiny: Yes
 EVs: 252 SpA / 4 SpD / 252 Spe
 Timid Nature
-Shiny: Yes
 - Heat Wave
 - Weather Ball
 - Protect
@@ -17283,11 +17285,11 @@ Timid Nature
 
 Lapras @ Leftovers
 Ability: Shell Armor
-EVs: 248 HP / 252 Def / 8 SpA
-Bold Nature
-- Protect
-- Freeze-Dry
-- Scald
+EVs: 252 HP / 252 Def / 4 SpD
+Impish Nature
+- Ice Shard
+- Helping Hand
+- Sheer Cold
 - Life Dew
 
 Dusclops @ Eviolite
@@ -17301,9 +17303,9 @@ Sassy Nature
 
 Kecleon @ Focus Sash
 Ability: Protean
+Shiny: Yes
 EVs: 252 HP / 252 Atk / 4 SpD
 Adamant Nature
-Shiny: Yes
 - Fake Out
 - Helping Hand
 - Shadow Sneak
@@ -17316,7 +17318,7 @@ Adamant Nature
 - Protect
 - Rock Slide
 - Swords Dance
-- Sacred Sword
+- Superpower
 
 Scream Tail @ Booster Energy
 Ability: Protosynthesis
@@ -17404,9 +17406,9 @@ AI: Basic Trainer / Smart Switching / Smart Mon Choices / Pp Stall Prevention / 
 
 Gholdengo @ Life Orb
 Ability: Good as Gold
+Shiny: Yes
 EVs: 4 HP / 252 SpA / 252 Spe
 Timid Nature
-Shiny: Yes
 - Make It Rain
 - Nasty Plot
 - Protect
@@ -17486,9 +17488,9 @@ Mild Nature
 
 IL BOSS (Kingambit) @ Life Orb
 Ability: Defiant
+Shiny: Yes
 EVs: 252 HP / 252 Atk / 4 SpD
 Adamant Nature
-Shiny: Yes
 - Sucker Punch
 - Low Kick
 - Protect
@@ -17532,9 +17534,9 @@ AI: Basic Trainer / Smart Switching / Smart Mon Choices / Pp Stall Prevention / 
 
 Venusaur (F) @ Sitrus Berry
 Ability: Chlorophyll
+Shiny: Yes
 EVs: 4 HP / 252 SpA / 252 Spe
 Modest Nature
-Shiny: Yes
 - Protect
 - Weather Ball
 - Giga Drain
@@ -17542,9 +17544,9 @@ Shiny: Yes
 
 Torkoal (F) @ Charcoal
 Ability: Drought
+Shiny: Yes
 EVs: 248 HP / 252 SpA / 8 SpD
 Modest Nature
-Shiny: Yes
 - Protect
 - Earth Power
 - Eruption
@@ -17552,9 +17554,9 @@ Shiny: Yes
 
 Lilligant @ Focus Sash
 Ability: Chlorophyll
+Shiny: Yes
 EVs: 248 HP / 8 SpA / 252 Spe
 Timid Nature
-Shiny: Yes
 - After You
 - Encore
 - Energy Ball
@@ -17562,9 +17564,9 @@ Shiny: Yes
 
 Tremiti (Garganacl) (F) @ Leftovers
 Ability: Clear Body
+Shiny: Yes
 EVs: 252 HP / 4 Atk / 252 Def
 Impish Nature
-Shiny: Yes
 - Salt Cure
 - Heavy Slam
 - Body Press
@@ -17572,9 +17574,9 @@ Shiny: Yes
 
 Hatterene @ Life Orb
 Ability: Magic Bounce
+Shiny: Yes
 EVs: 252 HP / 108 Def / 4 SpA / 144 SpD
 Sassy Nature
-Shiny: Yes
 - Trick Room
 - Protect
 - Dazzling Gleam
@@ -17582,6 +17584,8 @@ Shiny: Yes
 
 Cannone (Blastoise) @ Blastoisinite
 Ability: Rain Dish
+Shiny: Yes
+Tera Type: Water
 EVs: 252 HP / 252 SpA / 4 SpD
 Modest Nature
 IVs: 0 Atk
@@ -17589,4 +17593,3 @@ IVs: 0 Atk
 - Dark Pulse
 - Dragon Pulse
 - Water Spout
-
