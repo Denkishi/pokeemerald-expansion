@@ -312,8 +312,9 @@ Dove conta:
 - **KO sicuro vs KO a tiro**: un KO garantito anche col tiro minimo vale +2; un KO solo col tiro
   alto (mediana sotto i PS) vale −1. Un KO al 40% non è un KO.
 - **Turni di Tailwind / Distorsione come risorsa**: negli ultimi due turni del proprio controllo
-  velocità l'IA spinge (attacchi +1, KO +2), non protegge (−3) e non fa stato (−2) salvo
-  Aiuto / Segui Me / rinnovo.
+  velocità l'IA spinge (attacchi +1, KO +2). Protect non è vietato: se un avversario la manda KO
+  vale tutto il blocco "Protect safe" (può salvare la partita); −1 se la 2HKO-ano, −3 solo se
+  nessuno la minaccia. Stato −1 solo quando non è in pericolo (Aiuto / Segui Me / rinnovo esclusi).
 - **Endgame in vantaggio numerico (2+)**: si chiude con quello che c'è in campo: attacchi +1,
   stato −1, niente cambi a meno che un KO certo stia arrivando (lettura).
 

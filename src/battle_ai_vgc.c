@@ -1262,16 +1262,30 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
             scLeft = gSideTimers[side].tailwindTimer;
         else if ((gFieldStatuses & STATUS_FIELD_TRICK_ROOM) && AI_VgcTeamIsSlowerThanFoes(battlerAtk, 1))
             scLeft = gFieldTimers.trickRoomTimer;
-        // Ultimi due turni del NOSTRO Tailwind / Distorsione: si spinge, non si aspetta.
+        // Ultimi due turni del NOSTRO Tailwind / Distorsione: si spinge. Non è bianco o nero: se un
+        // avversario ci manda KO, Protect resta valido (il blocco 3 lo valuta e può salvare la partita);
+        // il malus cresce solo quanto meno siamo in pericolo.
         if (scLeft != 0 && scLeft <= 2 && !targetingPartner)
         {
             if (!isStatus && IsBattlerAlive(battlerDef))
+            {
                 ADJUST_SCORE(CanIndexMoveFaintTarget(battlerAtk, battlerDef, moveIndex, AI_ATTACKING) ? 2 : 1);
-            else if (effect == EFFECT_PROTECT && !threatened)
-                ADJUST_SCORE(-3);
+            }
+            else if (effect == EFFECT_PROTECT)
+            {
+                if (threatened)
+                    ADJUST_SCORE(0);  // sotto KO: decide il blocco 3 (partner che toglie la minaccia, ecc.)
+                else if ((foeLAlive && GetBestNoOfHitsToKO(foeL, battlerAtk, AI_DEFENDING) <= 2)
+                      || (foeRAlive && GetBestNoOfHitsToKO(foeR, battlerAtk, AI_DEFENDING) <= 2))
+                    ADJUST_SCORE(-1); // ci fanno male ma non ci mandano KO: si preferisce attaccare
+                else
+                    ADJUST_SCORE(-3); // nessun pericolo: Protect spreca un turno prezioso
+            }
             else if (isStatus && effect != EFFECT_TRICK_ROOM && effect != EFFECT_TAILWIND
-                  && effect != EFFECT_HELPING_HAND && effect != EFFECT_FOLLOW_ME)
-                ADJUST_SCORE(-2);
+                  && effect != EFFECT_HELPING_HAND && effect != EFFECT_FOLLOW_ME && !threatened)
+            {
+                ADJUST_SCORE(-1);
+            }
         }
         // Endgame in vantaggio netto: si chiude con quello che c'è in campo, niente riposizionamenti.
         if (edge >= 2 && !targetingPartner)
