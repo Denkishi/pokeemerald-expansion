@@ -649,6 +649,50 @@ static u32 PopCount(u32 x)
     return n;
 }
 
+// Cosa si può dedurre dalla sola specie (come in una vera team preview): una delle abilità possibili.
+static bool32 SpeciesMayHaveAbility(u16 species, enum Ability ability)
+{
+    u32 i;
+    for (i = 0; i < NUM_ABILITY_SLOTS; i++)
+    {
+        if (gSpeciesInfo[species].abilities[i] == ability)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+static bool32 PlayerMayHaveAbility(struct Pokemon *player, const u32 *slots, u32 n, enum Ability ability)
+{
+    u32 j;
+    for (j = 0; j < n; j++)
+    {
+        if (SpeciesMayHaveAbility(GetMonData(&player[slots[j]], MON_DATA_SPECIES), ability))
+            return TRUE;
+    }
+    return FALSE;
+}
+
+static bool32 MaskHasSpecies(struct Pokemon *enemy, const u32 *slots, u32 n, u32 mask, u16 species)
+{
+    u32 i;
+    for (i = 0; i < n; i++)
+    {
+        if ((mask & (1u << i)) && AI_VgcSameSpecies(species, GetMonData(&enemy[slots[i]], MON_DATA_SPECIES)))
+            return TRUE;
+    }
+    return FALSE;
+}
+
+static bool32 PairIs(u16 a, u16 b, u16 x, u16 y)
+{
+    return (AI_VgcSameSpecies(x, a) && AI_VgcSameSpecies(y, b)) || (AI_VgcSameSpecies(x, b) && AI_VgcSameSpecies(y, a));
+}
+
+static bool32 PairHas(u16 a, u16 b, u16 x)
+{
+    return AI_VgcSameSpecies(x, a) || AI_VgcSameSpecies(x, b);
+}
+
 void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
 {
     struct Pokemon *enemy = gEnemyParty, *player = gPlayerParty;
@@ -780,6 +824,9 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                 score -= 5000;
             if (hasDondozo != hasTatsugiri)
                 score -= 5000;
+            // Il Gas Reagente spegne anche Hospitality di Sinistcha.
+            if (hasWeezing && MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_SINISTCHA))
+                score -= 60;
         }
         // 2. Tony:
         // - MAI schierare Mega Charizard Y e Gyarados insieme (il sole dimezza Waterfall ed entrambi competono per la Mega).
@@ -821,7 +868,31 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                 }
             }
             if (hasTorkoal && hasBlastoise)
-                score -= 600;
+                score -= 3000; // sotto il sole Water Spout fa metà danno: mai insieme
+            // Mega Blastoise è un counter-pick: solo contro chi porta pioggia o sabbia da sovrascrivere.
+            if (hasBlastoise && !PlayerMayHaveAbility(player, playerSlots, nPlayer, ABILITY_DRIZZLE)
+             && !PlayerMayHaveAbility(player, playerSlots, nPlayer, ABILITY_SAND_STREAM))
+                score -= 150;
+        }
+        // 4. Mario: Distorsione e Pioggia non si mischiano. Sotto Distorsione Golduck (Nuotovelox) diventa il
+        //    più lento del campo: Oranguru e Golduck mai negli stessi 4.
+        else if (trainerId == TRAINER_MARIO)
+        {
+            if (MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_ORANGURU)
+             && MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_GOLDUCK))
+                score -= 3000;
+            // Golduck senza chi porta la pioggia non ha senso.
+            if (MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_GOLDUCK)
+             && !MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_POLITOED))
+                score -= 400;
+        }
+        // 5. Enzo: una sola Mega per lotta. Si può portare anche Aerodactyl (la Mega resta a Gengar,
+        //    vedi AI_VgcShouldHoldMega), ma senza Mega rende meno.
+        else if (trainerId == TRAINER_ENZO)
+        {
+            if (MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_GENGAR)
+             && MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_AERODACTYL))
+                score -= 40;
         }
 
         // Troppi Pokémon deboli allo stesso tipo = male.
@@ -944,6 +1015,63 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                             // Se non ha paleo in squadra, un Pokémon paleo comunque non può leadare senza sole
                             if ((aIsPaleo || bIsPaleo) && !(aIsZard || bIsZard))
                                 s -= 10000;
+                        }
+                    }
+                    else
+                    {
+                        u16 spA = GetMonData(&enemy[enemySlots[ea]], MON_DATA_SPECIES);
+                        u16 spB = GetMonData(&enemy[enemySlots[eb]], MON_DATA_SPECIES);
+
+                        // Simone: Porygon-Z + Toedscruel (Raggio Semplice -> Spora veloce) solo contro squadre senza
+                        // Fake Out e senza chi è immune al sonno o rimbalza lo stato.
+                        if (trainerId == TRAINER_SIMONE && PairIs(spA, spB, SPECIES_PORYGON_Z, SPECIES_TOEDSCRUEL))
+                        {
+                            if (foeHasFakeOut
+                             || PlayerMayHaveAbility(player, playerSlots, nPlayer, ABILITY_GOOD_AS_GOLD)
+                             || PlayerMayHaveAbility(player, playerSlots, nPlayer, ABILITY_MAGIC_BOUNCE)
+                             || PlayerMayHaveAbility(player, playerSlots, nPlayer, ABILITY_PURIFYING_SALT)
+                             || PlayerMayHaveAbility(player, playerSlots, nPlayer, ABILITY_INSOMNIA)
+                             || PlayerMayHaveAbility(player, playerSlots, nPlayer, ABILITY_VITAL_SPIRIT)
+                             || PlayerMayHaveAbility(player, playerSlots, nPlayer, ABILITY_SWEET_VEIL))
+                                s -= 150;
+                        }
+                        // Gigi Pinto: Lilligant + Torkoal (Dopo di te -> Eruzione) perde valore se l'avversario può
+                        // cambiare meteo o colpire Torkoal con Fake Out prima.
+                        else if (trainerId == TRAINER_GIGI_PINTO && PairIs(spA, spB, SPECIES_LILLIGANT, SPECIES_TORKOAL))
+                        {
+                            if (PlayerMayHaveAbility(player, playerSlots, nPlayer, ABILITY_DRIZZLE)
+                             || PlayerMayHaveAbility(player, playerSlots, nPlayer, ABILITY_SAND_STREAM)
+                             || PlayerMayHaveAbility(player, playerSlots, nPlayer, ABILITY_SNOW_WARNING))
+                                s -= 60;
+                            if (foeHasFakeOut)
+                                s -= 30;
+                        }
+                        // Mario: Golduck in lead solo con Politoed (pioggia subito); Oranguru in lead con chi ha Fake Out.
+                        else if (trainerId == TRAINER_MARIO)
+                        {
+                            if (PairHas(spA, spB, SPECIES_GOLDUCK) && !PairHas(spA, spB, SPECIES_POLITOED))
+                                s -= 120;
+                            if (PairHas(spA, spB, SPECIES_ORANGURU) && PairHas(spA, spB, SPECIES_HARIYAMA))
+                                s += 30;
+                        }
+                        // Enzo: Smeargle + Gengar (Gravità + Ipnosi + Pedinombra) è la lead da manuale, ma senza
+                        // Focus Sash utile contro chi ha Fake Out rischia: Annihilape + Grimmsnarl come alternativa.
+                        else if (trainerId == TRAINER_ENZO && PairIs(spA, spB, SPECIES_SMEARGLE, SPECIES_GENGAR) && foeHasFakeOut)
+                        {
+                            s -= 40;
+                        }
+                        // Patatina: Armarouge con Indeedee-F (Campo Psichico + Segui Me) e mai Ceruledge in lead
+                        // sotto Campo Psichico (Ombrafurtiva non colpisce chi è a terra).
+                        else if (trainerId == TRAINER_PATATINA && PairIs(spA, spB, SPECIES_INDEEDEE_F, SPECIES_CERULEDGE))
+                        {
+                            s -= 60;
+                        }
+                        // Gerozz: chi usa Terremoto (Dugtrio-A, Great Tusk) in lead preferibilmente con Rotom-Heat
+                        // (Levitazione); con Tyranitar è accettato perché è la lead del piano (Tyranitar protegge o
+                        // Dugtrio usa Frana).
+                        else if (trainerId == TRAINER_GEROZZ && PairIs(spA, spB, SPECIES_GREAT_TUSK, SPECIES_DUGTRIO_ALOLA))
+                        {
+                            s -= 80; // Terremoto si colpirebbero a vicenda
                         }
                     }
                 }

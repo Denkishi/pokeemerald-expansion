@@ -449,6 +449,10 @@ void ReconsiderGimmick(enum BattlerId battlerAtk, enum BattlerId battlerDef, enu
 
     if (gBattleStruct->gimmick.usableGimmick[battlerAtk] == GIMMICK_TERA && GetMoveEffect(move) == EFFECT_PROTECT)
         SetAIUsingGimmick(battlerAtk, NO_GIMMICK);
+
+    // IA VGC: la Mega è riservata alla win condition del piano se è ancora in squadra.
+    if (gBattleStruct->gimmick.usableGimmick[battlerAtk] == GIMMICK_MEGA && AI_VgcShouldHoldMega(battlerAtk))
+        SetAIUsingGimmick(battlerAtk, NO_GIMMICK);
 }
 
 static bool32 IsThinkingBeforePartner(enum BattlerId battler, enum BattlerId battlerPartner)

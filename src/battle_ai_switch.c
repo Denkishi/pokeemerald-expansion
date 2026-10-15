@@ -1408,8 +1408,12 @@ static enum VgcSwitchResult VgcShouldSwitch(struct SwitchAiContext *switchContex
     if (!(gAiThinkingStruct->aiFlags[battler] & AI_FLAG_VGC_DOUBLES) || !IsDoubleBattle())
         return VGC_SWITCH_UNDECIDED;
 
+    // Pigrizia attiva (niente Gas Reagente) e turno di riposo: il KO "disponibile" non si può prendere.
+    bool32 truantLoafing = gAiLogicData->abilities[battler] == ABILITY_TRUANT && !IsNeutralizingGasOnField()
+                        && gBattleMons[battler].volatiles.truantCounter;
+
     // Se l'AI può mandare KO un bersaglio questo turno: NON si cambia MAI, si prende il KO!
-    if (canKo)
+    if (canKo && !truantLoafing)
         return VGC_SWITCH_STAY;
 
     // Nessun sostituto valido o sensato: resta categoricamente
@@ -1423,13 +1427,38 @@ static enum VgcSwitchResult VgcShouldSwitch(struct SwitchAiContext *switchContex
 
     // Mario Lett: Se siamo Weezing e il partner è Slaking vivo, NON switchare (altrimenti Slaking riattiva Truant)
     {
-        enum BattlerId partner = BATTLE_PARTNER(battler);
+        enum BattlerId partner = GetPartnerBattler(battler);
         if (IsBattlerAlive(partner))
         {
             u16 mySpecies = GET_BASE_SPECIES_ID(gBattleMons[battler].species);
             u16 partnerSpecies = GET_BASE_SPECIES_ID(gBattleMons[partner].species);
             if ((mySpecies == SPECIES_WEEZING || mySpecies == SPECIES_WEEZING_GALAR) && partnerSpecies == SPECIES_SLAKING)
                 return VGC_SWITCH_STAY;
+        }
+    }
+
+    // Pigrizia attiva (niente Gas Reagente in campo) e turno di riposo in arrivo: uscire azzera Pigrizia.
+    if (truantLoafing && hpPct >= 40 && Random() % 100 < 70)
+        return SetSwitchinAndSwitch(battler, PARTY_SIZE) ? VGC_SWITCH_GO : VGC_SWITCH_STAY;
+
+    // Piano di squadra: la modalità è attiva (Distorsione / Ventoincoda / meteo) ma in campo non c'è chi
+    // deve vincere la lotta e questo Pokémon non fa male: si manda dentro la win condition.
+    if (AI_VgcPlanModeActive(battler) && !canHurt
+     && !AI_VgcPlanIsWinCon(TRAINER_BATTLE_PARAM.opponentA, gBattleMons[battler].species)
+     && !((threatL && slowerL) && (threatR && slowerR)) && Random() % 100 < 50)
+    {
+        struct Pokemon *party = switchContext->party;
+        enum BattlerId partner = GetPartnerBattler(battler);
+        u32 i;
+        for (i = 0; i < PARTY_SIZE; i++)
+        {
+            if (!(switchContext->eligiblePartyMons & (1u << i)))
+                continue;
+            if (gBattlerPartyIndexes[battler] == i || (IsBattlerAlive(partner) && gBattlerPartyIndexes[partner] == i))
+                continue;
+            if (AI_VgcPlanIsWinCon(TRAINER_BATTLE_PARAM.opponentA, GetMonData(&party[i], MON_DATA_SPECIES))
+             && VgcIsSwitchinSafeFromField(battler, i, party))
+                return SetSwitchinAndSwitch(battler, i) ? VGC_SWITCH_GO : VGC_SWITCH_STAY;
         }
     }
 

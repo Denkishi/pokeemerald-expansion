@@ -27,6 +27,7 @@
 #include "battle_main.h"
 #include "battle_setup.h"
 #include "battle_util.h"
+#include "item.h"
 #include "move.h"
 #include "pokemon.h"
 #include "random.h"
@@ -53,13 +54,22 @@ const struct VgcGameplan *AI_VgcGetPlan(u16 trainerId)
     return NULL;
 }
 
+// Stessa specie "di squadra": confronto sulla specie base da entrambi i lati, così Mega, forme
+// regionali e forme alternative scritte nel piano (Indeedee-F, Goodra-Hisui, Rotom-Mow,
+// Dugtrio-Alola, Weezing-Galar...) corrispondono al Pokémon in campo in qualunque forma.
+bool32 AI_VgcSameSpecies(u16 planSpecies, u16 species)
+{
+    if (planSpecies == SPECIES_NONE || species == SPECIES_NONE)
+        return FALSE;
+    return planSpecies == species || GET_BASE_SPECIES_ID(planSpecies) == GET_BASE_SPECIES_ID(species);
+}
+
 static bool32 PlanListHas(const u16 *list, u32 n, u16 species)
 {
     u32 i;
-    species = GET_BASE_SPECIES_ID(species);
     for (i = 0; i < n; i++)
     {
-        if (list[i] != SPECIES_NONE && list[i] == species)
+        if (AI_VgcSameSpecies(list[i], species))
             return TRUE;
     }
     return FALSE;
@@ -104,14 +114,12 @@ s32 AI_VgcPlanLeadBonus(u16 trainerId, u16 a, u16 b, bool32 trViable, bool32 twV
 
     if (plan == NULL)
         return 0;
-    a = GET_BASE_SPECIES_ID(a);
-    b = GET_BASE_SPECIES_ID(b);
     for (i = 0; i < VGC_PLAN_LEADS; i++)
     {
         const struct VgcLeadPair *p = &plan->leads[i];
         if (p->a == SPECIES_NONE)
             continue;
-        if ((p->a == a && p->b == b) || (p->a == b && p->b == a))
+        if ((AI_VgcSameSpecies(p->a, a) && AI_VgcSameSpecies(p->b, b)) || (AI_VgcSameSpecies(p->a, b) && AI_VgcSameSpecies(p->b, a)))
         {
             bonus = 120 - 30 * (s32)i;
             if (!PlanModeViable(p->mode, trViable, twViable))
@@ -415,12 +423,15 @@ static bool32 IsVgcSetupMove(enum Move move)
     }
 }
 
+// Solo mosse NOTE: per i Pokémon del giocatore GetMovesArray restituisce le mosse viste
+// (niente sbirciate al set), per i propri quelle vere.
 static bool32 BattlerHasVgcSetupMove(enum BattlerId battler)
 {
     u32 i;
+    enum Move *moves = GetMovesArray(battler);
     for (i = 0; i < MAX_MON_MOVES; i++)
     {
-        enum Move m = gBattleMons[battler].moves[i];
+        enum Move m = moves[i];
         if (m != MOVE_NONE && m != MOVE_UNAVAILABLE && IsVgcSetupMove(m))
             return TRUE;
     }
@@ -483,6 +494,37 @@ static bool32 PartnerIsRedirecting(enum BattlerId battler)
     u32 idx;
     enum Move pMove = PartnerChosenMove(battler, &idx, &t);
     return pMove != MOVE_NONE && GetMoveEffect(pMove) == EFFECT_FOLLOW_ME;
+}
+
+// Il reindirizzamento del partner protegge davvero da questo avversario? Rage Powder è una mossa
+// "polvere": non devia chi è di tipo Erba, ha Copripolvere o Visierantipolvere (se noti);
+// Stalwart / Propeller Tail ignorano qualunque reindirizzamento.
+static bool32 PartnerRedirectCoversFoe(enum BattlerId battler, enum BattlerId foe)
+{
+    enum BattlerId t;
+    u32 idx;
+    enum Move pMove = PartnerChosenMove(battler, &idx, &t);
+    enum Ability foeAbility = gAiLogicData->abilities[foe];
+
+    if (pMove == MOVE_NONE || GetMoveEffect(pMove) != EFFECT_FOLLOW_ME)
+        return FALSE;
+    if (foeAbility == ABILITY_STALWART || foeAbility == ABILITY_PROPELLER_TAIL)
+        return FALSE;
+    if (IsPowderMove(pMove) && !IsAffectedByPowderMove(foe, foeAbility, gAiLogicData->holdEffects[foe]))
+        return FALSE;
+    return TRUE;
+}
+
+// Turno sicuro: nessuno ci manda KO, oppure il partner reindirizza tutti quelli che potrebbero.
+static bool32 IsSafeTurn(enum BattlerId battler, enum BattlerId foeL, bool32 threatL, enum BattlerId foeR, bool32 threatR)
+{
+    if (!threatL && !threatR)
+        return TRUE;
+    if (threatL && !PartnerRedirectCoversFoe(battler, foeL))
+        return FALSE;
+    if (threatR && !PartnerRedirectCoversFoe(battler, foeR))
+        return FALSE;
+    return TRUE;
 }
 
 static bool32 PartnerIsSettingUp(enum BattlerId battler)
@@ -731,7 +773,7 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
     bool32 threatL = foeLAlive && CanTargetFaintAi(foeL, battlerAtk);
     bool32 threatR = foeRAlive && CanTargetFaintAi(foeR, battlerAtk);
     bool32 threatened = threatL || threatR;
-    bool32 safeTurn = !threatened || PartnerIsRedirecting(battlerAtk);
+    bool32 safeTurn = IsSafeTurn(battlerAtk, foeL, threatL, foeR, threatR);
     u32 hp = gBattleMons[battlerAtk].hp, maxHp = gBattleMons[battlerAtk].maxHP;
     u32 protectP = 0, switchP = 0;
     bool32 defProtectLikely = FALSE, defSwitchLikely = FALSE, anyFoeProtectLikely = FALSE;
@@ -827,6 +869,70 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
         if (isStatus && !targetingPartner && IsBattlerAlive(battlerDef) && GetMoveNonVolatileStatus(move) == MOVE_EFFECT_SLEEP
          && (gFieldStatuses & STATUS_FIELD_GRAVITY) && gBattleMons[battlerDef].status1 == STATUS1_NONE && !defSwitchLikely)
             ADJUST_SCORE(5);
+
+        // ---------------- 7. Regole delle squadre (docs/vgc_trainers.md, sezione "Linee di gioco") ----------------
+        // Ultimascommessa proattiva (Enzo, Annihilape Scarf): toglie subito il pezzo chiave e crea il 4v3.
+        // Serve: essere più veloci, avere più PS del bersaglio, che il bersaglio non sia immune (Spettro),
+        // non abbia Focus Sash / Vigore a PS pieni e non stia probabilmente proteggendosi.
+        if (effect == EFFECT_FINAL_GAMBIT && !targetingPartner && IsBattlerAlive(battlerDef))
+        {
+            bool32 sashed = gBattleMons[battlerDef].hp == gBattleMons[battlerDef].maxHP
+                         && (gAiLogicData->holdEffects[battlerDef] == HOLD_EFFECT_FOCUS_SASH || gAiLogicData->abilities[battlerDef] == ABILITY_STURDY);
+            if (gAiLogicData->effectiveness[battlerAtk][battlerDef][moveIndex] == UQ_4_12(0.0))
+            {
+                ADJUST_SCORE(-20);
+            }
+            else if (hp >= gBattleMons[battlerDef].hp && !sashed && !defProtectLikely
+                  && AI_IsFaster(battlerAtk, battlerDef, move, MOVE_NONE, CONSIDER_PRIORITY))
+            {
+                ADJUST_SCORE(7); // supera il -5 casuale del motore: è una giocata, non un azzardo
+                if (BattlerHasVgcSetupMove(battlerDef) || CanTargetFaintAi(battlerDef, battlerAtk)
+                 || (hasPartner && CanTargetFaintAi(battlerDef, partner)))
+                    ADJUST_SCORE(2); // il bersaglio è il pezzo chiave
+                if (firstTurn)
+                    ADJUST_SCORE(1);
+                if (CountUsablePartyMons(battlerAtk) == 0)
+                    ADJUST_SCORE(-6); // ultimo Pokémon: sacrificarsi lascia il partner da solo
+            }
+            else if (!doomed)
+            {
+                ADJUST_SCORE(-4);
+            }
+        }
+
+        // Toedscruel con Disinvoltura (dopo Raggio Semplice) è veloce: Distorsione gli toglierebbe il vantaggio.
+        if (effect == EFFECT_TRICK_ROOM && !targetingPartner && gAiLogicData->abilities[battlerAtk] == ABILITY_SIMPLE)
+            ADJUST_SCORE(-6);
+
+        // Staffetta (Malamar con Inversione): passa i potenziamenti quando sta per andare KO.
+        if (effect == EFFECT_BATON_PASS)
+        {
+            if (!AnyUsefulStatIsRaised(battlerAtk) || CountUsablePartyMons(battlerAtk) == 0)
+                ADJUST_SCORE(-6);
+            else if (threatened)
+                ADJUST_SCORE(4);
+        }
+
+        // Weezing-Galar con Slaking accanto: il Gas Reagente tiene spento Pigrizia, Weezing va tenuto vivo.
+        if (effect == EFFECT_PROTECT && !targetingPartner && threatened && hasPartner
+         && gAiLogicData->abilities[battlerAtk] == ABILITY_NEUTRALIZING_GAS
+         && AI_VgcSameSpecies(SPECIES_SLAKING, gBattleMons[partner].species))
+            ADJUST_SCORE(3);
+
+        // Forzespansa sotto Campo Psichico (Armarouge): colpisce entrambi a potenza piena.
+        if (move == MOVE_EXPANDING_FORCE && !targetingPartner && gFieldTimers.terrain == B_TERRAIN_PSYCHIC
+         && AI_IsBattlerGrounded(battlerAtk) && foeLAlive && foeRAlive)
+            ADJUST_SCORE(3);
+
+        // Dopo di te sotto Distorsione: il partner lento si muove già per primo, il turno è sprecato.
+        if (move == MOVE_AFTER_YOU && targetingPartner && (gFieldStatuses & STATUS_FIELD_TRICK_ROOM)
+         && !(gBattleWeather & B_WEATHER_SUN))
+            ADJUST_SCORE(-5);
+
+        // Giornodisole (Sableye Burla) quando il sole manca e in squadra ci sono i Paradox con Protosintesi.
+        if (effect == EFFECT_WEATHER && !targetingPartner && GetMoveWeatherType(move) == BATTLE_WEATHER_SUN
+         && !(gBattleWeather & B_WEATHER_SUN) && TeamHasWeatherAbuser(battlerAtk, move))
+            ADJUST_SCORE(2);
     }
 
     // ---------------- 1. Apertura ----------------
@@ -968,7 +1074,7 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
                 ADJUST_SCORE(2);
             if (effect == EFFECT_BELLY_DRUM && hp * 100 / maxHp > 60)
                 ADJUST_SCORE(2);
-            if (effect == EFFECT_BELLY_DRUM && hasPartner && PartnerIsRedirecting(battlerAtk) && hp * 100 / maxHp > 50)
+            if (effect == EFFECT_BELLY_DRUM && hasPartner && threatened && hp * 100 / maxHp > 50)
                 ADJUST_SCORE(5); // Snorlax Panciata con Amoonguss Polverabbia
         }
         else if (slowerThanThreat)
@@ -1254,4 +1360,34 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
         ADJUST_SCORE(2);
 
     return score;
+}
+
+// ---------------------------------------------------------------------
+// Megaevoluzione riservata
+// ---------------------------------------------------------------------
+// Una sola Mega per lotta. Se in squadra c'è una win condition del piano con la sua Megapietra,
+// ancora viva e non in campo, gli altri non megaevolvono (Enzo: la Mega è per Gengar, non per
+// Aerodactyl). Se la win condition è già caduta, la Mega torna libera.
+bool32 AI_VgcShouldHoldMega(enum BattlerId battler)
+{
+    u16 trainerId = TRAINER_BATTLE_PARAM.opponentA;
+    struct Pokemon *party;
+    u32 i;
+
+    if (!(gAiThinkingStruct->aiFlags[battler] & AI_FLAG_VGC_DOUBLES) || AI_VgcGetPlan(trainerId) == NULL)
+        return FALSE;
+    if (AI_VgcPlanIsWinCon(trainerId, gBattleMons[battler].species))
+        return FALSE;
+    party = GetBattlerParty(battler);
+    for (i = 0; i < PARTY_SIZE; i++)
+    {
+        u16 species = GetMonData(&party[i], MON_DATA_SPECIES);
+        if (species == SPECIES_NONE || GetMonData(&party[i], MON_DATA_HP) == 0 || i == gBattlerPartyIndexes[battler])
+            continue;
+        if (GetItemHoldEffect(GetMonData(&party[i], MON_DATA_HELD_ITEM)) != HOLD_EFFECT_MEGA_STONE)
+            continue;
+        if (AI_VgcPlanIsWinCon(trainerId, species))
+            return TRUE;
+    }
+    return FALSE;
 }

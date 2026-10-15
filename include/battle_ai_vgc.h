@@ -27,6 +27,10 @@ bool32 AI_VgcPlanIsBack(u16 trainerId, u16 species);
 s32 AI_VgcPlanLeadBonus(u16 trainerId, u16 a, u16 b, bool32 trViable, bool32 twViable);
 s32 AI_VgcPlanBringBonus(u16 trainerId, u16 species, bool32 trViable, bool32 twViable);
 bool32 AI_VgcPlanModeActive(enum BattlerId battler);
+// Stessa specie ignorando Mega e forme (Indeedee-F == Indeedee, Rotom-Mow == Rotom...).
+bool32 AI_VgcSameSpecies(u16 planSpecies, u16 species);
+// TRUE = questo Pokémon non deve megaevolvere: la Mega è riservata alla win condition del piano.
+bool32 AI_VgcShouldHoldMega(enum BattlerId battler);
 
 // Lettura del giocatore senza imbrogli: memoria di comportamento (Protect sotto KO, cambi quando
 // perde il matchup), per Pokémon, mantenuta tra le gare del Bo3.
