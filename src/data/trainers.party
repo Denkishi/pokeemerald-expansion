@@ -17009,11 +17009,12 @@ Timid Nature
 
 === TRAINER_ELIA ===
 Name: ELIA
-Class: Pkmn Breeder
-Pic: Pokemon Breeder M
+Class: Elia, Ansioso
+Pic: Elia
 Gender: Male
 Music: Male
 Double Battle: Yes
+Mugshot: Pink
 AI: Basic Trainer / Smart Switching / Smart Mon Choices / Pp Stall Prevention / Randomize Switchin / Know Opponent Party / Assume Stab / Assume Status Moves / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
 
 Mimikyu (F) @ Mental Herb
