@@ -586,6 +586,8 @@ static EWRAM_DATA u8 sVgcLosing = 0;            // bitmask battler del giocatore
 static EWRAM_DATA u8 sVgcProtectedLastTurn = 0; // bitmask battler che hanno usato Protect al turno scorso
 static EWRAM_DATA u8 sVgcProtectedThisTurn = 0;
 static EWRAM_DATA u8 sVgcReadRoll = 0;          // 0..99, tirato una volta a turno: quanto fidarsi della lettura
+static EWRAM_DATA enum Move sVgcPlayerLastMove[MAX_BATTLERS_COUNT] = {0}; // ultima mossa di ogni Pokémon del giocatore (blocco Choice)
+static EWRAM_DATA u8 sVgcInferredScarf = 0;             // bitmask: Stolascelta dedotta dalla velocità
 
 void AI_VgcResetMemory(void)
 {
@@ -676,9 +678,6 @@ void AI_VgcTurnStart(void)
 }
 
 // Il giocatore ha usato una mossa (chiamata quando l'azione viene eseguita, non quando la sceglie).
-static EWRAM_DATA enum Move sVgcPlayerLastMove[MAX_BATTLERS_COUNT] = {0}; // per capire il blocco Choice
-static EWRAM_DATA u8 sVgcInferredScarf = 0;                                 // bitmask: Stolascelta dedotta
-
 // Deduzione da giocatore: si è mosso prima di un nostro Pokémon che, a statistiche, è più veloce,
 // senza priorità, senza Distorsione: tiene una Stolascelta. Se poi cambia mossa senza uscire, non
 // era Choice e la deduzione si ritira.
