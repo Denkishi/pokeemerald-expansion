@@ -1237,9 +1237,18 @@ void TextPrinterClearDownArrow(struct TextPrinter *textPrinter)
     CopyWindowToVram(textPrinter->printerTemplate.windowId, COPYWIN_GFX);
 }
 
-// In lotta i messaggi che aspettano un tasto avanzano da soli dopo una pausa;
-// A/B li fanno avanzare subito.
-#define BATTLE_AUTO_TEXT (CUSTOM_BATTLE_AUTO_TEXT && gMain.inBattle)
+// In lotta i messaggi che aspettano un tasto avanzano da soli dopo una pausa (A/B li fanno avanzare subito),
+// tranne la schermata di presentazione dell'allenatore avversario a inizio lotta ("Sei sfidato da..."),
+// che richiede la pressione di un tasto per permettere di vedere bene lo sprite prima del lancio della Poké Ball.
+static inline bool32 IsBattleIntroTrainerText(void)
+{
+    return (gMain.inBattle
+         && gBattleStruct != NULL
+         && (gBattleTypeFlags & BATTLE_TYPE_TRAINER)
+         && gBattleStruct->eventState.battleIntro <= BATTLE_INTRO_STATE_WAIT_FOR_INTRO_TEXT);
+}
+
+#define BATTLE_AUTO_TEXT (CUSTOM_BATTLE_AUTO_TEXT && gMain.inBattle && !IsBattleIntroTrainerText())
 
 bool32 TextPrinterWaitAutoMode(struct TextPrinter *textPrinter)
 {

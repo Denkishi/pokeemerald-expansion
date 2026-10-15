@@ -68,7 +68,7 @@
 #define CUSTOM_DAMAGE_PREVIEW               FALSE   // intervallo di danno stimato in % accanto al badge di efficacia
 #define CUSTOM_SWITCH_EFFECTIVENESS         TRUE    // nel menu squadra in lotta: efficacia peggiore subita dalle mosse rivelate
 #define CUSTOM_HEAL_AFTER_BATTLE            TRUE    // cura completa dopo ogni lotta vinta contro un allenatore
-#define CUSTOM_BATTLE_AUTO_TEXT             TRUE    // i messaggi di lotta avanzano da soli (A/B li fanno avanzare subito)
+#define CUSTOM_BATTLE_AUTO_TEXT             TRUE    // i messaggi di lotta avanzano da soli (la sfida iniziale dell'allenatore aspetta A per vedere lo sprite)
 
 // --- 12. Formato della lotta ---------------------------------------------
 // Prima di ogni lotta con team preview si sceglie Bo1 o Bo3 (al meglio di tre: stesse squadre,
