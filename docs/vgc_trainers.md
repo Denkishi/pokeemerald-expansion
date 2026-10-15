@@ -300,8 +300,22 @@ Dove conta:
   statistiche, è più veloce (niente priorità, niente Distorsione, niente Tailwind), l'IA deduce
   la Stolascelta e sa che sei bloccato su quella mossa; se poi cambi mossa senza uscire, ritira la
   deduzione. La deduzione resta nel Bo3 (come effetto, non come oggetto preciso).
-- Niente sbirciate: i calcoli di preview non usano più le mosse vere non viste (solo STAB stimato +
-  mosse viste nelle gare precedenti).
+- Niente sbirciate: i calcoli di preview non usano le mosse vere non viste. Il danno che un tuo
+  Pokémon può fare si stima dalle mosse d'attacco che la **specie può imparare** (livello, MT,
+  uova): le STAB contano per intero, le coperture al 65%; nel Bo3 le mosse viste contano per intero.
+- Abilità: in lotta l'IA sa quali abilità può avere la specie e assume la più probabile finché
+  non la vede (`Weigh Ability Prediction`); in preview valuta Prepotenza e cali di statistiche
+  contro le abilità possibili (Spirito Vile, Agonismo, Corpochiaro, Forza Interiore, Guardia Cane...).
+
+### 3.3f Tiri, risorse ed endgame
+
+- **KO sicuro vs KO a tiro**: un KO garantito anche col tiro minimo vale +2; un KO solo col tiro
+  alto (mediana sotto i PS) vale −1. Un KO al 40% non è un KO.
+- **Turni di Tailwind / Distorsione come risorsa**: negli ultimi due turni del proprio controllo
+  velocità l'IA spinge (attacchi +1, KO +2), non protegge (−3) e non fa stato (−2) salvo
+  Aiuto / Segui Me / rinnovo.
+- **Endgame in vantaggio numerico (2+)**: si chiude con quello che c'è in campo: attacchi +1,
+  stato −1, niente cambi a meno che un KO certo stia arrivando (lettura).
 
 ### 3.4 Al meglio di tre: cosa impara tra una gara e l'altra
 

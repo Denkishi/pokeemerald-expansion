@@ -477,6 +477,25 @@ static u32 BestRememberedMovePct(struct Pokemon *atk, struct Pokemon *def, const
     return best;
 }
 
+// Senza vedere le mosse: il danno peggiore tra quelle che la specie PUÒ imparare. Le STAB contano
+// per intero (le porta quasi sempre), le coperture al 65% (può non averle).
+static u32 BestEstimatedPct(struct Pokemon *atk, struct Pokemon *def)
+{
+    enum Move moves[24];
+    u32 n = Scout_CollectLearnableAttacks(GetMonData(atk, MON_DATA_SPECIES), moves, ARRAY_COUNT(moves));
+    u32 i, best = 0;
+
+    for (i = 0; i < n; i++)
+    {
+        enum Type type = GetMoveType(moves[i]);
+        u32 pct = CalcPct(atk, def, GetMovePower(moves[i]), type, GetMoveCategory(moves[i]) == DAMAGE_CATEGORY_PHYSICAL);
+        if (!MonHasType(atk, type))
+            pct = pct * 65 / 100;
+        best = max(best, pct);
+    }
+    return best;
+}
+
 static u32 HitsToKo(u32 pct)
 {
     if (pct == 0)
@@ -756,7 +775,7 @@ static s32 Matchup(struct Pokemon *e, struct Pokemon *p, bool32 omniscient)
     u32 off = BestMovePct(e, p);
     // Senza onniscienza le mosse del giocatore non si vedono: si stima dallo STAB (come in una
     // vera team preview) e da ciò che si è visto nelle gare precedenti della serie.
-    u32 def = omniscient ? BestMovePct(p, e) : BestStabPct(p, e);
+    u32 def = omniscient ? BestMovePct(p, e) : max(BestStabPct(p, e), BestEstimatedPct(p, e));
     u32 eSpd = GetMonData(e, MON_DATA_SPEED), pSpd = GetMonData(p, MON_DATA_SPEED);
     u32 hitsE, hitsP;
     bool32 eFaster;
@@ -1214,6 +1233,26 @@ static s32 LeadVsLead(struct Pokemon *mea, struct Pokemon *meb, const struct Sco
         if (ea->terrain == SCOUT_TERRAIN_ELECTRIC || eb->terrain == SCOUT_TERRAIN_ELECTRIC
          || ea->terrain == SCOUT_TERRAIN_MISTY || eb->terrain == SCOUT_TERRAIN_MISTY)
             v += plSleep * 15 / 100;      // niente sonno a terra
+    }
+    // --- La nostra Prepotenza e i nostri cali (Ventogelato...) contro le abilità possibili della specie ---
+    if (GetMonAbility(mea) == ABILITY_INTIMIDATE || GetMonAbility(meb) == ABILITY_INTIMIDATE || aiSoft)
+    {
+        const struct ScoutProfile *pp[2] = { pa, pb };
+        u32 q;
+        for (q = 0; q < 2; q++)
+        {
+            u16 sp = pp[q]->species;
+            if (SpeciesMayHaveAbility(sp, ABILITY_DEFIANT) || SpeciesMayHaveAbility(sp, ABILITY_COMPETITIVE)
+             || SpeciesMayHaveAbility(sp, ABILITY_CLEAR_BODY) || SpeciesMayHaveAbility(sp, ABILITY_WHITE_SMOKE)
+             || SpeciesMayHaveAbility(sp, ABILITY_FULL_METAL_BODY) || SpeciesMayHaveAbility(sp, ABILITY_MIRROR_ARMOR)
+             || SpeciesMayHaveAbility(sp, ABILITY_GUARD_DOG))
+                v -= 12; // li rafforziamo o rimbalza
+            else if (SpeciesMayHaveAbility(sp, ABILITY_INNER_FOCUS) || SpeciesMayHaveAbility(sp, ABILITY_OWN_TEMPO)
+                  || SpeciesMayHaveAbility(sp, ABILITY_OBLIVIOUS) || SpeciesMayHaveAbility(sp, ABILITY_SCRAPPY))
+                v -= 4;  // immune a Prepotenza
+            else if (pp[q]->physical)
+                v += 8;
+        }
     }
     // --- Prepotenza contro i nostri attaccanti fisici ---
     if (ea->physical && !MonIgnoresIntimidate(mea))

@@ -55,7 +55,12 @@ struct ScoutProfile
     u8 sleepImmuneP;            // Insonnia, Spirito Vitale, Dolcevelo, Corpo Aureo, Magispecchio, Erba...
     u8 baseSpeed;
     u8 physical;                // TRUE = attaccante fisico (Atk base > SpA base)
+    u16 species;
 };
+
+// Mosse d'attacco che la specie può imparare (livello, MT, uova; anche della specie base), senza
+// doppioni per tipo (per ogni tipo resta la più potente). Ritorna quante ne ha scritte in `out`.
+u32 Scout_CollectLearnableAttacks(u16 species, enum Move *out, u32 max);
 
 void Scout_GetSpeciesProfile(u16 species, struct ScoutProfile *out);
 

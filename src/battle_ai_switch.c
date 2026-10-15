@@ -1441,6 +1441,10 @@ static enum VgcSwitchResult VgcShouldSwitch(struct SwitchAiContext *switchContex
     if (truantLoafing && hpPct >= 40 && Random() % 100 < 70)
         return SetSwitchinAndSwitch(battler, PARTY_SIZE) ? VGC_SWITCH_GO : VGC_SWITCH_STAY;
 
+    // Endgame in vantaggio netto: si resta in campo e si chiude; ci si sposta solo se il KO è certo in arrivo.
+    if (AI_VgcMaterialEdge(battler) >= 2 && !((threatL && slowerL) || (threatR && slowerR)))
+        return VGC_SWITCH_STAY;
+
     // Piano di squadra: la modalità è attiva (Distorsione / Ventoincoda / meteo) ma in campo non c'è chi
     // deve vincere la lotta e questo Pokémon non fa male: si manda dentro la win condition.
     if (AI_VgcPlanModeActive(battler) && !canHurt

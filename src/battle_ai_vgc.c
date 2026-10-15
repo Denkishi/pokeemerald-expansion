@@ -820,6 +820,13 @@ static bool32 VgcTrustRead(u32 chance)
     return chance >= 50 && sVgcReadRoll < 70;
 }
 
+static s32 VgcMaterialEdge(enum BattlerId battlerAtk);
+
+s32 AI_VgcMaterialEdge(enum BattlerId battler)
+{
+    return VgcMaterialEdge(battler);
+}
+
 // Vantaggio numerico: >0 l'IA ha più Pokémon utilizzabili del giocatore.
 static s32 VgcMaterialEdge(enum BattlerId battlerAtk)
 {
@@ -1246,12 +1253,50 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
         }
     }
 
+    // ---------------- Risorse: turni di controllo velocità, endgame ----------------
+    {
+        enum BattleSide side = GetBattlerSide(battlerAtk);
+        u32 scLeft = 0;
+
+        if (gSideStatuses[side] & SIDE_STATUS_TAILWIND)
+            scLeft = gSideTimers[side].tailwindTimer;
+        else if ((gFieldStatuses & STATUS_FIELD_TRICK_ROOM) && AI_VgcTeamIsSlowerThanFoes(battlerAtk, 1))
+            scLeft = gFieldTimers.trickRoomTimer;
+        // Ultimi due turni del NOSTRO Tailwind / Distorsione: si spinge, non si aspetta.
+        if (scLeft != 0 && scLeft <= 2 && !targetingPartner)
+        {
+            if (!isStatus && IsBattlerAlive(battlerDef))
+                ADJUST_SCORE(CanIndexMoveFaintTarget(battlerAtk, battlerDef, moveIndex, AI_ATTACKING) ? 2 : 1);
+            else if (effect == EFFECT_PROTECT && !threatened)
+                ADJUST_SCORE(-3);
+            else if (isStatus && effect != EFFECT_TRICK_ROOM && effect != EFFECT_TAILWIND
+                  && effect != EFFECT_HELPING_HAND && effect != EFFECT_FOLLOW_ME)
+                ADJUST_SCORE(-2);
+        }
+        // Endgame in vantaggio netto: si chiude con quello che c'è in campo, niente riposizionamenti.
+        if (edge >= 2 && !targetingPartner)
+        {
+            if (!isStatus && IsBattlerAlive(battlerDef))
+                ADJUST_SCORE(1);
+            else if (isStatus && effect != EFFECT_PROTECT && !IsVgcSetupMove(move))
+                ADJUST_SCORE(-1);
+        }
+    }
+
     // ---------------- 4. Fuoco concentrato / scelta del bersaglio ----------------
     if (!isStatus && !targetingPartner && IsBattlerAlive(battlerDef) && hasPartner)
     {
         u32 myDmg = gAiLogicData->simulatedDmg[battlerAtk][battlerDef][moveIndex].median;
+        u32 myMin = gAiLogicData->simulatedDmg[battlerAtk][battlerDef][moveIndex].minimum;
+        u32 myMax = gAiLogicData->simulatedDmg[battlerAtk][battlerDef][moveIndex].maximum;
         u32 partnerDmg = PartnerDamageTo(battlerAtk, battlerDef);
         u32 defHp = gBattleMons[battlerDef].hp;
+
+        // KO sicuro (anche col tiro minimo) vale più di un KO "a tiro": un KO al 40% non è un KO.
+        if (myMin >= defHp)
+            ADJUST_SCORE(2);
+        else if (myMax >= defHp && myDmg < defHp)
+            ADJUST_SCORE(-1);
 
         if (partnerDmg > 0)
         {

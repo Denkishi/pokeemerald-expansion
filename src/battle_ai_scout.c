@@ -250,6 +250,7 @@ void Scout_GetSpeciesProfile(u16 species, struct ScoutProfile *out)
     base = GET_BASE_SPECIES_ID(species);
     out->baseSpeed = info->baseSpeed;
     out->physical = info->baseAttack > info->baseSpAttack;
+    out->species = species;
 
     // 1. Learnset: "può impararla".
     for (i = 0; i < ARRAY_COUNT(sScoutLearnable); i++)
@@ -329,6 +330,59 @@ void Scout_GetSpeciesProfile(u16 species, struct ScoutProfile *out)
     out->sleepImmuneP = AbilityChance(species, sNoSleep, ARRAY_COUNT(sNoSleep));
     if (info->types[0] == TYPE_GRASS || info->types[1] == TYPE_GRASS)
         out->sleepImmuneP = max(out->sleepImmuneP, 50); // immune alle polveri (Spora), non a Ipnosi
+}
+
+static void CollectAttack(enum Move move, enum Move *out, u32 *n, u32 max)
+{
+    u32 i;
+    enum Type type;
+
+    if (move == MOVE_NONE || move == MOVE_UNAVAILABLE || IsBattleMoveStatus(move) || GetMovePower(move) < 50)
+        return;
+    type = GetMoveType(move);
+    for (i = 0; i < *n; i++)
+    {
+        if (GetMoveType(out[i]) == type)
+        {
+            if (GetMovePower(move) > GetMovePower(out[i]))
+                out[i] = move;
+            return;
+        }
+    }
+    if (*n < max)
+        out[(*n)++] = move;
+}
+
+u32 Scout_CollectLearnableAttacks(u16 species, enum Move *out, u32 max)
+{
+    u32 n = 0, i, pass;
+    u16 list[2];
+
+    if (species == SPECIES_NONE || species >= NUM_SPECIES)
+        return 0;
+    list[0] = species;
+    list[1] = GET_BASE_SPECIES_ID(species);
+    for (pass = 0; pass < 2; pass++)
+    {
+        const struct LevelUpMove *l;
+        const u16 *t, *e;
+
+        if (pass == 1 && list[1] == list[0])
+            break;
+        l = GetSpeciesLevelUpLearnset(list[pass]);
+        if (l != NULL)
+            for (i = 0; l[i].move != LEVEL_UP_MOVE_END; i++)
+                CollectAttack(l[i].move, out, &n, max);
+        t = GetSpeciesTeachableLearnset(list[pass]);
+        if (t != NULL)
+            for (i = 0; t[i] != MOVE_UNAVAILABLE; i++)
+                CollectAttack(t[i], out, &n, max);
+        e = GetSpeciesEggMoves(list[pass]);
+        if (e != NULL)
+            for (i = 0; e[i] != MOVE_UNAVAILABLE; i++)
+                CollectAttack(e[i], out, &n, max);
+    }
+    return n;
 }
 
 u32 Scout_BattlerRoleChance(enum BattlerId battler, enum ScoutRole role)
