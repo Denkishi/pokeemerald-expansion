@@ -592,6 +592,12 @@ u32 BattleAI_ChooseMoveIndex(enum BattlerId battler)
         DecideTerastal(battler);
 
     struct ChosenAction chosen = ChooseMoveOrAction(battler);
+
+    // IA VGC: le regole hanno dato i punteggi; il pianificatore simula il turno sulle candidate migliori
+    // e sceglie in base alla posizione che ne esce (flessibile, non una strada fissa).
+    if (IsDoubleBattle() && (gAiThinkingStruct->aiFlags[battler] & AI_FLAG_VGC_DOUBLES))
+        AI_VgcPlanTurn(battler, &chosen.moveIndex, &chosen.target);
+
     gAiBattleData->chosenTarget[battler] = chosen.target;
 
     if (gBattleStruct->gimmick.usableGimmick[battler] != GIMMICK_NONE)

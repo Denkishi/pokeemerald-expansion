@@ -307,6 +307,28 @@ Dove conta:
   non la vede (`Weigh Ability Prediction`); in preview valuta Prepotenza e cali di statistiche
   contro le abilità possibili (Spirito Vile, Agonismo, Corpochiaro, Forza Interiore, Guardia Cane...).
 
+### 3.3g Il pianificatore del turno (`src/battle_ai_vgc_plan.c`)
+
+Le regole dei blocchi precedenti dicono cosa è "sensato" e danno i punteggi; ma nessuna lista di
+regole copre ogni situazione. Per questo, dopo i punteggi, l'IA **simula il turno**:
+
+1. prende le sue 8 azioni candidate migliori (mossa + bersaglio, entro 14 punti dalla prima);
+2. stima le 3 azioni più probabili di ogni tuo Pokémon (mosse viste: danno, KO cercato, Fake Out al
+   primo turno, Distorsione/Tailwind se mancano, sonno, Segui Me, setup; Protect con la probabilità
+   stimata) e le combina (fino a 9 coppie, pesate);
+3. per ogni combinazione applica ordine di velocità (priorità, Distorsione, Tailwind, cali di
+   Velocità), Fake Out, Protect, Ampioguardia, Segui Me, Aiuto, danni mediani, sonno, Bellyrumble,
+   Ultimascommessa;
+4. valuta la posizione finale: PS e KO delle due parti, chi dorme, chi è potenziato, chi si muoverà
+   per primo al turno dopo, quali nostri Pokémon rischiano il KO dal turno dopo;
+5. sceglie l'azione con la migliore media pesata (70%) + caso peggiore (30%), e cambia la scelta
+   delle regole solo se la posizione è nettamente migliore (12 punti).
+
+Così la decisione nasce dallo stato della partita, non da una risposta scritta: una Protect che
+salva la partita, un cambio di bersaglio, un setup nel turno giusto emergono dalla simulazione.
+Nessun imbroglio: usa solo mosse viste (o assunte dalla specie), strumenti noti o probabili,
+Protect con probabilità.
+
 ### 3.3f Tiri, risorse ed endgame
 
 - **KO sicuro vs KO a tiro**: un KO garantito anche col tiro minimo vale +2; un KO solo col tiro
