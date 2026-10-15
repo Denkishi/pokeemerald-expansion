@@ -351,3 +351,217 @@ u32 Scout_BattlerRoleChance(enum BattlerId battler, enum ScoutRole role)
     // Ogni mossa vista che non è del ruolo lo rende un po' meno probabile.
     return prof.role[role] * (MAX_MON_MOVES - seen) / MAX_MON_MOVES;
 }
+
+// ---------------------------------------------------------------------
+// Strumenti: lista del formato + specie -> strumento probabile
+// ---------------------------------------------------------------------
+#include "item.h"
+#include "constants/hold_effects.h"
+#include "constants/items.h"
+#include "constants/form_change_types.h"
+#include "data/vgc_item_pool.h"
+
+bool32 Scout_PoolHasItem(u16 item)
+{
+    u32 i;
+    for (i = 0; i < ARRAY_COUNT(sVgcItemPool); i++)
+    {
+        if (sVgcItemPool[i] == item)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+static bool32 PoolHasEffect(u16 effect)
+{
+    u32 i;
+    for (i = 0; i < ARRAY_COUNT(sVgcItemPool); i++)
+    {
+        if (GetItemHoldEffect(sVgcItemPool[i]) == effect)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+u16 Scout_MegaTargetSpecies(u16 species)
+{
+    const struct FormChange *fc;
+    u32 i;
+
+    if (species == SPECIES_NONE || species >= NUM_SPECIES)
+        return SPECIES_NONE;
+    fc = GetSpeciesFormChanges(species);
+    if (fc == NULL)
+        return SPECIES_NONE;
+    for (i = 0; fc[i].method != FORM_CHANGE_TERMINATOR; i++)
+    {
+        if (fc[i].method == FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM && Scout_PoolHasItem(fc[i].param1))
+            return fc[i].targetSpecies;
+    }
+    return SPECIES_NONE;
+}
+
+static bool32 SpeciesIsNfe(u16 species)
+{
+    const struct Evolution *evo = GetSpeciesEvolutions(species);
+    return evo != NULL && evo[0].method != EVOLUTIONS_END && evo[0].method != EVO_NONE;
+}
+
+// Strumenti "da meta" per specie (specie base). Contano solo se presenti nella lista del formato.
+static const struct { u16 species; u16 effect; u8 chance; } sScoutItemMeta[] =
+{
+    { SPECIES_SMEARGLE,     HOLD_EFFECT_FOCUS_SASH,   85 },
+    { SPECIES_CHATOT,       HOLD_EFFECT_FOCUS_SASH,   65 },
+    { SPECIES_PELIPPER,     HOLD_EFFECT_FOCUS_SASH,   55 },
+    { SPECIES_DUGTRIO,      HOLD_EFFECT_FOCUS_SASH,   65 },
+    { SPECIES_KECLEON,      HOLD_EFFECT_FOCUS_SASH,   60 },
+    { SPECIES_CERULEDGE,    HOLD_EFFECT_FOCUS_SASH,   55 },
+    { SPECIES_AMOONGUSS,    HOLD_EFFECT_ROCKY_HELMET, 50 },
+    { SPECIES_INCINEROAR,   HOLD_EFFECT_RESTORE_HP,   55 },
+    { SPECIES_RILLABOOM,    HOLD_EFFECT_ASSAULT_VEST, 55 },
+    { SPECIES_DONDOZO,      HOLD_EFFECT_ASSAULT_VEST, 50 },
+    { SPECIES_GOODRA,       HOLD_EFFECT_ASSAULT_VEST, 60 },
+    { SPECIES_ARCANINE,     HOLD_EFFECT_ASSAULT_VEST, 45 },
+    { SPECIES_SLITHER_WING, HOLD_EFFECT_ASSAULT_VEST, 45 },
+    { SPECIES_LUDICOLO,     HOLD_EFFECT_ASSAULT_VEST, 45 },
+    { SPECIES_TATSUGIRI,    HOLD_EFFECT_CHOICE_SCARF, 60 },
+    { SPECIES_ROTOM,        HOLD_EFFECT_CHOICE_SCARF, 40 },
+    { SPECIES_ANNIHILAPE,   HOLD_EFFECT_CHOICE_SCARF, 45 },
+    { SPECIES_KINGAMBIT,    HOLD_EFFECT_LIFE_ORB,     50 },
+    { SPECIES_GHOLDENGO,    HOLD_EFFECT_LIFE_ORB,     50 },
+    { SPECIES_ARMAROUGE,    HOLD_EFFECT_LIFE_ORB,     50 },
+    { SPECIES_GOLDUCK,      HOLD_EFFECT_LIFE_ORB,     45 },
+    { SPECIES_PORYGON_Z,    HOLD_EFFECT_LIFE_ORB,     50 },
+    { SPECIES_SLAKING,      HOLD_EFFECT_LIFE_ORB,     50 },
+    { SPECIES_PORYGON2,     HOLD_EFFECT_EVIOLITE,     85 },
+    { SPECIES_DUSCLOPS,     HOLD_EFFECT_EVIOLITE,     85 },
+    { SPECIES_LICKITUNG,    HOLD_EFFECT_EVIOLITE,     80 },
+    { SPECIES_CLEFAIRY,     HOLD_EFFECT_EVIOLITE,     80 },
+    { SPECIES_GRIMMSNARL,   HOLD_EFFECT_LIGHT_CLAY,   70 },
+    { SPECIES_INDEEDEE,     HOLD_EFFECT_MENTAL_HERB,  45 },
+    { SPECIES_MIMIKYU,      HOLD_EFFECT_MENTAL_HERB,  45 },
+    { SPECIES_SABLEYE,      HOLD_EFFECT_MENTAL_HERB,  45 },
+    { SPECIES_WEEZING,      HOLD_EFFECT_RESTORE_HP,   50 },
+    { SPECIES_ORANGURU,     HOLD_EFFECT_RESTORE_HP,   50 },
+    { SPECIES_TOEDSCRUEL,   HOLD_EFFECT_RESTORE_HP,   45 },
+    { SPECIES_SNORLAX,      HOLD_EFFECT_RESTORE_HP,   55 },
+    { SPECIES_VENUSAUR,     HOLD_EFFECT_RESTORE_HP,   45 },
+    { SPECIES_MACHAMP,      HOLD_EFFECT_FLAME_ORB,    55 },
+    { SPECIES_HARIYAMA,     HOLD_EFFECT_FLAME_ORB,    55 },
+    { SPECIES_GARGANACL,    HOLD_EFFECT_LEFTOVERS,    55 },
+    { SPECIES_COPPERAJAH,   HOLD_EFFECT_LEFTOVERS,    45 },
+    { SPECIES_LAPRAS,       HOLD_EFFECT_LEFTOVERS,    45 },
+    { SPECIES_MILTANK,      HOLD_EFFECT_LEFTOVERS,    45 },
+    { SPECIES_ARMALDO,      HOLD_EFFECT_CLEAR_AMULET, 45 },
+};
+
+void Scout_GuessItem(u16 species, struct ScoutItemGuess *out)
+{
+    const struct SpeciesInfo *info;
+    struct ScoutProfile prof;
+    u16 base, mega;
+    u32 i, atk, spa, spd, bulk;
+    bool32 found = FALSE;
+
+    memset(out, 0, sizeof(*out));
+    out->effect = HOLD_EFFECT_NONE;
+    if (species == SPECIES_NONE || species >= NUM_SPECIES)
+        return;
+    info = &gSpeciesInfo[species];
+    base = GET_BASE_SPECIES_ID(species);
+
+    // Mega: una pietra in lista e una forma Mega raggiungibile.
+    mega = Scout_MegaTargetSpecies(species);
+    if (mega != SPECIES_NONE)
+    {
+        out->megaSpecies = mega;
+        out->megaChance = 70;
+    }
+
+    // 1. Meta per specie.
+    for (i = 0; i < ARRAY_COUNT(sScoutItemMeta); i++)
+    {
+        if (GET_BASE_SPECIES_ID(sScoutItemMeta[i].species) == base && PoolHasEffect(sScoutItemMeta[i].effect))
+        {
+            out->effect = sScoutItemMeta[i].effect;
+            out->chance = sScoutItemMeta[i].chance;
+            found = TRUE;
+            break;
+        }
+    }
+
+    // 2. Regole generali dalla specie.
+    if (!found)
+    {
+        atk = info->baseAttack;
+        spa = info->baseSpAttack;
+        spd = info->baseSpeed;
+        bulk = info->baseHP + info->baseDefense + info->baseSpDefense;
+        Scout_GetSpeciesProfile(species, &prof);
+
+        if (SpeciesIsNfe(species) && PoolHasEffect(HOLD_EFFECT_EVIOLITE) && bulk >= 180)
+        {
+            out->effect = HOLD_EFFECT_EVIOLITE;
+            out->chance = 65;
+        }
+        else if (PoolHasEffect(HOLD_EFFECT_BOOSTER_ENERGY)
+              && (info->abilities[0] == ABILITY_PROTOSYNTHESIS || info->abilities[0] == ABILITY_QUARK_DRIVE))
+        {
+            out->effect = HOLD_EFFECT_BOOSTER_ENERGY;
+            out->chance = 55;
+        }
+        else if (PoolHasEffect(HOLD_EFFECT_FOCUS_SASH) && spd >= 95 && bulk <= 230)
+        {
+            out->effect = HOLD_EFFECT_FOCUS_SASH;
+            out->chance = 50;
+        }
+        else if (PoolHasEffect(HOLD_EFFECT_RESTORE_HP)
+              && (prof.role[SCOUT_REDIRECT] >= 60 || prof.role[SCOUT_TRICK_ROOM] >= 60 || prof.role[SCOUT_FAKE_OUT] >= 60))
+        {
+            out->effect = HOLD_EFFECT_RESTORE_HP;
+            out->chance = 45;
+        }
+        else if (PoolHasEffect(HOLD_EFFECT_CHOICE_SCARF) && spd >= 70 && spd <= 110 && max(atk, spa) >= 110 && prof.role[SCOUT_SETUP] < 60)
+        {
+            out->effect = HOLD_EFFECT_CHOICE_SCARF;
+            out->chance = 35;
+        }
+        else if (PoolHasEffect(HOLD_EFFECT_ASSAULT_VEST) && info->baseHP >= 80 && max(atk, spa) >= 100 && spd <= 90)
+        {
+            out->effect = HOLD_EFFECT_ASSAULT_VEST;
+            out->chance = 40;
+        }
+        else if (PoolHasEffect(HOLD_EFFECT_LIFE_ORB) && max(atk, spa) >= 100 && spd >= 85)
+        {
+            out->effect = HOLD_EFFECT_LIFE_ORB;
+            out->chance = 35;
+        }
+        else if (PoolHasEffect(HOLD_EFFECT_LEFTOVERS) && bulk >= 250)
+        {
+            out->effect = HOLD_EFFECT_LEFTOVERS;
+            out->chance = 30;
+        }
+    }
+
+    // Chi può megaevolvere di solito tiene la pietra: lo strumento "normale" diventa improbabile.
+    if (out->megaSpecies != SPECIES_NONE && out->chance < 70)
+        out->chance = out->chance * 40 / 100;
+}
+
+enum HoldEffect Scout_AssumedHoldEffect(enum BattlerId battler)
+{
+    struct ScoutItemGuess g;
+    u32 threshold;
+
+    Scout_GuessItem(gBattleMons[battler].species, &g);
+    if (g.effect == HOLD_EFFECT_NONE)
+        return HOLD_EFFECT_NONE;
+    // Assumere un Focus Sash che non c'è rende timidi: serve più certezza.
+    threshold = (g.effect == HOLD_EFFECT_FOCUS_SASH) ? 60 : 50;
+    if (g.chance < threshold)
+        return HOLD_EFFECT_NONE;
+    // Il Focus Sash conta solo a PS pieni.
+    if (g.effect == HOLD_EFFECT_FOCUS_SASH && gBattleMons[battler].hp < gBattleMons[battler].maxHP)
+        return HOLD_EFFECT_NONE;
+    return g.effect;
+}

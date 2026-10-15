@@ -26,6 +26,7 @@
 #include "battle_ai_vgc.h"
 #include "team_preview.h"
 #include "battle_ai_scout.h"
+#include "battle_gimmick.h"
 #include "battle_main.h"
 #include "battle_setup.h"
 #include "battle_util.h"
@@ -75,6 +76,12 @@ static bool32 PlanListHas(const u16 *list, u32 n, u16 species)
             return TRUE;
     }
     return FALSE;
+}
+
+bool32 AI_VgcPlanIsTrickRoomTeam(u16 trainerId)
+{
+    const struct VgcGameplan *plan = AI_VgcGetPlan(trainerId);
+    return plan != NULL && plan->modeA == VGC_PLAN_TRICK_ROOM;
 }
 
 bool32 AI_VgcPlanIsWinCon(u16 trainerId, u16 species)
@@ -583,6 +590,8 @@ static EWRAM_DATA u8 sVgcReadRoll = 0;          // 0..99, tirato una volta a tur
 void AI_VgcResetMemory(void)
 {
     memset(sVgcMem, 0, sizeof(sVgcMem));
+    memset(sVgcPlayerLastMove, 0, sizeof(sVgcPlayerLastMove));
+    sVgcInferredScarf = 0;
     sVgcMemCount = 0;
     sVgcThreatened = sVgcLosing = sVgcProtectedLastTurn = sVgcProtectedThisTurn = 0;
 }
@@ -667,12 +676,63 @@ void AI_VgcTurnStart(void)
 }
 
 // Il giocatore ha usato una mossa (chiamata quando l'azione viene eseguita, non quando la sceglie).
+static EWRAM_DATA enum Move sVgcPlayerLastMove[MAX_BATTLERS_COUNT] = {0}; // per capire il blocco Choice
+static EWRAM_DATA u8 sVgcInferredScarf = 0;                                 // bitmask: Stolascelta dedotta
+
+// Deduzione da giocatore: si è mosso prima di un nostro Pokémon che, a statistiche, è più veloce,
+// senza priorità, senza Distorsione: tiene una Stolascelta. Se poi cambia mossa senza uscire, non
+// era Choice e la deduzione si ritira.
+static void VgcInferChoiceScarf(enum BattlerId battler, enum Move move)
+{
+    u32 k;
+    u32 plSpd;
+
+    if (gFieldStatuses & STATUS_FIELD_TRICK_ROOM)
+        return;
+    if (GetBattleMovePriority(battler, gAiLogicData->abilities[battler], move) != 0)
+        return;
+    if (gBattleHistory->itemEffects[battler] != HOLD_EFFECT_NONE && !(sVgcInferredScarf & (1u << battler)))
+        return; // strumento già noto davvero
+    plSpd = GetBattlerTotalSpeedStat(battler, gAiLogicData->abilities[battler], HOLD_EFFECT_NONE);
+    for (k = gCurrentTurnActionNumber + 1; k < gBattlersCount; k++)
+    {
+        enum BattlerId b = gBattlerByTurnOrder[k];
+        enum Move aiMove;
+        u32 aiSpd;
+
+        if (IsOnPlayerSide(b) || !IsBattlerAlive(b) || gActionsByTurnOrder[k] != B_ACTION_USE_MOVE)
+            continue;
+        aiMove = gBattleMons[b].moves[gBattleStruct->chosenMovePositions[b]];
+        if (aiMove == MOVE_NONE || aiMove == MOVE_UNAVAILABLE || GetBattleMovePriority(b, gAiLogicData->abilities[b], aiMove) != 0)
+            continue;
+        aiSpd = GetBattlerTotalSpeedStat(b, gAiLogicData->abilities[b], gAiLogicData->holdEffects[b]);
+        if (aiSpd > plSpd && plSpd * 3 / 2 >= aiSpd)
+        {
+            sVgcInferredScarf |= 1u << battler;
+            gBattleHistory->itemEffects[battler] = HOLD_EFFECT_CHOICE_SCARF;
+            gAiPartyData->mons[B_TRAINER_PLAYER][gBattlerPartyIndexes[battler]].heldEffect = HOLD_EFFECT_CHOICE_SCARF;
+            return;
+        }
+    }
+}
+
 void AI_VgcNotePlayerMove(enum BattlerId battler, enum Move move)
 {
     struct VgcBehaviour *mem;
 
     if (!IsOnPlayerSide(battler) || !IsDoubleBattle() || !(gBattleTypeFlags & BATTLE_TYPE_TRAINER))
         return;
+    if (!IsAiFlagPresent(AI_FLAG_VGC_DOUBLES))
+        return;
+    // Choice: stessa mossa di fila conferma, mossa diversa smentisce.
+    if ((sVgcInferredScarf & (1u << battler)) && sVgcPlayerLastMove[battler] != MOVE_NONE && sVgcPlayerLastMove[battler] != move)
+    {
+        sVgcInferredScarf &= ~(1u << battler);
+        gBattleHistory->itemEffects[battler] = HOLD_EFFECT_NONE;
+        gAiPartyData->mons[B_TRAINER_PLAYER][gBattlerPartyIndexes[battler]].heldEffect = HOLD_EFFECT_NONE;
+    }
+    VgcInferChoiceScarf(battler, move);
+    sVgcPlayerLastMove[battler] = move;
     if (GetMoveEffect(move) != EFFECT_PROTECT)
         return;
     sVgcProtectedThisTurn |= 1u << battler;
@@ -688,6 +748,8 @@ void AI_VgcNotePlayerSwitch(enum BattlerId battler)
 
     if (!IsOnPlayerSide(battler) || !IsDoubleBattle() || !(gBattleTypeFlags & BATTLE_TYPE_TRAINER))
         return;
+    sVgcPlayerLastMove[battler] = MOVE_NONE;
+    sVgcInferredScarf &= ~(1u << battler);
     mem = VgcFindOrAddBehaviour(battler);
     if (mem != NULL && (sVgcLosing & (1u << battler)) && mem->switchesWhenLosing < 255)
         mem->switchesWhenLosing++;
@@ -1210,6 +1272,12 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
 
         // La minaccia vale di più come bersaglio.
         if (CanTargetFaintAi(battlerDef, battlerAtk) || CanTargetFaintAi(battlerDef, partner))
+            ADJUST_SCORE(1);
+        // Può ancora megaevolvere (pietra probabile dalla lista del formato): cambierà statistiche e
+        // abilità, meglio toglierlo prima.
+        if (IsOnPlayerSide(battlerDef) && !HasTrainerUsedGimmick(battlerDef, GIMMICK_MEGA)
+         && GET_BASE_SPECIES_ID(gBattleMons[battlerDef].species) == gBattleMons[battlerDef].species
+         && Scout_MegaTargetSpecies(gBattleMons[battlerDef].species) != SPECIES_NONE)
             ADJUST_SCORE(1);
         if (BattlerHasVgcSetupMove(battlerDef) && !IsBattlerIncapacitated(battlerDef, gAiLogicData->abilities[battlerDef]))
             ADJUST_SCORE(1);

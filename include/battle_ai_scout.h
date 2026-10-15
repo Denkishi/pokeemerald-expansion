@@ -67,4 +67,24 @@ u32 Scout_BattlerRoleChance(enum BattlerId battler, enum ScoutRole role);
 // Mossa del ruolo indicato?
 bool32 Scout_MoveHasRole(enum Move move, enum ScoutRole role);
 
+// --- Strumenti ------------------------------------------------------------------------------
+// L'IA conosce la LISTA degli strumenti del formato (src/data/vgc_item_pool.h: squadre VGC e
+// team rental, Megapietre comprese) ma non chi tiene cosa. Da specie + lista stima lo strumento
+// più probabile; in lotta vale finché non lo vede (attivazione, Frisk, Privazione...) o lo deduce
+// (si è mosso prima di un nostro Pokémon più veloce senza priorità = Stolascelta).
+struct ScoutItemGuess
+{
+    u16 effect;         // HOLD_EFFECT_* più probabile (HOLD_EFFECT_NONE = nessuna idea)
+    u8 chance;          // 0..100
+    u16 megaSpecies;    // forma Mega raggiungibile con una pietra presente in lista, SPECIES_NONE se no
+    u8 megaChance;
+};
+
+void Scout_GuessItem(u16 species, struct ScoutItemGuess *out);
+// Strumento assunto per un Pokémon del giocatore in campo quando non è noto (HOLD_EFFECT_NONE se incerto).
+enum HoldEffect Scout_AssumedHoldEffect(enum BattlerId battler);
+// Forma Mega probabile di una specie del giocatore (SPECIES_NONE se nessuna o pietra assente dalla lista).
+u16 Scout_MegaTargetSpecies(u16 species);
+bool32 Scout_PoolHasItem(u16 item);
+
 #endif // GUARD_BATTLE_AI_SCOUT_H

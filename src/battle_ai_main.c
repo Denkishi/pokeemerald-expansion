@@ -10,6 +10,7 @@
 #include "battle_ai_main.h"
 #include "battle_ai_record.h"
 #include "battle_ai_vgc.h"
+#include "battle_ai_scout.h"
 #include "battle_stat_change.h"
 #include "battle_controllers.h"
 #include "battle_factory.h"
@@ -750,6 +751,11 @@ void SetBattlerAiData(enum BattlerId battler, struct AiLogicData *aiData)
     ability = aiData->abilities[battler] = AI_DecideKnownAbilityForTurn(battler);
     aiData->items[battler] = gBattleMons[battler].item;
     holdEffect = aiData->holdEffects[battler] = AI_DecideHoldEffectForTurn(battler);
+    // IA VGC: strumento del giocatore non ancora visto -> si assume il più probabile per la specie
+    // (Focus Sash, Stolascelta, Corpetto Assalto, Evolcondensa...), come farebbe un giocatore.
+    if (holdEffect == HOLD_EFFECT_NONE && IsOnPlayerSide(battler) && !IsAiBattlerAware(battler)
+     && IsAiFlagPresent(AI_FLAG_VGC_DOUBLES) && gBattleMons[battler].item != ITEM_NONE)
+        holdEffect = aiData->holdEffects[battler] = Scout_AssumedHoldEffect(battler);
     aiData->lastUsedMove[battler] = (gLastMoves[battler] == MOVE_UNAVAILABLE) ? MOVE_NONE : gLastMoves[battler];
     aiData->hpPercents[battler] = GetHealthPercentage(battler);
     aiData->moveLimitations[battler] = CheckMoveLimitations(battler, 0, ~(MOVE_LIMITATION_UNUSABLE));

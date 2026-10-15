@@ -22,6 +22,7 @@ bool32 AI_VgcOwnSpeedControlActive(enum BattlerId battler);
 struct VgcGameplan;
 const struct VgcGameplan *AI_VgcGetPlan(u16 trainerId);
 bool32 AI_VgcPlanIsWinCon(u16 trainerId, u16 species);
+bool32 AI_VgcPlanIsTrickRoomTeam(u16 trainerId);
 bool32 AI_VgcPlanIsSetter(u16 trainerId, u16 species);
 bool32 AI_VgcPlanIsBack(u16 trainerId, u16 species);
 s32 AI_VgcPlanLeadBonus(u16 trainerId, u16 a, u16 b, bool32 trViable, bool32 twViable);

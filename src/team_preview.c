@@ -122,6 +122,7 @@ struct SeriesMonMemory
     u16 moves[MAX_MON_MOVES];   // mosse viste
     u16 ability;                // ABILITY_NONE = non vista
     u16 item;                   // ITEM_NONE = non visto
+    u16 heldEffect;             // HOLD_EFFECT_* visto o dedotto (es. Stolascelta dalla velocità)
     u8 timesBrought;
     u8 timesLead;
     u8 kos;                     // quanti Pokémon dell'AI ha mandato KO
@@ -621,6 +622,22 @@ static bool32 MonIsSupport(struct Pokemon *mon)
     return FALSE;
 }
 
+// Supporto "puro": fa supporto e ha al massimo una mossa d'attacco (Fake Out esclusa).
+static bool32 MonIsPureSupport(struct Pokemon *mon)
+{
+    u32 i, attacks = 0;
+
+    if (!MonIsSupport(mon))
+        return FALSE;
+    for (i = 0; i < MAX_MON_MOVES; i++)
+    {
+        enum Move move = GetMonData(mon, MON_DATA_MOVE1 + i);
+        if (move != MOVE_NONE && !IsBattleMoveStatus(move) && GetMoveEffect(move) != EFFECT_FIRST_TURN_ONLY)
+            attacks++;
+    }
+    return attacks <= 1;
+}
+
 static s32 PairSynergy(struct Pokemon *a, struct Pokemon *b)
 {
     s32 s = 0;
@@ -734,15 +751,62 @@ static s16 sMatch[PARTY_SIZE][PARTY_SIZE]; // [enemy][player]
 static s32 Matchup(struct Pokemon *e, struct Pokemon *p, bool32 omniscient)
 {
     const struct SeriesMonMemory *mem = SeriesFindMemory(GetMonData(p, MON_DATA_PERSONALITY));
+    struct ScoutItemGuess g;
+    u16 pSpecies = GetMonData(p, MON_DATA_SPECIES);
     u32 off = BestMovePct(e, p);
-    u32 def = omniscient ? BestMovePct(p, e) : max(BestStabPct(p, e), BestMovePct(p, e) / 2);
+    // Senza onniscienza le mosse del giocatore non si vedono: si stima dallo STAB (come in una
+    // vera team preview) e da ciò che si è visto nelle gare precedenti della serie.
+    u32 def = omniscient ? BestMovePct(p, e) : BestStabPct(p, e);
+    u32 eSpd = GetMonData(e, MON_DATA_SPEED), pSpd = GetMonData(p, MON_DATA_SPEED);
+    u32 hitsE, hitsP;
+    bool32 eFaster;
+    s32 s;
 
     // Gare precedenti della serie: le mosse viste contano per intero.
     if (!omniscient && mem != NULL)
         def = max(def, BestRememberedMovePct(p, e, mem));
-    u32 hitsE = HitsToKo(off), hitsP = HitsToKo(def);
-    bool32 eFaster = GetMonData(e, MON_DATA_SPEED) > GetMonData(p, MON_DATA_SPEED);
-    s32 s = (s32)min(off, 150) - (s32)min(def, 150);
+
+    // Strumento e Mega probabili (solo dalla specie e dalla lista degli strumenti del formato;
+    // nel Bo3 lo strumento visto nelle gare prima è certo).
+    Scout_GuessItem(pSpecies, &g);
+    if (mem != NULL && mem->heldEffect != HOLD_EFFECT_NONE)
+    {
+        g.effect = mem->heldEffect;
+        g.chance = 100;
+    }
+    if (!omniscient)
+    {
+        if (g.megaSpecies != SPECIES_NONE && g.megaChance >= 50)
+        {
+            // Può megaevolvere: statistiche della forma Mega (in proporzione alle basi).
+            const struct SpeciesInfo *b = &gSpeciesInfo[pSpecies], *m = &gSpeciesInfo[g.megaSpecies];
+            u32 bOff = b->baseAttack + b->baseSpAttack, mOff = m->baseAttack + m->baseSpAttack;
+            u32 bDef = b->baseDefense + b->baseSpDefense, mDef = m->baseDefense + m->baseSpDefense;
+            if (bOff != 0)
+                def = def * mOff / bOff;
+            if (mDef != 0)
+                off = off * bDef / mDef;
+            if (b->baseSpeed != 0)
+                pSpd = pSpd * m->baseSpeed / b->baseSpeed;
+        }
+        if (g.chance >= 50)
+        {
+            switch (g.effect)
+            {
+            case HOLD_EFFECT_CHOICE_SCARF: pSpd = pSpd * 3 / 2; break;
+            case HOLD_EFFECT_EVIOLITE:     off = off * 2 / 3;   break;
+            case HOLD_EFFECT_ASSAULT_VEST: off = off * 4 / 5;   break;
+            case HOLD_EFFECT_LIFE_ORB:     def = def * 13 / 10; break;
+            default: break;
+            }
+        }
+    }
+    hitsE = HitsToKo(off);
+    hitsP = HitsToKo(def);
+    if (!omniscient && g.chance >= 55 && g.effect == HOLD_EFFECT_FOCUS_SASH && hitsE < 2)
+        hitsE = 2; // il Focus Sash regge il primo colpo
+    eFaster = eSpd > pSpd;
+    s = (s32)min(off, 150) - (s32)min(def, 150);
 
     if (hitsE < hitsP || (hitsE == hitsP && eFaster))
         s += 50;
@@ -912,6 +976,23 @@ static void PlayerProfile(struct Pokemon *mon, struct ScoutProfile *out)
     bool8 hit[SCOUT_ROLE_COUNT] = {0};
 
     Scout_GetSpeciesProfile(GetMonData(mon, MON_DATA_SPECIES), out);
+    {
+        u16 mega = Scout_MegaTargetSpecies(GetMonData(mon, MON_DATA_SPECIES));
+        if (mega != SPECIES_NONE)
+        {
+            struct ScoutProfile mp;
+            Scout_GetSpeciesProfile(mega, &mp);
+            if (mp.weather != SCOUT_WEATHER_NONE && mp.weatherP * 70 / 100 > out->weatherP)
+            {
+                out->weather = mp.weather;
+                out->weatherP = mp.weatherP * 70 / 100;
+            }
+            if (mp.intimidateP * 70 / 100 > out->intimidateP)
+                out->intimidateP = mp.intimidateP * 70 / 100;
+            if (mp.baseSpeed > out->baseSpeed)
+                out->baseSpeed = (out->baseSpeed + mp.baseSpeed) / 2;
+        }
+    }
     if (mem == NULL)
         return;
     for (i = 0; i < MAX_MON_MOVES; i++)
@@ -1324,7 +1405,7 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                     trSetters++;
                 if (isTw)
                     twSetters++;
-                if (BaseSpeed(m1) <= 60 && !isTr)
+                if (BaseSpeed(m1) <= 50 && !isTr)
                     slowSweepers++;
                 if (MonIsSupport(m1))
                     supportCount++;
@@ -1565,8 +1646,8 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                         struct Pokemon *monB = &enemy[enemySlots[eb]];
                         bool32 aIsTr = MonKnowsEffect(monA, EFFECT_TRICK_ROOM);
                         bool32 bIsTr = MonKnowsEffect(monB, EFFECT_TRICK_ROOM);
-                        bool32 aIsSlow = BaseSpeed(monA) <= 65;
-                        bool32 bIsSlow = BaseSpeed(monB) <= 65;
+                        bool32 aIsSlow = BaseSpeed(monA) <= 50;
+                        bool32 bIsSlow = BaseSpeed(monB) <= 50;
                         bool32 aIsSupp = MonIsSupport(monA);
                         bool32 bIsSupp = MonIsSupport(monB);
                         bool32 squadHasTr = FALSE;
@@ -1594,7 +1675,7 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                             {
                                 // Squadra con Distorsione: mai aprire con attaccante lento senza Distorsione attiva!
                                 if (aIsSlow || bIsSlow)
-                                    s -= 5000;
+                                    s -= AI_VgcPlanIsTrickRoomTeam(trainerId) ? 5000 : 1200;
                                 else
                                     s -= 300;
                             }
@@ -1641,7 +1722,7 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                             s += 400;
 
                         // 4) Due Pokémon puramente di supporto insieme:
-                        if (aIsSupp && bIsSupp && !aIsTr && !bIsTr)
+                        if (MonIsPureSupport(monA) && MonIsPureSupport(monB) && !aIsTr && !bIsTr)
                             s -= 2000;
                     }
 
@@ -2795,7 +2876,13 @@ void TeamPreview_SeriesCaptureAiKnowledge(void)
         if (known->ability != ABILITY_NONE)
             mem->ability = known->ability;
         if (known->heldEffect != HOLD_EFFECT_NONE)
-            mem->item = GetMonData(mon, MON_DATA_HELD_ITEM);
+        {
+            u16 real = GetMonData(mon, MON_DATA_HELD_ITEM);
+            mem->heldEffect = known->heldEffect;
+            // L'oggetto preciso si ricorda solo se l'effetto visto/dedotto corrisponde davvero
+            // (una deduzione sbagliata non deve rivelare lo strumento vero).
+            mem->item = (GetItemHoldEffect(real) == known->heldEffect) ? real : ITEM_NONE;
+        }
     }
 }
 
@@ -2831,10 +2918,11 @@ void TeamPreview_SeriesInjectAiKnowledge(void)
         }
         if (mem->ability != ABILITY_NONE)
             known->ability = mem->ability;
-        if (mem->item != ITEM_NONE && GetMonData(mon, MON_DATA_HELD_ITEM) == mem->item)
+        if (mem->heldEffect != HOLD_EFFECT_NONE)
         {
-            known->item = mem->item;
-            known->heldEffect = GetItemHoldEffect(mem->item);
+            known->heldEffect = mem->heldEffect;
+            if (mem->item != ITEM_NONE && GetMonData(mon, MON_DATA_HELD_ITEM) == mem->item)
+                known->item = mem->item;
         }
         if (mem->timesBrought != 0)
             known->species = GetMonData(mon, MON_DATA_SPECIES);

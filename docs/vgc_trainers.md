@@ -277,6 +277,32 @@ In lotta la Mega resta di quello scelto se è in campo; se è caduto è libera; 
 in campo rischia il KO, la fa chi è in campo. Esempio Enzo: contro una squadra veloce Mega Aerodactyl
 in lead col Tailwind, contro una lenta o con Distorsione Mega Gengar col blocco Gravità + Ipnosi.
 
+### 3.3e Strumenti: cosa sa e cosa deduce
+
+L'IA conosce la **lista** degli strumenti del formato (`src/data/vgc_item_pool.h`, generata dalle
+squadre VGC e dai team rental, Megapietre comprese) ma **non chi tiene cosa**. Da specie + lista
+stima lo strumento più probabile (`Scout_GuessItem` in `src/battle_ai_scout.c`): tabella di meta
+(Smeargle Focus Sash, Porygon2 Evolcondensa, Tatsugiri Stolascelta, Grimmsnarl Argilla Lucente...)
+e regole generali (NFE robusto = Evolcondensa, Paradox = Capsula Energetica, fragile e veloce =
+Focus Sash, supporto = Baccacedro, attaccante medio-veloce = Stolascelta, bulky = Corpetto Assalto).
+Chi può megaevolvere con una pietra presente in lista "tiene la pietra" (70%).
+
+Dove conta:
+- **Team preview**: nel matchup 1 contro 1 un Focus Sash probabile regge il primo colpo, la
+  Stolascelta rende più veloce, Evolcondensa / Corpetto riducono il nostro danno, Assorbisfera
+  alza il loro; chi può megaevolvere è valutato con le statistiche della forma Mega e la sua
+  abilità (Charizard = sole, Gyarados = Prepotenza).
+- **In lotta**: finché lo strumento non è noto, l'IA assume quello probabile nei calcoli (danni,
+  velocità, chi va KO), con soglia più alta per il Focus Sash (così non è timida senza motivo).
+  Appena lo vede (attivazione, Frisk, Privazione) vale il dato reale. Chi può ancora megaevolvere è un
+  bersaglio da togliere prima.
+- **Deduzione della Stolascelta**: se un tuo Pokémon si muove prima di un suo Pokémon che, a
+  statistiche, è più veloce (niente priorità, niente Distorsione, niente Tailwind), l'IA deduce
+  la Stolascelta e sa che sei bloccato su quella mossa; se poi cambi mossa senza uscire, ritira la
+  deduzione. La deduzione resta nel Bo3 (come effetto, non come oggetto preciso).
+- Niente sbirciate: i calcoli di preview non usano più le mosse vere non viste (solo STAB stimato +
+  mosse viste nelle gare precedenti).
+
 ### 3.4 Al meglio di tre: cosa impara tra una gara e l'altra
 
 - Mosse, abilità e strumenti **visti** restano noti nella gara dopo (già prima).
