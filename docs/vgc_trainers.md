@@ -228,6 +228,56 @@ Risposte tattiche aggiunte: Provocazione sul setter se più veloci (+3), Ampiogu
 ad area note (+2), Anticipo contro Fake Out / priorità note (+3 al primo turno), Ultimascommessa
 quando il Pokémon è spacciato (+5), sonno su chi ha setup (+1).
 
+### 3.3c Scouting della lead (`src/battle_ai_scout.c`, `src/team_preview.c`)
+
+In team preview l'IA vede solo le **specie** della tua squadra, come un giocatore vero. Da lì stima,
+per ogni tuo Pokémon, i ruoli **probabili** (non le mosse vere):
+
+| Fonte | Peso | Esempio |
+|---|---|---|
+| Tabella di meta (`sScoutMeta`) | 85% | Amoonguss: Polverabbia + Spora; Pelipper: Tailwind + Ampioguardia |
+| Abilità possibili della specie | 40-100% | Torkoal: Siccità; Incineroar: Prepotenza |
+| Learnset ("può impararla") | 15-60% | chi impara Distorsione o Fake Out |
+
+Ruoli: Distorsione, Ventoincoda, controllo velocità "morbido" (Ventogelato, Elettrotela, Tuononda),
+Fake Out, redirect, Provocazione, sonno, Ultimocanto, Ampioguardia, setup, Aiuto; più meteo, campo,
+Prepotenza, immunità al sonno, velocità base. Nel Bo3 ciò che ha visto nelle gare prima sostituisce la stima.
+
+Con i profili:
+1. **Core e lead probabili del giocatore**: ogni tua coppia riceve un punteggio (ruoli da lead +
+   core setter/abuser: Distorsione con lenti, Tailwind con medi, meteo con chi lo sfrutta, Fake Out con
+   setter, redirect con setup, Dondozo + Tatsugiri; nel Bo3 chi hai già messo in lead). Le 6 migliori
+   diventano le "lead previste", con un peso.
+2. **Ogni lead dell'IA contro ogni lead prevista** (`LeadVsLead`): duelli 1 contro 1 più
+   - Distorsione nostra: serve se siamo più lenti; persa se il setter prende Fake Out (salvo Spettro,
+     Forza Interiore, Campo Psichico o Anticipo del partner) o Provocazione (salvo Erbamentale,
+     Indifferenza, Magispecchio);
+   - Tailwind nostro contro la loro Distorsione;
+   - la loro Distorsione quando noi siamo i veloci: Fake Out / Provocazione / Distorsione nostra la
+     fermano, altrimenti è un problema;
+   - il loro Tailwind; Fake Out e Provocazione nostri sui loro setter;
+   - guerra del meteo (vince il setter più lento; Cloud Nine la annulla), campi (Campo Psichico contro
+     Fake Out, Elettrico/Nebbioso contro il sonno), Prepotenza sui nostri fisici, sonno, redirect contro
+     chi non ha mosse ad area.
+3. **Punteggio della lead** = valutazione di prima + 70% media pesata + 30% caso peggiore.
+4. **Scelta mista**: se le prime 3 lead sono vicine (entro 40 punti) l'IA sceglie la prima nel 60%
+   dei casi, la seconda nel 28%, la terza nel 12%. Se la prima ha una contro-lead che la smonta (caso
+   peggiore molto più brutto della seconda), la seconda diventa favorita (48%).
+5. I tuoi pezzi chiave (setter, meteo, Fake Out, redirect) pesano di più anche nella scelta dei 4 e della panchina.
+
+In lotta lo scouting serve solo finché non vede: al turno 1 Fake Out probabile, setter probabili
+(per Fake Out / Provocazione mirati) e Protect probabile (in VGC quasi tutti lo portano: 60% finché
+le mosse sono ignote). Ogni mossa vista sostituisce la stima.
+
+### 3.3d Megaevoluzione decisa partita per partita
+
+Non c'è più una Mega "prenotata" dal piano. In preview, tra i Pokémon con Megapietra portati, sceglie
+quello con: lead (+100), matchup contro la squadra e contro la lead prevista, bisogno di controllo
+velocità (+40 a chi ha Tailwind se il giocatore è più veloce), un poco il piano (+20 alla win condition).
+In lotta la Mega resta di quello scelto se è in campo; se è caduto è libera; se è in panchina e chi è
+in campo rischia il KO, la fa chi è in campo. Esempio Enzo: contro una squadra veloce Mega Aerodactyl
+in lead col Tailwind, contro una lenta o con Distorsione Mega Gengar col blocco Gravità + Ipnosi.
+
 ### 3.4 Al meglio di tre: cosa impara tra una gara e l'altra
 
 - Mosse, abilità e strumenti **visti** restano noti nella gara dopo (già prima).

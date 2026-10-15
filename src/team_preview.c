@@ -29,6 +29,7 @@
 #include "script_pokemon_util.h"
 #include "battle_ai_main.h"
 #include "battle_ai_vgc.h"
+#include "battle_ai_scout.h"
 #include "task.h"
 #include "text.h"
 #include "text_window.h"
@@ -693,6 +694,359 @@ static bool32 PairHas(u16 a, u16 b, u16 x)
     return AI_VgcSameSpecies(x, a) || AI_VgcSameSpecies(x, b);
 }
 
+// ---------------------------------------------------------------------
+// Scouting della lead (vedi include/battle_ai_scout.h)
+// ---------------------------------------------------------------------
+// L'IA vede solo le specie del giocatore e ne stima i ruoli probabili; dei propri Pokémon conosce
+// tutto. Con questo: (1) stima le lead più probabili del giocatore e le sue core, (2) valuta ogni
+// propria lead contro ognuna di quelle (controllo velocità, meteo, campi, Fake Out, Provocazione,
+// sonno, Prepotenza, redirect), (3) sceglie con una strategia mista per non essere leggibile.
+#define PRED_LEADS 6
+
+static EWRAM_DATA u16 sMegaDesignate = SPECIES_NONE; // chi megaevolve in questa gara (deciso in preview)
+
+u16 TeamPreview_GetMegaDesignateSpecies(void)
+{
+    return sMegaDesignate;
+}
+
+static u8 RoleMax(u8 a, u8 b)
+{
+    return a > b ? a : b;
+}
+
+// Profilo di un Pokémon dell'IA: è suo, quindi mosse e abilità vere.
+static void EnemyProfile(struct Pokemon *mon, struct ScoutProfile *out)
+{
+    u16 species = GetMonData(mon, MON_DATA_SPECIES);
+    u16 item = GetMonData(mon, MON_DATA_HELD_ITEM);
+    enum Ability ability = GetMonAbility(mon);
+    u32 i, r;
+
+    Scout_GetSpeciesProfile(species, out);
+    for (r = 0; r < SCOUT_ROLE_COUNT; r++)
+        out->role[r] = 0;
+    for (i = 0; i < MAX_MON_MOVES; i++)
+    {
+        enum Move move = GetMonData(mon, MON_DATA_MOVE1 + i);
+        for (r = 0; r < SCOUT_ROLE_COUNT; r++)
+        {
+            if (Scout_MoveHasRole(move, r))
+                out->role[r] = 100;
+        }
+    }
+
+    out->weather = SCOUT_WEATHER_NONE;
+    out->weatherP = 100;
+    switch (ability)
+    {
+    case ABILITY_DROUGHT:
+    case ABILITY_ORICHALCUM_PULSE:
+    case ABILITY_DESOLATE_LAND:
+        out->weather = SCOUT_WEATHER_SUN;
+        break;
+    case ABILITY_DRIZZLE:
+    case ABILITY_PRIMORDIAL_SEA:
+        out->weather = SCOUT_WEATHER_RAIN;
+        break;
+    case ABILITY_SAND_STREAM:
+    case ABILITY_SAND_SPIT:
+        out->weather = SCOUT_WEATHER_SAND;
+        break;
+    case ABILITY_SNOW_WARNING:
+        out->weather = SCOUT_WEATHER_SNOW;
+        break;
+    default:
+        out->weatherP = 0;
+        break;
+    }
+    // Megapietre che portano il meteo (la Mega attiva l'abilità al turno 1).
+    if (out->weather == SCOUT_WEATHER_NONE && item == ITEM_CHARIZARDITE_Y)
+    {
+        out->weather = SCOUT_WEATHER_SUN;
+        out->weatherP = 100;
+    }
+    else if (out->weather == SCOUT_WEATHER_NONE && item == ITEM_TYRANITARITE)
+    {
+        out->weather = SCOUT_WEATHER_SAND;
+        out->weatherP = 100;
+    }
+
+    out->terrainP = 100;
+    switch (ability)
+    {
+    case ABILITY_GRASSY_SURGE:
+        out->terrain = SCOUT_TERRAIN_GRASSY;
+        break;
+    case ABILITY_ELECTRIC_SURGE:
+    case ABILITY_HADRON_ENGINE:
+        out->terrain = SCOUT_TERRAIN_ELECTRIC;
+        break;
+    case ABILITY_PSYCHIC_SURGE:
+        out->terrain = SCOUT_TERRAIN_PSYCHIC;
+        break;
+    case ABILITY_MISTY_SURGE:
+        out->terrain = SCOUT_TERRAIN_MISTY;
+        break;
+    default:
+        out->terrain = SCOUT_TERRAIN_NONE;
+        out->terrainP = 0;
+        break;
+    }
+    out->intimidateP = (ability == ABILITY_INTIMIDATE) ? 100 : 0;
+}
+
+// Profilo di un Pokémon del giocatore: specie + (nel Bo3) ciò che l'IA ha visto nelle gare prima.
+static void PlayerProfile(struct Pokemon *mon, struct ScoutProfile *out)
+{
+    const struct SeriesMonMemory *mem = SeriesFindMemory(GetMonData(mon, MON_DATA_PERSONALITY));
+    u32 i, r, known = 0;
+    bool8 hit[SCOUT_ROLE_COUNT] = {0};
+
+    Scout_GetSpeciesProfile(GetMonData(mon, MON_DATA_SPECIES), out);
+    if (mem == NULL)
+        return;
+    for (i = 0; i < MAX_MON_MOVES; i++)
+    {
+        if (mem->moves[i] == MOVE_NONE)
+            continue;
+        known++;
+        for (r = 0; r < SCOUT_ROLE_COUNT; r++)
+        {
+            if (Scout_MoveHasRole(mem->moves[i], r))
+                hit[r] = TRUE;
+        }
+    }
+    for (r = 0; r < SCOUT_ROLE_COUNT; r++)
+    {
+        if (hit[r])
+            out->role[r] = 100;
+        else
+            out->role[r] = out->role[r] * (MAX_MON_MOVES - min(known, MAX_MON_MOVES)) / MAX_MON_MOVES;
+    }
+    if (mem->ability != ABILITY_NONE)
+    {
+        out->intimidateP = (mem->ability == ABILITY_INTIMIDATE) ? 100 : 0;
+        if (mem->ability == ABILITY_DROUGHT || mem->ability == ABILITY_DRIZZLE || mem->ability == ABILITY_SAND_STREAM
+         || mem->ability == ABILITY_SNOW_WARNING || mem->ability == ABILITY_ORICHALCUM_PULSE)
+            out->weatherP = 100;
+        else
+            out->weatherP = 0;
+    }
+}
+
+// Quanto è probabile / sensata la coppia come lead del giocatore (core e ruoli da lead).
+static s32 PlayerLeadScore(const struct ScoutProfile *a, const struct ScoutProfile *b, struct Pokemon *ma, struct Pokemon *mb)
+{
+    const struct ScoutProfile *p[2] = { a, b };
+    s32 s = 0;
+    u32 i;
+
+    for (i = 0; i < 2; i++)
+    {
+        const struct ScoutProfile *x = p[i], *y = p[1 - i];
+        // Ruoli da lead.
+        s += (x->role[SCOUT_FAKE_OUT] * 30 + x->intimidateP * 20 + x->role[SCOUT_TRICK_ROOM] * 25
+            + x->role[SCOUT_TAILWIND] * 25 + x->weatherP * 25 + x->terrainP * 15 + x->role[SCOUT_REDIRECT] * 20
+            + x->role[SCOUT_TAUNT] * 10 + x->role[SCOUT_SLEEP] * 10) / 100;
+        // Core: setter + chi ne approfitta.
+        if (y->baseSpeed <= 55)
+            s += x->role[SCOUT_TRICK_ROOM] * 40 / 100;
+        if (y->baseSpeed >= 60 && y->baseSpeed <= 110)
+            s += x->role[SCOUT_TAILWIND] * 25 / 100;
+        if (x->weather != SCOUT_WEATHER_NONE && x->weather == y->weatherAbuse)
+            s += x->weatherP * 45 / 100;
+        s += x->role[SCOUT_FAKE_OUT] * RoleMax(y->role[SCOUT_TRICK_ROOM], y->role[SCOUT_TAILWIND]) * 30 / 10000;
+        s += x->role[SCOUT_REDIRECT] * y->role[SCOUT_SETUP] * 30 / 10000;
+    }
+    // Commander: Dondozo + Tatsugiri partono insieme.
+    if (PairIs(GetMonData(ma, MON_DATA_SPECIES), GetMonData(mb, MON_DATA_SPECIES), SPECIES_DONDOZO, SPECIES_TATSUGIRI))
+        s += 60;
+    // Bo3: chi ha già fatto da lead tende a rifarlo.
+    {
+        const struct SeriesMonMemory *m1 = SeriesFindMemory(GetMonData(ma, MON_DATA_PERSONALITY));
+        const struct SeriesMonMemory *m2 = SeriesFindMemory(GetMonData(mb, MON_DATA_PERSONALITY));
+        if (m1 != NULL)
+            s += 40 * min(m1->timesLead, 2);
+        if (m2 != NULL)
+            s += 40 * min(m2->timesLead, 2);
+    }
+    return s;
+}
+
+static bool32 ProfMonIsType(struct Pokemon *mon, enum Type type)
+{
+    u16 species = GetMonData(mon, MON_DATA_SPECIES);
+    return gSpeciesInfo[species].types[0] == type || gSpeciesInfo[species].types[1] == type;
+}
+
+static bool32 MonIgnoresIntimidate(struct Pokemon *mon)
+{
+    enum Ability ab = GetMonAbility(mon);
+    enum HoldEffect he = GetItemHoldEffect(GetMonData(mon, MON_DATA_HELD_ITEM));
+    return ab == ABILITY_DEFIANT || ab == ABILITY_COMPETITIVE || ab == ABILITY_CLEAR_BODY || ab == ABILITY_WHITE_SMOKE
+        || ab == ABILITY_FULL_METAL_BODY || ab == ABILITY_MIRROR_ARMOR || ab == ABILITY_HYPER_CUTTER || ab == ABILITY_INNER_FOCUS
+        || ab == ABILITY_OWN_TEMPO || ab == ABILITY_OBLIVIOUS || ab == ABILITY_SCRAPPY || ab == ABILITY_GUARD_DOG
+        || ab == ABILITY_GUTS || he == HOLD_EFFECT_CLEAR_AMULET;
+}
+
+static bool32 MonImmuneToSleep(struct Pokemon *mon)
+{
+    enum Ability ab = GetMonAbility(mon);
+    return ProfMonIsType(mon, TYPE_GRASS) || ab == ABILITY_INSOMNIA || ab == ABILITY_VITAL_SPIRIT || ab == ABILITY_SWEET_VEIL
+        || ab == ABILITY_GOOD_AS_GOLD || ab == ABILITY_MAGIC_BOUNCE || ab == ABILITY_PURIFYING_SALT || ab == ABILITY_OVERCOAT
+        || GetItemHoldEffect(GetMonData(mon, MON_DATA_HELD_ITEM)) == HOLD_EFFECT_SAFETY_GOGGLES;
+}
+
+// Il setter di controllo velocità resiste a Fake Out? (Spettro, Forza Interiore, Campo Psichico del
+// partner, Anticipo del partner, o un nostro Fake Out da scambiare).
+static bool32 SetterSafeFromFakeOut(struct Pokemon *setter, struct Pokemon *partner, const struct ScoutProfile *pp)
+{
+    return ProfMonIsType(setter, TYPE_GHOST) || GetMonAbility(setter) == ABILITY_INNER_FOCUS
+        || GetMonAbility(partner) == ABILITY_PSYCHIC_SURGE || MonKnowsMove(partner, MOVE_QUICK_GUARD)
+        || pp->role[SCOUT_FAKE_OUT] == 100;
+}
+
+static bool32 SetterSafeFromTaunt(struct Pokemon *setter)
+{
+    enum Ability ab = GetMonAbility(setter);
+    return ab == ABILITY_OBLIVIOUS || ab == ABILITY_MAGIC_BOUNCE
+        || GetItemHoldEffect(GetMonData(setter, MON_DATA_HELD_ITEM)) == HOLD_EFFECT_MENTAL_HERB;
+}
+
+static bool32 MonHasSpreadAttack(struct Pokemon *mon)
+{
+    u32 i;
+    for (i = 0; i < MAX_MON_MOVES; i++)
+    {
+        enum Move m = GetMonData(mon, MON_DATA_MOVE1 + i);
+        if (m != MOVE_NONE && !IsBattleMoveStatus(m) && IsSpreadMove(GetMoveTarget(m)))
+            return TRUE;
+    }
+    return FALSE;
+}
+
+// Valore della nostra lead contro una lead probabile del giocatore. `matchup` = duelli 1v1 calcolati
+// dal chiamante. Positivo = buono per l'IA.
+static s32 LeadVsLead(struct Pokemon *mea, struct Pokemon *meb, const struct ScoutProfile *ea, const struct ScoutProfile *eb,
+                      const struct ScoutProfile *pa, const struct ScoutProfile *pb, s32 matchup)
+{
+    s32 v = matchup;
+    s32 plTR = RoleMax(pa->role[SCOUT_TRICK_ROOM], pb->role[SCOUT_TRICK_ROOM]);
+    s32 plTW = RoleMax(pa->role[SCOUT_TAILWIND], pb->role[SCOUT_TAILWIND]);
+    s32 plFO = RoleMax(pa->role[SCOUT_FAKE_OUT], pb->role[SCOUT_FAKE_OUT]);
+    s32 plTaunt = RoleMax(pa->role[SCOUT_TAUNT], pb->role[SCOUT_TAUNT]);
+    s32 plRedir = RoleMax(pa->role[SCOUT_REDIRECT], pb->role[SCOUT_REDIRECT]);
+    s32 plSleep = RoleMax(pa->role[SCOUT_SLEEP], pb->role[SCOUT_SLEEP]);
+    s32 plIntim = RoleMax(pa->intimidateP, pb->intimidateP);
+    s32 plSetter = max(plTR, plTW);
+    bool32 aiTR = ea->role[SCOUT_TRICK_ROOM] || eb->role[SCOUT_TRICK_ROOM];
+    bool32 aiTW = ea->role[SCOUT_TAILWIND] || eb->role[SCOUT_TAILWIND];
+    bool32 aiFO = ea->role[SCOUT_FAKE_OUT] || eb->role[SCOUT_FAKE_OUT];
+    bool32 aiTaunt = ea->role[SCOUT_TAUNT] || eb->role[SCOUT_TAUNT];
+    bool32 aiSoft = ea->role[SCOUT_SOFT_SPEED] || eb->role[SCOUT_SOFT_SPEED];
+    bool32 aiRedir = ea->role[SCOUT_REDIRECT] || eb->role[SCOUT_REDIRECT];
+    u32 aiSpd = (ea->baseSpeed + eb->baseSpeed) / 2, plSpd = (pa->baseSpeed + pb->baseSpeed) / 2;
+    bool32 aIsSetter = ea->role[SCOUT_TRICK_ROOM] || ea->role[SCOUT_TAILWIND];
+    struct Pokemon *setter = aIsSetter ? mea : meb;
+    struct Pokemon *setterPartner = aIsSetter ? meb : mea;
+    const struct ScoutProfile *setterPartnerProf = aIsSetter ? eb : ea;
+
+    // --- Il nostro Trick Room ---
+    if (aiTR)
+    {
+        if (aiSpd < plSpd)
+            v += 25; // ci serve davvero
+        else
+            v -= 15;
+        if (!SetterSafeFromFakeOut(setter, setterPartner, setterPartnerProf))
+            v -= plFO * 40 / 100;
+        if (!SetterSafeFromTaunt(setter))
+            v -= plTaunt * 35 / 100;
+        if (aiRedir)
+            v += 10; // il redirect protegge il setter
+    }
+    // --- Il nostro Tailwind ---
+    if (aiTW)
+    {
+        if (aiSpd <= plSpd && aiSpd * 2 > plSpd)
+            v += 20;
+        v -= plTR * 25 / 100; // la loro Distorsione ribalta il vento
+        if (!SetterSafeFromTaunt(setter))
+            v -= plTaunt * 15 / 100;
+    }
+    // --- Il loro Trick Room: ci danneggia se siamo il lato veloce ---
+    if (plTR >= 30 && aiSpd > plSpd)
+    {
+        if (aiFO)
+            v += plTR * 30 / 100;
+        else if (aiTaunt)
+            v += plTR * 25 / 100;
+        else if (aiTR)
+            v += plTR * 10 / 100; // possiamo annullarla, ma costa un turno
+        else
+            v -= plTR * 40 / 100;
+    }
+    // --- Il loro Tailwind ---
+    if (plTW >= 30 && !aiTR)
+    {
+        if (aiTW)
+            v += 5;
+        else if (aiSoft || aiFO || aiTaunt)
+            v += plTW * 10 / 100;
+        else if (aiSpd >= plSpd)
+            v -= plTW * 25 / 100; // ci superano col vento
+    }
+    // --- Fake Out / Provocazione nostri sui loro setter ---
+    if (aiFO)
+        v += plSetter * 25 / 100;
+    if (aiTaunt)
+        v += plSetter * 20 / 100;
+    // --- Guerra del meteo: vince chi lo imposta per ultimo (il più lento) ---
+    {
+        const struct ScoutProfile *aw = (ea->weather != SCOUT_WEATHER_NONE) ? ea : ((eb->weather != SCOUT_WEATHER_NONE) ? eb : NULL);
+        const struct ScoutProfile *pw = (pa->weatherP >= pb->weatherP) ? pa : pb;
+        if (pw->weather != SCOUT_WEATHER_NONE && pw->weatherP >= 40)
+        {
+            if (GetMonAbility(mea) == ABILITY_CLOUD_NINE || GetMonAbility(meb) == ABILITY_CLOUD_NINE
+             || GetMonAbility(mea) == ABILITY_AIR_LOCK || GetMonAbility(meb) == ABILITY_AIR_LOCK)
+                v += pw->weatherP * 15 / 100;
+            else if (aw != NULL && aw->weather != pw->weather)
+                v += (aw->baseSpeed < pw->baseSpeed ? 25 : -25) * (s32)pw->weatherP / 100;
+        }
+    }
+    // --- Campi ---
+    {
+        const struct ScoutProfile *pt = (pa->terrainP >= pb->terrainP) ? pa : pb;
+        if (pt->terrain == SCOUT_TERRAIN_PSYCHIC && aiFO)
+            v -= pt->terrainP * 20 / 100; // Campo Psichico blocca il nostro Fake Out
+        if (ea->terrain == SCOUT_TERRAIN_PSYCHIC || eb->terrain == SCOUT_TERRAIN_PSYCHIC)
+            v += plFO * 15 / 100;         // il nostro Campo Psichico blocca il loro
+        if (ea->terrain == SCOUT_TERRAIN_ELECTRIC || eb->terrain == SCOUT_TERRAIN_ELECTRIC
+         || ea->terrain == SCOUT_TERRAIN_MISTY || eb->terrain == SCOUT_TERRAIN_MISTY)
+            v += plSleep * 15 / 100;      // niente sonno a terra
+    }
+    // --- Prepotenza contro i nostri attaccanti fisici ---
+    if (ea->physical && !MonIgnoresIntimidate(mea))
+        v -= plIntim * 12 / 100;
+    if (eb->physical && !MonIgnoresIntimidate(meb))
+        v -= plIntim * 12 / 100;
+    // --- Sonno ---
+    if (!MonImmuneToSleep(mea))
+        v -= plSleep * 10 / 100;
+    if (!MonImmuneToSleep(meb))
+        v -= plSleep * 10 / 100;
+    // --- Redirect: si aggira con mosse ad area ---
+    if (plRedir >= 30)
+    {
+        if (MonHasSpreadAttack(mea) || MonHasSpreadAttack(meb))
+            v += 5;
+        else
+            v -= plRedir * 15 / 100;
+    }
+    return v;
+}
+
 void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
 {
     struct Pokemon *enemy = gEnemyParty, *player = gPlayerParty;
@@ -705,6 +1059,9 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
     u32 forcedMask = 0;
     bool32 foeHasFakeOut = FALSE;
     u32 chosen[PARTY_SIZE], nChosen = 0, order = 0;
+    struct ScoutProfile enProf[PARTY_SIZE], plProf[PARTY_SIZE];
+    u32 predJ[PRED_LEADS], predK[PRED_LEADS], nPred = 0;
+    s32 predW[PRED_LEADS];
     bool32 planTrViable = FALSE, planTwViable = FALSE;
     u16 trainerId = TRAINER_BATTLE_PARAM.opponentA;
 
@@ -774,6 +1131,51 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
         for (j = 0; j < nPlayer; j++)
             depth[i] += sMatch[i][j];
         depth[i] /= (s32)max(nPlayer, 1);
+    }
+
+    // Scouting: profili (suoi veri, del giocatore stimati dalla specie) e lead probabili del giocatore.
+    sMegaDesignate = SPECIES_NONE;
+    for (i = 0; i < nEnemy; i++)
+        EnemyProfile(&enemy[enemySlots[i]], &enProf[i]);
+    for (j = 0; j < nPlayer; j++)
+    {
+        u32 key;
+        PlayerProfile(&player[playerSlots[j]], &plProf[j]);
+        // I pezzi chiave delle core (controllo velocità, meteo, Fake Out, redirect) vanno coperti di più.
+        key = max(max(plProf[j].role[SCOUT_TRICK_ROOM], plProf[j].role[SCOUT_TAILWIND]),
+                  max(plProf[j].weatherP, max(plProf[j].role[SCOUT_FAKE_OUT], plProf[j].role[SCOUT_REDIRECT])));
+        weight[j] += key * 30 / 100;
+    }
+    if (isDouble && nPlayer >= 2)
+    {
+        s32 predS[PRED_LEADS];
+        u32 k, p;
+        for (j = 0; j < nPlayer; j++)
+        {
+            for (k = j + 1; k < nPlayer; k++)
+            {
+                s32 ls = PlayerLeadScore(&plProf[j], &plProf[k], &player[playerSlots[j]], &player[playerSlots[k]]);
+                if (nPred < PRED_LEADS)
+                    p = nPred++;
+                else if (ls > predS[PRED_LEADS - 1])
+                    p = PRED_LEADS - 1;
+                else
+                    continue;
+                while (p > 0 && predS[p - 1] < ls)
+                {
+                    predS[p] = predS[p - 1];
+                    predJ[p] = predJ[p - 1];
+                    predK[p] = predK[p - 1];
+                    p--;
+                }
+                predS[p] = ls;
+                predJ[p] = j;
+                predK[p] = k;
+            }
+        }
+        // Peso di ogni lead prevista rispetto all'ultima della lista.
+        for (p = 0; p < nPred; p++)
+            predW[p] = predS[p] - predS[nPred - 1] + 20;
     }
 
     // 1) Miglior gruppo: ogni nemico del giocatore deve avere una risposta.
@@ -935,14 +1337,15 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
     {
         u32 leadCount = (isDouble && nChosen >= 2) ? 2 : 1;
         u32 leadA = 0, leadB = 0;
-        s32 bestLead = INT32_MIN;
         u32 a, b;
+        s32 candS[3] = {0}, candWorst[3] = {0};
+        u32 candA[3] = {0}, candB[3] = {0}, nCand = 0;
 
         for (a = 0; a < nChosen; a++)
         {
             for (b = (leadCount == 2 ? a + 1 : a); b < nChosen; b++)
             {
-                s32 s = 0;
+                s32 s = 0, worst = 0;
                 u32 ea = chosen[a], eb = chosen[b];
                 // L'ace non va in lead se c'è alternativa.
                 if ((forcedMask & (1u << ea)) && nChosen > leadCount) s -= 200;
@@ -1075,7 +1478,27 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                         }
                     }
                 }
-                s += Random() % 16; // un po' di varietà: lead meno leggibile
+                // Scouting: questa lead contro le lead probabili del giocatore. Media pesata (70%) +
+                // caso peggiore (30%): si evita la lead che una contro-lead del giocatore smonta.
+                if (leadCount == 2 && nPred > 0)
+                {
+                    s32 ev = 0, wsum = 0;
+                    u32 p;
+                    worst = INT32_MAX;
+                    for (p = 0; p < nPred; p++)
+                    {
+                        u32 pj = predJ[p], pk = predK[p];
+                        s32 mu = max(sMatch[ea][pj], sMatch[eb][pj]) + max(sMatch[ea][pk], sMatch[eb][pk]);
+                        s32 v = LeadVsLead(&enemy[enemySlots[ea]], &enemy[enemySlots[eb]], &enProf[ea], &enProf[eb],
+                                           &plProf[pj], &plProf[pk], mu);
+                        ev += v * predW[p];
+                        wsum += predW[p];
+                        if (v < worst)
+                            worst = v;
+                    }
+                    ev /= max(wsum, 1);
+                    s += (7 * ev + 3 * worst) / 10;
+                }
                 // Gare precedenti: non si rifà il lead che ha perso; quello che ha vinto si ripropone.
                 if (SeriesIsBestOfThree())
                 {
@@ -1094,14 +1517,56 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                             s += sSeries.history[g].aiWon ? 40 : -150;
                     }
                 }
-                if (s > bestLead)
+                // Le 3 lead migliori (per la scelta mista).
                 {
-                    bestLead = s;
-                    leadA = a;
-                    leadB = b;
+                    u32 c;
+                    if (nCand < 3)
+                        c = nCand++;
+                    else if (s > candS[2])
+                        c = 2;
+                    else
+                        c = 3;
+                    if (c < 3)
+                    {
+                        while (c > 0 && candS[c - 1] < s)
+                        {
+                            candS[c] = candS[c - 1];
+                            candWorst[c] = candWorst[c - 1];
+                            candA[c] = candA[c - 1];
+                            candB[c] = candB[c - 1];
+                            c--;
+                        }
+                        candS[c] = s;
+                        candWorst[c] = worst;
+                        candA[c] = a;
+                        candB[c] = b;
+                    }
                 }
                 if (leadCount == 1)
                     break;
+            }
+        }
+
+        // Strategia mista: di solito la lead migliore, ma se le alternative sono vicine a volte una di
+        // quelle (così il giocatore non può leggerla). Se la migliore ha un caso peggiore molto più
+        // brutto della seconda (esiste una contro-lead che la smonta), la seconda diventa favorita.
+        {
+            u32 pick = 0;
+            if (nCand >= 2 && candS[1] >= candS[0] - 40)
+            {
+                u32 w0 = 60, w1 = 28, w2 = (nCand >= 3 && candS[2] >= candS[0] - 40) ? 12 : 0, r;
+                if (candWorst[0] + 40 < candWorst[1])
+                {
+                    w0 = 40;
+                    w1 = 48;
+                }
+                r = Random() % (w0 + w1 + w2);
+                pick = (r < w0) ? 0 : ((r < w0 + w1) ? 1 : 2);
+            }
+            if (nCand > 0)
+            {
+                leadA = candA[pick];
+                leadB = candB[pick];
             }
         }
 
@@ -1146,6 +1611,47 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                 }
             }
             outOrder[order++] = enemySlots[pick];
+        }
+
+        // Mega di questa gara: tra chi la può fare decide il matchup, non uno schema fisso.
+        // Conta: essere in lead, servire come controllo velocità (Tailwind se il giocatore è più
+        // veloce), il matchup contro la lead più probabile del giocatore, e un poco il piano.
+        {
+            s32 bestM = INT32_MIN;
+            u32 aiSpdSum = 0, plSpdSum = 0, k2;
+            for (k2 = 0; k2 < nChosen; k2++)
+                aiSpdSum += enProf[chosen[k2]].baseSpeed;
+            for (j = 0; j < nPlayer; j++)
+                plSpdSum += plProf[j].baseSpeed;
+            for (k2 = 0; k2 < order; k2++)
+            {
+                struct Pokemon *mon = &enemy[outOrder[k2]];
+                u32 idx;
+                s32 m;
+                if (!HoldsMegaStone(mon))
+                    continue;
+                for (idx = 0; idx < nEnemy; idx++)
+                {
+                    if (enemySlots[idx] == outOrder[k2])
+                        break;
+                }
+                if (idx >= nEnemy)
+                    continue;
+                m = depth[idx];
+                if (k2 < leadCount)
+                    m += 100;
+                if (AI_VgcPlanIsWinCon(trainerId, GetMonData(mon, MON_DATA_SPECIES)))
+                    m += 20;
+                if (enProf[idx].role[SCOUT_TAILWIND] && plSpdSum * nChosen > aiSpdSum * max(nPlayer, 1))
+                    m += 40;
+                if (nPred > 0)
+                    m += (sMatch[idx][predJ[0]] + sMatch[idx][predK[0]]) / 2;
+                if (m > bestM)
+                {
+                    bestM = m;
+                    sMegaDesignate = GetMonData(mon, MON_DATA_SPECIES);
+                }
+            }
         }
     }
     sTP.enemyPicks = order;
@@ -2053,6 +2559,29 @@ void TeamPreview_SeriesInjectAiKnowledge(void)
         }
         if (mem->timesBrought != 0)
             known->species = GetMonData(mon, MON_DATA_SPECIES);
+
+        // Senza questo, la prima volta che il Pokémon entra in campo l'IA azzerava la sua storia
+        // (lo considerava "mai visto") e le mosse ricordate dalla gara precedente andavano perse.
+        known->wasSentInBattle = TRUE;
+        known->species = GetMonData(mon, MON_DATA_SPECIES);
+        known->level = GetMonData(mon, MON_DATA_LEVEL);
+        {
+            enum BattlerId b;
+            for (b = 0; b < gBattlersCount; b++)
+            {
+                if (!IsOnPlayerSide(b) || gBattlerPartyIndexes[b] != slot)
+                    continue;
+                for (i = 0; i < MAX_MON_MOVES; i++)
+                {
+                    if (known->moves[i] != MOVE_NONE)
+                        gBattleHistory->usedMoves[b][i] = known->moves[i];
+                }
+                if (known->ability != ABILITY_NONE)
+                    gBattleHistory->abilities[b] = known->ability;
+                if (known->heldEffect != HOLD_EFFECT_NONE)
+                    gBattleHistory->itemEffects[b] = known->heldEffect;
+            }
+        }
     }
 }
 
@@ -2149,6 +2678,7 @@ static void RestoreReducedParty(void)
 void TeamPreview_RestorePlayerParty(void)
 {
     sEnemyPreviewValid = FALSE; // la lotta è finita
+    sMegaDesignate = SPECIES_NONE;
     RestoreReducedParty();
 
     // Cura completa dopo una vittoria (dopo una sconfitta ci pensa già il ritorno al Centro).

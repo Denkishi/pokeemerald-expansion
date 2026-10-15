@@ -24,6 +24,8 @@
 #include "battle_ai_main.h"
 #include "battle_ai_util.h"
 #include "battle_ai_vgc.h"
+#include "team_preview.h"
+#include "battle_ai_scout.h"
 #include "battle_main.h"
 #include "battle_setup.h"
 #include "battle_util.h"
@@ -435,6 +437,11 @@ static bool32 BattlerHasVgcSetupMove(enum BattlerId battler)
         if (m != MOVE_NONE && m != MOVE_UNAVAILABLE && IsVgcSetupMove(m))
             return TRUE;
     }
+    // Giocatore: mosse non ancora viste, ma la specie fa pensare a un setter (scouting).
+    if (IsOnPlayerSide(battler)
+     && (Scout_BattlerRoleChance(battler, SCOUT_TRICK_ROOM) >= 50 || Scout_BattlerRoleChance(battler, SCOUT_TAILWIND) >= 50
+      || Scout_BattlerRoleChance(battler, SCOUT_REDIRECT) >= 60))
+        return TRUE;
     return FALSE;
 }
 
@@ -540,9 +547,11 @@ static bool32 FoeThreatensFakeOut(enum BattlerId battler)
 {
     enum BattlerId foeL = GetBattlerLeftFoe(battler), foeR = GetBattlerRightFoe(battler);
 
-    if (IsBattlerAlive(foeL) && IsBattlersFirstTurn(foeL) && HasMove(foeL, MOVE_FAKE_OUT))
+    if (IsBattlerAlive(foeL) && IsBattlersFirstTurn(foeL)
+     && (HasMove(foeL, MOVE_FAKE_OUT) || (IsOnPlayerSide(foeL) && Scout_BattlerRoleChance(foeL, SCOUT_FAKE_OUT) >= 50)))
         return TRUE;
-    if (IsBattlerAlive(foeR) && IsBattlersFirstTurn(foeR) && HasMove(foeR, MOVE_FAKE_OUT))
+    if (IsBattlerAlive(foeR) && IsBattlersFirstTurn(foeR)
+     && (HasMove(foeR, MOVE_FAKE_OUT) || (IsOnPlayerSide(foeR) && Scout_BattlerRoleChance(foeR, SCOUT_FAKE_OUT) >= 50)))
         return TRUE;
     return FALSE;
 }
@@ -688,10 +697,24 @@ void AI_VgcNotePlayerSwitch(enum BattlerId battler)
 static u32 VgcProtectChance(enum BattlerId foe)
 {
     struct VgcBehaviour *mem;
-    s32 p;
+    s32 p, unknownScale = 100;
 
-    if (!IsBattlerAlive(foe) || !HasMoveWithEffect(foe, EFFECT_PROTECT)) // solo se l'abbiamo visto
+    if (!IsBattlerAlive(foe))
         return 0;
+    // Protect visto = certo; non visto = in VGC quasi tutti lo portano, finché restano mosse ignote.
+    if (!HasMoveWithEffect(foe, EFFECT_PROTECT))
+    {
+        enum Move *moves = GetMovesArray(foe);
+        u32 i, seen = 0;
+        for (i = 0; i < MAX_MON_MOVES; i++)
+        {
+            if (moves[i] != MOVE_NONE && moves[i] != MOVE_UNAVAILABLE)
+                seen++;
+        }
+        if (seen >= MAX_MON_MOVES)
+            return 0;
+        unknownScale = (MAX_MON_MOVES - seen) * 60 / MAX_MON_MOVES; // 60% a mosse tutte ignote
+    }
     p = 20;
     if (sVgcThreatened & (1u << foe))
         p += 30;
@@ -702,6 +725,7 @@ static u32 VgcProtectChance(enum BattlerId foe)
     mem = VgcFindOrAddBehaviour(foe);
     if (mem != NULL && mem->threatenedTurns >= 2)
         p = (p + (s32)(100 * mem->protectsWhenThreatened / mem->threatenedTurns)) / 2;
+    p = p * unknownScale / 100;
     if (p < 0) p = 0;
     if (p > 95) p = 95;
     return p;
@@ -1363,20 +1387,26 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
 }
 
 // ---------------------------------------------------------------------
-// Megaevoluzione riservata
+// Megaevoluzione: chi la fa in questa gara
 // ---------------------------------------------------------------------
-// Una sola Mega per lotta. Se in squadra c'è una win condition del piano con la sua Megapietra,
-// ancora viva e non in campo, gli altri non megaevolvono (Enzo: la Mega è per Gengar, non per
-// Aerodactyl). Se la win condition è già caduta, la Mega torna libera.
+// Una sola Mega per lotta. Non è fissata dal piano: la team preview sceglie ogni gara chi la fa
+// (TeamPreview_GetMegaDesignateSpecies) guardando la squadra del giocatore, la lead e il bisogno di
+// controllo velocità (es. Enzo: Mega Aerodactyl se serve il Tailwind, Mega Gengar se conviene il
+// blocco col sonno). In lotta si resta flessibili: la Mega si "presta" a un altro Pokémon se quello
+// designato è già caduto, oppure se il designato è in panchina e chi è in campo rischia il KO
+// (meglio megaevolvere ora che perdere il Pokémon senza averla usata).
 bool32 AI_VgcShouldHoldMega(enum BattlerId battler)
 {
-    u16 trainerId = TRAINER_BATTLE_PARAM.opponentA;
+    u16 designate = TeamPreview_GetMegaDesignateSpecies();
+    enum BattlerId partner = GetPartnerBattler(battler);
+    enum BattlerId foeL = GetBattlerLeftFoe(battler), foeR = GetBattlerRightFoe(battler);
     struct Pokemon *party;
+    bool32 designateAlive = FALSE, designateOnField = FALSE;
     u32 i;
 
-    if (!(gAiThinkingStruct->aiFlags[battler] & AI_FLAG_VGC_DOUBLES) || AI_VgcGetPlan(trainerId) == NULL)
+    if (!(gAiThinkingStruct->aiFlags[battler] & AI_FLAG_VGC_DOUBLES) || designate == SPECIES_NONE)
         return FALSE;
-    if (AI_VgcPlanIsWinCon(trainerId, gBattleMons[battler].species))
+    if (AI_VgcSameSpecies(designate, gBattleMons[battler].species))
         return FALSE;
     party = GetBattlerParty(battler);
     for (i = 0; i < PARTY_SIZE; i++)
@@ -1384,10 +1414,19 @@ bool32 AI_VgcShouldHoldMega(enum BattlerId battler)
         u16 species = GetMonData(&party[i], MON_DATA_SPECIES);
         if (species == SPECIES_NONE || GetMonData(&party[i], MON_DATA_HP) == 0 || i == gBattlerPartyIndexes[battler])
             continue;
-        if (GetItemHoldEffect(GetMonData(&party[i], MON_DATA_HELD_ITEM)) != HOLD_EFFECT_MEGA_STONE)
+        if (!AI_VgcSameSpecies(designate, species)
+         || GetItemHoldEffect(GetMonData(&party[i], MON_DATA_HELD_ITEM)) != HOLD_EFFECT_MEGA_STONE)
             continue;
-        if (AI_VgcPlanIsWinCon(trainerId, species))
-            return TRUE;
+        designateAlive = TRUE;
+        if (IsBattlerAlive(partner) && gBattlerPartyIndexes[partner] == i)
+            designateOnField = TRUE;
     }
-    return FALSE;
+    if (!designateAlive)
+        return FALSE; // il designato è caduto: la Mega è libera
+    if (designateOnField)
+        return TRUE;  // il designato è in campo accanto: la Mega è sua
+    // Designato in panchina: si tiene la Mega, a meno che questo Pokémon stia per andare KO.
+    if ((IsBattlerAlive(foeL) && CanTargetFaintAi(foeL, battler)) || (IsBattlerAlive(foeR) && CanTargetFaintAi(foeR, battler)))
+        return FALSE;
+    return TRUE;
 }

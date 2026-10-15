@@ -32,5 +32,7 @@ void TeamPreview_SeriesInjectAiKnowledge(void);
 void TeamPreview_SetFormatFromScript(void);
 // Chiamata quando un Pokémon va KO in lotta: in Bo3 l'AI segna chi del giocatore ha fatto il KO.
 void TeamPreview_SeriesNoteFaint(enum BattlerId fainted);
+// Specie che deve megaevolvere in questa gara (decisa in preview in base al matchup), SPECIES_NONE = libero.
+u16 TeamPreview_GetMegaDesignateSpecies(void);
 
 #endif // GUARD_TEAM_PREVIEW_H
