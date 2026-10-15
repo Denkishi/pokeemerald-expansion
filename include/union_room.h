@@ -127,7 +127,7 @@ struct WirelessLink_URoom
     u16 partnerYesNoResponse;
     u16 recvActivityRequest[3];
     struct UnionRoomObject objects[MAX_UNION_ROOM_LEADERS];
-    u8 trainerCardStrBuffer[12][15];
+    u8 trainerCardStrBuffer[12][20];
     u8 trainerCardColorStrBuffer[48];
     u8 trainerCardMsgStrBuffer[200];
 };

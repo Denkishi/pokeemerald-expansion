@@ -418,7 +418,7 @@ const struct TrainerClass gTrainerClasses[TRAINER_CLASS_COUNT] =
     [TRAINER_CLASS_RUIN_MANIAC_FRLG] =     { _("RUIN MANIAC"), 12 },
     [TRAINER_CLASS_LADY_FRLG] =            { _("LADY"), 50 },
     [TRAINER_CLASS_PAINTER_FRLG] =         { _("PAINTER"), 4 },
-    [TRAINER_CLASS_ELIA_ANSIOSO] =         { _("ELIA, ANSIOSO"), 10 },
+    [TRAINER_CLASS_ELIA_ANSIOSO] =         { _("Elia, ansioso"), 10 },
 };
 
 static void (*const sTurnActionsFuncsTable[])(void) =
