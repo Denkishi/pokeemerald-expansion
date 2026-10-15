@@ -431,7 +431,8 @@ static void OpponentHandleTrainerSlideBack(enum BattlerId battler)
 // Il pianificatore del turno gira un po' per fotogramma mentre il giocatore sceglie. Se il giocatore
 // ha già confermato e l'IA sta ancora pensando, compare il ritratto dell'allenatore con "penso...".
 static EWRAM_DATA u16 sThinkFrames = 0;
-static EWRAM_DATA u16 sThinkSpriteId = 0xFFFF;
+static EWRAM_DATA u16 sThinkSpriteId = 0;
+static EWRAM_DATA u8 sThinkSpriteActive = 0;
 static EWRAM_DATA u8 sThinkTextShown = FALSE;
 static EWRAM_DATA u8 sThinkPlayerIdleFrames = 0;
 
@@ -459,7 +460,8 @@ static void ShowThinking(void)
     StringExpandPlaceholders(gStringVar4, sText_Thinking);
     BattlePutTextOnWindow(gStringVar4, B_WIN_MSG);
     sThinkSpriteId = CreateTrainerPicSprite(GetTrainerPicFromId(TRAINER_BATTLE_PARAM.opponentA), TRUE, 176, 44, 0, THINK_PIC_PAL_TAG);
-    if (sThinkSpriteId != 0xFFFF)
+    sThinkSpriteActive = (sThinkSpriteId != 0xFFFF);
+    if (sThinkSpriteActive)
     {
         gSprites[sThinkSpriteId].oam.priority = 0;
         gSprites[sThinkSpriteId].subpriority = 0;
@@ -471,10 +473,10 @@ static void HideThinking(void)
     if (!sThinkTextShown)
         return;
     sThinkTextShown = FALSE;
-    if (sThinkSpriteId != 0xFFFF)
+    if (sThinkSpriteActive)
     {
         FreeAndDestroyTrainerPicSprite(sThinkSpriteId);
-        sThinkSpriteId = 0xFFFF;
+        sThinkSpriteActive = FALSE;
     }
     BattlePutTextOnWindow(gText_EmptyString3, B_WIN_MSG);
 }
