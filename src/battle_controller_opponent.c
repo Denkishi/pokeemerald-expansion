@@ -2,6 +2,9 @@
 #include "battle.h"
 #include "battle_ai_switch.h"
 #include "battle_ai_util.h"
+#include "battle_ai_vgc.h"
+#include "trainer_pokemon_sprites.h"
+#include "config/custom.h"
 #include "constants/battle.h"
 #include "constants/battle_ai.h"
 #include "battle_anim.h"
@@ -424,8 +427,98 @@ static void OpponentHandleTrainerSlideBack(enum BattlerId battler)
     BtlController_HandleTrainerSlideBack(battler, 35, FALSE);
 }
 
+// --- IA VGC: pianificazione in sottofondo ------------------------------------------------------
+// Il pianificatore del turno gira un po' per fotogramma mentre il giocatore sceglie. Se il giocatore
+// ha già confermato e l'IA sta ancora pensando, compare il ritratto dell'allenatore con "penso...".
+static EWRAM_DATA u16 sThinkFrames = 0;
+static EWRAM_DATA u16 sThinkSpriteId = 0xFFFF;
+static EWRAM_DATA u8 sThinkTextShown = FALSE;
+static EWRAM_DATA u8 sThinkPlayerIdleFrames = 0;
+
+#define THINK_PIC_PAL_TAG 0x7A1C
+
+static const u8 sText_Thinking[] = _("{STR_VAR_1} sta pensando...");
+
+static bool32 PlayerSideIsIdle(void)
+{
+    enum BattlerId b;
+    for (b = 0; b < gBattlersCount; b++)
+    {
+        if (IsOnPlayerSide(b) && (gBattleControllerExecFlags & (1u << b)))
+            return FALSE;
+    }
+    return TRUE;
+}
+
+static void ShowThinking(void)
+{
+    if (sThinkTextShown)
+        return;
+    sThinkTextShown = TRUE;
+    StringCopy(gStringVar1, GetTrainerNameFromId(TRAINER_BATTLE_PARAM.opponentA));
+    StringExpandPlaceholders(gStringVar4, sText_Thinking);
+    BattlePutTextOnWindow(gStringVar4, B_WIN_MSG);
+    sThinkSpriteId = CreateTrainerPicSprite(GetTrainerPicFromId(TRAINER_BATTLE_PARAM.opponentA), TRUE, 176, 44, 0, THINK_PIC_PAL_TAG);
+    if (sThinkSpriteId != 0xFFFF)
+    {
+        gSprites[sThinkSpriteId].oam.priority = 0;
+        gSprites[sThinkSpriteId].subpriority = 0;
+    }
+}
+
+static void HideThinking(void)
+{
+    if (!sThinkTextShown)
+        return;
+    sThinkTextShown = FALSE;
+    if (sThinkSpriteId != 0xFFFF)
+    {
+        FreeAndDestroyTrainerPicSprite(sThinkSpriteId);
+        sThinkSpriteId = 0xFFFF;
+    }
+    BattlePutTextOnWindow(gText_EmptyString3, B_WIN_MSG);
+}
+
+static void OpponentThinkThenChooseAction(enum BattlerId battler)
+{
+    bool32 done;
+
+    // Un solo pianificatore alla volta: se sta lavorando per il partner, si aspetta.
+    if (AI_VgcPlanIsActive() && AI_VgcPlanBattler() != battler)
+        return;
+    done = AI_VgcPlanStep();
+    if (!done)
+    {
+        sThinkFrames++;
+        if (PlayerSideIsIdle())
+        {
+            if (sThinkPlayerIdleFrames < 255)
+                sThinkPlayerIdleFrames++;
+        }
+        else
+        {
+            sThinkPlayerIdleFrames = 0;
+        }
+        if (CUSTOM_VGC_THINKING_OVERLAY && sThinkPlayerIdleFrames >= 12)
+            ShowThinking();
+        return;
+    }
+    AI_VgcPlanApply();
+    HideThinking();
+    AI_TrySwitchOrUseItem(battler);
+    BtlController_Complete(battler);
+}
+
 static void OpponentHandleChooseAction(enum BattlerId battler)
 {
+    if (IsDoubleBattle() && (gBattleTypeFlags & BATTLE_TYPE_TRAINER)
+     && (gAiThinkingStruct->aiFlags[battler] & AI_FLAG_VGC_DOUBLES) && AI_VgcPlanBegin(battler))
+    {
+        sThinkFrames = 0;
+        sThinkPlayerIdleFrames = 0;
+        gBattlerControllerFuncs[battler] = OpponentThinkThenChooseAction;
+        return;
+    }
     AI_TrySwitchOrUseItem(battler);
     BtlController_Complete(battler);
 }

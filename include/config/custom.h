@@ -84,7 +84,12 @@
 // Profondità del pianificatore del turno (src/battle_ai_vgc_plan.c): 1 = simula solo il turno
 // attuale, 2 = anche il turno dopo (ramificazione: nostre risposte contro le loro). Il 2 costa
 // qualche decimo di secondo di "pensiero" dell'IA a ogni turno; se la lotta diventa lenta, metti 1.
-#define CUSTOM_VGC_PLAN_DEPTH               2
+#define CUSTOM_VGC_PLAN_DEPTH               3
+// Simulazioni per fotogramma mentre pensa in sottofondo (più alto = decide prima ma la lotta può
+// scattare; più basso = fluido ma, se scegli in fretta, vedi "penso..." più a lungo).
+#define CUSTOM_VGC_PLAN_SIMS_PER_FRAME      24
+// Ritratto dell'allenatore + "penso..." quando hai già scelto e l'IA sta ancora calcolando.
+#define CUSTOM_VGC_THINKING_OVERLAY         TRUE
 // L'IA dedicata ai doppi si attiva per allenatore con il flag "Vgc Doubles" nella riga AI di
 // src/data/trainers.party (vedi docs/vgc_trainers.md). Niente da configurare qui: il flag è
 // AI_FLAG_VGC_DOUBLES e il codice è in src/battle_ai_vgc.c (mosse) e src/battle_ai_switch.c (cambi).

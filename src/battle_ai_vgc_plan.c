@@ -1,13 +1,17 @@
-// Pianificatore del turno per i doppi VGC (AI_FLAG_VGC_DOUBLES): ricerca ad albero.
+// Pianificatore del turno per i doppi VGC (AI_FLAG_VGC_DOUBLES): ricerca ad albero, a pezzi.
 //
 // Le regole scritte (battle_ai_vgc.c) dicono cosa è "sensato" e danno i punteggi; ma nessuna lista
 // di regole copre ogni situazione. Qui l'IA SIMULA: per ognuna delle sue azioni candidate (mossa +
 // bersaglio tra le meglio valutate, più il cambio) e per ognuna delle azioni più probabili del
 // giocatore, applica il turno (ordine di velocità, Fake Out, Protect, Segui Me, Aiuto, danni, sonno,
-// controllo velocità, cambi) e poi, dalla posizione che ne esce, guarda anche il TURNO DOPO
-// (ramificazione: le nostre risposte migliori contro le loro risposte probabili). Il valore di ogni
-// ramo è la posizione finale: PS e KO, chi dorme, chi è potenziato, chi si muove per primo, chi
+// controllo velocità, meteo, cambi, Baccacedro) e poi, dalla posizione che ne esce, guarda il TURNO
+// DOPO (le nostre risposte migliori contro le loro) e, in forma ridotta, anche il terzo. Il valore di
+// ogni ramo è la posizione finale: PS e KO, chi dorme, chi è potenziato, chi si muove per primo, chi
 // rischia il KO. Si sceglie l'azione con la migliore media pesata (70%) + caso peggiore (30%).
+//
+// Il lavoro è spezzato in passi (AI_VgcPlanStep) eseguiti un po' per fotogramma mentre il giocatore
+// sceglie: il controller avversario (battle_controller_opponent.c) chiama Begin, poi Step ogni
+// fotogramma, e consegna la scelta solo quando il pianificatore ha finito.
 //
 // Nessun imbroglio. Del giocatore si usano: mosse viste; mosse che la specie PUÒ imparare e che in
 // VGC porta di solito (STAB più forte, Fake Out, Distorsione, Tailwind, Spora, Segui Me...) con
@@ -32,7 +36,10 @@
 #include "constants/moves.h"
 
 #ifndef CUSTOM_VGC_PLAN_DEPTH
-#define CUSTOM_VGC_PLAN_DEPTH 2
+#define CUSTOM_VGC_PLAN_DEPTH 3
+#endif
+#ifndef CUSTOM_VGC_PLAN_SIMS_PER_FRAME
+#define CUSTOM_VGC_PLAN_SIMS_PER_FRAME 24
 #endif
 
 #define PLAN_MAX_OURS        7   // azioni candidate nostre al primo turno (6 dalle regole + cambio)
@@ -48,6 +55,15 @@ enum PlanKind
     PLAN_ACT_PROTECT,
     PLAN_ACT_SWITCH,
     PLAN_ACT_NONE,
+};
+
+enum PlanWeather
+{
+    PW_NONE,
+    PW_SUN,
+    PW_RAIN,
+    PW_SAND,
+    PW_SNOW,
 };
 
 struct PlanAction
@@ -66,10 +82,11 @@ struct PlanMon
     s32 hp;
     s32 maxHp;
     u16 species;
-    u32 speed;          // già con strumento assunto (per chi è in campo) o base (panchina)
+    u32 speed;          // con strumento assunto (in campo) o base (panchina)
     u16 atk, spa, def, spd;
     enum Type t1, t2;
     enum Ability ability;
+    u16 holdEffect;     // noto o assunto
     s8 partyIdx;        // -1 = il Pokémon in campo all'inizio (vale la tabella dei danni)
     u8 alive;
     u8 asleep;
@@ -78,7 +95,7 @@ struct PlanMon
     u8 flinched;
     u8 redirect;
     u8 helping;
-    u8 justSwitched;
+    u8 berryUsed;
     s8 speedStage;
     s8 boost;
 };
@@ -88,12 +105,65 @@ struct PlanState
     struct PlanMon m[MAX_BATTLERS_COUNT];
     u8 trickRoom;
     u8 tailwind[2];
+    u8 weather;         // PW_*
     u8 firstTurn;       // turno simulato = turno attuale (Fake Out vale)
 };
+
+// Lavoro in corso (uno alla volta).
+struct PlanJob
+{
+    u8 active;
+    u8 finished;
+    enum BattlerId me;
+    u8 origMove;
+    enum BattlerId origTarget;
+    struct PlanAction ours[PLAN_MAX_OURS], partner, foeA[PLAN_FOE_PER], foeB[PLAN_FOE_PER];
+    u8 nOurs, nA, nB;
+    struct PlanState base;
+    // livello 1
+    u8 i, a, b, phase;
+    s32 sum, wsum, worst;
+    s32 ev[PLAN_MAX_OURS];
+    struct PlanState s1;
+    // livello 2 (turno dopo)
+    struct PlanState la;
+    struct PlanAction mine[PLAN_P2_OURS_PER], pa[PLAN_P2_OURS_PER], fa[PLAN_P2_FOE_PER], fb[PLAN_P2_FOE_PER];
+    u8 nM, nP, nA2, nB2;
+    u8 i2, j2, a2, b2;
+    s32 laBest, laSum, laWsum, laWorst;
+    // risultato
+    u8 resultKind;
+    u8 resultMove;
+    s8 resultParty;
+    enum BattlerId resultTarget;
+};
+
+static EWRAM_DATA struct PlanJob sJob = {0};
 
 // ---------------------------------------------------------------------
 // Stato
 // ---------------------------------------------------------------------
+static u8 WeatherFromAbility(enum Ability ab)
+{
+    switch (ab)
+    {
+    case ABILITY_DROUGHT: case ABILITY_ORICHALCUM_PULSE: case ABILITY_DESOLATE_LAND: return PW_SUN;
+    case ABILITY_DRIZZLE: case ABILITY_PRIMORDIAL_SEA: return PW_RAIN;
+    case ABILITY_SAND_STREAM: case ABILITY_SAND_SPIT: return PW_SAND;
+    case ABILITY_SNOW_WARNING: return PW_SNOW;
+    default: return PW_NONE;
+    }
+}
+
+static u8 CurrentWeather(void)
+{
+    if (gBattleWeather & B_WEATHER_SUN) return PW_SUN;
+    if (gBattleWeather & B_WEATHER_RAIN) return PW_RAIN;
+    if (gBattleWeather & B_WEATHER_SANDSTORM) return PW_SAND;
+    if (gBattleWeather & (B_WEATHER_HAIL | B_WEATHER_SNOW)) return PW_SNOW;
+    return PW_NONE;
+}
+
 static void LoadFieldMon(struct PlanMon *pm, enum BattlerId b)
 {
     pm->hp = gBattleMons[b].hp;
@@ -107,15 +177,19 @@ static void LoadFieldMon(struct PlanMon *pm, enum BattlerId b)
     pm->t1 = gBattleMons[b].types[0];
     pm->t2 = gBattleMons[b].types[1];
     pm->ability = gAiLogicData->abilities[b];
+    pm->holdEffect = gAiLogicData->holdEffects[b];
     pm->partyIdx = -1;
     pm->alive = IsBattlerAlive(b);
     pm->asleep = (gBattleMons[b].status1 & STATUS1_SLEEP) != 0;
+    pm->berryUsed = (gBattleMons[b].item == ITEM_NONE);
 }
 
-static void LoadPartyMon(struct PlanMon *pm, enum BattlerId b, u32 partyIdx)
+static void LoadPartyMon(struct PlanState *st, enum BattlerId b, u32 partyIdx)
 {
+    struct PlanMon *pm = &st->m[b];
     struct Pokemon *mon = &GetBattlerParty(b)[partyIdx];
     u16 species = GetMonData(mon, MON_DATA_SPECIES);
+    u8 w;
 
     pm->hp = GetMonData(mon, MON_DATA_HP);
     pm->maxHp = GetMonData(mon, MON_DATA_MAX_HP);
@@ -128,12 +202,30 @@ static void LoadPartyMon(struct PlanMon *pm, enum BattlerId b, u32 partyIdx)
     pm->t1 = gSpeciesInfo[species].types[0];
     pm->t2 = gSpeciesInfo[species].types[1];
     pm->ability = GetMonAbility(mon);
+    if (IsOnPlayerSide(b))
+    {
+        struct ScoutItemGuess g;
+        Scout_GuessItem(species, &g);
+        pm->holdEffect = (g.chance >= 50) ? g.effect : HOLD_EFFECT_NONE;
+        if (pm->holdEffect == HOLD_EFFECT_CHOICE_SCARF)
+            pm->speed = pm->speed * 3 / 2;
+    }
+    else
+    {
+        pm->holdEffect = GetItemHoldEffect(GetMonData(mon, MON_DATA_HELD_ITEM));
+        if (pm->holdEffect == HOLD_EFFECT_CHOICE_SCARF)
+            pm->speed = pm->speed * 3 / 2;
+    }
     pm->partyIdx = partyIdx;
     pm->alive = pm->hp > 0;
     pm->asleep = (GetMonData(mon, MON_DATA_STATUS) & STATUS1_SLEEP) != 0;
     pm->protecting = pm->wideGuard = pm->flinched = pm->redirect = pm->helping = 0;
+    pm->berryUsed = FALSE;
     pm->speedStage = pm->boost = 0;
-    pm->justSwitched = TRUE;
+    // Meteo all'entrata (abilità).
+    w = WeatherFromAbility(pm->ability);
+    if (w != PW_NONE)
+        st->weather = w;
 }
 
 static void InitState(struct PlanState *st)
@@ -146,31 +238,32 @@ static void InitState(struct PlanState *st)
     st->trickRoom = (gFieldStatuses & STATUS_FIELD_TRICK_ROOM) != 0;
     st->tailwind[B_SIDE_PLAYER] = (gSideStatuses[B_SIDE_PLAYER] & SIDE_STATUS_TAILWIND) != 0;
     st->tailwind[B_SIDE_OPPONENT] = (gSideStatuses[B_SIDE_OPPONENT] & SIDE_STATUS_TAILWIND) != 0;
+    st->weather = CurrentWeather();
     st->firstTurn = TRUE;
 }
 
-// Azzera ciò che dura un solo turno.
 static void NextTurn(struct PlanState *st)
 {
     enum BattlerId b;
     for (b = 0; b < gBattlersCount; b++)
-    {
         st->m[b].protecting = st->m[b].wideGuard = st->m[b].flinched = st->m[b].redirect = st->m[b].helping = 0;
-        st->m[b].justSwitched = FALSE;
-    }
     st->firstTurn = FALSE;
 }
 
 static u32 EffSpeed(const struct PlanState *st, enum BattlerId b)
 {
-    u32 s = st->m[b].speed;
-    s32 stage = st->m[b].speedStage;
+    const struct PlanMon *pm = &st->m[b];
+    u32 s = pm->speed;
+    s32 stage = pm->speedStage;
 
     if (stage < 0)
         s = s * 2 / (2 - stage);
     else if (stage > 0)
         s = s * (2 + stage) / 2;
     if (st->tailwind[GetBattlerSide(b)])
+        s *= 2;
+    if ((st->weather == PW_RAIN && pm->ability == ABILITY_SWIFT_SWIM) || (st->weather == PW_SUN && pm->ability == ABILITY_CHLOROPHYLL)
+     || (st->weather == PW_SAND && pm->ability == ABILITY_SAND_RUSH) || (st->weather == PW_SNOW && pm->ability == ABILITY_SLUSH_RUSH))
         s *= 2;
     return s;
 }
@@ -192,8 +285,17 @@ static uq4_12_t TypeEff(enum Type moveType, const struct PlanMon *def)
     return e;
 }
 
+static u32 WeatherFactor(u8 weather, enum Type type)
+{
+    if (weather == PW_SUN)
+        return type == TYPE_FIRE ? 150 : (type == TYPE_WATER ? 50 : 100);
+    if (weather == PW_RAIN)
+        return type == TYPE_WATER ? 150 : (type == TYPE_FIRE ? 50 : 100);
+    return 100;
+}
+
 // Stima "da giocatore" per mosse o Pokémon fuori dalla tabella dei danni dell'IA.
-static s32 EstimateDamage(const struct PlanMon *atk, const struct PlanMon *def, enum Move move)
+static s32 EstimateDamage(const struct PlanState *st, const struct PlanMon *atk, const struct PlanMon *def, enum Move move)
 {
     u32 power = GetMovePower(move);
     enum Type type = GetMoveType(move);
@@ -206,12 +308,19 @@ static s32 EstimateDamage(const struct PlanMon *atk, const struct PlanMon *def, 
         return 0;
     if (power == 1)
         power = 60;
+    if (def->holdEffect == HOLD_EFFECT_ASSAULT_VEST && !physical)
+        d = d * 3 / 2;
+    if (def->holdEffect == HOLD_EFFECT_EVIOLITE)
+        d = d * 3 / 2;
     if (d == 0)
         d = 1;
     dmg = ((2 * 50 / 5 + 2) * power * a / d) / 50 + 2;
     if (type == atk->t1 || type == atk->t2)
         dmg = dmg * 3 / 2;
     dmg = uq4_12_multiply_by_int_half_down(TypeEff(type, def), dmg);
+    dmg = dmg * WeatherFactor(st->weather, type) / 100;
+    if (atk->holdEffect == HOLD_EFFECT_LIFE_ORB)
+        dmg = dmg * 13 / 10;
     if (IsSpreadMove(GetMoveTarget(move)))
         dmg = dmg * 3 / 4;
     return dmg * 92 / 100;
@@ -224,13 +333,17 @@ static s32 DamageOf(const struct PlanState *st, const struct PlanAction *a, enum
 
     if (a->moveIndex != 0xFF && am->partyIdx < 0 && dm->partyIdx < 0)
     {
+        u8 now = CurrentWeather();
         if (gAiLogicData->effectiveness[a->user][t][a->moveIndex] == UQ_4_12(0.0))
             return 0;
         dmg = gAiLogicData->simulatedDmg[a->user][t][a->moveIndex].median;
+        // La tabella include il meteo attuale: se nella simulazione è cambiato, si riscala.
+        if (st->weather != now)
+            dmg = dmg * WeatherFactor(st->weather, GetMoveType(a->move)) / WeatherFactor(now, GetMoveType(a->move));
     }
     else
     {
-        dmg = EstimateDamage(am, dm, a->move);
+        dmg = EstimateDamage(st, am, dm, a->move);
     }
     if (am->helping)
         dmg = dmg * 3 / 2;
@@ -271,6 +384,31 @@ static bool32 MovesFirst(const struct PlanState *st, const struct PlanAction *a,
     return sa > sb;
 }
 
+static void TakeDamage(struct PlanMon *tm, s32 dmg)
+{
+    // Focus Sash noto/assunto: regge il primo colpo a PS pieni.
+    if (tm->hp == tm->maxHp && dmg >= tm->hp && tm->holdEffect == HOLD_EFFECT_FOCUS_SASH && !tm->berryUsed)
+    {
+        dmg = tm->hp - 1;
+        tm->berryUsed = TRUE;
+    }
+    tm->hp -= dmg;
+    if (tm->hp <= 0)
+    {
+        tm->hp = 0;
+        tm->alive = FALSE;
+        return;
+    }
+    // Baccacedro nota/assunta: +25% sotto metà PS, una volta.
+    if (tm->holdEffect == HOLD_EFFECT_RESTORE_HP && !tm->berryUsed && tm->hp * 2 <= tm->maxHp)
+    {
+        tm->hp += tm->maxHp / 4;
+        if (tm->hp > tm->maxHp)
+            tm->hp = tm->maxHp;
+        tm->berryUsed = TRUE;
+    }
+}
+
 static void ApplyAction(struct PlanState *st, const struct PlanAction *a)
 {
     enum BattlerId u = a->user;
@@ -283,7 +421,7 @@ static void ApplyAction(struct PlanState *st, const struct PlanAction *a)
     if (a->kind == PLAN_ACT_SWITCH)
     {
         if (a->partyIdx >= 0 && a->partyIdx < PARTY_SIZE)
-            LoadPartyMon(um, u, a->partyIdx);
+            LoadPartyMon(st, u, a->partyIdx);
         return;
     }
     if (!um->alive || um->flinched || um->asleep)
@@ -316,6 +454,17 @@ static void ApplyAction(struct PlanState *st, const struct PlanAction *a)
     case EFFECT_TAILWIND:
         st->tailwind[GetBattlerSide(u)] = TRUE;
         return;
+    case EFFECT_WEATHER:
+        switch (GetMoveWeatherType(a->move))
+        {
+        case BATTLE_WEATHER_SUN:       st->weather = PW_SUN; break;
+        case BATTLE_WEATHER_RAIN:      st->weather = PW_RAIN; break;
+        case BATTLE_WEATHER_SANDSTORM: st->weather = PW_SAND; break;
+        case BATTLE_WEATHER_HAIL:
+        case BATTLE_WEATHER_SNOW:      st->weather = PW_SNOW; break;
+        default: break;
+        }
+        return;
     case EFFECT_BELLY_DRUM:
         um->boost += 6;
         um->hp -= um->maxHp / 2;
@@ -336,7 +485,8 @@ static void ApplyAction(struct PlanState *st, const struct PlanAction *a)
         else if (GetMoveNonVolatileStatus(a->move) == MOVE_EFFECT_SLEEP && tm->alive && !tm->protecting && !tm->asleep)
         {
             bool32 ok = TRUE;
-            if (IsPowderMove(a->move) && (tm->t1 == TYPE_GRASS || tm->t2 == TYPE_GRASS || tm->ability == ABILITY_OVERCOAT))
+            if (IsPowderMove(a->move) && (tm->t1 == TYPE_GRASS || tm->t2 == TYPE_GRASS || tm->ability == ABILITY_OVERCOAT
+                                        || tm->holdEffect == HOLD_EFFECT_SAFETY_GOGGLES))
                 ok = FALSE;
             if (tm->ability == ABILITY_INSOMNIA || tm->ability == ABILITY_VITAL_SPIRIT || tm->ability == ABILITY_SWEET_VEIL
              || tm->ability == ABILITY_GOOD_AS_GOLD || tm->ability == ABILITY_MAGIC_BOUNCE || tm->ability == ABILITY_PURIFYING_SALT
@@ -395,16 +545,7 @@ static void ApplyAction(struct PlanState *st, const struct PlanAction *a)
                 tm->flinched = TRUE;
             if (a->move == MOVE_ICY_WIND || a->move == MOVE_ELECTROWEB || a->move == MOVE_BULLDOZE)
                 tm->speedStage--;
-            // Focus Sash assunto/noto: regge il primo colpo a PS pieni.
-            if (tm->partyIdx < 0 && tm->hp == tm->maxHp && dmg >= tm->hp
-             && gAiLogicData->holdEffects[t] == HOLD_EFFECT_FOCUS_SASH)
-                dmg = tm->hp - 1;
-            tm->hp -= dmg;
-            if (tm->hp <= 0)
-            {
-                tm->hp = 0;
-                tm->alive = FALSE;
-            }
+            TakeDamage(tm, dmg);
         }
         if (effect == EFFECT_FINAL_GAMBIT)
         {
@@ -427,23 +568,23 @@ static bool32 CanKoNextTurn(const struct PlanState *st, enum BattlerId atk, enum
         enum Move *moves = GetMovesArray(atk);
         for (i = 0; i < MAX_MON_MOVES; i++)
         {
+            struct PlanAction tmp = { PLAN_ACT_MOVE, (u8)i, -1, moves[i], atk, def, 0 };
             if (moves[i] == MOVE_NONE || moves[i] == MOVE_UNAVAILABLE || IsBattleMoveStatus(moves[i]))
                 continue;
-            if ((s32)gAiLogicData->simulatedDmg[atk][def][i].median * (2 + max(am->boost, 0)) / 2 >= dm->hp)
+            if (DamageOf(st, &tmp, def) >= dm->hp)
                 return TRUE;
         }
         return FALSE;
     }
     else
     {
-        // Fuori tabella: la STAB più forte che la specie può imparare.
         enum Move cand[16];
         u32 n = Scout_CollectLearnableAttacks(am->species, cand, ARRAY_COUNT(cand));
         for (i = 0; i < n; i++)
         {
             if (GetMoveType(cand[i]) != am->t1 && GetMoveType(cand[i]) != am->t2)
                 continue;
-            if (EstimateDamage(am, dm, cand[i]) >= dm->hp)
+            if (EstimateDamage(st, am, dm, cand[i]) >= dm->hp)
                 return TRUE;
         }
         return FALSE;
@@ -489,7 +630,6 @@ static s32 Evaluate(const struct PlanState *st)
         }
     }
     v += 12 * ourFirst - 12 * theirFirst;
-    // Minaccia al turno dopo, in entrambe le direzioni.
     for (b = 0; b < gBattlersCount; b++)
     {
         if (!st->m[b].alive || st->m[b].species == SPECIES_NONE)
@@ -522,7 +662,7 @@ static void AddCand(struct PlanAction *list, u32 *n, u32 max, u8 kind, u8 moveIn
     (*n)++;
 }
 
-static s32 AttackWeight(const struct PlanState *st, const struct PlanAction *a, enum BattlerId t, bool32 isOurs)
+static s32 AttackWeight(const struct PlanState *st, const struct PlanAction *a, enum BattlerId t)
 {
     s32 dmg = DamageOf(st, a, t);
     s32 w = dmg * 100 / max(st->m[t].maxHp, 1);
@@ -530,13 +670,12 @@ static s32 AttackWeight(const struct PlanState *st, const struct PlanAction *a, 
         w += 80;
     if (GetMoveEffect(a->move) == EFFECT_FIRST_TURN_ONLY && st->firstTurn && IsBattlersFirstTurn(a->user))
         w += 60;
-    (void)isOurs;
     return w;
 }
 
 // Azioni plausibili di un battler nello stato `st`. isOurs: le nostre mosse sono tutte note.
 // Per il giocatore: mosse viste + mosse probabili dalla specie (peso ridotto), Protect e cambio con probabilità.
-static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct PlanAction *out, u32 maxOut, bool32 isOurs)
+static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct PlanAction *out, u32 maxOut, bool32 isOurs, bool32 allowSwitch)
 {
     struct PlanAction cand[PLAN_CAND_MAX];
     u32 n = 0, i, k;
@@ -551,7 +690,6 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
     if (!bm->alive)
         return 0;
 
-    // Mosse note (per il giocatore: viste; per un Pokémon entrato dalla panchina: nessuna, salvo le nostre).
     if (bm->partyIdx < 0)
     {
         enum Move *moves = GetMovesArray(b);
@@ -584,7 +722,7 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
         for (r = 0; r < SCOUT_ROLE_COUNT; r++)
             if (Scout_MoveHasRole(m, r))
                 seenRole[r] = TRUE;
-        if (eff == EFFECT_PROTECT)
+        if (eff == EFFECT_PROTECT && GetMoveProtectMethod(m) == PROTECT_NORMAL)
         {
             hasProtect = TRUE;
             continue;
@@ -596,6 +734,8 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
             else if (eff == EFFECT_TAILWIND && !st->tailwind[GetBattlerSide(b)]) w = 70;
             else if (eff == EFFECT_FOLLOW_ME) w = 45;
             else if (eff == EFFECT_HELPING_HAND) w = 30;
+            else if (eff == EFFECT_WEATHER) w = 40;
+            else if (eff == EFFECT_PROTECT && GetMoveProtectMethod(m) == PROTECT_WIDE_GUARD) w = 25;
             else if (GetMoveNonVolatileStatus(m) == MOVE_EFFECT_SLEEP) w = 60;
             else if (IsStatRaisingMove(m) && GetMoveTarget(m) == TARGET_USER) w = 35;
             if (w == 0)
@@ -618,7 +758,7 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
             s32 w = 10;
             for (k = 0; k < 2; k++)
                 if (st->m[targets[k]].alive)
-                    w += AttackWeight(st, &tmp, targets[k], isOurs);
+                    w += AttackWeight(st, &tmp, targets[k]);
             AddCand(cand, &n, PLAN_CAND_MAX, PLAN_ACT_MOVE, idx, -1, m, b, foeL, w);
             continue;
         }
@@ -627,7 +767,7 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
             struct PlanAction tmp = { PLAN_ACT_MOVE, idx, -1, m, b, targets[k], 0 };
             if (!st->m[targets[k]].alive)
                 continue;
-            AddCand(cand, &n, PLAN_CAND_MAX, PLAN_ACT_MOVE, idx, -1, m, b, targets[k], AttackWeight(st, &tmp, targets[k], isOurs));
+            AddCand(cand, &n, PLAN_CAND_MAX, PLAN_ACT_MOVE, idx, -1, m, b, targets[k], AttackWeight(st, &tmp, targets[k]));
         }
     }
 
@@ -640,9 +780,9 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
         u32 na = Scout_CollectLearnableAttacks(bm->species, attacks, ARRAY_COUNT(attacks));
         enum Move bestStab = MOVE_NONE;
         u32 bestPow = 0;
+        bool32 seenStabAttack = FALSE;
 
         Scout_GetSpeciesProfile(bm->species, &prof);
-        // La STAB più forte che può imparare (se non abbiamo ancora visto un attacco STAB).
         for (i = 0; i < na; i++)
         {
             enum Type ty = GetMoveType(attacks[i]);
@@ -652,22 +792,18 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
                 bestStab = attacks[i];
             }
         }
-        if (bestStab != MOVE_NONE)
+        for (i = 0; i < nKnown; i++)
+            if (!IsBattleMoveStatus(known[i]) && (GetMoveType(known[i]) == bm->t1 || GetMoveType(known[i]) == bm->t2))
+                seenStabAttack = TRUE;
+        if (bestStab != MOVE_NONE && !seenStabAttack)
         {
-            bool32 seenStabAttack = FALSE;
-            for (i = 0; i < nKnown; i++)
-                if (!IsBattleMoveStatus(known[i]) && (GetMoveType(known[i]) == bm->t1 || GetMoveType(known[i]) == bm->t2))
-                    seenStabAttack = TRUE;
-            if (!seenStabAttack)
+            for (k = 0; k < 2; k++)
             {
-                for (k = 0; k < 2; k++)
-                {
-                    struct PlanAction tmp = { PLAN_ACT_MOVE, 0xFF, -1, bestStab, b, targets[k], 0 };
-                    if (!st->m[targets[k]].alive)
-                        continue;
-                    AddCand(cand, &n, PLAN_CAND_MAX, PLAN_ACT_MOVE, 0xFF, -1, bestStab, b, targets[k],
-                            AttackWeight(st, &tmp, targets[k], FALSE) * 70 / 100 * scale / 100);
-                }
+                struct PlanAction tmp = { PLAN_ACT_MOVE, 0xFF, -1, bestStab, b, targets[k], 0 };
+                if (!st->m[targets[k]].alive)
+                    continue;
+                AddCand(cand, &n, PLAN_CAND_MAX, PLAN_ACT_MOVE, 0xFF, -1, bestStab, b, targets[k],
+                        AttackWeight(st, &tmp, targets[k]) * 70 / 100 * scale / 100);
             }
         }
         if (!seenRole[SCOUT_FAKE_OUT] && prof.role[SCOUT_FAKE_OUT] >= 50 && st->firstTurn && IsBattlersFirstTurn(b) && bm->partyIdx < 0)
@@ -697,26 +833,42 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
                     w += 50;
             AddCand(cand, &n, PLAN_CAND_MAX, PLAN_ACT_PROTECT, 0, -1, MOVE_PROTECT, b, b, w);
         }
+        // Cambio nostro (turni successivi): verso chi non è in campo, se ha senso.
+        if (allowSwitch && CountUsablePartyMons(b) > 0)
+        {
+            struct Pokemon *party = GetBattlerParty(b);
+            enum BattlerId partner = GetPartnerBattler(b);
+            for (i = 0; i < PARTY_SIZE; i++)
+            {
+                if (GetMonData(&party[i], MON_DATA_SPECIES) == SPECIES_NONE || GetMonData(&party[i], MON_DATA_HP) == 0)
+                    continue;
+                if ((s32)i == bm->partyIdx || gBattlerPartyIndexes[b] == i
+                 || (st->m[partner].alive && (gBattlerPartyIndexes[partner] == i || st->m[partner].partyIdx == (s32)i)))
+                    continue;
+                AddCand(cand, &n, PLAN_CAND_MAX, PLAN_ACT_SWITCH, 0, (s8)i, MOVE_NONE, b, b, 15);
+                break;
+            }
+        }
     }
     else if (bm->partyIdx < 0)
     {
         u32 p = AI_VgcProtectChance(b);
         if (p > 0)
             AddCand(cand, &n, PLAN_CAND_MAX, PLAN_ACT_PROTECT, 0, -1, MOVE_PROTECT, b, b, (s32)p);
-        // Cambio del giocatore: entra chi resiste meglio a ciò che facciamo (specie note dalla preview).
+        if (allowSwitch)
         {
             u32 sp = AI_VgcSwitchChance(b);
             if (sp >= 20)
             {
                 struct Pokemon *party = GetBattlerParty(b);
+                enum BattlerId partner = GetPartnerBattler(b);
                 s32 bestIdx = -1;
                 for (i = 0; i < PARTY_SIZE; i++)
                 {
-                    const struct AiPartyMon *known = &gAiPartyData->mons[B_TRAINER_PLAYER][i];
-                    enum BattlerId partner = GetPartnerBattler(b);
-                    if (known->species == SPECIES_NONE || known->isFainted || GetMonData(&party[i], MON_DATA_HP) == 0)
+                    const struct AiPartyMon *known2 = &gAiPartyData->mons[B_TRAINER_PLAYER][i];
+                    if (known2->species == SPECIES_NONE || known2->isFainted || GetMonData(&party[i], MON_DATA_HP) == 0)
                         continue;
-                    if ((s32)i == st->m[b].partyIdx || gBattlerPartyIndexes[b] == i
+                    if ((s32)i == bm->partyIdx || gBattlerPartyIndexes[b] == i
                      || (st->m[partner].alive && (gBattlerPartyIndexes[partner] == i || st->m[partner].partyIdx == (s32)i)))
                         continue;
                     bestIdx = i;
@@ -731,7 +883,6 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
     if (n == 0)
         AddCand(cand, &n, PLAN_CAND_MAX, PLAN_ACT_NONE, 0, -1, MOVE_NONE, b, b, 50);
 
-    // Le migliori per peso.
     {
         u32 outN = 0;
         while (outN < maxOut && n > 0)
@@ -748,7 +899,7 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
 }
 
 // ---------------------------------------------------------------------
-// Simulazione e ricerca
+// Simulazione
 // ---------------------------------------------------------------------
 static void RunTurn(struct PlanState *st, const struct PlanAction **acts, u32 n)
 {
@@ -767,65 +918,28 @@ static void RunTurn(struct PlanState *st, const struct PlanAction **acts, u32 n)
     }
 }
 
-// Valore di una posizione guardando un turno in più: le nostre risposte migliori contro le loro.
-static s32 LookAhead(const struct PlanState *s1, enum BattlerId me)
+// Terzo turno in forma ridotta: la nostra risposta migliore (una per Pokémon) contro la loro più probabile.
+static s32 GreedyValue(const struct PlanState *s2, enum BattlerId me)
 {
-    enum BattlerId partner = GetPartnerBattler(me);
-    enum BattlerId fL = GetBattlerLeftFoe(me), fR = GetBattlerRightFoe(me);
-    struct PlanAction mine[PLAN_P2_OURS_PER], pa[PLAN_P2_OURS_PER], fa[PLAN_P2_FOE_PER], fb[PLAN_P2_FOE_PER];
+    struct PlanState st = *s2;
+    struct PlanAction mine, pa, fa, fb;
     struct PlanAction none = { PLAN_ACT_NONE, 0, -1, MOVE_NONE, 0, 0, 100 };
-    u32 nM, nP, nA, nB, i, j, a, b;
-    s32 best = INT32_MIN;
-    struct PlanState base = *s1;
+    enum BattlerId partner = GetPartnerBattler(me);
+    const struct PlanAction *acts[4];
 
-    NextTurn(&base);
-    nM = BuildActions(&base, me, mine, PLAN_P2_OURS_PER, TRUE);
-    nP = (partner != me) ? BuildActions(&base, partner, pa, PLAN_P2_OURS_PER, TRUE) : 0;
-    nA = BuildActions(&base, fL, fa, PLAN_P2_FOE_PER, FALSE);
-    nB = BuildActions(&base, fR, fb, PLAN_P2_FOE_PER, FALSE);
-    if (nM == 0) { mine[0] = none; mine[0].user = me; nM = 1; }
-    if (nP == 0) { pa[0] = none; pa[0].user = partner; nP = 1; }
-    if (nA == 0) { fa[0] = none; fa[0].user = fL; nA = 1; }
-    if (nB == 0) { fb[0] = none; fb[0].user = fR; nB = 1; }
-
-    for (i = 0; i < nM; i++)
-    {
-        for (j = 0; j < nP; j++)
-        {
-            s32 sum = 0, wsum = 0, worst = INT32_MAX, ev;
-            for (a = 0; a < nA; a++)
-            {
-                for (b = 0; b < nB; b++)
-                {
-                    struct PlanState st = base;
-                    const struct PlanAction *acts[4] = { &mine[i], &pa[j], &fa[a], &fb[b] };
-                    s32 w = (max(fa[a].weight, 1) * max(fb[b].weight, 1)) / 16 + 1;
-                    s32 v;
-                    RunTurn(&st, acts, 4);
-                    v = Evaluate(&st);
-                    sum += v * w;
-                    wsum += w;
-                    if (v < worst)
-                        worst = v;
-                }
-            }
-            ev = (7 * (sum / max(wsum, 1)) + 3 * worst) / 10;
-            if (ev > best)
-                best = ev;
-        }
-    }
-    return best;
+    NextTurn(&st);
+    if (BuildActions(&st, me, &mine, 1, TRUE, FALSE) == 0) { mine = none; mine.user = me; }
+    if (partner == me || BuildActions(&st, partner, &pa, 1, TRUE, FALSE) == 0) { pa = none; pa.user = partner; }
+    if (BuildActions(&st, GetBattlerLeftFoe(me), &fa, 1, FALSE, FALSE) == 0) { fa = none; fa.user = GetBattlerLeftFoe(me); }
+    if (BuildActions(&st, GetBattlerRightFoe(me), &fb, 1, FALSE, FALSE) == 0) { fb = none; fb.user = GetBattlerRightFoe(me); }
+    acts[0] = &mine; acts[1] = &pa; acts[2] = &fa; acts[3] = &fb;
+    RunTurn(&st, acts, 4);
+    return Evaluate(&st);
 }
 
-static s32 ValueAfterTurn(const struct PlanState *s1, enum BattlerId me)
-{
-    s32 now = Evaluate(s1);
-    if (CUSTOM_VGC_PLAN_DEPTH >= 2)
-        return (now + LookAhead(s1, me)) / 2;
-    return now;
-}
-
-// Azioni nostre al primo turno: le migliori dalle regole (+ la scelta fatta) + il cambio sensato.
+// ---------------------------------------------------------------------
+// Candidate nostre al primo turno e azione del partner
+// ---------------------------------------------------------------------
 static u32 BuildOurFirstActions(enum BattlerId me, struct PlanAction *out, u32 chosenMove, enum BattlerId chosenTarget)
 {
     s32 best = INT32_MIN;
@@ -852,7 +966,7 @@ static u32 BuildOurFirstActions(enum BattlerId me, struct PlanAction *out, u32 c
                 continue;
             if (GetMoveTarget(m) != TARGET_SELECTED && GetMoveTarget(m) != TARGET_SMART)
                 for (k = 0; k < n; k++)
-                    if (out[k].kind == PLAN_ACT_MOVE && out[k].moveIndex == i)
+                    if (out[k].kind != PLAN_ACT_SWITCH && out[k].moveIndex == i)
                         dup = TRUE;
             if (dup)
                 continue;
@@ -860,20 +974,18 @@ static u32 BuildOurFirstActions(enum BattlerId me, struct PlanAction *out, u32 c
                     i, -1, m, me, t, sc);
         }
     }
-    // La scelta delle regole è sempre tra le candidate.
     {
         bool32 present = FALSE;
         for (k = 0; k < n; k++)
             if (out[k].moveIndex == chosenMove && out[k].target == chosenTarget)
                 present = TRUE;
-        if (!present && gBattleMons[me].moves[chosenMove] != MOVE_NONE)
+        if (!present && chosenMove < MAX_MON_MOVES && gBattleMons[me].moves[chosenMove] != MOVE_NONE)
         {
             if (n >= PLAN_MAX_OURS - 1)
                 n = PLAN_MAX_OURS - 2;
             AddCand(out, &n, PLAN_MAX_OURS - 1, PLAN_ACT_MOVE, chosenMove, -1, gBattleMons[me].moves[chosenMove], me, chosenTarget, best);
         }
     }
-    // Cambio: il sostituto più adatto (se c'è) oppure la win condition del piano.
     if (gAiLogicData->mostSuitableMonId[me] != PARTY_SIZE && CountUsablePartyMons(me) > 0)
     {
         u32 idx = gAiLogicData->mostSuitableMonId[me];
@@ -898,12 +1010,8 @@ static void PartnerFirstAction(enum BattlerId me, struct PlanAction *out)
         if (gAiLogicData->shouldSwitch & (1u << p))
         {
             u32 idx = gBattleStruct->AI_monToSwitchIntoId[p];
-            if (idx < PARTY_SIZE)
-            {
-                out->kind = PLAN_ACT_SWITCH; out->partyIdx = (s8)idx;
-                return;
-            }
-            idx = gAiLogicData->mostSuitableMonId[p];
+            if (idx >= PARTY_SIZE)
+                idx = gAiLogicData->mostSuitableMonId[p];
             if (idx < PARTY_SIZE)
             {
                 out->kind = PLAN_ACT_SWITCH; out->partyIdx = (s8)idx;
@@ -921,73 +1029,242 @@ static void PartnerFirstAction(enum BattlerId me, struct PlanAction *out)
         }
         return;
     }
-    // Il partner non ha ancora deciso: la sua azione più plausibile.
     InitState(&st);
-    BuildActions(&st, p, out, 1, TRUE);
+    BuildActions(&st, p, out, 1, TRUE, FALSE);
 }
 
-bool32 AI_VgcPlanTurn(enum BattlerId me, u8 *moveIndex, enum BattlerId *target)
+// ---------------------------------------------------------------------
+// Lavoro a pezzi
+// ---------------------------------------------------------------------
+static void Accumulate(s32 v, s32 w)
 {
-    struct PlanAction ours[PLAN_MAX_OURS], partner, foeA[PLAN_FOE_PER], foeB[PLAN_FOE_PER];
-    struct PlanAction none = { PLAN_ACT_NONE, 0, -1, MOVE_NONE, 0, 0, 100 };
-    struct PlanState base;
-    u32 nOurs, nA, nB, i, a, b;
-    enum BattlerId fL = GetBattlerLeftFoe(me), fR = GetBattlerRightFoe(me);
-    s32 bestEv = INT32_MIN, chosenEv = INT32_MIN;
-    u32 bestIdx = 0;
+    sJob.sum += v * w;
+    sJob.wsum += w;
+    if (v < sJob.worst)
+        sJob.worst = v;
+}
 
-    if (!IsDoubleBattle())
-        return FALSE;
-    nOurs = BuildOurFirstActions(me, ours, *moveIndex, *target);
-    if (nOurs < 2)
-        return FALSE;
-    InitState(&base);
-    PartnerFirstAction(me, &partner);
-    nA = BuildActions(&base, fL, foeA, PLAN_FOE_PER, FALSE);
-    nB = BuildActions(&base, fR, foeB, PLAN_FOE_PER, FALSE);
-    if (nA == 0) { foeA[0] = none; foeA[0].user = fL; nA = 1; }
-    if (nB == 0) { foeB[0] = none; foeB[0].user = fR; nB = 1; }
+static s32 PairWeight(const struct PlanAction *x, const struct PlanAction *y)
+{
+    return (max(x->weight, 1) * max(y->weight, 1)) / 16 + 1;
+}
 
-    for (i = 0; i < nOurs; i++)
+// Avanza gli indici di livello 1; TRUE se tutto è finito.
+static bool32 AdvanceLevel1(void)
+{
+    sJob.b++;
+    if (sJob.b >= sJob.nB)
     {
-        s32 sum = 0, wsum = 0, worst = INT32_MAX, ev;
-        for (a = 0; a < nA; a++)
+        sJob.b = 0;
+        sJob.a++;
+        if (sJob.a >= sJob.nA)
         {
-            for (b = 0; b < nB; b++)
-            {
-                struct PlanState st = base;
-                const struct PlanAction *acts[4] = { &ours[i], &partner, &foeA[a], &foeB[b] };
-                s32 w = (max(foeA[a].weight, 1) * max(foeB[b].weight, 1)) / 16 + 1;
-                s32 v;
-                RunTurn(&st, acts, 4);
-                v = ValueAfterTurn(&st, me);
-                sum += v * w;
-                wsum += w;
-                if (v < worst)
-                    worst = v;
-            }
+            sJob.a = 0;
+            sJob.ev[sJob.i] = (7 * (sJob.sum / max(sJob.wsum, 1)) + 3 * sJob.worst) / 10;
+            sJob.sum = sJob.wsum = 0;
+            sJob.worst = INT32_MAX;
+            sJob.i++;
+            if (sJob.i >= sJob.nOurs)
+                return TRUE;
         }
-        ev = (7 * (sum / max(wsum, 1)) + 3 * worst) / 10;
-        if (ours[i].kind != PLAN_ACT_SWITCH && ours[i].moveIndex == *moveIndex && ours[i].target == *target)
-            chosenEv = ev;
-        if (ev > bestEv)
+    }
+    return FALSE;
+}
+
+static void StartLookAhead(void)
+{
+    struct PlanAction none = { PLAN_ACT_NONE, 0, -1, MOVE_NONE, 0, 0, 100 };
+    enum BattlerId me = sJob.me, partner = GetPartnerBattler(me);
+    enum BattlerId fL = GetBattlerLeftFoe(me), fR = GetBattlerRightFoe(me);
+
+    sJob.la = sJob.s1;
+    NextTurn(&sJob.la);
+    sJob.nM = BuildActions(&sJob.la, me, sJob.mine, PLAN_P2_OURS_PER, TRUE, TRUE);
+    sJob.nP = (partner != me) ? BuildActions(&sJob.la, partner, sJob.pa, PLAN_P2_OURS_PER, TRUE, FALSE) : 0;
+    sJob.nA2 = BuildActions(&sJob.la, fL, sJob.fa, PLAN_P2_FOE_PER, FALSE, TRUE);
+    sJob.nB2 = BuildActions(&sJob.la, fR, sJob.fb, PLAN_P2_FOE_PER, FALSE, FALSE);
+    if (sJob.nM == 0) { sJob.mine[0] = none; sJob.mine[0].user = me; sJob.nM = 1; }
+    if (sJob.nP == 0) { sJob.pa[0] = none; sJob.pa[0].user = partner; sJob.nP = 1; }
+    if (sJob.nA2 == 0) { sJob.fa[0] = none; sJob.fa[0].user = fL; sJob.nA2 = 1; }
+    if (sJob.nB2 == 0) { sJob.fb[0] = none; sJob.fb[0].user = fR; sJob.nB2 = 1; }
+    sJob.i2 = sJob.j2 = sJob.a2 = sJob.b2 = 0;
+    sJob.laBest = INT32_MIN;
+    sJob.laSum = sJob.laWsum = 0;
+    sJob.laWorst = INT32_MAX;
+    sJob.phase = 1;
+}
+
+static void FinishJob(void)
+{
+    s32 bestEv = INT32_MIN, chosenEv = INT32_MIN;
+    u32 i, bestIdx = 0;
+
+    for (i = 0; i < sJob.nOurs; i++)
+    {
+        if (sJob.ours[i].kind != PLAN_ACT_SWITCH && sJob.ours[i].moveIndex == sJob.origMove && sJob.ours[i].target == sJob.origTarget)
+            chosenEv = sJob.ev[i];
+        if (sJob.ev[i] > bestEv)
         {
-            bestEv = ev;
+            bestEv = sJob.ev[i];
             bestIdx = i;
         }
     }
+    sJob.resultKind = PLAN_ACT_NONE;
     if (chosenEv != INT32_MIN && bestEv < chosenEv + PLAN_OVERRIDE_MARGIN)
-        return FALSE;
-    if (ours[bestIdx].kind == PLAN_ACT_SWITCH)
     {
-        // Il cambio esce nettamente meglio: lo si chiede al sistema dei cambi.
-        gBattleStruct->AI_monToSwitchIntoId[me] = ours[bestIdx].partyIdx;
-        gAiLogicData->shouldSwitch |= 1u << me;
-        return TRUE;
+        sJob.finished = TRUE;
+        return;
     }
-    if (ours[bestIdx].moveIndex == *moveIndex && ours[bestIdx].target == *target)
+    sJob.resultKind = sJob.ours[bestIdx].kind;
+    sJob.resultMove = sJob.ours[bestIdx].moveIndex;
+    sJob.resultTarget = sJob.ours[bestIdx].target;
+    sJob.resultParty = sJob.ours[bestIdx].partyIdx;
+    sJob.finished = TRUE;
+}
+
+bool32 AI_VgcPlanIsActive(void)
+{
+    return sJob.active && !sJob.finished;
+}
+
+enum BattlerId AI_VgcPlanBattler(void)
+{
+    return sJob.me;
+}
+
+bool32 AI_VgcPlanBegin(enum BattlerId me)
+{
+    struct PlanAction none = { PLAN_ACT_NONE, 0, -1, MOVE_NONE, 0, 0, 100 };
+    enum BattlerId fL = GetBattlerLeftFoe(me), fR = GetBattlerRightFoe(me);
+
+    if (!IsDoubleBattle() || AI_VgcPlanIsActive())
         return FALSE;
-    *moveIndex = ours[bestIdx].moveIndex;
-    *target = ours[bestIdx].target;
+    memset(&sJob, 0, sizeof(sJob));
+    sJob.me = me;
+    sJob.origMove = gAiBattleData->chosenMoveIndex[me];
+    sJob.origTarget = gAiBattleData->chosenTarget[me];
+    sJob.nOurs = BuildOurFirstActions(me, sJob.ours, sJob.origMove, sJob.origTarget);
+    if (sJob.nOurs < 2)
+        return FALSE;
+    InitState(&sJob.base);
+    PartnerFirstAction(me, &sJob.partner);
+    sJob.nA = BuildActions(&sJob.base, fL, sJob.foeA, PLAN_FOE_PER, FALSE, TRUE);
+    sJob.nB = BuildActions(&sJob.base, fR, sJob.foeB, PLAN_FOE_PER, FALSE, TRUE);
+    if (sJob.nA == 0) { sJob.foeA[0] = none; sJob.foeA[0].user = fL; sJob.nA = 1; }
+    if (sJob.nB == 0) { sJob.foeB[0] = none; sJob.foeB[0].user = fR; sJob.nB = 1; }
+    sJob.worst = INT32_MAX;
+    sJob.active = TRUE;
+    sJob.finished = FALSE;
     return TRUE;
+}
+
+// Esegue fino a CUSTOM_VGC_PLAN_SIMS_PER_FRAME simulazioni. TRUE = finito (o nulla in corso).
+bool32 AI_VgcPlanStep(void)
+{
+    s32 budget = CUSTOM_VGC_PLAN_SIMS_PER_FRAME;
+
+    if (!sJob.active)
+        return TRUE;
+    while (budget > 0 && !sJob.finished)
+    {
+        if (sJob.phase == 0)
+        {
+            const struct PlanAction *acts[4] = { &sJob.ours[sJob.i], &sJob.partner, &sJob.foeA[sJob.a], &sJob.foeB[sJob.b] };
+            sJob.s1 = sJob.base;
+            RunTurn(&sJob.s1, acts, 4);
+            budget--;
+            if (CUSTOM_VGC_PLAN_DEPTH >= 2)
+            {
+                StartLookAhead();
+            }
+            else
+            {
+                Accumulate(Evaluate(&sJob.s1), PairWeight(&sJob.foeA[sJob.a], &sJob.foeB[sJob.b]));
+                if (AdvanceLevel1())
+                    FinishJob();
+            }
+        }
+        else
+        {
+            const struct PlanAction *acts[4] = { &sJob.mine[sJob.i2], &sJob.pa[sJob.j2], &sJob.fa[sJob.a2], &sJob.fb[sJob.b2] };
+            struct PlanState st = sJob.la;
+            s32 v, w = PairWeight(&sJob.fa[sJob.a2], &sJob.fb[sJob.b2]);
+
+            RunTurn(&st, acts, 4);
+            v = Evaluate(&st);
+            budget--;
+            if (CUSTOM_VGC_PLAN_DEPTH >= 3)
+            {
+                v = (v + GreedyValue(&st, sJob.me)) / 2;
+                budget--;
+            }
+            sJob.laSum += v * w;
+            sJob.laWsum += w;
+            if (v < sJob.laWorst)
+                sJob.laWorst = v;
+
+            sJob.b2++;
+            if (sJob.b2 >= sJob.nB2)
+            {
+                sJob.b2 = 0;
+                sJob.a2++;
+                if (sJob.a2 >= sJob.nA2)
+                {
+                    s32 ev2 = (7 * (sJob.laSum / max(sJob.laWsum, 1)) + 3 * sJob.laWorst) / 10;
+                    sJob.a2 = 0;
+                    if (ev2 > sJob.laBest)
+                        sJob.laBest = ev2;
+                    sJob.laSum = sJob.laWsum = 0;
+                    sJob.laWorst = INT32_MAX;
+                    sJob.j2++;
+                    if (sJob.j2 >= sJob.nP)
+                    {
+                        sJob.j2 = 0;
+                        sJob.i2++;
+                        if (sJob.i2 >= sJob.nM)
+                        {
+                            s32 v1 = (Evaluate(&sJob.s1) + sJob.laBest) / 2;
+                            Accumulate(v1, PairWeight(&sJob.foeA[sJob.a], &sJob.foeB[sJob.b]));
+                            sJob.phase = 0;
+                            if (AdvanceLevel1())
+                                FinishJob();
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return sJob.finished;
+}
+
+// Applica il risultato alla decisione dell'IA. TRUE = la scelta è cambiata.
+bool32 AI_VgcPlanApply(void)
+{
+    enum BattlerId me = sJob.me;
+    bool32 changed = FALSE;
+
+    if (!sJob.active)
+        return FALSE;
+    sJob.active = FALSE;
+    if (!sJob.finished || sJob.resultKind == PLAN_ACT_NONE)
+        return FALSE;
+    if (sJob.resultKind == PLAN_ACT_SWITCH)
+    {
+        if (sJob.resultParty >= 0 && sJob.resultParty < PARTY_SIZE)
+        {
+            gBattleStruct->AI_monToSwitchIntoId[me] = sJob.resultParty;
+            gAiLogicData->shouldSwitch |= 1u << me;
+            changed = TRUE;
+        }
+        return changed;
+    }
+    if (sJob.resultMove != sJob.origMove || sJob.resultTarget != sJob.origTarget)
+    {
+        gAiBattleData->chosenMoveIndex[me] = sJob.resultMove;
+        gAiBattleData->chosenTarget[me] = sJob.resultTarget;
+        // La mossa è cambiata: un cambio deciso dalle regole "perché le mosse erano tutte brutte" non vale più.
+        gAiLogicData->shouldSwitch &= ~(1u << me);
+        changed = TRUE;
+    }
+    return changed;
 }

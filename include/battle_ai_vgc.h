@@ -29,9 +29,13 @@ s32 AI_VgcMaterialEdge(enum BattlerId battler);
 u32 AI_VgcProtectChance(enum BattlerId foe);
 u32 AI_VgcSwitchChance(enum BattlerId foe);
 
-// Pianificatore del turno (src/battle_ai_vgc_plan.c): simula il turno per le azioni candidate contro
-// le azioni probabili del giocatore e, se una posizione è nettamente migliore, cambia mossa/bersaglio.
-bool32 AI_VgcPlanTurn(enum BattlerId me, u8 *moveIndex, enum BattlerId *target);
+// Pianificatore del turno (src/battle_ai_vgc_plan.c), a pezzi: Begin dopo i punteggi delle regole,
+// Step ogni fotogramma finché non ritorna TRUE, Apply per scrivere la scelta (mossa/bersaglio o cambio).
+bool32 AI_VgcPlanBegin(enum BattlerId me);
+bool32 AI_VgcPlanStep(void);
+bool32 AI_VgcPlanApply(void);
+bool32 AI_VgcPlanIsActive(void);
+enum BattlerId AI_VgcPlanBattler(void);
 bool32 AI_VgcPlanIsSetter(u16 trainerId, u16 species);
 bool32 AI_VgcPlanIsBack(u16 trainerId, u16 species);
 s32 AI_VgcPlanLeadBonus(u16 trainerId, u16 a, u16 b, bool32 trViable, bool32 twViable);

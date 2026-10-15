@@ -321,11 +321,21 @@ regole copre ogni situazione. Per questo, dopo i punteggi, l'IA **simula il turn
    Ultimascommessa;
 4. valuta la posizione finale: PS e KO delle due parti, chi dorme, chi è potenziato, chi si muoverà
    per primo al turno dopo, quali nostri Pokémon rischiano il KO dal turno dopo;
-5. da ogni posizione guarda anche il **turno dopo** (`CUSTOM_VGC_PLAN_DEPTH 2`): le nostre 2 risposte
+5. da ogni posizione guarda anche il **turno dopo** (`CUSTOM_VGC_PLAN_DEPTH` 2): le nostre 2 risposte
    migliori per Pokémon contro le loro 2 più probabili, e prende il valore della risposta migliore;
-   il valore del ramo è la media tra la posizione dopo il turno e quella dopo il turno successivo;
+   con profondità 3 (default) ogni foglia guarda anche un **terzo turno** in forma ridotta (la nostra
+   risposta migliore contro la loro più probabile); il valore del ramo è la media delle posizioni;
 6. sceglie l'azione con la migliore media pesata (70%) + caso peggiore (30%), e cambia la scelta
    delle regole solo se la posizione è nettamente migliore (12 punti).
+
+**In sottofondo**: il calcolo è spezzato in passi (`CUSTOM_VGC_PLAN_SIMS_PER_FRAME` simulazioni per
+fotogramma) eseguiti dal controller avversario mentre tu scegli; la scelta dell'IA viene consegnata
+solo a calcolo finito. Se confermi prima che abbia finito, compaiono il ritratto dell'allenatore al
+centro del lato avversario e "<nome> sta pensando..." (`CUSTOM_VGC_THINKING_OVERLAY`).
+
+Simulati anche: **meteo** (impostato da mosse o abilità all'entrata, con Nuotovelox/Clorofilla e il
+×1.5 / ×0.5 su Fuoco e Acqua), **Baccacedro** (+25% sotto metà PS, una volta), Focus Sash, Corpetto
+Assalto, Evolcondensa e Assorbisfera dei Pokémon fuori tabella, cambi anche al secondo turno.
 
 Nei rami ci sono anche i **cambi**: il nostro (verso il sostituto più adatto) e quello del giocatore
 (con la sua probabilità, verso un Pokémon della panchina che l'IA conosce dalla preview); chi entra è
