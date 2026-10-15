@@ -27,6 +27,7 @@ bool32 AI_VgcPlanIsTrickRoomTeam(u16 trainerId);
 s32 AI_VgcMaterialEdge(enum BattlerId battler);
 // Probabilità stimata (0..100) che un Pokémon del giocatore usi Protect questo turno (senza imbrogli).
 u32 AI_VgcProtectChance(enum BattlerId foe);
+u32 AI_VgcSwitchChance(enum BattlerId foe);
 
 // Pianificatore del turno (src/battle_ai_vgc_plan.c): simula il turno per le azioni candidate contro
 // le azioni probabili del giocatore e, se una posizione è nettamente migliore, cambia mossa/bersaglio.

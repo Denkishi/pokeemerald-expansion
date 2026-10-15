@@ -81,6 +81,10 @@
 #define CUSTOM_RUN_BOUNCE                   TRUE    // mappa: la corsa ha un piccolo rimbalzo verticale
 
 // --- 14. IA VGC -------------------------------------------------------------
+// Profondità del pianificatore del turno (src/battle_ai_vgc_plan.c): 1 = simula solo il turno
+// attuale, 2 = anche il turno dopo (ramificazione: nostre risposte contro le loro). Il 2 costa
+// qualche decimo di secondo di "pensiero" dell'IA a ogni turno; se la lotta diventa lenta, metti 1.
+#define CUSTOM_VGC_PLAN_DEPTH               2
 // L'IA dedicata ai doppi si attiva per allenatore con il flag "Vgc Doubles" nella riga AI di
 // src/data/trainers.party (vedi docs/vgc_trainers.md). Niente da configurare qui: il flag è
 // AI_FLAG_VGC_DOUBLES e il codice è in src/battle_ai_vgc.c (mosse) e src/battle_ai_switch.c (cambi).

@@ -797,6 +797,13 @@ u32 AI_VgcProtectChance(enum BattlerId foe)
     return VgcProtectChance(foe);
 }
 
+static u32 VgcSwitchChance(enum BattlerId foe);
+
+u32 AI_VgcSwitchChance(enum BattlerId foe)
+{
+    return VgcSwitchChance(foe);
+}
+
 // Probabilità stimata (0..100) che questo avversario cambi Pokémon in questo turno.
 static u32 VgcSwitchChance(enum BattlerId foe)
 {

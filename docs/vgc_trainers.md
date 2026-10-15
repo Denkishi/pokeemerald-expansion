@@ -321,8 +321,17 @@ regole copre ogni situazione. Per questo, dopo i punteggi, l'IA **simula il turn
    Ultimascommessa;
 4. valuta la posizione finale: PS e KO delle due parti, chi dorme, chi è potenziato, chi si muoverà
    per primo al turno dopo, quali nostri Pokémon rischiano il KO dal turno dopo;
-5. sceglie l'azione con la migliore media pesata (70%) + caso peggiore (30%), e cambia la scelta
+5. da ogni posizione guarda anche il **turno dopo** (`CUSTOM_VGC_PLAN_DEPTH 2`): le nostre 2 risposte
+   migliori per Pokémon contro le loro 2 più probabili, e prende il valore della risposta migliore;
+   il valore del ramo è la media tra la posizione dopo il turno e quella dopo il turno successivo;
+6. sceglie l'azione con la migliore media pesata (70%) + caso peggiore (30%), e cambia la scelta
    delle regole solo se la posizione è nettamente migliore (12 punti).
+
+Nei rami ci sono anche i **cambi**: il nostro (verso il sostituto più adatto) e quello del giocatore
+(con la sua probabilità, verso un Pokémon della panchina che l'IA conosce dalla preview); chi entra è
+valutato con statistiche e tipi veri e danni stimati. Le mosse del giocatore **non viste** entrano come
+"probabili": la STAB più forte che la specie può imparare, Fake Out, Distorsione, Tailwind, Segui Me e
+Spora se la specie li porta di solito, con peso ridotto e danno stimato.
 
 Così la decisione nasce dallo stato della partita, non da una risposta scritta: una Protect che
 salva la partita, un cambio di bersaglio, un setup nel turno giusto emergono dalla simulazione.
