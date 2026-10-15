@@ -415,6 +415,7 @@ enum
     OBJ_EVENT_GFX_BREAKABLE_ROCK_FRLG,
     OBJ_EVENT_GFX_ENZO,
     OBJ_EVENT_GFX_ELIA,
+    OBJ_EVENT_GFX_TATORE,
     NUM_OBJ_EVENT_GFX,
 };
 
@@ -572,6 +573,7 @@ enum
 #define OBJ_EVENT_PAL_TAG_SS_ANNE                 0x1133
 #define OBJ_EVENT_PAL_TAG_ENZO                    0x1134
 #define OBJ_EVENT_PAL_TAG_ELIA                    0x1135
+#define OBJ_EVENT_PAL_TAG_TATORE                  0x1136
 
 #if OW_FOLLOWERS_POKEBALLS
 // Vanilla

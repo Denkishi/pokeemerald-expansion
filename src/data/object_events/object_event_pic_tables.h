@@ -2499,4 +2499,8 @@ static const struct SpriteFrameImage sPicTable_Elia[] = {
     overworld_ascending_frames(gObjectEventPic_Elia, 2, 4),
 };
 
+static const struct SpriteFrameImage sPicTable_Tatore[] = {
+    overworld_ascending_frames(gObjectEventPic_Tatore, 2, 4),
+};
+
 

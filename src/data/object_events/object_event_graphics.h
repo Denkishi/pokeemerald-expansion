@@ -636,4 +636,7 @@ const u16 gObjectEventPal_Enzo[] = INCGFX_U16("graphics/object_events/palettes/e
 const u32 gObjectEventPic_Elia[] = INCGFX_U32("graphics/object_events/pics/people/elia.png", ".4bpp", "-mwidth 2 -mheight 4");
 const u16 gObjectEventPal_Elia[] = INCGFX_U16("graphics/object_events/palettes/elia.pal", ".gbapal");
 
+const u32 gObjectEventPic_Tatore[] = INCGFX_U32("graphics/object_events/pics/people/tatore.png", ".4bpp", "-mwidth 2 -mheight 4");
+const u16 gObjectEventPal_Tatore[] = INCGFX_U16("graphics/object_events/palettes/tatore.pal", ".gbapal");
+
 
