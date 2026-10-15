@@ -528,6 +528,8 @@ enum TrainerClassID
     TRAINER_CLASS_COUNT,
 };
 
+#define TRAINER_CLASS_ELIA__ANSIOSO TRAINER_CLASS_ELIA_ANSIOSO
+
 #define TRAINER_ENCOUNTER_MUSIC_MALE         0 // Used for Youngsters, Bug Catchers, male School Kids, Sailors, male running and cycling Triathletes, male Pokémon Breeders, and Campers
 #define TRAINER_ENCOUNTER_MUSIC_FEMALE       1 // Used for Lasses, Ladies, Beauties, Aroma Ladies, female running and cycling Triathletes, female Pokémon Breeders, and Parasol Ladies
 #define TRAINER_ENCOUNTER_MUSIC_GIRL         2 // Used for Tubers, Picnickers, female School Kids, and Young Couples
