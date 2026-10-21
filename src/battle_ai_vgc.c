@@ -1050,7 +1050,7 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
             // - Poi: Baton Pass per passare i boost a Chandelure
             if (AI_VgcSameSpecies(SPECIES_ESPATHRA, mySpecies))
             {
-                bool32 hasSub = (gBattleMons[battlerAtk].status2 & STATUS2_SUBSTITUTE) != 0;
+                bool32 hasSub = gBattleMons[battlerAtk].volatiles.substitute;
                 s8 spatkStage = gBattleMons[battlerAtk].statStages[STAT_SPATK];
                 s8 speedStage = gBattleMons[battlerAtk].statStages[STAT_SPEED];
                 bool32 hasBoosts = (spatkStage > DEFAULT_STAT_STAGE || speedStage > DEFAULT_STAT_STAGE);
