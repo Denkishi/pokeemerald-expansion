@@ -73,18 +73,20 @@ static const struct VgcGameplan sVgcGameplans[] =
             { SPECIES_MIMIKYU, SPECIES_GOODRA_HISUI, VGC_PLAN_TRICK_ROOM },
         },
     },
-    // PATATINA: PsySpam Offensivo (Campo Psichico + Expanding Force di Armarouge con Indeedee-F);
-    // riserva con Mega Altaria Pellefolletto Tailwind + Ceruledge Danzaspada; Copperajah TR.
+    // PATATINA: Tre modalità di lead:
+    // 1. PsySpam: Indeedee-F + Armarouge (Segui Me + Forzespansa)
+    // 2. Trick Room: Indeedee-F + Copperajah (Distorsione)
+    // 3. Tailwind: Altaria + Ceruledge / Armarouge / Rotom-Wash (Ventoincoda)
     {
         .trainerId = TRAINER_PATATINA,
         .modeA = VGC_PLAN_PSYCHIC_TERRAIN, .modeB = VGC_PLAN_TAILWIND,
         .setters = { SPECIES_INDEEDEE_F, SPECIES_ALTARIA },
         .winCons = { SPECIES_ARMAROUGE, SPECIES_CERULEDGE },
-        .back = { SPECIES_CERULEDGE, SPECIES_COPPERAJAH },
+        .back = { SPECIES_NONE, SPECIES_NONE },
         .leads = {
             { SPECIES_INDEEDEE_F, SPECIES_ARMAROUGE, VGC_PLAN_PSYCHIC_TERRAIN },
-            { SPECIES_ALTARIA, SPECIES_ROTOM_WASH, VGC_PLAN_TAILWIND },
             { SPECIES_INDEEDEE_F, SPECIES_COPPERAJAH, VGC_PLAN_TRICK_ROOM },
+            { SPECIES_ALTARIA, SPECIES_CERULEDGE, VGC_PLAN_TAILWIND },
         },
     },
     // TONY: Sun Hyper-Offense. Mega Charizard Y porta il Sole;
@@ -198,6 +200,20 @@ static const struct VgcGameplan sVgcGameplans[] =
             { SPECIES_LILLIGANT, SPECIES_TORKOAL, VGC_PLAN_SUN },
             { SPECIES_HATTERENE, SPECIES_GARGANACL, VGC_PLAN_TRICK_ROOM },
             { SPECIES_TORKOAL, SPECIES_VENUSAUR, VGC_PLAN_SUN },
+        },
+    },
+    // SAVAROTTO: Staffetta con Espathra (Calm Mind + Speed Boost) -> Chandelure Mega;
+    // Whimsicott Beat Up su Gallade Giustizia o Fake Out da Incineroar / Sneasler.
+    {
+        .trainerId = TRAINER_SAVAROTTO,
+        .modeA = VGC_PLAN_BALANCE, .modeB = VGC_PLAN_TAILWIND,
+        .setters = { SPECIES_ESPATHRA, SPECIES_WHIMSICOTT },
+        .winCons = { SPECIES_CHANDELURE, SPECIES_GALLADE },
+        .back = { SPECIES_CHANDELURE, SPECIES_GALLADE },
+        .leads = {
+            { SPECIES_SNEASLER, SPECIES_ESPATHRA, VGC_PLAN_BALANCE },
+            { SPECIES_INCINEROAR, SPECIES_ESPATHRA, VGC_PLAN_BALANCE },
+            { SPECIES_WHIMSICOTT, SPECIES_ESPATHRA, VGC_PLAN_BALANCE },
         },
     },
 };

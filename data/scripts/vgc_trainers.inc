@@ -41,6 +41,7 @@ VgcTrainer_EventScript_\name\()_Decline:
 	vgc_trainer_script Gerozz, TRAINER_GEROZZ
 	vgc_trainer_script Carletto, TRAINER_CARLETTO
 	vgc_trainer_script GigiPinto, TRAINER_GIGI_PINTO
+	vgc_trainer_script Savarotto, TRAINER_SAVAROTTO
 
 @ --- Testi comuni -----------------------------------------------------------
 VgcTrainer_Text_NeedTwoMons:
@@ -208,3 +209,19 @@ VgcTrainer_Text_GigiPinto_PostBattle:
 	.string "TREMITI ti aspetta per la rivincita.$"
 VgcTrainer_Text_GigiPinto_Decline:
 	.string "Quando vuoi.$"
+@ --- SAVAROTTO (Staffetta: Espathra + Chandelure, Sneasler, Incineroar, Whimsicott + Gallade) --
+VgcTrainer_Text_Savarotto_AskBattle:
+	.string "Sono SAVAROTTO! Ti va una sfida?\n"
+	.string "La mia staffetta è inarrestabile!$"
+VgcTrainer_Text_Savarotto_Intro:
+	.string "Staffetta e fuoco puro!\n"
+	.string "Vediamo se riesci a starmi dietro!$"
+VgcTrainer_Text_Savarotto_Victory:
+	.string "Troppo veloci e troppo forti!$"
+VgcTrainer_Text_Savarotto_Defeat:
+	.string "La staffetta è inciampata...$"
+VgcTrainer_Text_Savarotto_PostBattle:
+	.string "Bella lotta! Quando vuoi riprovare,\n"
+	.string "sono sempre qui nel chill.$"
+VgcTrainer_Text_Savarotto_Decline:
+	.string "Niente da fare? Fa niente, alla prossima.$"

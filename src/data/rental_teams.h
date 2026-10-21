@@ -32,7 +32,7 @@ struct RentalTeam
 };
 
 #ifndef TOTAL_RENTAL_TEAMS
-#define TOTAL_RENTAL_TEAMS 87
+#define TOTAL_RENTAL_TEAMS 88
 #endif
 #define NUM_RENTAL_CATEGORIES 6
 #define CATEGORY_ANYTHING_GOES 0
@@ -6071,7 +6071,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
                 .isShiny = FALSE,
                 .evs = {252, 0, 0, 252, 4, 0},
                 .ivs = {31, 31, 31, 31, 31, 31},
-                .moves = {MOVE_GRAVITY, MOVE_ICY_WIND, MOVE_ENCORE, MOVE_SPORE},
+                .moves = {MOVE_GRAVITY, MOVE_FOLLOW_ME, MOVE_FAKE_OUT, MOVE_SPORE},
             },
             {
                 .species = SPECIES_ANNIHILAPE,
@@ -6106,8 +6106,8 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
                 .teraType = TYPE_NONE,
                 .isShiny = TRUE,
                 .evs = {4, 0, 0, 252, 252, 0},
-                .ivs = {31, 31, 31, 31, 31, 31},
-                .moves = {MOVE_SHADOW_BALL, MOVE_HYPNOSIS, MOVE_PROTECT, MOVE_DREAM_EATER},
+                .ivs = {31, 0, 31, 31, 31, 31},
+                .moves = {MOVE_SHADOW_BALL, MOVE_HYPNOSIS, MOVE_PROTECT, MOVE_SLUDGE_BOMB},
             },
             {
                 .species = SPECIES_AERODACTYL,
@@ -6237,7 +6237,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
                 .level = 50,
                 .nature = NATURE_QUIET,
                 .abilityNum = 0,
-                .teraType = TYPE_NONE,
+                .teraType = TYPE_FAIRY,
                 .isShiny = FALSE,
                 .evs = {252, 4, 0, 0, 252, 0},
                 .ivs = {31, 31, 31, 31, 31, 31},
@@ -6272,7 +6272,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
                 .item = ITEM_SITRUS_BERRY,
                 .level = 50,
                 .nature = NATURE_CALM,
-                .abilityNum = 1,
+                .abilityNum = 0,
                 .teraType = TYPE_NONE,
                 .isShiny = FALSE,
                 .evs = {248, 0, 0, 0, 8, 252},
@@ -6331,7 +6331,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
                 .teraType = TYPE_NONE,
                 .isShiny = FALSE,
                 .evs = {0, 0, 0, 252, 252, 4},
-                .ivs = {31, 31, 31, 31, 31, 31},
+                .ivs = {31, 0, 31, 31, 31, 31},
                 .moves = {MOVE_ARMOR_CANNON, MOVE_AURA_SPHERE, MOVE_EXPANDING_FORCE, MOVE_PROTECT},
             },
             {
@@ -6551,13 +6551,13 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
                 .species = SPECIES_LAPRAS,
                 .item = ITEM_LEFTOVERS,
                 .level = 50,
-                .nature = NATURE_BOLD,
+                .nature = NATURE_IMPISH,
                 .abilityNum = 1,
                 .teraType = TYPE_NONE,
                 .isShiny = FALSE,
-                .evs = {248, 0, 252, 0, 8, 0},
+                .evs = {252, 0, 252, 0, 0, 4},
                 .ivs = {31, 31, 31, 31, 31, 31},
-                .moves = {MOVE_PROTECT, MOVE_FREEZE_DRY, MOVE_SCALD, MOVE_LIFE_DEW},
+                .moves = {MOVE_ICE_SHARD, MOVE_HELPING_HAND, MOVE_SHEER_COLD, MOVE_LIFE_DEW},
             },
             {
                 .species = SPECIES_DUSCLOPS,
@@ -6593,7 +6593,7 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
                 .isShiny = FALSE,
                 .evs = {252, 252, 0, 0, 0, 4},
                 .ivs = {31, 31, 31, 31, 31, 31},
-                .moves = {MOVE_PROTECT, MOVE_ROCK_SLIDE, MOVE_SWORDS_DANCE, MOVE_SACRED_SWORD},
+                .moves = {MOVE_PROTECT, MOVE_ROCK_SLIDE, MOVE_SWORDS_DANCE, MOVE_SUPERPOWER},
             },
             {
                 .species = SPECIES_SCREAM_TAIL,
@@ -6884,8 +6884,8 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
                 .teraType = TYPE_NONE,
                 .isShiny = TRUE,
                 .evs = {248, 0, 0, 252, 8, 0},
-                .ivs = {31, 31, 31, 31, 31, 31},
-                .moves = {MOVE_AFTER_YOU, MOVE_ENCORE, MOVE_ENERGY_BALL, MOVE_HELPING_HAND},
+                .ivs = {31, 0, 31, 31, 31, 31},
+                .moves = {MOVE_AFTER_YOU, MOVE_ENCORE, MOVE_ENERGY_BALL, MOVE_SLEEP_POWDER},
             },
             {
                 .species = SPECIES_GARGANACL,
@@ -6917,11 +6917,90 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
                 .level = 50,
                 .nature = NATURE_MODEST,
                 .abilityNum = 2,
-                .teraType = TYPE_NONE,
-                .isShiny = FALSE,
+                .teraType = TYPE_WATER,
+                .isShiny = TRUE,
                 .evs = {252, 0, 0, 0, 252, 4},
                 .ivs = {31, 0, 31, 31, 31, 31},
                 .moves = {MOVE_PROTECT, MOVE_DARK_PULSE, MOVE_DRAGON_PULSE, MOVE_WATER_SPOUT},
+            },
+        }
+    },
+    {
+        .name = _("Team di Savarotto"),
+        .listName = _("Team di Savarotto"),
+        .category = _("Via Gambardella VGC"),
+        .mons = {
+            {
+                .species = SPECIES_INCINEROAR,
+                .item = ITEM_SITRUS_BERRY,
+                .level = 50,
+                .nature = NATURE_ADAMANT,
+                .abilityNum = 2,
+                .teraType = TYPE_NONE,
+                .isShiny = FALSE,
+                .evs = {252, 252, 0, 0, 0, 4},
+                .ivs = {31, 31, 31, 31, 31, 31},
+                .moves = {MOVE_FAKE_OUT, MOVE_FLARE_BLITZ, MOVE_PARTING_SHOT, MOVE_DARKEST_LARIAT},
+            },
+            {
+                .species = SPECIES_SNEASLER,
+                .item = ITEM_WHITE_HERB,
+                .level = 50,
+                .nature = NATURE_JOLLY,
+                .abilityNum = 1,
+                .teraType = TYPE_FIGHTING,
+                .isShiny = TRUE,
+                .evs = {4, 252, 0, 252, 0, 0},
+                .ivs = {31, 31, 31, 31, 31, 31},
+                .moves = {MOVE_CLOSE_COMBAT, MOVE_DIRE_CLAW, MOVE_FAKE_OUT, MOVE_PROTECT},
+            },
+            {
+                .species = SPECIES_ESPATHRA,
+                .item = ITEM_COLBUR_BERRY,
+                .level = 50,
+                .nature = NATURE_TIMID,
+                .abilityNum = 2,
+                .teraType = TYPE_NONE,
+                .isShiny = FALSE,
+                .evs = {252, 0, 0, 252, 4, 0},
+                .ivs = {31, 0, 31, 31, 31, 31},
+                .moves = {MOVE_BATON_PASS, MOVE_PROTECT, MOVE_CALM_MIND, MOVE_SUBSTITUTE},
+            },
+            {
+                .species = SPECIES_CHANDELURE,
+                .item = ITEM_CHANDELURITE,
+                .level = 50,
+                .nature = NATURE_TIMID,
+                .abilityNum = 0,
+                .teraType = TYPE_NONE,
+                .isShiny = FALSE,
+                .evs = {4, 0, 0, 252, 252, 0},
+                .ivs = {31, 0, 31, 31, 31, 31},
+                .moves = {MOVE_SHADOW_BALL, MOVE_PROTECT, MOVE_HEAT_WAVE, MOVE_ENERGY_BALL},
+            },
+            {
+                .species = SPECIES_GALLADE,
+                .item = ITEM_LIFE_ORB,
+                .level = 50,
+                .nature = NATURE_JOLLY,
+                .abilityNum = 2,
+                .teraType = TYPE_NONE,
+                .isShiny = FALSE,
+                .evs = {4, 252, 0, 252, 0, 0},
+                .ivs = {31, 31, 31, 31, 31, 31},
+                .moves = {MOVE_DRAIN_PUNCH, MOVE_ROCK_SLIDE, MOVE_ICE_PUNCH, MOVE_PROTECT},
+            },
+            {
+                .species = SPECIES_WHIMSICOTT,
+                .item = ITEM_FOCUS_SASH,
+                .level = 50,
+                .nature = NATURE_BOLD,
+                .abilityNum = 0,
+                .teraType = TYPE_NONE,
+                .isShiny = FALSE,
+                .evs = {188, 0, 252, 68, 0, 0},
+                .ivs = {31, 31, 31, 31, 31, 31},
+                .moves = {MOVE_BEAT_UP, MOVE_TAILWIND, MOVE_MOONBLAST, MOVE_MEMENTO},
             },
         }
     },
@@ -6932,7 +7011,7 @@ static const u16 sCategoryTeams_ChampionsMeta[23] = { 9, 10, 11, 12, 13, 14, 15,
 static const u16 sCategoryTeams_SVOverused[21] = { 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52 };
 static const u16 sCategoryTeams_SVUbers[9] = { 53, 54, 55, 56, 57, 58, 59, 60, 61 };
 static const u16 sCategoryTeams_SVRarelyUsed[14] = { 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75 };
-static const u16 sCategoryTeams_ViaGambardella[11] = { 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86 };
+static const u16 sCategoryTeams_ViaGambardella[12] = { 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87 };
 
 static const struct RentalCategoryInfo sRentalCategories[NUM_RENTAL_CATEGORIES] =
 {
@@ -6964,7 +7043,7 @@ static const struct RentalCategoryInfo sRentalCategories[NUM_RENTAL_CATEGORIES] 
     {
         .name = _("Via Gambardella VGC"),
         .teamIndices = sCategoryTeams_ViaGambardella,
-        .count = 11,
+        .count = 12,
     },
 };
 

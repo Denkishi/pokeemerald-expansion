@@ -872,12 +872,13 @@
 #define TRAINER_CARLETTO                    864
 #define TRAINER_GIGI_PINTO                  865
 
+#define TRAINER_SAVAROTTO                   866
 // NOTE: Because each Trainer uses a flag to determine when they are defeated, there is only space for 9 additional trainers before trainer flag space overflows
 //       More space can be made by shifting flags around in constants/flags.h or changing how trainer flags are handled
 //       MAX_TRAINERS_COUNT can be increased but will take up additional saveblock space
 // (alzato a 880 per gli allenatori VGC: i flag di sistema si spostano, i salvataggi vecchi non sono compatibili)
 
-#define TRAINERS_COUNT_EMERALD     866
+#define TRAINERS_COUNT_EMERALD     867
 #define MAX_TRAINERS_COUNT_EMERALD 880
 
 #if IS_FRLG

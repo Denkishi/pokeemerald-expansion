@@ -36,6 +36,7 @@ con team preview. Sono rilottabili all'infinito (come Enzo).
 | GEROZZ | `TRAINER_GEROZZ` | `VgcTrainer_EventScript_Gerozz` | Rich Boy / Rich Boy | Sabbia: Mega Tyranitar, Dugtrio-Alola Sand Force, Gholdengo Nasty Plot, Great Tusk Bulk Up, Porygon2 Trick Room, Rotom-Heat |
 | CARLETTO | `TRAINER_CARLETTO` | `VgcTrainer_EventScript_Carletto` | Sailor / Sailor | Pioggia: Pelipper, Ludicolo Fake Out, Kingambit, Snorlax Belly Drum, Amoonguss, Mega Malamar Trick Room |
 | GIGI PINTO | `TRAINER_GIGI_PINTO` | `VgcTrainer_EventScript_GigiPinto` | Gentleman / Gentleman | Sole: Torkoal, Venusaur e Lilligant Chlorophyll, Garganacl, Hatterene Trick Room, Mega Blastoise |
+| SAVAROTTO | `TRAINER_SAVAROTTO` | `VgcTrainer_EventScript_Savarotto` | Sburrato / Cooltrainer M | Staffetta: Espathra (Calm Mind + Speed Boost) -> Chandelure Mega; Sneasler/Incineroar Fake Out; Whimsicott Beat Up su Gallade Giustizia |
 
 Note sulle squadre:
 - Tera Type ignorato (il Tera è spento). Nickname, shiny, EV, nature e IV sono quelli del file.
@@ -60,6 +61,7 @@ Testi comuni: `VgcTrainer_Text_AskFormat`, `VgcTrainer_Text_FormatBo1/Bo3`, `Vgc
 | GEROZZ | GEROZZ. Tempesta di sabbia in arrivo. Sei pronto? | TRECASE, scava! | Sepolto nella sabbia. | La sabbia non è bastata. | Ripassa, la sabbia è sempre qui. | Fifone. |
 | CARLETTO | CARLETTO, marinaio. Senti odore di pioggia? Lottiamo? | IL BOSS decide tutto! | Affondato. | IL BOSS non sarà contento... | Torna quando piove. | Mare calmo, allora. |
 | GIGI PINTO | GIGI PINTO. Tutto shiny, tutto al sole. Una lotta? | TORKOAL, accendi il sole! | Luccicante e vincente. | Si sono solo abbronzati. | TREMITI ti aspetta per la rivincita. | Quando vuoi. |
+| SAVAROTTO | Sono SAVAROTTO! Ti va una sfida? La mia staffetta è inarrestabile! | Staffetta e fuoco puro! Vediamo se riesci a starmi dietro! | Troppo veloci e troppo forti! | La staffetta è inciampata... | Bella lotta! Quando vuoi riprovare, sono sempre qui nel chill. | Niente da fare? Fa niente, alla prossima. |
 
 Le frasi di Enzo restano in `data/maps/GambEsterno/scripts.inc`.
 

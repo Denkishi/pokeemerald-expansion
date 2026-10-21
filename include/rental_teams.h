@@ -3,7 +3,7 @@
 
 #include "global.h"
 
-#define TOTAL_RENTAL_TEAMS 87
+#define TOTAL_RENTAL_TEAMS 88
 
 void OpenRentalTeamBrowser(void);
 void ChooseRandomRentalTeam(void);

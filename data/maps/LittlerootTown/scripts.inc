@@ -1174,7 +1174,7 @@ LittlerootTown_Text_RandomTeamAll:
 	.string "Team Casuale (Tutti)$"
 
 LittlerootTown_Text_CatViaGambardella:
-	.string "Via Gambardella VGC (11)$"
+	.string "Via Gambardella VGC (12)$"
 
 LittlerootTown_Text_CatAnythingGoes:
 	.string "Anything Goes (9)$"

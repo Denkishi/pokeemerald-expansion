@@ -2827,6 +2827,22 @@ u32 GetMostSuitableMonToSwitchInto(enum BattlerId battler, enum SwitchType switc
     if (gBattleTypeFlags & BATTLE_TYPE_ARENA)
         return gBattlerPartyIndexes[battler] + 1;
 
+    // Savarotto: Espathra quando usa Staffetta (Baton Pass) passa prioritariamente i boost a Chandelure
+    if (TRAINER_BATTLE_PARAM.opponentA == TRAINER_SAVAROTTO
+     && GET_BASE_SPECIES_ID(gBattleMons[battler].species) == SPECIES_ESPATHRA)
+    {
+        for (u32 m = 0; m < (u32)lastId; m++)
+        {
+            if (IsValidForBattle(&party[m])
+             && !IsPartyMonOnFieldOrChosenToSwitch(battler, m, battlerIn1, battlerIn2)
+             && !IsPartyMonPlannedToBeSwitchedInByPartner(m, battler)
+             && GET_BASE_SPECIES_ID(GetMonData(&party[m], MON_DATA_SPECIES)) == SPECIES_CHANDELURE)
+            {
+                return m;
+            }
+        }
+    }
+
     opposingBattler = GetActiveBattlerIds(battler, &battlerIn1, &battlerIn2);
     party = GetBattlerParty(battler);
 

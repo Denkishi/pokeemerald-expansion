@@ -1610,6 +1610,37 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
              && MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_AERODACTYL))
                 score -= 40;
         }
+        // 6. Patatina:
+        // - Deve obbligatoriamente avere almeno uno tra Indeedee-F e Altaria nei 4 (i suoi setter/abilitatori).
+        // - Se porta Copperajah, DEVE avere Indeedee-F per la Distorsione.
+        // - Ha forte sinergia portando Indeedee-F + Armarouge (PsySpam) o Altaria + Ceruledge (Tailwind).
+        else if (trainerId == TRAINER_PATATINA)
+        {
+            bool32 hasIndeedee = MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_INDEEDEE_F);
+            bool32 hasAltaria = MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_ALTARIA);
+            bool32 hasCopperajah = MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_COPPERAJAH);
+            bool32 hasArmarouge = MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_ARMAROUGE);
+            bool32 hasCeruledge = MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_CERULEDGE);
+
+            if (!hasIndeedee && !hasAltaria)
+                score -= 10000;
+            if (hasCopperajah && !hasIndeedee)
+                score -= 5000;
+            if (hasIndeedee && hasArmarouge)
+                score += 300;
+            if (hasIndeedee && hasCopperajah)
+                score += 250;
+            if (hasAltaria && (hasCeruledge || hasArmarouge))
+                score += 250;
+        }
+        else if (trainerId == TRAINER_SAVAROTTO)
+        {
+            bool32 hasEspathra = MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_ESPATHRA);
+            bool32 hasChandelure = MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_CHANDELURE);
+            // Ogni volta che porta Espathra deve portare Chandelure
+            if (hasEspathra && !hasChandelure)
+                score -= 10000;
+        }
 
         // Troppi Pokémon deboli allo stesso tipo = male.
         for (t = TYPE_NORMAL; t < NUMBER_OF_MON_TYPES; t++)
@@ -1862,11 +1893,55 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                         {
                             s -= 40;
                         }
-                        // Patatina: Armarouge con Indeedee-F (Campo Psichico + Segui Me) e mai Ceruledge in lead
-                        // sotto Campo Psichico (Ombrafurtiva non colpisce chi è a terra).
-                        else if (trainerId == TRAINER_PATATINA && PairIs(spA, spB, SPECIES_INDEEDEE_F, SPECIES_CERULEDGE))
+                        // Patatina: ha ESATTAMENTE 3 modalità di lead permesse:
+                        // 1. Indeedee-F + Armarouge (Campo Psichico + Segui Me + Forzespansa)
+                        // 2. Indeedee-F + Copperajah (Distorsione + Copperajah)
+                        // 3. Altaria + Ceruledge / Armarouge / Rotom-Wash (Ventoincoda)
+                        // Qualsiasi altra lead NON è permessa per Patatina.
+                        else if (trainerId == TRAINER_SAVAROTTO)
                         {
-                            s -= 60;
+                            bool32 isSneaslerEspathra = PairIs(spA, spB, SPECIES_SNEASLER, SPECIES_ESPATHRA);
+                            bool32 isInciEspathra = PairIs(spA, spB, SPECIES_INCINEROAR, SPECIES_ESPATHRA);
+                            bool32 isWhimsiEspathra = PairIs(spA, spB, SPECIES_WHIMSICOTT, SPECIES_ESPATHRA);
+                            bool32 isWhimsiGallade = PairIs(spA, spB, SPECIES_WHIMSICOTT, SPECIES_GALLADE);
+
+                            if (!isSneaslerEspathra && !isInciEspathra && !isWhimsiEspathra && !isWhimsiGallade)
+                            {
+                                s -= 10000;
+                            }
+                            else
+                            {
+                                if (isSneaslerEspathra)
+                                    s += 500;
+                                else if (isInciEspathra)
+                                    s += 480;
+                                else if (isWhimsiEspathra)
+                                    s += 460;
+                                else if (isWhimsiGallade)
+                                    s += 450;
+                            }
+                        }
+                        else if (trainerId == TRAINER_PATATINA)
+                        {
+                            bool32 isPsySpam = PairIs(spA, spB, SPECIES_INDEEDEE_F, SPECIES_ARMAROUGE);
+                            bool32 isTrickRoom = PairIs(spA, spB, SPECIES_INDEEDEE_F, SPECIES_COPPERAJAH);
+                            bool32 isTailwind = (PairIs(spA, spB, SPECIES_ALTARIA, SPECIES_CERULEDGE)
+                                              || PairIs(spA, spB, SPECIES_ALTARIA, SPECIES_ARMAROUGE)
+                                              || PairIs(spA, spB, SPECIES_ALTARIA, SPECIES_ROTOM_WASH));
+
+                            if (!isPsySpam && !isTrickRoom && !isTailwind)
+                            {
+                                s -= 10000;
+                            }
+                            else
+                            {
+                                if (isPsySpam)
+                                    s += 500;
+                                else if (isTrickRoom)
+                                    s += 450;
+                                else if (isTailwind)
+                                    s += 400;
+                            }
                         }
                         // Gerozz: chi usa Terremoto (Dugtrio-A, Great Tusk) in lead preferibilmente con Rotom-Heat
                         // (Levitazione); con Tyranitar è accettato perché è la lead del piano (Tyranitar protegge o

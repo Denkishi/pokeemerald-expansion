@@ -1023,6 +1023,125 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
          && AI_VgcSameSpecies(SPECIES_SLAKING, gBattleMons[partner].species))
             ADJUST_SCORE(3);
 
+        // --- SAVAROTTO ---
+        if (trainerId == TRAINER_SAVAROTTO)
+        {
+            u16 mySpecies = gBattleMons[battlerAtk].species;
+
+            // 1. Fake Out al turno 1 da Incineroar / Sneasler per garantire il setup di Espathra
+            if (hasPartner && AI_VgcSameSpecies(SPECIES_ESPATHRA, gBattleMons[partner].species) && firstTurn)
+            {
+                if (effect == EFFECT_FIRST_TURN_ONLY && !targetingPartner && IsFlinchGuaranteed(battlerAtk, battlerDef, move))
+                    ADJUST_SCORE(8);
+            }
+
+            // 2. Whimsicott + Gallade: Beat Up su Gallade con Giustizia (Justified)
+            if (hasPartner && AI_VgcSameSpecies(SPECIES_WHIMSICOTT, mySpecies) && AI_VgcSameSpecies(SPECIES_GALLADE, gBattleMons[partner].species))
+            {
+                if (move == MOVE_BEAT_UP && targetingPartner)
+                    ADJUST_SCORE(12);
+                else if (effect == EFFECT_TAILWIND && !(gSideStatuses[GetBattlerSide(battlerAtk)] & SIDE_STATUS_TAILWIND) && !targetingPartner)
+                    ADJUST_SCORE(5);
+            }
+
+            // 3. Espathra:
+            // - Turno 1: setup di Calm Mind
+            // - Turno 2: se non ha Substitute, Sub se non vede minacce immediate o Protect se minacciata
+            // - Poi: Baton Pass per passare i boost a Chandelure
+            if (AI_VgcSameSpecies(SPECIES_ESPATHRA, mySpecies))
+            {
+                bool32 hasSub = (gBattleMons[battlerAtk].status2 & STATUS2_SUBSTITUTE) != 0;
+                s8 spatkStage = gBattleMons[battlerAtk].statStages[STAT_SPATK];
+                s8 speedStage = gBattleMons[battlerAtk].statStages[STAT_SPEED];
+                bool32 hasBoosts = (spatkStage > DEFAULT_STAT_STAGE || speedStage > DEFAULT_STAT_STAGE);
+
+                if (firstTurn)
+                {
+                    if (move == MOVE_CALM_MIND)
+                        ADJUST_SCORE(10);
+                }
+                else
+                {
+                    if (hasBoosts)
+                    {
+                        if (move == MOVE_BATON_PASS && CountUsablePartyMons(battlerAtk) > 0)
+                        {
+                            if (hasSub || spatkStage >= DEFAULT_STAT_STAGE + 2 || !safeTurn)
+                                ADJUST_SCORE(10);
+                            else
+                                ADJUST_SCORE(5);
+                        }
+                        if (move == MOVE_SUBSTITUTE && !hasSub && hp > gBattleMons[battlerAtk].maxHP / 4)
+                        {
+                            if (!threatened)
+                                ADJUST_SCORE(8);
+                            else
+                                ADJUST_SCORE(-4);
+                        }
+                        if (effect == EFFECT_PROTECT && threatened && !hasSub)
+                        {
+                            ADJUST_SCORE(6);
+                        }
+                    }
+                    else
+                    {
+                        if (move == MOVE_CALM_MIND)
+                            ADJUST_SCORE(8);
+                    }
+                }
+            }
+        }
+
+        // --- PATATINA ---
+        if (trainerId == TRAINER_PATATINA && hasPartner)
+        {
+            u16 mySpecies = gBattleMons[battlerAtk].species;
+            u16 partnerSpecies = gBattleMons[partner].species;
+
+            // 1. Armarouge + Indeedee-F:
+            // Indeedee-F usa Segui Me ("sonoqui"), Armarouge usa Forzespansa (Expanding Force)
+            if (AI_VgcSameSpecies(SPECIES_INDEEDEE_F, mySpecies) && AI_VgcSameSpecies(SPECIES_ARMAROUGE, partnerSpecies))
+            {
+                if (effect == EFFECT_FOLLOW_ME)
+                    ADJUST_SCORE(8);
+                else if (effect == EFFECT_TRICK_ROOM)
+                    ADJUST_SCORE(-10); // mai fare Trick Room con Armarouge
+            }
+            if (AI_VgcSameSpecies(SPECIES_ARMAROUGE, mySpecies) && AI_VgcSameSpecies(SPECIES_INDEEDEE_F, partnerSpecies))
+            {
+                if (move == MOVE_EXPANDING_FORCE && gFieldTimers.terrain == B_TERRAIN_PSYCHIC && !targetingPartner)
+                    ADJUST_SCORE(8);
+            }
+
+            // 2. Indeedee-F + Copperajah:
+            // Indeedee-F usa Distorsione (Trick Room), Copperajah copre/prepara
+            if (AI_VgcSameSpecies(SPECIES_INDEEDEE_F, mySpecies) && AI_VgcSameSpecies(SPECIES_COPPERAJAH, partnerSpecies))
+            {
+                if (effect == EFFECT_TRICK_ROOM && !(gFieldStatuses & STATUS_FIELD_TRICK_ROOM) && !targetingPartner)
+                    ADJUST_SCORE(8);
+                else if (effect == EFFECT_FOLLOW_ME && !(gFieldStatuses & STATUS_FIELD_TRICK_ROOM))
+                    ADJUST_SCORE(-8); // non fare Follow Me quando devi piazzare Distorsione per Copperajah
+            }
+            if (AI_VgcSameSpecies(SPECIES_COPPERAJAH, mySpecies) && AI_VgcSameSpecies(SPECIES_INDEEDEE_F, partnerSpecies))
+            {
+                if (!(gFieldStatuses & STATUS_FIELD_TRICK_ROOM) && firstTurn)
+                {
+                    if (effect == EFFECT_PROTECT && !targetingPartner)
+                        ADJUST_SCORE(4);
+                    else if (move == MOVE_IRON_DEFENSE)
+                        ADJUST_SCORE(3);
+                }
+            }
+
+            // 3. Altaria + (Ceruledge / Armarouge / Rotom-Wash):
+            // Altaria usa Ventoincoda (Tailwind)
+            if (AI_VgcSameSpecies(SPECIES_ALTARIA, mySpecies))
+            {
+                if (effect == EFFECT_TAILWIND && !(gSideStatuses[GetBattlerSide(battlerAtk)] & SIDE_STATUS_TAILWIND) && !targetingPartner)
+                    ADJUST_SCORE(8);
+            }
+        }
+
         // Forzespansa sotto Campo Psichico (Armarouge): colpisce entrambi a potenza piena.
         if (move == MOVE_EXPANDING_FORCE && !targetingPartner && gFieldTimers.terrain == B_TERRAIN_PSYCHIC
          && AI_IsBattlerGrounded(battlerAtk) && foeLAlive && foeRAlive)
