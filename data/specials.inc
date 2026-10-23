@@ -639,6 +639,7 @@ gSpecials::
 	def_special StickerManGetBragFlags
 	def_special CheckAddCoins
 	def_special OpenRentalTeamBrowser, waitstate=1
+	def_special OpenVgcTrophiesScreen, waitstate=1
 	def_special ChooseRandomRentalTeam
 	def_special GiveSelectedRentalTeam
 	def_special OpenCustomTeamBuilder, waitstate=1

@@ -35,6 +35,7 @@
 #include "constants/party_menu.h"
 #include "constants/rgb.h"
 #include "constants/songs.h"
+#include "constants/vars.h"
 #include "data/rental_teams.h"
 
 #define TAG_RENTAL_SCROLL_ARROW 2100
@@ -422,13 +423,20 @@ static void RB_DrawHeader(void)
     }
     else
     {
-        u8 *ptr = StringCopy(gStringVar4, sText_HeaderPrefix);
         u32 font;
 
-        if (sRB.category == CATEGORY_ALL)
-            StringCopy(ptr, sText_AllTeamsCategory);
+        if (sRB.category == 5)
+        {
+            StringCopy(gStringVar4, _("TEAM A NOLEGGIO"));
+        }
         else
-            StringCopy(ptr, sRentalCategories[sRB.category].name);
+        {
+            u8 *ptr = StringCopy(gStringVar4, sText_HeaderPrefix);
+            if (sRB.category == CATEGORY_ALL)
+                StringCopy(ptr, sText_AllTeamsCategory);
+            else
+                StringCopy(ptr, sRentalCategories[sRB.category].name);
+        }
         font = RB_FitFont(gStringVar4, 212, FONT_NORMAL, FONT_NARROW, FONT_NARROWER);
         AddTextPrinterParameterized3(WIN_HEADER, font, 6, 1, sRB_ColDark, TEXT_SKIP_DRAW, gStringVar4);
     }
@@ -915,6 +923,8 @@ void GiveSelectedRentalTeam(void)
 
     if (teamId >= TOTAL_RENTAL_TEAMS)
         return;
+
+    VarSet(VAR_VGC_CURRENT_RENTAL_TEAM, teamId);
 
     // La squadra attuale (es. ELIA) va nel box per fare posto a quella a noleggio.
     // Se il PC è pieno il Pokémon resta in squadra.

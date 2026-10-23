@@ -60,7 +60,9 @@
 #include "constants/songs.h"
 #include "constants/trainers.h"
 #include "constants/trainer_hill.h"
+#include "constants/vars.h"
 #include "constants/weather.h"
+#include "vgc_trophies.h"
 
 enum TransitionType
 {
@@ -1652,6 +1654,12 @@ static void CB2_EndTrainerBattle(void)
         {
             RegisterTrainerInMatchCall();
             SetBattledTrainersFlags();
+        }
+        if (IS_VGC_TRAINER(TRAINER_BATTLE_PARAM.opponentA))
+        {
+            u16 rentedTeam = VarGet(VAR_VGC_CURRENT_RENTAL_TEAM);
+            if (rentedTeam >= 76 && rentedTeam <= 87)
+                SetVgcTrophy(rentedTeam - 76, TRAINER_BATTLE_PARAM.opponentA - TRAINER_ENZO);
         }
     }
 }

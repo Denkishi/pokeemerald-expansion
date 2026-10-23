@@ -230,17 +230,10 @@ LittlerootTown_EventScript_SetRivalBirchPosForDexUpgradeFemale::
 LittlerootTown_EventScript_FatMan::
 	lock
 	faceplayer
-	msgbox LittlerootTown_Text_ChooseRentalOrReceive, MSGBOX_DEFAULT
-	dynmultipush LittlerootTown_Text_RentalTeam, 0
-	dynmultipush LittlerootTown_Text_ReceivePokemon, 1
-	dynmultipush LittlerootTown_Text_Cancel, 2
-	dynmultistack 0, 0, FALSE, 3, FALSE, 0, DYN_MULTICHOICE_CB_NONE
-	switch VAR_RESULT
-	case 0, LittlerootTown_EventScript_RentalMenu
-	case 1, LittlerootTown_EventScript_ReceivePokemonMenu
-	case 2, LittlerootTown_EventScript_Cancel
-	case MULTI_B_PRESSED, LittlerootTown_EventScript_Cancel
-	release
+	msgbox LittlerootTown_Text_AskRentalTeam, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, LittlerootTown_EventScript_Cancel
+	setvar VAR_0x8004, 5
+	goto LittlerootTown_EventScript_ShowCategoryTeams
 	end
 
 LittlerootTown_EventScript_Cancel::
@@ -309,11 +302,11 @@ LittlerootTown_EventScript_CategorySVRarelyUsed::
 	end
 
 LittlerootTown_EventScript_ShowCategoryTeams::
-	@ Schermata intera (riscritta): lista team + anteprima. Destra = anteprima, A = sommario.
-	@ VAR_0x8004 = categoria, VAR_RESULT = team scelto (0xFFFF = annullato).
+	@ Schermata intera: lista team + anteprima.
+	@ VAR_0x8004 = 5 (Via Gambardella VGC), VAR_RESULT = team scelto (0xFFFF = annullato).
 	closemessage
 	special OpenRentalTeamBrowser
-	goto_if_eq VAR_RESULT, 0xFFFF, LittlerootTown_EventScript_RentalMenu
+	goto_if_eq VAR_RESULT, 0xFFFF, LittlerootTown_EventScript_Cancel
 	copyvar VAR_0x8005, VAR_RESULT
 	special BufferRentalTeamName
 	goto LittlerootTown_EventScript_ConfirmTeam
@@ -322,8 +315,8 @@ LittlerootTown_EventScript_ShowCategoryTeams::
 LittlerootTown_EventScript_ConfirmTeam::
 	msgbox LittlerootTown_Text_ConfirmTeamPreview, MSGBOX_YESNO
 	switch VAR_RESULT
-	case NO, LittlerootTown_EventScript_RentalMenu
-	case MULTI_B_PRESSED, LittlerootTown_EventScript_RentalMenu
+	case NO, LittlerootTown_EventScript_ShowCategoryTeams
+	case MULTI_B_PRESSED, LittlerootTown_EventScript_ShowCategoryTeams
 	special GiveSelectedRentalTeam
 	setflag FLAG_SYS_POKEMON_GET
 	setflag FLAG_SYS_POKEDEX_GET
@@ -1150,6 +1143,10 @@ LittlerootTown_Text_BirchSomethingToShowYouAtLab:
 	.string "I gave you?\p"
 	.string "I have something to show you.\n"
 	.string "Let's go to my LAB.$"
+
+LittlerootTown_Text_AskRentalTeam:
+	.string "Ciao! Vuoi scegliere uno dei Team\n"
+	.string "di Via Gambardella VGC a noleggio?\$"
 
 LittlerootTown_Text_ChooseRentalOrReceive:
 	.string "Ciao! Vuoi un team a noleggio\n"
