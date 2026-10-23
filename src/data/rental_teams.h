@@ -6294,8 +6294,8 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         }
     },
     {
-        .name = _("Patatina"),
-        .listName = _("Patatina"),
+        .name = _("Rafel"),
+        .listName = _("Rafel"),
         .category = _("Via Gambardella VGC"),
         .mons = {
             {

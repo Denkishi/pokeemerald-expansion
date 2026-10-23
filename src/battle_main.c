@@ -421,6 +421,15 @@ const struct TrainerClass gTrainerClasses[TRAINER_CLASS_COUNT] =
     [TRAINER_CLASS_ANSIOSO] =              { _("ANSIOSO"), 10 },
     [TRAINER_CLASS_NEL_CHILL] =            { _("NEL CHILL"), 10 },
     [TRAINER_CLASS_SBURRATO] =             { _("SBURRATO"), 10 },
+    [TRAINER_CLASS_U_NGRIPP] =             { _("U NGRIPP"), 10 },
+    [TRAINER_CLASS_DA_MUGNANO] =           { _("DA MUGNANO"), 10 },
+    [TRAINER_CLASS_STABILIZZATO] =         { _("STABILIZZATO"), 10 },
+    [TRAINER_CLASS_TUTTO_FATTO] =          { _("TUTTO FATTO"), 10 },
+    [TRAINER_CLASS_IL_BOSS] =              { _("IL BOSS"), 10 },
+    [TRAINER_CLASS_JAILBREAKKATO] =        { _("JAILBREAKKATO"), 10 },
+    [TRAINER_CLASS_ZERO_ZERO_TRECASE] =    { _("ZERO ZERO TRECASE"), 10 },
+    [TRAINER_CLASS_LA_PATATINA] =          { _("LA PATATINA"), 10 },
+    [TRAINER_CLASS_LA_MODIFICA] =          { _("LA MODIFICA"), 10 },
 };
 
 static void (*const sTurnActionsFuncsTable[])(void) =

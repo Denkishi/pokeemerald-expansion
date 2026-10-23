@@ -25,22 +25,22 @@ con team preview. Sono rilottabili all'infinito (come Enzo).
 
 | Allenatore | Costante | Script da mettere nell'NPC | Classe / Sprite in lotta | Piano della squadra |
 |---|---|---|---|---|
-| SIMONE | `TRAINER_SIMONE` | `VgcTrainer_EventScript_Simone` | Cooltrainer / Cooltrainer M | Forza bruta: Machamp Guts, Arcanine Intimidate, Mega Aggron, Rotom-Mow scarf; Toedscruel con Trick Room e Rage Powder |
+| SIMONE | `TRAINER_SIMONE` | `VgcTrainer_EventScript_Simone` | Jailbreakkato / Cooltrainer M | Forza bruta: Machamp Guts, Arcanine Intimidate, Mega Aggron, Rotom-Mow scarf; Toedscruel con Trick Room e Rage Powder |
 | ELIA | `TRAINER_ELIA` | `VgcTrainer_EventScript_Elia` | Ansioso / sprite custom | Trick Room: Mimikyu e Mega Banette setter, Goodra-Hisui, Lickitung Ferrodifesa + Schiacciacorpo, Vaporeon e Miltank supporto |
-| PATATINA ("La patatina") | `TRAINER_PATATINA` | `VgcTrainer_EventScript_Patatina` | Picnicker / Picnicker | Psichico: Indeedee-F (Psychic Surge, Follow Me, Trick Room) + Armarouge Expanding Force; Ceruledge Swords Dance; Mega Altaria Tailwind; Rotom-Wash |
-| TONY | `TRAINER_TONY` | `VgcTrainer_EventScript_Tony` | Black Belt / sprite custom | Sole: Charizard Y, Roaring Moon e Slither Wing (Protosynthesis), Sableye Prankster con Sunny Day e Fake Out, Mega Gyarados, Brute Bonnet |
-| MARIO LETT | `TRAINER_MARIO_LETT` | `VgcTrainer_EventScript_MarioLett` | Expert / Expert M | Dondozo + Tatsugiri (Commander), Sinistcha Trick Room, Chatot Tailwind, Weezing-Galar, Slaking |
+| RAFEL ("La patatina") | `TRAINER_PATATINA` | `VgcTrainer_EventScript_Patatina` | La Patatina / Picnicker | Psichico: Indeedee-F (Psychic Surge, Follow Me, Trick Room) + Armarouge Expanding Force; Ceruledge Swords Dance; Mega Altaria Tailwind; Rotom-Wash |
+| TONY | `TRAINER_TONY` | `VgcTrainer_EventScript_Tony` | U Ngripp / sprite custom | Sole: Charizard Y, Roaring Moon e Slither Wing (Protosynthesis), Sableye Prankster con Sunny Day e Fake Out, Mega Gyarados, Brute Bonnet |
+| MARIO LETT | `TRAINER_MARIO_LETT` | `VgcTrainer_EventScript_MarioLett` | Stabilizzato / Expert M | Dondozo + Tatsugiri (Commander), Sinistcha Trick Room, Chatot Tailwind, Weezing-Galar, Slaking |
 | TATORE | `TRAINER_TATORE` | `VgcTrainer_EventScript_Tatore` | Nel Chill / sprite custom | Misto: Mega Sceptile, Lapras, Dusclops e Scream Tail Trick Room, Kecleon Fake Out, Armaldo Swords Dance |
-| MARIO | `TRAINER_MARIO` | `VgcTrainer_EventScript_Mario` | Fisherman / sprite custom | Trick Room & Rain: Hariyama, Iron Hands, Oranguru Trick Room; Meganium schermi, Politoed e Golduck Nuotovelox |
-| ENZO (aggiornato) | `TRAINER_ENZO` | già in mappa (`GambEsterno_EventScript_Enzo`) | PKMN Trainer / sprite custom | Smeargle Gravità/Spora/Follow Me, Annihilape scarf, Rillaboom, Mega Gengar, Mega Aerodactyl Tailwind, Grimmsnarl schermi |
-| GEROZZ | `TRAINER_GEROZZ` | `VgcTrainer_EventScript_Gerozz` | Rich Boy / Rich Boy | Sabbia: Mega Tyranitar, Dugtrio-Alola Sand Force, Gholdengo Nasty Plot, Great Tusk Bulk Up, Porygon2 Trick Room, Rotom-Heat |
-| CARLETTO | `TRAINER_CARLETTO` | `VgcTrainer_EventScript_Carletto` | Sailor / Sailor | Pioggia: Pelipper, Ludicolo Fake Out, Kingambit, Snorlax Belly Drum, Amoonguss, Mega Malamar Trick Room |
-| GIGI PINTO | `TRAINER_GIGI_PINTO` | `VgcTrainer_EventScript_GigiPinto` | Gentleman / Gentleman | Sole: Torkoal, Venusaur e Lilligant Chlorophyll, Garganacl, Hatterene Trick Room, Mega Blastoise |
+| MARIO | `TRAINER_MARIO` | `VgcTrainer_EventScript_Mario` | Da Mugnano / sprite custom | Trick Room & Rain: Hariyama, Iron Hands, Oranguru Trick Room; Meganium schermi, Politoed e Golduck Nuotovelox |
+| ENZO (aggiornato) | `TRAINER_ENZO` | già in mappa (`GambEsterno_EventScript_Enzo`) | La Modifica / sprite custom | Smeargle Gravità/Spora/Follow Me, Annihilape scarf, Rillaboom, Mega Gengar, Mega Aerodactyl Tailwind, Grimmsnarl schermi |
+| GEROZZ | `TRAINER_GEROZZ` | `VgcTrainer_EventScript_Gerozz` | Zero Zero Trecase / Rich Boy | Sabbia: Mega Tyranitar, Dugtrio-Alola Sand Force, Gholdengo Nasty Plot, Great Tusk Bulk Up, Porygon2 Trick Room, Rotom-Heat |
+| CARLETTO | `TRAINER_CARLETTO` | `VgcTrainer_EventScript_Carletto` | Il Boss / Sailor | Pioggia: Pelipper, Ludicolo Fake Out, Kingambit, Snorlax Belly Drum, Amoonguss, Mega Malamar Trick Room |
+| GIGI PINTO | `TRAINER_GIGI_PINTO` | `VgcTrainer_EventScript_GigiPinto` | Tutto Fatto / Gentleman | Sole: Torkoal, Venusaur e Lilligant Chlorophyll, Garganacl, Hatterene Trick Room, Mega Blastoise |
 | SAVAROTTO | `TRAINER_SAVAROTTO` | `VgcTrainer_EventScript_Savarotto` | Sburrato / Cooltrainer M | Staffetta: Espathra (Calm Mind + Speed Boost) -> Chandelure Mega; Sneasler/Incineroar Fake Out; Whimsicott Beat Up su Gallade Giustizia |
 
 Note sulle squadre:
 - Tera Type ignorato (il Tera è spento). Nickname, shiny, EV, nature e IV sono quelli del file.
-- "La patatina" è diventata `PATATINA` (max 10 caratteri per il nome).
+- "La patatina" ha come nome `Rafel` e classe `LA PATATINA`.
 
 ## 2. Frasi (segnaposto)
 

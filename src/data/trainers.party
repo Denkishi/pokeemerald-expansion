@@ -16880,7 +16880,7 @@ IVs: 0 HP / 0 Atk / 0 Def / 0 SpA / 0 SpD / 0 Spe
 
 === TRAINER_ENZO ===
 Name: ENZO
-Class: PKMN Trainer 1
+Class: La Modifica
 Pic: Enzo
 Gender: Male
 Music: Intense
@@ -16946,7 +16946,7 @@ Careful Nature
 
 === TRAINER_SIMONE ===
 Name: SIMONE
-Class: Cooltrainer
+Class: Jailbreakkato
 Pic: Cooltrainer M
 Gender: Male
 Music: Male
@@ -17075,8 +17075,8 @@ Bold Nature
 - Thunder Wave
 
 === TRAINER_PATATINA ===
-Name: PATATINA
-Class: Scientist Frlg
+Name: Rafel
+Class: La Patatina
 Pic: Scientist Frlg
 Gender: Male
 Music: Male
@@ -17139,7 +17139,7 @@ Timid Nature
 
 === TRAINER_TONY ===
 Name: TONY
-Class: Black Belt
+Class: U Ngripp
 Pic: Tony
 Gender: Male
 Music: Male
@@ -17204,7 +17204,7 @@ Relaxed Nature
 
 === TRAINER_MARIO_LETT ===
 Name: MARIO LETT
-Class: Expert
+Class: Stabilizzato
 Pic: Expert M
 Gender: Male
 Music: Male
@@ -17332,7 +17332,7 @@ Sassy Nature
 
 === TRAINER_MARIO ===
 Name: MARIO
-Class: Fisherman
+Class: Da Mugnano
 Pic: Mario
 Gender: Male
 Music: Male
@@ -17399,7 +17399,7 @@ Sassy Nature
 
 === TRAINER_GEROZZ ===
 Name: GEROZZ
-Class: Rich Boy
+Class: Zero Zero Trecase
 Pic: Rich Boy
 Gender: Male
 Music: Male
@@ -17463,7 +17463,7 @@ Adamant Nature
 
 === TRAINER_CARLETTO ===
 Name: CARLETTO
-Class: Hiker
+Class: Il Boss
 Pic: Hiker
 Gender: Male
 Music: Male
@@ -17527,7 +17527,7 @@ Brave Nature
 
 === TRAINER_GIGI_PINTO ===
 Name: GIGI PINTO
-Class: Gentleman
+Class: Tutto Fatto
 Pic: Gentleman
 Gender: Male
 Music: Male
