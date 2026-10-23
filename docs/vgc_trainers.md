@@ -26,7 +26,7 @@ con team preview. Sono rilottabili all'infinito (come Enzo).
 | Allenatore | Costante | Script da mettere nell'NPC | Classe / Sprite in lotta | Piano della squadra |
 |---|---|---|---|---|
 | SIMONE | `TRAINER_SIMONE` | `VgcTrainer_EventScript_Simone` | Jailbreakkato / Cooltrainer M | Forza bruta: Machamp Guts, Arcanine Intimidate, Mega Aggron, Rotom-Mow scarf; Toedscruel con Trick Room e Rage Powder |
-| ELIA | `TRAINER_ELIA` | `VgcTrainer_EventScript_Elia` | Ansioso / sprite custom | Trick Room: Mimikyu e Mega Banette setter, Goodra-Hisui, Lickitung Ferrodifesa + Schiacciacorpo, Vaporeon e Miltank supporto |
+| ELIA | `TRAINER_ELIA` | `VgcTrainer_EventScript_Elia` | Pieno Di Ansia / sprite custom | Trick Room: Mimikyu e Mega Banette setter, Goodra-Hisui, Lickitung Ferrodifesa + Schiacciacorpo, Vaporeon e Miltank supporto |
 | RAFEL ("La patatina") | `TRAINER_PATATINA` | `VgcTrainer_EventScript_Patatina` | La Patatina / Picnicker | Psichico: Indeedee-F (Psychic Surge, Follow Me, Trick Room) + Armarouge Expanding Force; Ceruledge Swords Dance; Mega Altaria Tailwind; Rotom-Wash |
 | TONY | `TRAINER_TONY` | `VgcTrainer_EventScript_Tony` | U Ngripp / sprite custom | Sole: Charizard Y, Roaring Moon e Slither Wing (Protosynthesis), Sableye Prankster con Sunny Day e Fake Out, Mega Gyarados, Brute Bonnet |
 | MARIO LETT | `TRAINER_MARIO_LETT` | `VgcTrainer_EventScript_MarioLett` | Stabilizzato / Expert M | Dondozo + Tatsugiri (Commander), Sinistcha Trick Room, Chatot Tailwind, Weezing-Galar, Slaking |
@@ -40,7 +40,7 @@ con team preview. Sono rilottabili all'infinito (come Enzo).
 
 Note sulle squadre:
 - Tera Type ignorato (il Tera è spento). Nickname, shiny, EV, nature e IV sono quelli del file.
-- "La patatina" ha come nome `Rafel` e classe `LA PATATINA`.
+- "La patatina" ha come nome `RAFEL` e classe `LA PATATINA`.
 
 ## 2. Frasi (segnaposto)
 

@@ -430,6 +430,7 @@ const struct TrainerClass gTrainerClasses[TRAINER_CLASS_COUNT] =
     [TRAINER_CLASS_ZERO_ZERO_TRECASE] =    { _("ZERO ZERO TRECASE"), 10 },
     [TRAINER_CLASS_LA_PATATINA] =          { _("LA PATATINA"), 10 },
     [TRAINER_CLASS_LA_MODIFICA] =          { _("LA MODIFICA"), 10 },
+    [TRAINER_CLASS_PIENO_DI_ANSIA] =       { _("PIENO DI ANSIA"), 10 },
 };
 
 static void (*const sTurnActionsFuncsTable[])(void) =
