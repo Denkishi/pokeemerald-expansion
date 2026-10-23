@@ -3163,6 +3163,7 @@ void TeamPreview_RestorePlayerParty(void)
     RestoreReducedParty();
 
     // Cura completa dopo una vittoria (dopo una sconfitta ci pensa già il ritorno al Centro).
-    if (CUSTOM_HEAL_AFTER_BATTLE && gBattleOutcome == B_OUTCOME_WON && !(gBattleTypeFlags & BATTLE_TYPE_FRONTIER))
+    if (CUSTOM_HEAL_AFTER_BATTLE && !(gBattleTypeFlags & BATTLE_TYPE_FRONTIER)
+        && (gBattleOutcome == B_OUTCOME_WON || IS_VGC_TRAINER(TRAINER_BATTLE_PARAM.opponentA)))
         HealPlayerParty();
 }

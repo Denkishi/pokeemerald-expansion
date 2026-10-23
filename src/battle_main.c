@@ -5322,9 +5322,11 @@ static void HandleEndTurn_BattleLost(void)
     }
     else
     {
-        if (gBattleTypeFlags & BATTLE_TYPE_TRAINER && TRAINER_BATTLE_PARAM.earlyRival)
+        if (gBattleTypeFlags & BATTLE_TYPE_TRAINER && (TRAINER_BATTLE_PARAM.earlyRival || IS_VGC_TRAINER(TRAINER_BATTLE_PARAM.opponentA)))
         {
-            if (TRAINER_BATTLE_PARAM.earlyRival)
+            if (IS_VGC_TRAINER(TRAINER_BATTLE_PARAM.opponentA))
+                gBattleCommunication[MULTISTRING_CHOOSER] = 3;
+            else if (TRAINER_BATTLE_PARAM.earlyRival)
                 gBattleCommunication[MULTISTRING_CHOOSER] = 1; // Dont do white out text
             else
                 gBattleCommunication[MULTISTRING_CHOOSER] = 2; // Do white out text

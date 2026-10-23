@@ -1634,8 +1634,13 @@ static void CB2_EndTrainerBattle(void)
     }
     else if (IsPlayerDefeated(gBattleOutcome))
     {
-        if (CurrentBattlePyramidLocation() != PYRAMID_LOCATION_NONE || InTrainerHillChallenge() || FlagGet(B_FLAG_NO_WHITEOUT))
+        if (CurrentBattlePyramidLocation() != PYRAMID_LOCATION_NONE || InTrainerHillChallenge() || FlagGet(B_FLAG_NO_WHITEOUT) || IS_VGC_TRAINER(TRAINER_BATTLE_PARAM.opponentA))
+        {
+            if (IS_VGC_TRAINER(TRAINER_BATTLE_PARAM.opponentA))
+                HealPlayerParty();
+            DowngradeBadPoison();
             SetMainCallback2(CB2_ReturnToFieldContinueScriptPlayMapMusic);
+        }
         else
             SetMainCallback2(CB2_WhiteOut);
     }
