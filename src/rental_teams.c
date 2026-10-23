@@ -104,6 +104,7 @@ static const u8 sText_KeyHelpPreview[] = _("A: Sommario   B: Indietro   START: S
 static const u8 sText_RandomTeamOption[] = _("Team Casuale");
 static const u8 sText_AllTeamsCategory[] = _("TUTTI I TEAM (76)");
 static const u8 sText_HeaderPrefix[] = _("TEAM A NOLEGGIO - ");
+static const u8 sText_HeaderOnly[] = _("TEAM A NOLEGGIO");
 static const u8 sText_UnknownTeam[] = _("Team Sconosciuto");
 static const u8 sText_StrNone[] = _("Str: Nessuno");
 static const u8 sText_StrPrefix[] = _("Str: ");
@@ -427,7 +428,7 @@ static void RB_DrawHeader(void)
 
         if (sRB.category == 5)
         {
-            StringCopy(gStringVar4, _("TEAM A NOLEGGIO"));
+            StringCopy(gStringVar4, sText_HeaderOnly);
         }
         else
         {

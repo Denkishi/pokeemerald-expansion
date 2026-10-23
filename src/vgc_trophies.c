@@ -51,6 +51,14 @@ static const u8 sText_DefeatedHeader[] = _("SCONFITTI");
 static const u8 sText_HelpExit[] = _("{B_BUTTON} Esci");
 static const u8 sText_ArrowUp[] = _("▲");
 static const u8 sText_ArrowDown[] = _("▼");
+static const u8 sText_AllComplete[] = _("★ 144/144!");
+static const u8 sText_TotPrefix[] = _("TOT: ");
+static const u8 sText_Slash144[] = _("/144");
+static const u8 sText_Cursor[] = _("▶");
+static const u8 sText_Slash12[] = _("/12");
+static const u8 sText_Star[] = _("★");
+static const u8 sText_ColonSpace[] = _(": ");
+static const u8 sText_Dash[] = _("-");
 
 static const u8 sVgcTeamNames[VGC_TEAMS_COUNT][16] =
 {
@@ -198,14 +206,14 @@ static void VT_DrawHeader(void)
 
     if (total >= VGC_TEAMS_COUNT * VGC_TRAINERS_COUNT)
     {
-        AddTextPrinterParameterized3(WIN_HEADER, FONT_SMALL, 150, 1, sColRed, TEXT_SKIP_DRAW, _("★ 144/144!"));
+        AddTextPrinterParameterized3(WIN_HEADER, FONT_SMALL, 150, 1, sColRed, TEXT_SKIP_DRAW, sText_AllComplete);
     }
     else
     {
         ConvertIntToDecimalStringN(gStringVar1, total, STR_CONV_MODE_LEFT_ALIGN, 3);
-        StringCopy(gStringVar4, _("TOT: "));
+        StringCopy(gStringVar4, sText_TotPrefix);
         StringAppend(gStringVar4, gStringVar1);
-        StringAppend(gStringVar4, _("/144"));
+        StringAppend(gStringVar4, sText_Slash144);
         AddTextPrinterParameterized3(WIN_HEADER, FONT_SMALL, 170, 1, sColRed, TEXT_SKIP_DRAW, gStringVar4);
     }
 
@@ -232,7 +240,7 @@ static void VT_DrawTeams(void)
 
         if (teamIdx == sVT.cursor)
         {
-            AddTextPrinterParameterized3(WIN_TEAMS, FONT_NORMAL, 1, y - 2, sColRed, TEXT_SKIP_DRAW, _(">"));
+            AddTextPrinterParameterized3(WIN_TEAMS, FONT_NORMAL, 1, y - 2, sColRed, TEXT_SKIP_DRAW, sText_Cursor);
             nameCol = sColRed;
         }
         else
@@ -244,11 +252,11 @@ static void VT_DrawTeams(void)
 
         ConvertIntToDecimalStringN(gStringVar1, count, STR_CONV_MODE_RIGHT_ALIGN, 2);
         StringCopy(gStringVar4, gStringVar1);
-        StringAppend(gStringVar4, _("/12"));
+        StringAppend(gStringVar4, sText_Slash12);
 
         if (count == VGC_TRAINERS_COUNT)
         {
-            AddTextPrinterParameterized3(WIN_TEAMS, FONT_SMALL, 68, y, sColGreen, TEXT_SKIP_DRAW, _("★"));
+            AddTextPrinterParameterized3(WIN_TEAMS, FONT_SMALL, 68, y, sColGreen, TEXT_SKIP_DRAW, sText_Star);
             AddTextPrinterParameterized3(WIN_TEAMS, FONT_SMALL, 76, y, sColGreen, TEXT_SKIP_DRAW, gStringVar4);
         }
         else
@@ -275,9 +283,9 @@ static void VT_DrawChecklist(void)
     // Intestazione con conteggio
     ConvertIntToDecimalStringN(gStringVar1, teamWins, STR_CONV_MODE_LEFT_ALIGN, 2);
     StringCopy(gStringVar4, sText_DefeatedHeader);
-    StringAppend(gStringVar4, _(": "));
+    StringAppend(gStringVar4, sText_ColonSpace);
     StringAppend(gStringVar4, gStringVar1);
-    StringAppend(gStringVar4, _("/12"));
+    StringAppend(gStringVar4, sText_Slash12);
     AddTextPrinterParameterized3(WIN_CHECKLIST, FONT_NORMAL, 4, 1, (teamWins == VGC_TRAINERS_COUNT) ? sColGreen : sColDark, TEXT_SKIP_DRAW, gStringVar4);
 
     // 2 Colonne da 6 avversari
@@ -291,12 +299,12 @@ static void VT_DrawChecklist(void)
 
         if (beaten)
         {
-            AddTextPrinterParameterized3(WIN_CHECKLIST, FONT_SMALL, x, y, sColGreen, TEXT_SKIP_DRAW, _("★"));
+            AddTextPrinterParameterized3(WIN_CHECKLIST, FONT_SMALL, x, y, sColGreen, TEXT_SKIP_DRAW, sText_Star);
             AddTextPrinterParameterized3(WIN_CHECKLIST, FONT_SMALL, x + 8, y, sColDark, TEXT_SKIP_DRAW, sVgcTrainerNames[i]);
         }
         else
         {
-            AddTextPrinterParameterized3(WIN_CHECKLIST, FONT_SMALL, x, y, sColGray, TEXT_SKIP_DRAW, _("-"));
+            AddTextPrinterParameterized3(WIN_CHECKLIST, FONT_SMALL, x, y, sColGray, TEXT_SKIP_DRAW, sText_Dash);
             AddTextPrinterParameterized3(WIN_CHECKLIST, FONT_SMALL, x + 8, y, sColGray, TEXT_SKIP_DRAW, sVgcTrainerNames[i]);
         }
     }
