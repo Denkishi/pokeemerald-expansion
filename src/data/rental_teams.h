@@ -6057,8 +6057,8 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         }
     },
     {
-        .name = _("Team di Enzo"),
-        .listName = _("Team di Enzo"),
+        .name = _("Enzo"),
+        .listName = _("Enzo"),
         .category = _("Via Gambardella VGC"),
         .mons = {
             {
@@ -6136,8 +6136,8 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         }
     },
     {
-        .name = _("Team di Simone"),
-        .listName = _("Team di Simone"),
+        .name = _("Simone"),
+        .listName = _("Simone"),
         .category = _("Via Gambardella VGC"),
         .mons = {
             {
@@ -6215,8 +6215,8 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         }
     },
     {
-        .name = _("Team di Elia"),
-        .listName = _("Team di Elia"),
+        .name = _("Elia"),
+        .listName = _("Elia"),
         .category = _("Via Gambardella VGC"),
         .mons = {
             {
@@ -6294,8 +6294,8 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         }
     },
     {
-        .name = _("Team di Patatina"),
-        .listName = _("Team di Patatina"),
+        .name = _("Patatina"),
+        .listName = _("Patatina"),
         .category = _("Via Gambardella VGC"),
         .mons = {
             {
@@ -6373,8 +6373,8 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         }
     },
     {
-        .name = _("Team di Tony"),
-        .listName = _("Team di Tony"),
+        .name = _("Tony"),
+        .listName = _("Tony"),
         .category = _("Via Gambardella VGC"),
         .mons = {
             {
@@ -6452,8 +6452,8 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         }
     },
     {
-        .name = _("Team di Mario Lett"),
-        .listName = _("Team di Mario Lett"),
+        .name = _("Mario Lett"),
+        .listName = _("Mario Lett"),
         .category = _("Via Gambardella VGC"),
         .mons = {
             {
@@ -6531,8 +6531,8 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         }
     },
     {
-        .name = _("Team di Tatore"),
-        .listName = _("Team di Tatore"),
+        .name = _("Tatore"),
+        .listName = _("Tatore"),
         .category = _("Via Gambardella VGC"),
         .mons = {
             {
@@ -6610,8 +6610,8 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         }
     },
     {
-        .name = _("Team di Mario"),
-        .listName = _("Team di Mario"),
+        .name = _("Mario"),
+        .listName = _("Mario"),
         .category = _("Via Gambardella VGC"),
         .mons = {
             {
@@ -6689,8 +6689,8 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         }
     },
     {
-        .name = _("Team di Gerozz"),
-        .listName = _("Team di Gerozz"),
+        .name = _("Gerozz"),
+        .listName = _("Gerozz"),
         .category = _("Via Gambardella VGC"),
         .mons = {
             {
@@ -6768,8 +6768,8 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         }
     },
     {
-        .name = _("Team di Carletto"),
-        .listName = _("Team di Carletto"),
+        .name = _("Carletto"),
+        .listName = _("Carletto"),
         .category = _("Via Gambardella VGC"),
         .mons = {
             {
@@ -6847,8 +6847,8 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         }
     },
     {
-        .name = _("Team di Gigi Pinto"),
-        .listName = _("Team di Gigi Pinto"),
+        .name = _("Gigi Pinto"),
+        .listName = _("Gigi Pinto"),
         .category = _("Via Gambardella VGC"),
         .mons = {
             {
@@ -6926,8 +6926,8 @@ static const struct RentalTeam sRentalTeams[TOTAL_RENTAL_TEAMS] =
         }
     },
     {
-        .name = _("Team di Savarotto"),
-        .listName = _("Team di Savarotto"),
+        .name = _("Savarotto"),
+        .listName = _("Savarotto"),
         .category = _("Via Gambardella VGC"),
         .mons = {
             {

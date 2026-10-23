@@ -887,16 +887,12 @@ void ChooseRandomRentalTeam(void)
 void BufferRentalTeamName(void)
 {
     u16 teamId = gSpecialVar_Result;
+    if (teamId >= TOTAL_RENTAL_TEAMS)
+        teamId = gSpecialVar_0x8005;
+
     if (teamId < TOTAL_RENTAL_TEAMS)
     {
-        u8 i;
-        for (i = 0; i < 47; i++)
-        {
-            gStringVar1[i] = sRentalTeams[teamId].name[i];
-            if (gStringVar1[i] == EOS || gStringVar1[i] == 0x00)
-                break;
-        }
-        gStringVar1[i] = EOS;
+        StringCopy(gStringVar1, sRentalTeams[teamId].name);
     }
     else
     {
