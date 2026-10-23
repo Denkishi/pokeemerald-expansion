@@ -45,7 +45,7 @@ gamb_int1_2_Text_OptionVgc:
 	.string "GAMBARDELLA VGC$"
 
 gamb_int1_2_Text_OptionUnknown:
-	.string "????"$
+	.string "????$"
 
 gamb_int1_2_Text_OptionExit:
 	.string "ESCI$"

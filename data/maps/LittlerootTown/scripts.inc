@@ -1146,7 +1146,7 @@ LittlerootTown_Text_BirchSomethingToShowYouAtLab:
 
 LittlerootTown_Text_AskRentalTeam:
 	.string "Ciao! Vuoi scegliere uno dei Team\n"
-	.string "di Via Gambardella VGC a noleggio?\$"
+	.string "di Via Gambardella VGC a noleggio?$"
 
 LittlerootTown_Text_ChooseRentalOrReceive:
 	.string "Ciao! Vuoi un team a noleggio\n"
