@@ -3078,8 +3078,7 @@ u32 BattleStringExpandPlaceholders(const u8 *src, u8 *dst, u32 dstSize)
 {
     u32 dstID = 0; // if they used dstID, why not use srcID as well?
     const u8 *toCpy = NULL;
-    u8 text[max(max(max(32, TRAINER_NAME_LENGTH + 1), POKEMON_NAME_LENGTH + 1), ITEM_NAME_LENGTH)];
-    u8 *textStart = &text[0];
+    u8 text[max(max(max(64, TRAINER_NAME_LENGTH + 1), POKEMON_NAME_LENGTH + 1), ITEM_NAME_LENGTH)];
     u8 multiplayerId;
     u8 fontId = FONT_NORMAL;
 
@@ -3294,24 +3293,33 @@ u32 BattleStringExpandPlaceholders(const u8 *src, u8 *dst, u32 dstSize)
                 toCpy = BattleStringGetOpponentNameByTrainerId(TRAINER_BATTLE_PARAM.opponentA, text, multiplayerId, GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT));
                 break;
             case B_TXT_TRAINER1_NAME_WITH_CLASS: // trainer1 name with trainer class
-                toCpy = textStart;
-                classString = BattleStringGetOpponentClassByTrainerId(TRAINER_BATTLE_PARAM.opponentA);
-                while (classString[classLength] != EOS)
-                {
-                    textStart[classLength] = classString[classLength];
-                    classLength++;
-                }
-                textStart[classLength] = CHAR_SPACE;
-                textStart += classLength + 1;
-                nameString = BattleStringGetOpponentNameByTrainerId(TRAINER_BATTLE_PARAM.opponentA, textStart, multiplayerId, GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT));
-                if (nameString != textStart)
+                toCpy = text;
+                nameString = BattleStringGetOpponentNameByTrainerId(TRAINER_BATTLE_PARAM.opponentA, text, multiplayerId, GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT));
+                if (nameString != text)
                 {
                     while (nameString[nameLength] != EOS)
                     {
-                        textStart[nameLength] = nameString[nameLength];
+                        text[nameLength] = nameString[nameLength];
                         nameLength++;
                     }
-                    textStart[nameLength] = EOS;
+                    text[nameLength] = EOS;
+                }
+                else
+                {
+                    while (text[nameLength] != EOS)
+                        nameLength++;
+                }
+                classString = BattleStringGetOpponentClassByTrainerId(TRAINER_BATTLE_PARAM.opponentA);
+                if (classString != NULL && classString[0] != EOS)
+                {
+                    text[nameLength++] = CHAR_COMMA;
+                    text[nameLength++] = CHAR_SPACE;
+                    classLength = 0;
+                    while (classString[classLength] != EOS)
+                    {
+                        text[nameLength++] = classString[classLength++];
+                    }
+                    text[nameLength] = EOS;
                 }
                 break;
             case B_TXT_LINK_PLAYER_NAME: // link player name
@@ -3441,24 +3449,33 @@ u32 BattleStringExpandPlaceholders(const u8 *src, u8 *dst, u32 dstSize)
                 toCpy = BattleStringGetOpponentNameByTrainerId(TRAINER_BATTLE_PARAM.opponentB, text, multiplayerId, GetBattlerAtPosition(B_POSITION_OPPONENT_RIGHT));
                 break;
             case B_TXT_TRAINER2_NAME_WITH_CLASS:
-                toCpy = textStart;
-                classString = BattleStringGetOpponentClassByTrainerId(TRAINER_BATTLE_PARAM.opponentB);
-                while (classString[classLength] != EOS)
-                {
-                    textStart[classLength] = classString[classLength];
-                    classLength++;
-                }
-                textStart[classLength] = CHAR_SPACE;
-                textStart += classLength + 1;
-                nameString = BattleStringGetOpponentNameByTrainerId(TRAINER_BATTLE_PARAM.opponentB, textStart, multiplayerId, GetBattlerAtPosition(B_POSITION_OPPONENT_RIGHT));
-                if (nameString != textStart)
+                toCpy = text;
+                nameString = BattleStringGetOpponentNameByTrainerId(TRAINER_BATTLE_PARAM.opponentB, text, multiplayerId, GetBattlerAtPosition(B_POSITION_OPPONENT_RIGHT));
+                if (nameString != text)
                 {
                     while (nameString[nameLength] != EOS)
                     {
-                        textStart[nameLength] = nameString[nameLength];
+                        text[nameLength] = nameString[nameLength];
                         nameLength++;
                     }
-                    textStart[nameLength] = EOS;
+                    text[nameLength] = EOS;
+                }
+                else
+                {
+                    while (text[nameLength] != EOS)
+                        nameLength++;
+                }
+                classString = BattleStringGetOpponentClassByTrainerId(TRAINER_BATTLE_PARAM.opponentB);
+                if (classString != NULL && classString[0] != EOS)
+                {
+                    text[nameLength++] = CHAR_COMMA;
+                    text[nameLength++] = CHAR_SPACE;
+                    classLength = 0;
+                    while (classString[classLength] != EOS)
+                    {
+                        text[nameLength++] = classString[classLength++];
+                    }
+                    text[nameLength] = EOS;
                 }
                 break;
             case B_TXT_TRAINER2_LOSE_TEXT:
@@ -3506,24 +3523,33 @@ u32 BattleStringExpandPlaceholders(const u8 *src, u8 *dst, u32 dstSize)
                 toCpy = BattleStringGetPlayerName(text, GetBattlerAtPosition(B_POSITION_PLAYER_RIGHT));
                 break;
             case B_TXT_PARTNER_NAME_WITH_CLASS:
-                toCpy = textStart;
-                classString = gTrainerClasses[GetFrontierOpponentClass(gPartnerTrainerId)].name;
-                while (classString[classLength] != EOS)
-                {
-                    textStart[classLength] = classString[classLength];
-                    classLength++;
-                }
-                textStart[classLength] = CHAR_SPACE;
-                textStart += classLength + 1;
-                nameString = BattleStringGetPlayerName(textStart, GetBattlerAtPosition(B_POSITION_PLAYER_RIGHT));
-                if (nameString != textStart)
+                toCpy = text;
+                nameString = BattleStringGetPlayerName(text, GetBattlerAtPosition(B_POSITION_PLAYER_RIGHT));
+                if (nameString != text)
                 {
                     while (nameString[nameLength] != EOS)
                     {
-                        textStart[nameLength] = nameString[nameLength];
+                        text[nameLength] = nameString[nameLength];
                         nameLength++;
                     }
-                    textStart[nameLength] = EOS;
+                    text[nameLength] = EOS;
+                }
+                else
+                {
+                    while (text[nameLength] != EOS)
+                        nameLength++;
+                }
+                classString = gTrainerClasses[GetFrontierOpponentClass(gPartnerTrainerId)].name;
+                if (classString != NULL && classString[0] != EOS)
+                {
+                    text[nameLength++] = CHAR_COMMA;
+                    text[nameLength++] = CHAR_SPACE;
+                    classLength = 0;
+                    while (classString[classLength] != EOS)
+                    {
+                        text[nameLength++] = classString[classLength++];
+                    }
+                    text[nameLength] = EOS;
                 }
                 break;
             case B_TXT_ATK_TRAINER_NAME:
@@ -3550,17 +3576,17 @@ u32 BattleStringExpandPlaceholders(const u8 *src, u8 *dst, u32 dstSize)
                 }
                 break;
             case B_TXT_ATK_TRAINER_NAME_WITH_CLASS:
-                toCpy = textStart;
+                toCpy = text;
                 if (gBattleTypeFlags & BATTLE_TYPE_CATCH_TUTORIAL)
                 {
                     if (IS_FRLG)
-                        textStart = StringCopy(textStart, COMPOUND_STRING("The old man"));
+                        StringCopy(text, COMPOUND_STRING("The old man"));
                     else
-                        textStart = StringCopy(textStart, COMPOUND_STRING("WALLY"));
+                        StringCopy(text, COMPOUND_STRING("WALLY"));
                 }
                 else if (GetBattlerPosition(gBattlerAttacker) == B_POSITION_PLAYER_LEFT)
                 {
-                    textStart = StringCopy(textStart, BattleStringGetTrainerName(textStart, multiplayerId, gBattlerAttacker));
+                    StringCopy(text, BattleStringGetTrainerName(text, multiplayerId, gBattlerAttacker));
                 }
                 else
                 {
@@ -3585,22 +3611,30 @@ u32 BattleStringExpandPlaceholders(const u8 *src, u8 *dst, u32 dstSize)
                     }
                     classLength = 0;
                     nameLength = 0;
-                    while (classString[classLength] != EOS)
-                    {
-                        textStart[classLength] = classString[classLength];
-                        classLength++;
-                    }
-                    textStart[classLength] = CHAR_SPACE;
-                    textStart += 1 + classLength;
-                    nameString = BattleStringGetTrainerName(textStart, multiplayerId, gBattlerAttacker);
-                    if (nameString != textStart)
+                    nameString = BattleStringGetTrainerName(text, multiplayerId, gBattlerAttacker);
+                    if (nameString != text)
                     {
                         while (nameString[nameLength] != EOS)
                         {
-                            textStart[nameLength] = nameString[nameLength];
+                            text[nameLength] = nameString[nameLength];
                             nameLength++;
                         }
-                        textStart[nameLength] = EOS;
+                        text[nameLength] = EOS;
+                    }
+                    else
+                    {
+                        while (text[nameLength] != EOS)
+                            nameLength++;
+                    }
+                    if (classString != NULL && classString[0] != EOS)
+                    {
+                        text[nameLength++] = CHAR_COMMA;
+                        text[nameLength++] = CHAR_SPACE;
+                        while (classString[classLength] != EOS)
+                        {
+                            text[nameLength++] = classString[classLength++];
+                        }
+                        text[nameLength] = EOS;
                     }
                 }
                 break;

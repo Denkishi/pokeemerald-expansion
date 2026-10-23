@@ -17140,10 +17140,11 @@ Timid Nature
 === TRAINER_TONY ===
 Name: TONY
 Class: Black Belt
-Pic: Black Belt
+Pic: Tony
 Gender: Male
 Music: Male
 Double Battle: Yes
+Mugshot: Blue
 AI: Basic Trainer / Smart Switching / Smart Mon Choices / Pp Stall Prevention / Randomize Switchin / Know Opponent Party / Assume Stab / Assume Status Moves / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
 
 Roaring Moon @ Roseli Berry
@@ -17332,10 +17333,11 @@ Sassy Nature
 === TRAINER_MARIO ===
 Name: MARIO
 Class: Fisherman
-Pic: Fisherman
+Pic: Mario
 Gender: Male
 Music: Male
 Double Battle: Yes
+Mugshot: Yellow
 AI: Basic Trainer / Smart Switching / Smart Mon Choices / Pp Stall Prevention / Randomize Switchin / Know Opponent Party / Assume Stab / Assume Status Moves / Prediction / Hp Aware / Try To 2hko / Weigh Ability Prediction / Double Battle / Prefer Highest Damage Move / Vgc Doubles
 
 Hariyama @ Flame Orb
