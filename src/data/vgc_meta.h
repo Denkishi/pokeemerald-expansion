@@ -1,0 +1,4438 @@
+// GENERATO da tools/vgc_meta/gen_vgc_meta.py: non modificare a mano (rigenerare, vedi
+// docs/ia_vgc/piano_implementazione.md, M1).
+// Fonte: statistiche d'uso Smogon/Showdown, mese 2026-09, formati (in ordine di preferenza):
+//   gen9championsvgc2026regmc-1630
+//   gen9championsvgc2026regmc-0
+//   gen9championsvgc2026regmb-1630
+//   gen9championsvgc2026regmb-0
+//   gen9vgc2024regg-0
+//   gen9nationaldexdoubles-0
+//   gen9doublesou-0
+// Specie: 310 (squadre VGC del gioco: 72, più le più usate dei formati).
+// Senza dati sufficienti (restano alla stima da learnset): LICKITUNG
+// Probabilità in percentuale (0..100). EV in unità di 4 (0..63). Ordine EV: PS/Att/Dif/AttSp/DifSp/Vel.
+// Tabella ordinata per numero di specie (ricerca binaria in src/battle_ai_scout.c).
+
+#define VGC_META_MOVES     10
+#define VGC_META_ITEMS     4
+#define VGC_META_ABILITIES 3
+#define VGC_META_SPREADS   3
+#define VGC_META_MEGAS     2
+
+struct VgcMetaSpread
+{
+    u8 nature;
+    u8 p;
+    u8 ev[6];   // EV / 4, ordine Showdown: PS, Att, Dif, AttSp, DifSp, Vel
+};
+
+struct VgcMetaEntry
+{
+    u16 species;
+    u8 usage;                               // % di squadre del formato che la portano
+    u8 source;                              // indice in sVgcMetaSources
+    u16 moves[VGC_META_MOVES];
+    u8 moveP[VGC_META_MOVES];
+    u16 items[VGC_META_ITEMS];              // senza Megapietre (vedi megaP)
+    u8 itemP[VGC_META_ITEMS];
+    u16 abilities[VGC_META_ABILITIES];      // della forma base (prima della Mega)
+    u8 abilityP[VGC_META_ABILITIES];
+    u16 megas[VGC_META_MEGAS];
+    u8 megaP[VGC_META_MEGAS];
+    struct VgcMetaSpread spreads[VGC_META_SPREADS];
+};
+
+static const char *const sVgcMetaSources[] UNUSED =
+{
+    "gen9championsvgc2026regmc-1630",
+    "gen9vgc2024regg-0",
+    "gen9nationaldexdoubles-0",
+    "gen9championsvgc2026regmc-0",
+    "gen9doublesou-0",
+};
+
+static const struct VgcMetaEntry sVgcMeta[] =
+{
+    {
+        .species = SPECIES_VENUSAUR, .usage = 3, .source = 0, // gen9championsvgc2026regmc-1630, 100481 lotte
+        .moves = { MOVE_SLUDGE_BOMB, MOVE_PROTECT, MOVE_SLEEP_POWDER, MOVE_LEAF_STORM, MOVE_EARTH_POWER, MOVE_GIGA_DRAIN, MOVE_ENERGY_BALL, MOVE_SOLAR_BEAM, MOVE_BULLDOZE, MOVE_LEECH_SEED },
+        .moveP = { 92, 86, 70, 54, 49, 19, 8, 5, 3, 2 },
+        .items = { ITEM_FOCUS_SASH, ITEM_LIFE_ORB, ITEM_WIDE_LENS, ITEM_OCCA_BERRY },
+        .itemP = { 50, 17, 9, 4 },
+        .abilities = { ABILITY_CHLOROPHYLL, ABILITY_OVERGROW },
+        .abilityP = { 99, 1 },
+        .megas = { SPECIES_VENUSAUR_MEGA },
+        .megaP = { 18 },
+        .spreads = {
+            { NATURE_MODEST, 57, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 12, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 4, { 43, 0, 0, 63, 0, 23 } },
+        },
+    },
+    {
+        .species = SPECIES_CHARIZARD, .usage = 11, .source = 0, // gen9championsvgc2026regmc-1630, 331291 lotte
+        .moves = { MOVE_PROTECT, MOVE_HEAT_WAVE, MOVE_WEATHER_BALL, MOVE_SOLAR_BEAM, MOVE_ANCIENT_POWER, MOVE_HURRICANE, MOVE_AIR_SLASH, MOVE_FLARE_BLITZ, MOVE_OVERHEAT, MOVE_DRAGON_CLAW },
+        .moveP = { 99, 96, 90, 49, 29, 15, 3, 2, 2, 2 },
+        .megas = { SPECIES_CHARIZARD_MEGA_Y, SPECIES_CHARIZARD_MEGA_X },
+        .megaP = { 96, 3 },
+        .spreads = {
+            { NATURE_TIMID, 12, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 8, { 23, 0, 27, 15, 0, 63 } },
+            { NATURE_MODEST, 8, { 3, 0, 0, 63, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_BLASTOISE, .usage = 3, .source = 0, // gen9championsvgc2026regmc-1630, 104463 lotte
+        .moves = { MOVE_WATER_SPOUT, MOVE_PROTECT, MOVE_SHELL_SMASH, MOVE_DARK_PULSE, MOVE_AURA_SPHERE, MOVE_TERRAIN_PULSE, MOVE_FAKE_OUT, MOVE_ICE_BEAM, MOVE_WATER_PULSE, MOVE_DRAGON_PULSE },
+        .moveP = { 93, 73, 63, 58, 32, 28, 24, 14, 8, 2 },
+        .abilities = { ABILITY_TORRENT, ABILITY_RAIN_DISH },
+        .abilityP = { 55, 45 },
+        .megas = { SPECIES_BLASTOISE_MEGA },
+        .megaP = { 99 },
+        .spreads = {
+            { NATURE_MODEST, 29, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 25, { 43, 0, 0, 49, 0, 37 } },
+            { NATURE_QUIET, 22, { 63, 0, 0, 63, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_BEEDRILL, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 11141 lotte
+        .moves = { MOVE_POISON_JAB, MOVE_U_TURN, MOVE_PROTECT, MOVE_DRILL_RUN, MOVE_KNOCK_OFF, MOVE_FELL_STINGER, MOVE_LUNGE, MOVE_STRING_SHOT, MOVE_BRICK_BREAK, MOVE_DUAL_WINGBEAT },
+        .moveP = { 97, 91, 86, 60, 15, 12, 10, 7, 6, 4 },
+        .megas = { SPECIES_BEEDRILL_MEGA },
+        .megaP = { 100 },
+        .spreads = {
+            { NATURE_JOLLY, 66, { 1, 63, 0, 0, 1, 63 } },
+            { NATURE_ADAMANT, 16, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 5, { 0, 33, 31, 0, 1, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_PIDGEOT, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 5128 lotte
+        .moves = { MOVE_HURRICANE, MOVE_PROTECT, MOVE_HEAT_WAVE, MOVE_TAILWIND, MOVE_HYPER_BEAM },
+        .moveP = { 99, 99, 98, 89, 9 },
+        .megas = { SPECIES_PIDGEOT_MEGA },
+        .megaP = { 100 },
+        .spreads = {
+            { NATURE_TIMID, 88, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 7, { 39, 0, 0, 27, 0, 63 } },
+            { NATURE_MODEST, 3, { 3, 0, 0, 63, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_PIKACHU, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 4906 lotte
+        .moves = { MOVE_FAKE_OUT, MOVE_ENDEAVOR, MOVE_NUZZLE, MOVE_PROTECT, MOVE_HELPING_HAND, MOVE_VOLT_TACKLE, MOVE_RISING_VOLTAGE, MOVE_UPPER_HAND, MOVE_VOLT_SWITCH, MOVE_ALLURING_VOICE },
+        .moveP = { 81, 45, 43, 42, 25, 21, 18, 15, 14, 10 },
+        .items = { ITEM_LIGHT_BALL, ITEM_FOCUS_SASH },
+        .itemP = { 50, 47 },
+        .abilities = { ABILITY_LIGHTNING_ROD, ABILITY_STATIC },
+        .abilityP = { 88, 12 },
+        .spreads = {
+            { NATURE_JOLLY, 43, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 14, { 0, 0, 63, 0, 3, 63 } },
+            { NATURE_TIMID, 12, { 1, 0, 0, 63, 1, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_RAICHU, .usage = 15, .source = 0, // gen9championsvgc2026regmc-1630, 410514 lotte
+        .moves = { MOVE_PROTECT, MOVE_ZAP_CANNON, MOVE_FOCUS_BLAST, MOVE_FAKE_OUT, MOVE_ENCORE, MOVE_VOLT_SWITCH, MOVE_VOLT_TACKLE, MOVE_RISING_VOLTAGE },
+        .moveP = { 92, 87, 86, 80, 22, 7, 6, 5 },
+        .abilities = { ABILITY_LIGHTNING_ROD, ABILITY_STATIC },
+        .abilityP = { 97, 3 },
+        .megas = { SPECIES_RAICHU_MEGA_Y, SPECIES_RAICHU_MEGA_X },
+        .megaP = { 88, 11 },
+        .spreads = {
+            { NATURE_TIMID, 25, { 63, 0, 0, 3, 0, 63 } },
+            { NATURE_TIMID, 19, { 63, 0, 21, 0, 0, 45 } },
+            { NATURE_TIMID, 11, { 63, 0, 19, 0, 0, 47 } },
+        },
+    },
+    {
+        .species = SPECIES_CLEFAIRY, .usage = 5, .source = 1, // gen9vgc2024regg-0, 1215 lotte
+        .moves = { MOVE_FOLLOW_ME, MOVE_PROTECT, MOVE_HELPING_HAND, MOVE_AFTER_YOU, MOVE_LIFE_DEW, MOVE_SING, MOVE_HEAL_PULSE, MOVE_ENCORE, MOVE_MOONBLAST, MOVE_ICY_WIND },
+        .moveP = { 100, 91, 89, 56, 23, 14, 7, 6, 5, 3 },
+        .items = { ITEM_EVIOLITE },
+        .itemP = { 100 },
+        .abilities = { ABILITY_FRIEND_GUARD, ABILITY_CUTE_CHARM },
+        .abilityP = { 99, 1 },
+        .spreads = {
+            { NATURE_RELAXED, 43, { 63, 0, 63, 0, 1, 0 } },
+            { NATURE_SASSY, 14, { 63, 0, 35, 0, 29, 0 } },
+            { NATURE_BOLD, 9, { 63, 0, 63, 0, 1, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_CLEFABLE, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 65670 lotte
+        .moves = { MOVE_FOLLOW_ME, MOVE_MOONBLAST, MOVE_PROTECT, MOVE_HELPING_HAND, MOVE_LIFE_DEW, MOVE_SKILL_SWAP, MOVE_FLAMETHROWER, MOVE_DAZZLING_GLEAM, MOVE_THUNDER_WAVE, MOVE_ICY_WIND },
+        .moveP = { 91, 78, 63, 29, 27, 11, 11, 10, 9, 7 },
+        .items = { ITEM_SITRUS_BERRY, ITEM_LEFTOVERS, ITEM_ROCKY_HELMET, ITEM_BABIRI_BERRY },
+        .itemP = { 37, 19, 13, 3 },
+        .abilities = { ABILITY_UNAWARE, ABILITY_MAGIC_GUARD, ABILITY_CUTE_CHARM },
+        .abilityP = { 69, 27, 3 },
+        .megas = { SPECIES_CLEFABLE_MEGA },
+        .megaP = { 13 },
+        .spreads = {
+            { NATURE_BOLD, 35, { 63, 0, 63, 0, 3, 0 } },
+            { NATURE_CALM, 13, { 63, 0, 0, 3, 63, 0 } },
+            { NATURE_CALM, 9, { 63, 0, 21, 0, 45, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_NINETALES, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 14186 lotte
+        .moves = { MOVE_HEAT_WAVE, MOVE_SOLAR_BEAM, MOVE_FAKE_TEARS, MOVE_OVERHEAT, MOVE_PROTECT, MOVE_WEATHER_BALL, MOVE_WILL_O_WISP, MOVE_HELPING_HAND, MOVE_ENCORE, MOVE_FLAMETHROWER },
+        .moveP = { 92, 70, 61, 59, 31, 16, 11, 8, 7, 6 },
+        .items = { ITEM_CHOICE_SCARF, ITEM_CHARCOAL, ITEM_LIFE_ORB, ITEM_FOCUS_SASH },
+        .itemP = { 65, 13, 8, 6 },
+        .abilities = { ABILITY_DROUGHT, ABILITY_FLASH_FIRE },
+        .abilityP = { 99, 1 },
+        .spreads = {
+            { NATURE_MODEST, 60, { 1, 0, 1, 63, 0, 63 } },
+            { NATURE_TIMID, 21, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 6, { 63, 0, 1, 0, 1, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_WIGGLYTUFF, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 12233 lotte
+        .moves = { MOVE_PROTECT, MOVE_MOONBLAST, MOVE_DAZZLING_GLEAM, MOVE_HYPER_VOICE, MOVE_FLAMETHROWER, MOVE_ICE_BEAM, MOVE_THUNDERBOLT, MOVE_EXPANDING_FORCE, MOVE_BATON_PASS, MOVE_PSYCHIC },
+        .moveP = { 90, 63, 39, 37, 31, 24, 12, 10, 9, 8 },
+        .items = { ITEM_LIFE_ORB, ITEM_LEFTOVERS, ITEM_SITRUS_BERRY, ITEM_FAIRY_FEATHER },
+        .itemP = { 41, 19, 16, 5 },
+        .abilities = { ABILITY_COMPETITIVE, ABILITY_FRISK },
+        .abilityP = { 99, 1 },
+        .spreads = {
+            { NATURE_MODEST, 16, { 63, 0, 0, 63, 3, 0 } },
+            { NATURE_QUIET, 12, { 63, 0, 3, 63, 0, 0 } },
+            { NATURE_RELAXED, 7, { 9, 0, 53, 3, 63, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_VILEPLUME, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 12878 lotte
+        .moves = { MOVE_AFTER_YOU, MOVE_SLEEP_POWDER, MOVE_SLUDGE_BOMB, MOVE_PROTECT, MOVE_SOLAR_BEAM, MOVE_LEAF_STORM, MOVE_ENERGY_BALL, MOVE_POLLEN_PUFF, MOVE_ACID_SPRAY, MOVE_STRENGTH_SAP },
+        .moveP = { 93, 85, 76, 36, 28, 28, 16, 7, 5, 5 },
+        .items = { ITEM_FOCUS_SASH, ITEM_WIDE_LENS, ITEM_LIFE_ORB, ITEM_SITRUS_BERRY },
+        .itemP = { 77, 10, 4, 2 },
+        .abilities = { ABILITY_CHLOROPHYLL, ABILITY_EFFECT_SPORE },
+        .abilityP = { 94, 6 },
+        .spreads = {
+            { NATURE_TIMID, 65, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 14, { 63, 0, 0, 3, 0, 63 } },
+            { NATURE_MODEST, 11, { 1, 0, 0, 63, 1, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_GOLDUCK, .usage = 0, .source = 2, // gen9nationaldexdoubles-0, 863 lotte
+        .moves = { MOVE_SCALD, MOVE_ICE_BEAM, MOVE_PSYCHIC, MOVE_MUDDY_WATER, MOVE_NASTY_PLOT, MOVE_ICY_WIND, MOVE_CLEAR_SMOG, MOVE_TAUNT, MOVE_VACUUM_WAVE, MOVE_PROTECT },
+        .moveP = { 33, 27, 26, 25, 20, 19, 18, 17, 15, 13 },
+        .items = { ITEM_WEAKNESS_POLICY, ITEM_LEFTOVERS, ITEM_FOCUS_SASH, ITEM_ASSAULT_VEST },
+        .itemP = { 19, 18, 9, 9 },
+        .abilities = { ABILITY_CLOUD_NINE, ABILITY_SWIFT_SWIM, ABILITY_DAMP },
+        .abilityP = { 66, 32, 2 },
+        .spreads = {
+            { NATURE_MODEST, 19, { 20, 0, 0, 63, 0, 44 } },
+            { NATURE_MODEST, 16, { 0, 0, 0, 63, 1, 63 } },
+            { NATURE_MODEST, 14, { 0, 0, 63, 1, 63, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_ARCANINE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 13601 lotte
+        .moves = { MOVE_EXTREME_SPEED, MOVE_SNARL, MOVE_WILL_O_WISP, MOVE_FLARE_BLITZ, MOVE_PROTECT, MOVE_HOWL, MOVE_BURN_UP, MOVE_FLAMETHROWER, MOVE_MORNING_SUN, MOVE_CLOSE_COMBAT },
+        .moveP = { 64, 58, 57, 52, 52, 25, 18, 15, 12, 7 },
+        .items = { ITEM_SITRUS_BERRY, ITEM_PASSHO_BERRY, ITEM_LEFTOVERS, ITEM_ROCKY_HELMET },
+        .itemP = { 62, 12, 9, 4 },
+        .abilities = { ABILITY_INTIMIDATE, ABILITY_JUSTIFIED, ABILITY_FLASH_FIRE },
+        .abilityP = { 91, 6, 3 },
+        .spreads = {
+            { NATURE_TIMID, 19, { 63, 0, 0, 0, 3, 63 } },
+            { NATURE_ADAMANT, 13, { 61, 5, 5, 0, 57, 0 } },
+            { NATURE_ADAMANT, 7, { 63, 57, 0, 0, 9, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_ALAKAZAM, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 63533 lotte
+        .moves = { MOVE_EXPANDING_FORCE, MOVE_PROTECT, MOVE_FOCUS_BLAST, MOVE_DAZZLING_GLEAM, MOVE_NASTY_PLOT, MOVE_SHADOW_BALL, MOVE_SPEED_SWAP, MOVE_ENCORE, MOVE_PSYCHIC, MOVE_ENERGY_BALL },
+        .moveP = { 96, 89, 48, 38, 31, 23, 18, 10, 9, 6 },
+        .items = { ITEM_FOCUS_SASH, ITEM_LIFE_ORB },
+        .itemP = { 7, 4 },
+        .abilities = { ABILITY_INNER_FOCUS, ABILITY_MAGIC_GUARD, ABILITY_SYNCHRONIZE },
+        .abilityP = { 49, 46, 5 },
+        .megas = { SPECIES_ALAKAZAM_MEGA },
+        .megaP = { 86 },
+        .spreads = {
+            { NATURE_TIMID, 56, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 25, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 6, { 57, 0, 0, 9, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_MACHAMP, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 3285 lotte
+        .moves = { MOVE_DYNAMIC_PUNCH, MOVE_WIDE_GUARD, MOVE_STONE_EDGE, MOVE_PROTECT, MOVE_DETECT, MOVE_ICE_PUNCH, MOVE_BULLET_PUNCH, MOVE_KNOCK_OFF, MOVE_ROCK_SLIDE, MOVE_STORM_THROW },
+        .moveP = { 70, 48, 37, 31, 23, 22, 21, 21, 20, 17 },
+        .items = { ITEM_LIFE_ORB, ITEM_SITRUS_BERRY, ITEM_COBA_BERRY, ITEM_EXPERT_BELT },
+        .itemP = { 28, 15, 13, 11 },
+        .abilities = { ABILITY_NO_GUARD, ABILITY_STEADFAST, ABILITY_GUTS },
+        .abilityP = { 83, 12, 4 },
+        .spreads = {
+            { NATURE_ADAMANT, 38, { 63, 63, 3, 0, 0, 0 } },
+            { NATURE_BRAVE, 29, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_JOLLY, 6, { 13, 63, 0, 0, 0, 53 } },
+        },
+    },
+    {
+        .species = SPECIES_VICTREEBEL, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 5015 lotte
+        .moves = { MOVE_SLUDGE_BOMB, MOVE_GIGA_DRAIN, MOVE_STRENGTH_SAP, MOVE_PROTECT, MOVE_SLEEP_POWDER, MOVE_SUCKER_PUNCH, MOVE_ENERGY_BALL, MOVE_TOXIC, MOVE_VENOSHOCK, MOVE_GRASSY_GLIDE },
+        .moveP = { 72, 60, 58, 44, 42, 23, 13, 12, 11, 9 },
+        .megas = { SPECIES_VICTREEBEL_MEGA },
+        .megaP = { 100 },
+        .spreads = {
+            { NATURE_MODEST, 23, { 63, 0, 0, 63, 0, 3 } },
+            { NATURE_BOLD, 13, { 63, 0, 51, 0, 15, 0 } },
+            { NATURE_RASH, 12, { 63, 0, 3, 63, 0, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_SLOWBRO, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 20771 lotte
+        .moves = { MOVE_TRICK_ROOM, MOVE_EXPANDING_FORCE, MOVE_SCALD, MOVE_PROTECT, MOVE_SKILL_SWAP, MOVE_HEAL_PULSE, MOVE_SLACK_OFF, MOVE_BODY_PRESS, MOVE_IRON_DEFENSE, MOVE_STORED_POWER },
+        .moveP = { 70, 64, 49, 49, 49, 49, 41, 37, 15, 14 },
+        .items = { ITEM_LEFTOVERS },
+        .itemP = { 5 },
+        .abilities = { ABILITY_REGENERATOR, ABILITY_OBLIVIOUS, ABILITY_OWN_TEMPO },
+        .abilityP = { 68, 30, 2 },
+        .megas = { SPECIES_SLOWBRO_MEGA },
+        .megaP = { 88 },
+        .spreads = {
+            { NATURE_QUIET, 38, { 63, 0, 0, 63, 3, 0 } },
+            { NATURE_CALM, 8, { 61, 0, 0, 0, 39, 29 } },
+            { NATURE_RELAXED, 7, { 63, 0, 63, 0, 0, 3 } },
+        },
+    },
+    {
+        .species = SPECIES_GENGAR, .usage = 6, .source = 0, // gen9championsvgc2026regmc-1630, 171069 lotte
+        .moves = { MOVE_SHADOW_BALL, MOVE_PROTECT, MOVE_SLUDGE_BOMB, MOVE_PERISH_SONG, MOVE_DISABLE, MOVE_ICY_WIND, MOVE_SUBSTITUTE, MOVE_FOCUS_BLAST, MOVE_TRICK_ROOM, MOVE_TAUNT },
+        .moveP = { 98, 96, 82, 71, 17, 8, 8, 4, 3, 3 },
+        .items = { ITEM_FOCUS_SASH },
+        .itemP = { 5 },
+        .abilities = { ABILITY_CURSED_BODY },
+        .abilityP = { 100 },
+        .megas = { SPECIES_GENGAR_MEGA },
+        .megaP = { 95 },
+        .spreads = {
+            { NATURE_TIMID, 10, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 7, { 63, 0, 11, 0, 15, 39 } },
+            { NATURE_MODEST, 7, { 63, 0, 11, 19, 15, 19 } },
+        },
+    },
+    {
+        .species = SPECIES_KANGASKHAN, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 26188 lotte
+        .moves = { MOVE_FAKE_OUT, MOVE_DOUBLE_EDGE, MOVE_HAMMER_ARM, MOVE_LAST_RESORT, MOVE_SUCKER_PUNCH, MOVE_ICE_PUNCH, MOVE_LOW_KICK, MOVE_BRICK_BREAK, MOVE_PROTECT, MOVE_DRAIN_PUNCH },
+        .moveP = { 98, 63, 32, 30, 27, 25, 14, 10, 9, 8 },
+        .items = { ITEM_SILK_SCARF, ITEM_LIFE_ORB },
+        .itemP = { 28, 15 },
+        .abilities = { ABILITY_SCRAPPY, ABILITY_INNER_FOCUS },
+        .abilityP = { 98, 2 },
+        .megas = { SPECIES_KANGASKHAN_MEGA },
+        .megaP = { 53 },
+        .spreads = {
+            { NATURE_BRAVE, 49, { 63, 63, 3, 0, 0, 0 } },
+            { NATURE_ADAMANT, 22, { 63, 63, 3, 0, 0, 0 } },
+            { NATURE_ADAMANT, 6, { 3, 63, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_STARMIE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 27724 lotte
+        .moves = { MOVE_PROTECT, MOVE_LIQUIDATION, MOVE_EXPANDING_FORCE, MOVE_ICE_SPINNER, MOVE_ICE_BEAM, MOVE_ZEN_HEADBUTT, MOVE_FLIP_TURN, MOVE_AQUA_JET, MOVE_PSYCHO_CUT, MOVE_HYDRO_PUMP },
+        .moveP = { 87, 78, 45, 42, 26, 25, 19, 18, 15, 6 },
+        .items = { ITEM_LIFE_ORB },
+        .itemP = { 4 },
+        .abilities = { ABILITY_NATURAL_CURE, ABILITY_ILLUMINATE, ABILITY_ANALYTIC },
+        .abilityP = { 76, 20, 4 },
+        .megas = { SPECIES_STARMIE_MEGA },
+        .megaP = { 92 },
+        .spreads = {
+            { NATURE_JOLLY, 28, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_TIMID, 9, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_JOLLY, 8, { 19, 63, 0, 0, 0, 47 } },
+        },
+    },
+    {
+        .species = SPECIES_MR_MIME, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 12424 lotte
+        .moves = { MOVE_WIDE_GUARD, MOVE_FAKE_OUT, MOVE_SKILL_SWAP, MOVE_SUNNY_DAY, MOVE_TRICK_ROOM, MOVE_DAZZLING_GLEAM, MOVE_PSYCHIC, MOVE_PROTECT, MOVE_ALLY_SWITCH, MOVE_QUICK_GUARD },
+        .moveP = { 89, 76, 47, 44, 19, 19, 17, 13, 12, 9 },
+        .items = { ITEM_FOCUS_SASH, ITEM_SITRUS_BERRY, ITEM_LIGHT_CLAY, ITEM_MENTAL_HERB },
+        .itemP = { 57, 7, 7, 7 },
+        .abilities = { ABILITY_SOUNDPROOF, ABILITY_FILTER, ABILITY_TECHNICIAN },
+        .abilityP = { 73, 25, 2 },
+        .spreads = {
+            { NATURE_JOLLY, 36, { 63, 0, 3, 0, 0, 63 } },
+            { NATURE_BOLD, 11, { 63, 0, 63, 0, 3, 0 } },
+            { NATURE_JOLLY, 10, { 3, 63, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_PINSIR, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 2981 lotte
+        .moves = { MOVE_PROTECT, MOVE_BODY_SLAM, MOVE_FEINT, MOVE_CLOSE_COMBAT, MOVE_GIGA_IMPACT, MOVE_QUICK_ATTACK, MOVE_STORM_THROW, MOVE_DETECT, MOVE_LUNGE, MOVE_ROCK_SLIDE },
+        .moveP = { 74, 66, 52, 38, 30, 24, 24, 24, 20, 15 },
+        .megas = { SPECIES_PINSIR_MEGA },
+        .megaP = { 100 },
+        .spreads = {
+            { NATURE_JOLLY, 69, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 14, { 1, 63, 0, 0, 1, 63 } },
+            { NATURE_ADAMANT, 5, { 63, 63, 0, 0, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_GYARADOS, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 30039 lotte
+        .moves = { MOVE_WATERFALL, MOVE_PROTECT, MOVE_DRAGON_DANCE, MOVE_CRUNCH, MOVE_LASH_OUT, MOVE_ICE_FANG, MOVE_POWER_WHIP, MOVE_THUNDER_WAVE, MOVE_TAUNT, MOVE_STONE_EDGE },
+        .moveP = { 96, 83, 66, 51, 18, 15, 13, 12, 10, 7 },
+        .items = { ITEM_SITRUS_BERRY, ITEM_LEFTOVERS, ITEM_ROCKY_HELMET, ITEM_CHOICE_SCARF },
+        .itemP = { 10, 5, 4, 4 },
+        .abilities = { ABILITY_INTIMIDATE, ABILITY_MOXIE },
+        .abilityP = { 98, 2 },
+        .megas = { SPECIES_GYARADOS_MEGA },
+        .megaP = { 67 },
+        .spreads = {
+            { NATURE_ADAMANT, 16, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 12, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 9, { 37, 29, 1, 0, 1, 59 } },
+        },
+    },
+    {
+        .species = SPECIES_LAPRAS, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 1300 lotte
+        .moves = { MOVE_FREEZE_DRY, MOVE_SURF, MOVE_LIFE_DEW, MOVE_PROTECT, MOVE_ICE_BEAM, MOVE_PERISH_SONG, MOVE_BODY_PRESS, MOVE_ANCIENT_POWER, MOVE_ICY_WIND, MOVE_HYDRO_PUMP },
+        .moveP = { 59, 37, 29, 24, 21, 20, 14, 12, 12, 11 },
+        .items = { ITEM_LEFTOVERS, ITEM_ASSAULT_VEST, ITEM_SITRUS_BERRY, ITEM_DAMP_ROCK },
+        .itemP = { 43, 19, 6, 5 },
+        .abilities = { ABILITY_WATER_ABSORB, ABILITY_SHELL_ARMOR, ABILITY_HYDRATION },
+        .abilityP = { 73, 19, 8 },
+        .spreads = {
+            { NATURE_MODEST, 20, { 63, 0, 0, 63, 1, 0 } },
+            { NATURE_CALM, 12, { 63, 0, 1, 0, 63, 0 } },
+            { NATURE_QUIET, 11, { 0, 0, 39, 63, 25, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_DITTO, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 18285 lotte
+        .moves = { MOVE_TRANSFORM },
+        .moveP = { 100 },
+        .items = { ITEM_CHOICE_SCARF, ITEM_FOCUS_SASH, ITEM_QUICK_CLAW, ITEM_WHITE_HERB },
+        .itemP = { 45, 13, 12, 10 },
+        .abilities = { ABILITY_IMPOSTER, ABILITY_LIMBER },
+        .abilityP = { 93, 7 },
+        .spreads = {
+            { NATURE_TIMID, 40, { 63, 0, 0, 0, 3, 63 } },
+            { NATURE_BOLD, 15, { 63, 0, 63, 0, 3, 0 } },
+            { NATURE_JOLLY, 9, { 63, 3, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_VAPOREON, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 6353 lotte
+        .moves = { MOVE_ICE_BEAM, MOVE_YAWN, MOVE_DETECT, MOVE_FLIP_TURN, MOVE_SCALD, MOVE_CALM_MIND, MOVE_PROTECT, MOVE_ACID_ARMOR, MOVE_MUDDY_WATER, MOVE_BATON_PASS },
+        .moveP = { 72, 64, 61, 54, 30, 26, 23, 8, 8, 7 },
+        .items = { ITEM_LEFTOVERS, ITEM_SITRUS_BERRY, ITEM_ROCKY_HELMET, ITEM_GRASSY_SEED },
+        .itemP = { 73, 9, 8, 3 },
+        .abilities = { ABILITY_WATER_ABSORB, ABILITY_HYDRATION },
+        .abilityP = { 97, 3 },
+        .spreads = {
+            { NATURE_RELAXED, 50, { 63, 0, 63, 0, 3, 0 } },
+            { NATURE_BOLD, 13, { 63, 0, 63, 0, 1, 1 } },
+            { NATURE_RELAXED, 4, { 37, 0, 63, 0, 29, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_JOLTEON, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 12361 lotte
+        .moves = { MOVE_PROTECT, MOVE_DISCHARGE, MOVE_ELECTROWEB, MOVE_WEATHER_BALL, MOVE_RISING_VOLTAGE, MOVE_VOLT_SWITCH, MOVE_DETECT, MOVE_THUNDERBOLT, MOVE_SUNNY_DAY, MOVE_ALLURING_VOICE },
+        .moveP = { 58, 41, 35, 32, 31, 27, 26, 26, 16, 14 },
+        .items = { ITEM_FOCUS_SASH, ITEM_LIFE_ORB, ITEM_ELECTRIC_SEED, ITEM_MAGNET },
+        .itemP = { 45, 23, 11, 6 },
+        .abilities = { ABILITY_VOLT_ABSORB, ABILITY_QUICK_FEET },
+        .abilityP = { 83, 17 },
+        .spreads = {
+            { NATURE_TIMID, 72, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 10, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 7, { 63, 0, 0, 3, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_AERODACTYL, .usage = 3, .source = 0, // gen9championsvgc2026regmc-1630, 123955 lotte
+        .moves = { MOVE_ROCK_SLIDE, MOVE_TAILWIND, MOVE_DUAL_WINGBEAT, MOVE_PROTECT, MOVE_WIDE_GUARD, MOVE_ICE_FANG, MOVE_TAUNT, MOVE_SUNNY_DAY },
+        .moveP = { 99, 91, 82, 50, 44, 18, 7, 3 },
+        .items = { ITEM_FOCUS_SASH },
+        .itemP = { 38 },
+        .abilities = { ABILITY_UNNERVE, ABILITY_ROCK_HEAD, ABILITY_PRESSURE },
+        .abilityP = { 93, 5, 1 },
+        .megas = { SPECIES_AERODACTYL_MEGA },
+        .megaP = { 58 },
+        .spreads = {
+            { NATURE_JOLLY, 58, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 15, { 31, 25, 0, 0, 9, 63 } },
+            { NATURE_JOLLY, 9, { 51, 13, 1, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_SNORLAX, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 24443 lotte
+        .moves = { MOVE_PROTECT, MOVE_FISSURE, MOVE_STOCKPILE, MOVE_SMACK_DOWN, MOVE_BELLY_DRUM, MOVE_YAWN, MOVE_BODY_SLAM, MOVE_ENCORE, MOVE_BODY_PRESS, MOVE_HIGH_HORSEPOWER },
+        .moveP = { 90, 59, 43, 29, 25, 23, 16, 15, 14, 14 },
+        .items = { ITEM_LEFTOVERS, ITEM_SITRUS_BERRY, ITEM_CHOPLE_BERRY, ITEM_CHESTO_BERRY },
+        .itemP = { 68, 23, 2, 2 },
+        .abilities = { ABILITY_THICK_FAT, ABILITY_GLUTTONY, ABILITY_IMMUNITY },
+        .abilityP = { 97, 1, 1 },
+        .spreads = {
+            { NATURE_RELAXED, 22, { 11, 0, 59, 0, 59, 0 } },
+            { NATURE_RELAXED, 16, { 63, 0, 63, 0, 3, 0 } },
+            { NATURE_RELAXED, 10, { 41, 0, 61, 0, 27, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_ZAPDOS, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 3437 lotte
+        .moves = { MOVE_HURRICANE, MOVE_TAILWIND, MOVE_VOLT_SWITCH, MOVE_THUNDER, MOVE_HEAT_WAVE, MOVE_THUNDERBOLT, MOVE_ROOST, MOVE_PROTECT, MOVE_DISCHARGE, MOVE_WEATHER_BALL },
+        .moveP = { 55, 50, 41, 39, 31, 31, 28, 26, 18, 13 },
+        .items = { ITEM_HEAVY_DUTY_BOOTS, ITEM_LIFE_ORB, ITEM_LEFTOVERS, ITEM_CHOICE_SPECS },
+        .itemP = { 24, 10, 8, 8 },
+        .abilities = { ABILITY_STATIC, ABILITY_PRESSURE },
+        .abilityP = { 81, 19 },
+        .spreads = {
+            { NATURE_TIMID, 38, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 15, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_CALM, 10, { 62, 0, 2, 0, 63, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_DRAGONITE, .usage = 4, .source = 0, // gen9championsvgc2026regmc-1630, 136795 lotte
+        .moves = { MOVE_PROTECT, MOVE_DRAGON_PULSE, MOVE_HEAT_WAVE, MOVE_TAILWIND, MOVE_EXTREME_SPEED, MOVE_OUTRAGE, MOVE_LOW_KICK, MOVE_AQUA_JET, MOVE_HURRICANE, MOVE_AERIAL_ACE },
+        .moveP = { 83, 67, 56, 49, 48, 39, 22, 20, 17, 16 },
+        .items = { ITEM_LIFE_ORB, ITEM_DRAGON_FANG },
+        .itemP = { 14, 2 },
+        .abilities = { ABILITY_INNER_FOCUS, ABILITY_MULTISCALE },
+        .abilityP = { 78, 22 },
+        .megas = { SPECIES_DRAGONITE_MEGA },
+        .megaP = { 77 },
+        .spreads = {
+            { NATURE_MODEST, 39, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 10, { 63, 0, 0, 63, 3, 0 } },
+            { NATURE_ADAMANT, 7, { 13, 63, 0, 0, 0, 53 } },
+        },
+    },
+    {
+        .species = SPECIES_MEW, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 5903 lotte
+        .moves = { MOVE_TRANSFORM, MOVE_IMPRISON, MOVE_PROTECT, MOVE_PSYCHIC, MOVE_TAILWIND, MOVE_TRICK_ROOM, MOVE_BLIZZARD, MOVE_POLLEN_PUFF, MOVE_COSMIC_POWER, MOVE_SOFT_BOILED },
+        .moveP = { 45, 36, 26, 20, 16, 15, 15, 12, 11, 11 },
+        .items = { ITEM_SITRUS_BERRY, ITEM_LEFTOVERS, ITEM_MEWNIUM_Z, ITEM_MENTAL_HERB },
+        .itemP = { 24, 19, 10, 6 },
+        .abilities = { ABILITY_SYNCHRONIZE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_TIMID, 32, { 63, 0, 1, 0, 0, 63 } },
+            { NATURE_CALM, 20, { 62, 0, 0, 2, 63, 0 } },
+            { NATURE_TIMID, 6, { 0, 0, 32, 0, 32, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_MEGANIUM, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 48162 lotte
+        .moves = { MOVE_SOLAR_BEAM, MOVE_WEATHER_BALL, MOVE_PROTECT, MOVE_DAZZLING_GLEAM, MOVE_SYNTHESIS, MOVE_EARTH_POWER },
+        .moveP = { 98, 98, 92, 91, 10, 8 },
+        .megas = { SPECIES_MEGANIUM_MEGA },
+        .megaP = { 100 },
+        .spreads = {
+            { NATURE_MODEST, 32, { 63, 0, 0, 63, 0, 3 } },
+            { NATURE_MODEST, 14, { 33, 0, 0, 63, 0, 33 } },
+            { NATURE_MODEST, 12, { 3, 0, 0, 63, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_TYPHLOSION, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 6136 lotte
+        .moves = { MOVE_ERUPTION, MOVE_HEAT_WAVE, MOVE_SCORCHING_SANDS, MOVE_FLAMETHROWER, MOVE_OVERHEAT, MOVE_SHADOW_BALL, MOVE_PROTECT, MOVE_SOLAR_BEAM, MOVE_LAVA_PLUME, MOVE_FOCUS_BLAST },
+        .moveP = { 95, 66, 48, 31, 28, 27, 25, 17, 11, 9 },
+        .items = { ITEM_CHOICE_SCARF, ITEM_CHARCOAL, ITEM_FOCUS_SASH, ITEM_IRON_BALL },
+        .itemP = { 69, 16, 5, 5 },
+        .abilities = { ABILITY_FLASH_FIRE, ABILITY_BLAZE },
+        .abilityP = { 93, 7 },
+        .spreads = {
+            { NATURE_TIMID, 54, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 33, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_QUIET, 5, { 63, 0, 3, 63, 0, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_FERALIGATR, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 12128 lotte
+        .moves = { MOVE_PROTECT, MOVE_LIQUIDATION, MOVE_DOUBLE_EDGE, MOVE_DRAGON_DANCE, MOVE_AQUA_JET, MOVE_BODY_SLAM, MOVE_ICE_PUNCH, MOVE_SWORDS_DANCE, MOVE_SLASH, MOVE_WATERFALL },
+        .moveP = { 93, 85, 55, 55, 23, 18, 11, 11, 11, 8 },
+        .items = { ITEM_LIFE_ORB },
+        .itemP = { 11 },
+        .abilities = { ABILITY_SHEER_FORCE },
+        .abilityP = { 100 },
+        .megas = { SPECIES_FERALIGATR_MEGA },
+        .megaP = { 89 },
+        .spreads = {
+            { NATURE_JOLLY, 14, { 31, 35, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 12, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 11, { 3, 63, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_ARIADOS, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 3486 lotte
+        .moves = { MOVE_RAGE_POWDER, MOVE_PROTECT, MOVE_POISON_JAB, MOVE_STRING_SHOT, MOVE_FIRST_IMPRESSION, MOVE_TOXIC_THREAD, MOVE_KNOCK_OFF, MOVE_SUCKER_PUNCH, MOVE_STICKY_WEB, MOVE_TOXIC },
+        .moveP = { 92, 62, 39, 28, 23, 22, 19, 17, 14, 11 },
+        .items = { ITEM_FOCUS_SASH, ITEM_SITRUS_BERRY, ITEM_ROCKY_HELMET, ITEM_LEFTOVERS },
+        .itemP = { 37, 29, 16, 4 },
+        .abilities = { ABILITY_INSOMNIA, ABILITY_SWARM, ABILITY_SNIPER },
+        .abilityP = { 72, 15, 12 },
+        .spreads = {
+            { NATURE_IMPISH, 23, { 61, 0, 39, 0, 29, 0 } },
+            { NATURE_CAREFUL, 16, { 63, 3, 0, 0, 63, 0 } },
+            { NATURE_BRAVE, 11, { 0, 63, 0, 0, 0, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_AMPHAROS, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 15044 lotte
+        .moves = { MOVE_DRAGON_PULSE, MOVE_PROTECT, MOVE_THUNDERBOLT, MOVE_PARABOLIC_CHARGE, MOVE_COTTON_GUARD, MOVE_RISING_VOLTAGE, MOVE_FOCUS_BLAST, MOVE_VOLT_SWITCH, MOVE_POWER_GEM, MOVE_DAZZLING_GLEAM },
+        .moveP = { 97, 94, 50, 45, 31, 29, 10, 10, 9, 6 },
+        .megas = { SPECIES_AMPHAROS_MEGA },
+        .megaP = { 100 },
+        .spreads = {
+            { NATURE_QUIET, 52, { 63, 0, 3, 63, 0, 0 } },
+            { NATURE_QUIET, 13, { 63, 0, 0, 49, 17, 0 } },
+            { NATURE_MODEST, 12, { 63, 0, 0, 63, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_AZUMARILL, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 11098 lotte
+        .moves = { MOVE_PROTECT, MOVE_PLAY_ROUGH, MOVE_AQUA_JET, MOVE_BELLY_DRUM, MOVE_LIQUIDATION, MOVE_WATERFALL, MOVE_ICE_SPINNER, MOVE_KNOCK_OFF, MOVE_WHIRLPOOL, MOVE_PERISH_SONG },
+        .moveP = { 91, 90, 86, 60, 26, 6, 6, 5, 4, 4 },
+        .items = { ITEM_SITRUS_BERRY, ITEM_LIFE_ORB, ITEM_MYSTIC_WATER, ITEM_WHITE_HERB },
+        .itemP = { 71, 9, 7, 4 },
+        .abilities = { ABILITY_HUGE_POWER, ABILITY_SAP_SIPPER, ABILITY_THICK_FAT },
+        .abilityP = { 87, 12, 1 },
+        .spreads = {
+            { NATURE_ADAMANT, 39, { 61, 63, 0, 0, 5, 0 } },
+            { NATURE_ADAMANT, 16, { 49, 63, 0, 0, 17, 0 } },
+            { NATURE_BRAVE, 12, { 63, 63, 0, 0, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_POLITOED, .usage = 7, .source = 0, // gen9championsvgc2026regmc-1630, 211141 lotte
+        .moves = { MOVE_PROTECT, MOVE_WEATHER_BALL, MOVE_PERISH_SONG, MOVE_ICE_BEAM, MOVE_MUDDY_WATER, MOVE_ENCORE, MOVE_ICY_WIND, MOVE_HELPING_HAND, MOVE_PSYCH_UP, MOVE_RAIN_DANCE },
+        .moveP = { 91, 88, 51, 50, 46, 32, 11, 8, 6, 4 },
+        .items = { ITEM_SITRUS_BERRY, ITEM_MYSTIC_WATER, ITEM_LIFE_ORB, ITEM_CHOICE_SCARF },
+        .itemP = { 50, 16, 15, 7 },
+        .abilities = { ABILITY_DRIZZLE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_CALM, 18, { 61, 0, 45, 0, 23, 0 } },
+            { NATURE_MODEST, 12, { 63, 0, 3, 63, 0, 0 } },
+            { NATURE_CALM, 10, { 63, 0, 47, 0, 13, 5 } },
+        },
+    },
+    {
+        .species = SPECIES_ESPEON, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 5080 lotte
+        .moves = { MOVE_EXPANDING_FORCE, MOVE_POWER_GEM, MOVE_PROTECT, MOVE_DAZZLING_GLEAM, MOVE_TRICK_ROOM, MOVE_IMPRISON, MOVE_DETECT, MOVE_CALM_MIND, MOVE_PSYCHIC, MOVE_SHADOW_BALL },
+        .moveP = { 90, 73, 53, 40, 29, 21, 19, 10, 9, 8 },
+        .items = { ITEM_LIFE_ORB, ITEM_FOCUS_SASH, ITEM_COLBUR_BERRY, ITEM_CHOICE_SCARF },
+        .itemP = { 46, 26, 10, 7 },
+        .abilities = { ABILITY_MAGIC_BOUNCE, ABILITY_SYNCHRONIZE },
+        .abilityP = { 94, 6 },
+        .spreads = {
+            { NATURE_TIMID, 52, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 16, { 0, 0, 21, 63, 0, 45 } },
+            { NATURE_BOLD, 6, { 63, 0, 49, 0, 17, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_UMBREON, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 12376 lotte
+        .moves = { MOVE_FOUL_PLAY, MOVE_SNARL, MOVE_YAWN, MOVE_PROTECT, MOVE_TAUNT, MOVE_MOONLIGHT, MOVE_BATON_PASS, MOVE_HELPING_HAND, MOVE_TOXIC, MOVE_WISH },
+        .moveP = { 89, 69, 47, 40, 31, 27, 22, 17, 10, 9 },
+        .items = { ITEM_LEFTOVERS, ITEM_SITRUS_BERRY, ITEM_ROSELI_BERRY, ITEM_CHOPLE_BERRY },
+        .itemP = { 50, 22, 15, 4 },
+        .abilities = { ABILITY_INNER_FOCUS, ABILITY_SYNCHRONIZE },
+        .abilityP = { 94, 6 },
+        .spreads = {
+            { NATURE_CALM, 17, { 63, 0, 63, 0, 1, 1 } },
+            { NATURE_CALM, 15, { 63, 0, 0, 0, 63, 3 } },
+            { NATURE_BOLD, 12, { 59, 0, 31, 0, 39, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_MURKROW, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 3802 lotte
+        .moves = { MOVE_TAILWIND, MOVE_TAUNT, MOVE_HAZE, MOVE_FOUL_PLAY, MOVE_FEATHER_DANCE, MOVE_ICY_WIND, MOVE_DEFOG, MOVE_THUNDER_WAVE, MOVE_PROTECT, MOVE_QUASH },
+        .moveP = { 96, 64, 42, 33, 20, 19, 17, 16, 12, 11 },
+        .items = { ITEM_EVIOLITE, ITEM_FOCUS_SASH, ITEM_COVERT_CLOAK },
+        .itemP = { 61, 29, 9 },
+        .abilities = { ABILITY_PRANKSTER },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_CALM, 28, { 62, 0, 2, 0, 63, 0 } },
+            { NATURE_TIMID, 14, { 63, 0, 0, 0, 1, 63 } },
+            { NATURE_IMPISH, 9, { 63, 0, 63, 0, 0, 1 } },
+        },
+    },
+    {
+        .species = SPECIES_SLOWKING, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 6401 lotte
+        .moves = { MOVE_TRICK_ROOM, MOVE_SCALD, MOVE_PSYCHIC, MOVE_CHILLY_RECEPTION, MOVE_ICE_BEAM, MOVE_PROTECT, MOVE_EXPANDING_FORCE, MOVE_PSYCHIC_NOISE, MOVE_HELPING_HAND, MOVE_IMPRISON },
+        .moveP = { 84, 69, 40, 38, 27, 26, 23, 12, 11, 9 },
+        .items = { ITEM_RINDO_BERRY, ITEM_LEFTOVERS, ITEM_COLBUR_BERRY, ITEM_SITRUS_BERRY },
+        .itemP = { 21, 19, 18, 11 },
+        .abilities = { ABILITY_REGENERATOR, ABILITY_OBLIVIOUS },
+        .abilityP = { 86, 13 },
+        .spreads = {
+            { NATURE_QUIET, 22, { 63, 0, 53, 9, 3, 0 } },
+            { NATURE_RELAXED, 14, { 63, 0, 63, 0, 3, 0 } },
+            { NATURE_QUIET, 10, { 63, 0, 0, 63, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_STEELIX, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 16630 lotte
+        .moves = { MOVE_HEAVY_SLAM, MOVE_HIGH_HORSEPOWER, MOVE_PROTECT, MOVE_WIDE_GUARD, MOVE_BODY_PRESS, MOVE_ROCK_SLIDE, MOVE_CURSE, MOVE_STEEL_ROLLER, MOVE_IRON_HEAD, MOVE_EARTHQUAKE },
+        .moveP = { 81, 78, 74, 63, 28, 17, 8, 8, 8, 7 },
+        .items = { ITEM_LIFE_ORB, ITEM_GRASSY_SEED },
+        .itemP = { 6, 2 },
+        .abilities = { ABILITY_SHEER_FORCE, ABILITY_STURDY, ABILITY_ROCK_HEAD },
+        .abilityP = { 52, 43, 5 },
+        .megas = { SPECIES_STEELIX_MEGA },
+        .megaP = { 87 },
+        .spreads = {
+            { NATURE_BRAVE, 30, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 18, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_BRAVE, 6, { 63, 11, 1, 0, 53, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_SCIZOR, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 41075 lotte
+        .moves = { MOVE_BULLET_PUNCH, MOVE_PROTECT, MOVE_BUG_BITE, MOVE_SWORDS_DANCE, MOVE_CLOSE_COMBAT, MOVE_DUAL_WINGBEAT, MOVE_U_TURN, MOVE_KNOCK_OFF, MOVE_TAILWIND, MOVE_IRON_HEAD },
+        .moveP = { 99, 85, 81, 54, 34, 13, 8, 6, 5, 3 },
+        .items = { ITEM_LIFE_ORB, ITEM_METAL_COAT, ITEM_OCCA_BERRY, ITEM_EXPERT_BELT },
+        .itemP = { 30, 7, 4, 3 },
+        .abilities = { ABILITY_TECHNICIAN, ABILITY_SWARM },
+        .abilityP = { 99, 1 },
+        .megas = { SPECIES_SCIZOR_MEGA },
+        .megaP = { 46 },
+        .spreads = {
+            { NATURE_ADAMANT, 63, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 5, { 41, 63, 0, 0, 3, 21 } },
+            { NATURE_ADAMANT, 4, { 3, 63, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_HERACROSS, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 7190 lotte
+        .moves = { MOVE_ROCK_BLAST, MOVE_CLOSE_COMBAT, MOVE_PIN_MISSILE, MOVE_PROTECT, MOVE_BULLET_SEED, MOVE_DETECT, MOVE_SWORDS_DANCE, MOVE_BRICK_BREAK, MOVE_FOCUS_PUNCH, MOVE_ROCK_SLIDE },
+        .moveP = { 89, 86, 85, 64, 33, 15, 6, 3, 3, 3 },
+        .megas = { SPECIES_HERACROSS_MEGA },
+        .megaP = { 100 },
+        .spreads = {
+            { NATURE_BRAVE, 27, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 21, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 21, { 63, 63, 0, 0, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_SKARMORY, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 19728 lotte
+        .moves = { MOVE_IRON_HEAD, MOVE_BRAVE_BIRD, MOVE_PROTECT, MOVE_TAILWIND, MOVE_SWORDS_DANCE, MOVE_DRILL_RUN, MOVE_BODY_PRESS, MOVE_ROCK_TOMB, MOVE_ROCK_SLIDE, MOVE_ROOST },
+        .moveP = { 88, 81, 80, 40, 19, 13, 13, 11, 10, 10 },
+        .items = { ITEM_LEFTOVERS },
+        .itemP = { 5 },
+        .abilities = { ABILITY_STURDY, ABILITY_WEAK_ARMOR, ABILITY_KEEN_EYE },
+        .abilityP = { 86, 10, 4 },
+        .megas = { SPECIES_SKARMORY_MEGA },
+        .megaP = { 93 },
+        .spreads = {
+            { NATURE_JOLLY, 36, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 11, { 17, 63, 0, 0, 0, 49 } },
+            { NATURE_ADAMANT, 11, { 3, 63, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_HOUNDOOM, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 12481 lotte
+        .moves = { MOVE_PROTECT, MOVE_HEAT_WAVE, MOVE_DARK_PULSE, MOVE_OVERHEAT, MOVE_SNARL, MOVE_NASTY_PLOT, MOVE_FLAMETHROWER, MOVE_SOLAR_BEAM, MOVE_SLUDGE_BOMB, MOVE_SCORCHING_SANDS },
+        .moveP = { 94, 92, 86, 26, 25, 24, 12, 11, 9, 4 },
+        .items = { ITEM_FOCUS_SASH, ITEM_CHOICE_SCARF },
+        .itemP = { 7, 2 },
+        .abilities = { ABILITY_FLASH_FIRE, ABILITY_UNNERVE, ABILITY_EARLY_BIRD },
+        .abilityP = { 77, 20, 2 },
+        .megas = { SPECIES_HOUNDOOM_MEGA },
+        .megaP = { 88 },
+        .spreads = {
+            { NATURE_TIMID, 62, { 1, 0, 0, 63, 1, 63 } },
+            { NATURE_MODEST, 9, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 6, { 63, 0, 3, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_KINGDRA, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 2504 lotte
+        .moves = { MOVE_DRACO_METEOR, MOVE_PROTECT, MOVE_ICE_BEAM, MOVE_MUDDY_WATER, MOVE_HURRICANE, MOVE_HYDRO_PUMP, MOVE_SURF, MOVE_DRAGON_PULSE, MOVE_FOCUS_ENERGY, MOVE_RAIN_DANCE },
+        .moveP = { 60, 41, 35, 34, 29, 23, 23, 22, 17, 16 },
+        .items = { ITEM_SCOPE_LENS, ITEM_LIFE_ORB, ITEM_CHOICE_SPECS, ITEM_WATERIUM_Z },
+        .itemP = { 26, 23, 12, 8 },
+        .abilities = { ABILITY_SWIFT_SWIM, ABILITY_SNIPER },
+        .abilityP = { 71, 29 },
+        .spreads = {
+            { NATURE_MODEST, 51, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 12, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 5, { 25, 0, 0, 63, 0, 39 } },
+        },
+    },
+    {
+        .species = SPECIES_PORYGON2, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 4933 lotte
+        .moves = { MOVE_TRICK_ROOM, MOVE_RECOVER, MOVE_ICE_BEAM, MOVE_TRI_ATTACK, MOVE_THUNDERBOLT, MOVE_TERA_BLAST, MOVE_PROTECT, MOVE_SHADOW_BALL, MOVE_TELEPORT, MOVE_THUNDER },
+        .moveP = { 86, 77, 60, 40, 20, 18, 13, 11, 8, 7 },
+        .items = { ITEM_EVIOLITE },
+        .itemP = { 98 },
+        .abilities = { ABILITY_DOWNLOAD, ABILITY_TRACE, ABILITY_ANALYTIC },
+        .abilityP = { 61, 34, 6 },
+        .spreads = {
+            { NATURE_SASSY, 19, { 63, 0, 0, 1, 63, 0 } },
+            { NATURE_SASSY, 14, { 63, 0, 35, 0, 29, 0 } },
+            { NATURE_QUIET, 9, { 63, 0, 0, 63, 1, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_SMEARGLE, .usage = 4, .source = 1, // gen9vgc2024regg-0, 936 lotte
+        .moves = { MOVE_FOLLOW_ME, MOVE_SPORE, MOVE_FAKE_OUT, MOVE_DECORATE, MOVE_WIDE_GUARD, MOVE_SPIKY_SHIELD, MOVE_RUINATION, MOVE_SALT_CURE, MOVE_BANEFUL_BUNKER, MOVE_TRICK_ROOM },
+        .moveP = { 95, 92, 72, 44, 38, 18, 14, 6, 6, 2 },
+        .items = { ITEM_FOCUS_SASH, ITEM_FOCUS_BAND, ITEM_EJECT_PACK },
+        .itemP = { 91, 6, 3 },
+        .abilities = { ABILITY_MOODY, ABILITY_TECHNICIAN, ABILITY_OWN_TEMPO },
+        .abilityP = { 73, 15, 12 },
+        .spreads = {
+            { NATURE_JOLLY, 38, { 63, 0, 1, 0, 0, 63 } },
+            { NATURE_JOLLY, 30, { 1, 0, 63, 0, 0, 63 } },
+            { NATURE_RELAXED, 10, { 63, 0, 63, 0, 1, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_MILTANK, .usage = 0, .source = 2, // gen9nationaldexdoubles-0, 462 lotte
+        .moves = { MOVE_MILK_DRINK, MOVE_BODY_SLAM, MOVE_PLAY_ROUGH, MOVE_STEALTH_ROCK, MOVE_POWER_UP_PUNCH, MOVE_IRON_HEAD, MOVE_MEGA_KICK, MOVE_COUNTER, MOVE_SEISMIC_TOSS, MOVE_FIRE_PUNCH },
+        .moveP = { 76, 69, 53, 50, 20, 13, 13, 12, 11, 10 },
+        .items = { ITEM_KEE_BERRY, ITEM_LEFTOVERS, ITEM_ASSAULT_VEST, ITEM_METRONOME },
+        .itemP = { 62, 15, 12, 6 },
+        .abilities = { ABILITY_SAP_SIPPER, ABILITY_SCRAPPY, ABILITY_THICK_FAT },
+        .abilityP = { 76, 21, 3 },
+        .spreads = {
+            { NATURE_IMPISH, 36, { 35, 40, 0, 0, 52, 0 } },
+            { NATURE_IMPISH, 13, { 63, 1, 3, 0, 50, 10 } },
+            { NATURE_HARDY, 13, { 25, 36, 19, 0, 47, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_TYRANITAR, .usage = 9, .source = 0, // gen9championsvgc2026regmc-1630, 308340 lotte
+        .moves = { MOVE_ROCK_SLIDE, MOVE_KNOCK_OFF, MOVE_PROTECT, MOVE_LOW_KICK, MOVE_DRAGON_DANCE, MOVE_ICE_PUNCH, MOVE_HIGH_HORSEPOWER, MOVE_CRUNCH, MOVE_FIRE_PUNCH, MOVE_SUPERPOWER },
+        .moveP = { 99, 95, 90, 66, 16, 12, 6, 3, 2, 2 },
+        .items = { ITEM_CHOPLE_BERRY, ITEM_CHOICE_SCARF, ITEM_FOCUS_SASH, ITEM_LIFE_ORB },
+        .itemP = { 9, 7, 4, 2 },
+        .abilities = { ABILITY_SAND_STREAM },
+        .abilityP = { 100 },
+        .megas = { SPECIES_TYRANITAR_MEGA },
+        .megaP = { 73 },
+        .spreads = {
+            { NATURE_JOLLY, 20, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 17, { 33, 33, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 13, { 63, 63, 0, 0, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_SCEPTILE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 28352 lotte
+        .moves = { MOVE_EARTH_POWER, MOVE_DRAGON_PULSE, MOVE_PROTECT, MOVE_ENERGY_BALL, MOVE_LEAF_STORM, MOVE_DETECT, MOVE_SHED_TAIL, MOVE_GIGA_DRAIN, MOVE_VACUUM_WAVE, MOVE_DRAGON_CHEER },
+        .moveP = { 85, 84, 66, 43, 36, 26, 15, 11, 4, 3 },
+        .items = { ITEM_PSYCHIC_SEED, ITEM_WHITE_HERB, ITEM_ELECTRIC_SEED },
+        .itemP = { 5, 3, 2 },
+        .abilities = { ABILITY_UNBURDEN, ABILITY_OVERGROW },
+        .abilityP = { 91, 9 },
+        .megas = { SPECIES_SCEPTILE_MEGA },
+        .megaP = { 85 },
+        .spreads = {
+            { NATURE_TIMID, 42, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 19, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 12, { 19, 0, 0, 61, 0, 49 } },
+        },
+    },
+    {
+        .species = SPECIES_BLAZIKEN, .usage = 2, .source = 0, // gen9championsvgc2026regmc-1630, 83338 lotte
+        .moves = { MOVE_CLOSE_COMBAT, MOVE_FLARE_BLITZ, MOVE_ROCK_SLIDE, MOVE_DETECT, MOVE_PROTECT, MOVE_AURA_SPHERE, MOVE_HEAT_WAVE, MOVE_COACHING, MOVE_SWORDS_DANCE, MOVE_OVERHEAT },
+        .moveP = { 79, 77, 64, 54, 46, 19, 17, 16, 7, 4 },
+        .items = { ITEM_FOCUS_SASH, ITEM_LIFE_ORB },
+        .itemP = { 18, 8 },
+        .abilities = { ABILITY_SPEED_BOOST, ABILITY_BLAZE },
+        .abilityP = { 99, 1 },
+        .megas = { SPECIES_BLAZIKEN_MEGA },
+        .megaP = { 72 },
+        .spreads = {
+            { NATURE_ADAMANT, 51, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_MODEST, 11, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_JOLLY, 9, { 3, 63, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_SWAMPERT, .usage = 5, .source = 0, // gen9championsvgc2026regmc-1630, 146715 lotte
+        .moves = { MOVE_PROTECT, MOVE_WAVE_CRASH, MOVE_ICE_PUNCH, MOVE_EARTHQUAKE, MOVE_HIGH_HORSEPOWER, MOVE_FLIP_TURN, MOVE_WIDE_GUARD, MOVE_YAWN, MOVE_ROCK_SLIDE, MOVE_EARTH_POWER },
+        .moveP = { 95, 91, 77, 58, 45, 6, 5, 4, 4, 2 },
+        .items = { ITEM_SITRUS_BERRY, ITEM_LEFTOVERS },
+        .itemP = { 3, 2 },
+        .abilities = { ABILITY_TORRENT, ABILITY_DAMP },
+        .abilityP = { 79, 21 },
+        .megas = { SPECIES_SWAMPERT_MEGA },
+        .megaP = { 92 },
+        .spreads = {
+            { NATURE_ADAMANT, 29, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 28, { 35, 59, 0, 0, 0, 35 } },
+            { NATURE_ADAMANT, 11, { 63, 19, 1, 0, 1, 43 } },
+        },
+    },
+    {
+        .species = SPECIES_LUDICOLO, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 1928 lotte
+        .moves = { MOVE_GIGA_DRAIN, MOVE_FAKE_OUT, MOVE_ICE_BEAM, MOVE_SURF, MOVE_ENERGY_BALL, MOVE_HYDRO_PUMP, MOVE_RAIN_DANCE, MOVE_PROTECT, MOVE_WEATHER_BALL, MOVE_MUDDY_WATER },
+        .moveP = { 69, 58, 52, 32, 23, 22, 22, 22, 14, 14 },
+        .items = { ITEM_LIFE_ORB, ITEM_ASSAULT_VEST, ITEM_LEFTOVERS, ITEM_ABSORB_BULB },
+        .itemP = { 25, 17, 12, 10 },
+        .abilities = { ABILITY_SWIFT_SWIM, ABILITY_RAIN_DISH, ABILITY_OWN_TEMPO },
+        .abilityP = { 82, 14, 3 },
+        .spreads = {
+            { NATURE_MODEST, 43, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 8, { 18, 0, 0, 63, 0, 46 } },
+            { NATURE_MILD, 7, { 0, 1, 0, 63, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_PELIPPER, .usage = 14, .source = 0, // gen9championsvgc2026regmc-1630, 520827 lotte
+        .moves = { MOVE_HURRICANE, MOVE_WEATHER_BALL, MOVE_TAILWIND, MOVE_WIDE_GUARD, MOVE_PROTECT, MOVE_HELPING_HAND, MOVE_MUDDY_WATER, MOVE_ICE_BEAM, MOVE_RAIN_DANCE, MOVE_U_TURN },
+        .moveP = { 98, 91, 79, 64, 36, 12, 8, 7, 3, 3 },
+        .items = { ITEM_FOCUS_SASH, ITEM_SITRUS_BERRY, ITEM_DAMP_ROCK, ITEM_CHOICE_SCARF },
+        .itemP = { 44, 35, 7, 4 },
+        .abilities = { ABILITY_DRIZZLE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_MODEST, 22, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 16, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 9, { 63, 0, 0, 63, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_GARDEVOIR, .usage = 9, .source = 0, // gen9championsvgc2026regmc-1630, 326512 lotte
+        .moves = { MOVE_HYPER_VOICE, MOVE_PROTECT, MOVE_EXPANDING_FORCE, MOVE_TRICK_ROOM, MOVE_CALM_MIND, MOVE_MYSTICAL_FIRE, MOVE_PSYCHIC, MOVE_THUNDERBOLT, MOVE_AURA_SPHERE, MOVE_MOONBLAST },
+        .moveP = { 98, 97, 89, 34, 18, 13, 10, 9, 6, 5 },
+        .abilities = { ABILITY_TELEPATHY, ABILITY_TRACE, ABILITY_SYNCHRONIZE },
+        .abilityP = { 44, 38, 18 },
+        .megas = { SPECIES_GARDEVOIR_MEGA },
+        .megaP = { 99 },
+        .spreads = {
+            { NATURE_MODEST, 17, { 63, 0, 3, 63, 0, 0 } },
+            { NATURE_MODEST, 16, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 13, { 3, 0, 0, 63, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_SLAKING, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 1530 lotte
+        .moves = { MOVE_DRAIN_PUNCH, MOVE_EARTHQUAKE, MOVE_PROTECT, MOVE_DOUBLE_EDGE, MOVE_SUCKER_PUNCH, MOVE_KNOCK_OFF, MOVE_HIGH_HORSEPOWER, MOVE_BODY_SLAM, MOVE_GIGA_IMPACT, MOVE_ROCK_SLIDE },
+        .moveP = { 41, 35, 32, 31, 31, 22, 21, 18, 15, 15 },
+        .items = { ITEM_LIFE_ORB, ITEM_ASSAULT_VEST, ITEM_CHOICE_BAND, ITEM_LEFTOVERS },
+        .itemP = { 31, 18, 14, 13 },
+        .abilities = { ABILITY_TRUANT },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_JOLLY, 37, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 20, { 63, 63, 0, 0, 1, 0 } },
+            { NATURE_ADAMANT, 9, { 1, 63, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_HARIYAMA, .usage = 0, .source = 2, // gen9nationaldexdoubles-0, 543 lotte
+        .moves = { MOVE_FAKE_OUT, MOVE_CLOSE_COMBAT, MOVE_KNOCK_OFF, MOVE_BULLET_PUNCH, MOVE_WIDE_GUARD, MOVE_DRAIN_PUNCH, MOVE_FACADE, MOVE_WHIRLWIND, MOVE_HEADLONG_RUSH, MOVE_PROTECT },
+        .moveP = { 82, 63, 57, 30, 29, 27, 16, 12, 11, 10 },
+        .items = { ITEM_FLAME_ORB, ITEM_ASSAULT_VEST, ITEM_LEFTOVERS, ITEM_COVERT_CLOAK },
+        .itemP = { 54, 21, 9, 4 },
+        .abilities = { ABILITY_GUTS, ABILITY_THICK_FAT, ABILITY_SHEER_FORCE },
+        .abilityP = { 58, 40, 1 },
+        .spreads = {
+            { NATURE_ADAMANT, 43, { 63, 63, 0, 0, 1, 0 } },
+            { NATURE_BRAVE, 21, { 63, 63, 0, 0, 1, 0 } },
+            { NATURE_BRAVE, 7, { 0, 63, 32, 0, 32, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_SABLEYE, .usage = 2, .source = 0, // gen9championsvgc2026regmc-1630, 116660 lotte
+        .moves = { MOVE_LIGHT_SCREEN, MOVE_REFLECT, MOVE_RAIN_DANCE, MOVE_ENCORE, MOVE_FOUL_PLAY, MOVE_FAKE_OUT, MOVE_WILL_O_WISP, MOVE_DISABLE, MOVE_QUASH, MOVE_KNOCK_OFF },
+        .moveP = { 67, 60, 58, 39, 34, 27, 22, 22, 20, 16 },
+        .items = { ITEM_LIGHT_CLAY, ITEM_ROSELI_BERRY, ITEM_FOCUS_SASH, ITEM_SITRUS_BERRY },
+        .itemP = { 48, 30, 5, 4 },
+        .abilities = { ABILITY_PRANKSTER },
+        .abilityP = { 100 },
+        .megas = { SPECIES_SABLEYE_MEGA },
+        .megaP = { 4 },
+        .spreads = {
+            { NATURE_CALM, 11, { 63, 0, 3, 0, 63, 0 } },
+            { NATURE_BOLD, 10, { 63, 0, 63, 0, 3, 0 } },
+            { NATURE_CAREFUL, 9, { 63, 0, 23, 0, 43, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_MAWILE, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 65762 lotte
+        .moves = { MOVE_PLAY_ROUGH, MOVE_PROTECT, MOVE_SUCKER_PUNCH, MOVE_IRON_HEAD, MOVE_SWORDS_DANCE, MOVE_ROCK_SLIDE, MOVE_KNOCK_OFF, MOVE_FIRE_FANG, MOVE_BRICK_BREAK, MOVE_THUNDER_PUNCH },
+        .moveP = { 98, 83, 82, 65, 29, 28, 4, 3, 2, 2 },
+        .megas = { SPECIES_MAWILE_MEGA },
+        .megaP = { 100 },
+        .spreads = {
+            { NATURE_BRAVE, 54, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 31, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 2, { 27, 63, 0, 0, 0, 39 } },
+        },
+    },
+    {
+        .species = SPECIES_AGGRON, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 17003 lotte
+        .moves = { MOVE_BODY_PRESS, MOVE_HEAVY_SLAM, MOVE_IRON_DEFENSE, MOVE_PROTECT, MOVE_SUBSTITUTE, MOVE_STEEL_ROLLER, MOVE_HIGH_HORSEPOWER, MOVE_ROCK_SLIDE, MOVE_CURSE, MOVE_IRON_HEAD },
+        .moveP = { 96, 92, 88, 79, 13, 9, 4, 4, 4, 2 },
+        .megas = { SPECIES_AGGRON_MEGA },
+        .megaP = { 100 },
+        .spreads = {
+            { NATURE_IMPISH, 29, { 61, 0, 5, 0, 63, 0 } },
+            { NATURE_CAREFUL, 22, { 63, 0, 3, 0, 63, 0 } },
+            { NATURE_SASSY, 6, { 63, 0, 3, 0, 63, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_MEDICHAM, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 9766 lotte
+        .moves = { MOVE_CLOSE_COMBAT, MOVE_FAKE_OUT, MOVE_ZEN_HEADBUTT, MOVE_PROTECT, MOVE_TRICK_ROOM, MOVE_PSYCHO_CUT, MOVE_THUNDER_PUNCH, MOVE_ICE_PUNCH, MOVE_ROCK_SLIDE, MOVE_FEINT },
+        .moveP = { 82, 64, 41, 38, 22, 16, 15, 15, 15, 11 },
+        .items = { ITEM_FOCUS_SASH, ITEM_SITRUS_BERRY, ITEM_IRON_BALL, ITEM_LIFE_ORB },
+        .itemP = { 26, 9, 7, 3 },
+        .abilities = { ABILITY_PURE_POWER, ABILITY_TELEPATHY },
+        .abilityP = { 76, 24 },
+        .megas = { SPECIES_MEDICHAM_MEGA },
+        .megaP = { 48 },
+        .spreads = {
+            { NATURE_JOLLY, 41, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_BRAVE, 24, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_JOLLY, 9, { 63, 0, 1, 0, 1, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_MANECTRIC, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 12920 lotte
+        .moves = { MOVE_PROTECT, MOVE_SNARL, MOVE_VOLT_SWITCH, MOVE_OVERHEAT, MOVE_THUNDERBOLT, MOVE_THUNDER, MOVE_FLAMETHROWER, MOVE_EERIE_IMPULSE, MOVE_RISING_VOLTAGE, MOVE_ROAR },
+        .moveP = { 89, 87, 84, 60, 29, 12, 11, 7, 5, 4 },
+        .items = { ITEM_FOCUS_SASH, ITEM_CHOICE_SCARF },
+        .itemP = { 3, 2 },
+        .abilities = { ABILITY_LIGHTNING_ROD, ABILITY_MINUS },
+        .abilityP = { 93, 7 },
+        .megas = { SPECIES_MANECTRIC_MEGA },
+        .megaP = { 94 },
+        .spreads = {
+            { NATURE_TIMID, 42, { 63, 0, 1, 0, 1, 63 } },
+            { NATURE_TIMID, 29, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 9, { 21, 0, 0, 31, 13, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_SHARPEDO, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 3208 lotte
+        .moves = { MOVE_PROTECT, MOVE_CRUNCH, MOVE_PSYCHIC_FANGS, MOVE_ICE_FANG, MOVE_LIQUIDATION, MOVE_CLOSE_COMBAT, MOVE_WATERFALL, MOVE_AQUA_JET, MOVE_DESTINY_BOND, MOVE_FLIP_TURN },
+        .moveP = { 98, 98, 59, 52, 46, 22, 7, 6, 5, 3 },
+        .megas = { SPECIES_SHARPEDO_MEGA },
+        .megaP = { 100 },
+        .spreads = {
+            { NATURE_ADAMANT, 80, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 8, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 3, { 17, 63, 0, 0, 0, 49 } },
+        },
+    },
+    {
+        .species = SPECIES_CAMERUPT, .usage = 2, .source = 0, // gen9championsvgc2026regmc-1630, 78147 lotte
+        .moves = { MOVE_EARTH_POWER, MOVE_PROTECT, MOVE_HEAT_WAVE, MOVE_ANCIENT_POWER, MOVE_ERUPTION, MOVE_FLAMETHROWER },
+        .moveP = { 100, 96, 89, 80, 25, 5 },
+        .megas = { SPECIES_CAMERUPT_MEGA },
+        .megaP = { 100 },
+        .spreads = {
+            { NATURE_QUIET, 83, { 63, 0, 3, 63, 0, 0 } },
+            { NATURE_MODEST, 8, { 63, 0, 0, 63, 3, 0 } },
+            { NATURE_MODEST, 2, { 63, 0, 37, 29, 0, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_TORKOAL, .usage = 5, .source = 0, // gen9championsvgc2026regmc-1630, 222546 lotte
+        .moves = { MOVE_ERUPTION, MOVE_PROTECT, MOVE_WEATHER_BALL, MOVE_EARTH_POWER, MOVE_HEAT_WAVE, MOVE_HELPING_HAND, MOVE_SOLAR_BEAM, MOVE_YAWN, MOVE_FLAMETHROWER, MOVE_CLEAR_SMOG },
+        .moveP = { 95, 89, 69, 45, 41, 24, 14, 6, 4, 4 },
+        .items = { ITEM_CHARCOAL, ITEM_SITRUS_BERRY, ITEM_LIFE_ORB },
+        .itemP = { 90, 3, 2 },
+        .abilities = { ABILITY_DROUGHT },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_QUIET, 76, { 63, 0, 0, 63, 3, 0 } },
+            { NATURE_MODEST, 11, { 63, 0, 0, 63, 3, 0 } },
+            { NATURE_QUIET, 2, { 43, 0, 0, 63, 23, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_ALTARIA, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 29481 lotte
+        .moves = { MOVE_PROTECT, MOVE_WILL_O_WISP, MOVE_TAILWIND, MOVE_ICE_BEAM, MOVE_HYPER_VOICE, MOVE_PERISH_SONG, MOVE_ROOST, MOVE_DRACO_METEOR, MOVE_FIRE_SPIN, MOVE_FLAMETHROWER },
+        .moveP = { 91, 67, 65, 46, 23, 22, 21, 11, 6, 5 },
+        .items = { ITEM_HABAN_BERRY, ITEM_SITRUS_BERRY, ITEM_LEFTOVERS },
+        .itemP = { 58, 5, 4 },
+        .abilities = { ABILITY_CLOUD_NINE, ABILITY_NATURAL_CURE },
+        .abilityP = { 99, 1 },
+        .megas = { SPECIES_ALTARIA_MEGA },
+        .megaP = { 28 },
+        .spreads = {
+            { NATURE_TIMID, 42, { 63, 0, 9, 0, 0, 57 } },
+            { NATURE_BOLD, 9, { 59, 0, 53, 0, 1, 15 } },
+            { NATURE_MODEST, 5, { 63, 0, 0, 63, 0, 3 } },
+        },
+    },
+    {
+        .species = SPECIES_ARMALDO, .usage = 0, .source = 2, // gen9nationaldexdoubles-0, 779 lotte
+        .moves = { MOVE_ROCK_SLIDE, MOVE_X_SCISSOR, MOVE_SWORDS_DANCE, MOVE_PROTECT, MOVE_AQUA_JET, MOVE_LIQUIDATION, MOVE_RAPID_SPIN, MOVE_LOW_KICK, MOVE_STONE_EDGE, MOVE_SUPERPOWER },
+        .moveP = { 81, 67, 41, 37, 29, 19, 14, 13, 12, 11 },
+        .items = { ITEM_CLEAR_AMULET, ITEM_LIFE_ORB, ITEM_ASSAULT_VEST, ITEM_CHOICE_BAND },
+        .itemP = { 24, 16, 13, 10 },
+        .abilities = { ABILITY_SWIFT_SWIM, ABILITY_BATTLE_ARMOR },
+        .abilityP = { 52, 48 },
+        .spreads = {
+            { NATURE_ADAMANT, 31, { 0, 63, 0, 0, 1, 63 } },
+            { NATURE_BRAVE, 28, { 63, 63, 0, 0, 1, 0 } },
+            { NATURE_CAREFUL, 7, { 63, 0, 0, 0, 63, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_MILOTIC, .usage = 13, .source = 0, // gen9championsvgc2026regmc-1630, 443214 lotte
+        .moves = { MOVE_PROTECT, MOVE_SCALD, MOVE_ICE_BEAM, MOVE_ICY_WIND, MOVE_MUDDY_WATER, MOVE_COIL, MOVE_HYPNOSIS, MOVE_RECOVER, MOVE_LIFE_DEW, MOVE_HAZE },
+        .moveP = { 72, 59, 50, 43, 41, 40, 38, 29, 10, 4 },
+        .items = { ITEM_LEFTOVERS, ITEM_SITRUS_BERRY, ITEM_PSYCHIC_SEED, ITEM_GRASSY_SEED },
+        .itemP = { 55, 29, 8, 3 },
+        .abilities = { ABILITY_COMPETITIVE, ABILITY_MARVEL_SCALE },
+        .abilityP = { 99, 1 },
+        .spreads = {
+            { NATURE_CALM, 11, { 63, 0, 57, 0, 9, 0 } },
+            { NATURE_BOLD, 10, { 63, 0, 63, 0, 3, 0 } },
+            { NATURE_MODEST, 7, { 63, 0, 41, 21, 0, 3 } },
+        },
+    },
+    {
+        .species = SPECIES_KECLEON, .usage = 0, .source = 2, // gen9nationaldexdoubles-0, 551 lotte
+        .moves = { MOVE_DRAIN_PUNCH, MOVE_KNOCK_OFF, MOVE_SHADOW_SNEAK, MOVE_FAKE_OUT, MOVE_TRICK_ROOM, MOVE_FOUL_PLAY, MOVE_COUNTER, MOVE_BODY_SLAM, MOVE_STEALTH_ROCK, MOVE_SUCKER_PUNCH },
+        .moveP = { 59, 54, 52, 38, 31, 25, 25, 25, 19, 11 },
+        .items = { ITEM_ASSAULT_VEST, ITEM_FOCUS_SASH, ITEM_LEFTOVERS, ITEM_SITRUS_BERRY },
+        .itemP = { 31, 27, 25, 5 },
+        .abilities = { ABILITY_PROTEAN, ABILITY_COLOR_CHANGE },
+        .abilityP = { 91, 9 },
+        .spreads = {
+            { NATURE_ADAMANT, 51, { 63, 63, 0, 0, 1, 0 } },
+            { NATURE_SASSY, 29, { 63, 1, 0, 0, 63, 0 } },
+            { NATURE_BRAVE, 4, { 63, 63, 0, 0, 1, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_BANETTE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 7750 lotte
+        .moves = { MOVE_POLTERGEIST, MOVE_DESTINY_BOND, MOVE_ENCORE, MOVE_TRICK_ROOM, MOVE_WILL_O_WISP, MOVE_SWAGGER, MOVE_DISABLE, MOVE_SHADOW_SNEAK, MOVE_PROTECT, MOVE_THUNDER_WAVE },
+        .moveP = { 75, 68, 50, 36, 24, 19, 17, 16, 15, 11 },
+        .megas = { SPECIES_BANETTE_MEGA },
+        .megaP = { 100 },
+        .spreads = {
+            { NATURE_ADAMANT, 17, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_BRAVE, 11, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_CAREFUL, 7, { 63, 0, 35, 0, 31, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_DUSCLOPS, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 3436 lotte
+        .moves = { MOVE_TRICK_ROOM, MOVE_PAIN_SPLIT, MOVE_WILL_O_WISP, MOVE_NIGHT_SHADE, MOVE_ALLY_SWITCH, MOVE_HELPING_HAND, MOVE_CURSE, MOVE_TOXIC, MOVE_DESTINY_BOND, MOVE_HAZE },
+        .moveP = { 91, 70, 43, 33, 28, 27, 22, 10, 8, 8 },
+        .items = { ITEM_EVIOLITE },
+        .itemP = { 99 },
+        .abilities = { ABILITY_FRISK, ABILITY_PRESSURE },
+        .abilityP = { 55, 45 },
+        .spreads = {
+            { NATURE_RELAXED, 16, { 39, 0, 26, 0, 60, 0 } },
+            { NATURE_SASSY, 12, { 63, 0, 1, 0, 63, 0 } },
+            { NATURE_SASSY, 12, { 63, 0, 34, 0, 30, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_CHIMECHO, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 7761 lotte
+        .moves = { MOVE_PROTECT, MOVE_FLASH_CANNON, MOVE_TRICK_ROOM, MOVE_PSYCHIC, MOVE_RECOVER, MOVE_CALM_MIND, MOVE_STORED_POWER, MOVE_BOOMBURST, MOVE_COSMIC_POWER, MOVE_DAZZLING_GLEAM },
+        .moveP = { 54, 53, 52, 44, 28, 25, 23, 17, 13, 13 },
+        .megas = { SPECIES_CHIMECHO_MEGA },
+        .megaP = { 100 },
+        .spreads = {
+            { NATURE_QUIET, 20, { 63, 0, 3, 63, 0, 0 } },
+            { NATURE_MODEST, 13, { 63, 0, 3, 63, 0, 0 } },
+            { NATURE_SASSY, 8, { 63, 0, 3, 0, 63, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_ABSOL, .usage = 2, .source = 0, // gen9championsvgc2026regmc-1630, 120733 lotte
+        .moves = { MOVE_NIGHT_SLASH, MOVE_SHADOW_CLAW, MOVE_PROTECT, MOVE_CLOSE_COMBAT, MOVE_DETECT, MOVE_PSYCHO_CUT, MOVE_SWORDS_DANCE, MOVE_FOCUS_ENERGY, MOVE_ICY_WIND, MOVE_SUCKER_PUNCH },
+        .moveP = { 89, 65, 53, 53, 41, 20, 14, 11, 9, 8 },
+        .megas = { SPECIES_ABSOL_MEGA_Z },
+        .megaP = { 100 },
+        .spreads = {
+            { NATURE_JOLLY, 45, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 24, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 5, { 21, 37, 7, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_GLALIE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 13991 lotte
+        .moves = { MOVE_EXPLOSION, MOVE_PROTECT, MOVE_BODY_SLAM, MOVE_ICE_SHARD, MOVE_EARTHQUAKE, MOVE_TAUNT, MOVE_FREEZE_DRY, MOVE_CRUNCH, MOVE_GIGA_IMPACT, MOVE_SHEER_COLD },
+        .moveP = { 97, 96, 49, 36, 19, 17, 13, 11, 10, 7 },
+        .megas = { SPECIES_GLALIE_MEGA },
+        .megaP = { 100 },
+        .spreads = {
+            { NATURE_ADAMANT, 43, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 27, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 10, { 63, 63, 0, 0, 0, 3 } },
+        },
+    },
+    {
+        .species = SPECIES_SALAMENCE, .usage = 27, .source = 0, // gen9championsvgc2026regmc-1630, 832747 lotte
+        .moves = { MOVE_PROTECT, MOVE_HYPER_VOICE, MOVE_TAILWIND, MOVE_DRACO_METEOR, MOVE_DOUBLE_EDGE, MOVE_FLAMETHROWER, MOVE_HEAT_WAVE, MOVE_DRAGON_PULSE, MOVE_DRAGON_DANCE, MOVE_DRAGON_CLAW },
+        .moveP = { 97, 90, 69, 57, 31, 23, 7, 7, 3, 3 },
+        .abilities = { ABILITY_INTIMIDATE, ABILITY_MOXIE },
+        .abilityP = { 98, 2 },
+        .megas = { SPECIES_SALAMENCE_MEGA },
+        .megaP = { 99 },
+        .spreads = {
+            { NATURE_TIMID, 43, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 8, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_NAIVE, 5, { 1, 41, 0, 29, 0, 57 } },
+        },
+    },
+    {
+        .species = SPECIES_METAGROSS, .usage = 6, .source = 0, // gen9championsvgc2026regmc-1630, 234641 lotte
+        .moves = { MOVE_PSYCHIC_FANGS, MOVE_PROTECT, MOVE_IRON_HEAD, MOVE_BODY_PRESS, MOVE_STEEL_ROLLER, MOVE_STOMPING_TANTRUM, MOVE_ICE_PUNCH, MOVE_BULLET_PUNCH, MOVE_PSYCH_UP, MOVE_METEOR_MASH },
+        .moveP = { 93, 92, 43, 40, 38, 29, 18, 10, 7, 5 },
+        .abilities = { ABILITY_CLEAR_BODY },
+        .abilityP = { 100 },
+        .megas = { SPECIES_METAGROSS_MEGA },
+        .megaP = { 97 },
+        .spreads = {
+            { NATURE_JOLLY, 30, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 9, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 7, { 47, 29, 0, 0, 0, 53 } },
+        },
+    },
+    {
+        .species = SPECIES_LATIOS, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 4356 lotte
+        .moves = { MOVE_LUSTER_PURGE, MOVE_SIMPLE_BEAM, MOVE_DRACO_METEOR, MOVE_PROTECT, MOVE_HEAL_PULSE, MOVE_TAILWIND, MOVE_DRAGON_PULSE, MOVE_ICE_BEAM, MOVE_CALM_MIND, MOVE_MEMENTO },
+        .moveP = { 57, 52, 42, 35, 27, 22, 15, 12, 11, 10 },
+        .items = { ITEM_SOUL_DEW, ITEM_FOCUS_SASH, ITEM_MENTAL_HERB, ITEM_COVERT_CLOAK },
+        .itemP = { 29, 20, 7, 4 },
+        .abilities = { ABILITY_LEVITATE },
+        .abilityP = { 100 },
+        .megas = { SPECIES_LATIOS_MEGA },
+        .megaP = { 29 },
+        .spreads = {
+            { NATURE_TIMID, 51, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 21, { 63, 0, 0, 0, 1, 63 } },
+            { NATURE_MODEST, 5, { 1, 0, 0, 63, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_KYOGRE, .usage = 5, .source = 1, // gen9vgc2024regg-0, 1197 lotte
+        .moves = { MOVE_ORIGIN_PULSE, MOVE_WATER_SPOUT, MOVE_ICE_BEAM, MOVE_PROTECT, MOVE_THUNDER, MOVE_CALM_MIND, MOVE_TERA_BLAST, MOVE_BLIZZARD, MOVE_HYDRO_PUMP, MOVE_ICY_WIND },
+        .moveP = { 92, 89, 86, 57, 36, 12, 8, 6, 6, 2 },
+        .items = { ITEM_MYSTIC_WATER, ITEM_ASSAULT_VEST, ITEM_CHOICE_SPECS, ITEM_LEFTOVERS },
+        .itemP = { 45, 19, 16, 11 },
+        .abilities = { ABILITY_DRIZZLE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_MODEST, 15, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 14, { 63, 0, 33, 23, 3, 5 } },
+            { NATURE_TIMID, 13, { 1, 0, 1, 63, 1, 61 } },
+        },
+    },
+    {
+        .species = SPECIES_GROUDON, .usage = 2, .source = 1, // gen9vgc2024regg-0, 521 lotte
+        .moves = { MOVE_PRECIPICE_BLADES, MOVE_HEAT_CRASH, MOVE_PROTECT, MOVE_HIGH_HORSEPOWER, MOVE_THUNDER_PUNCH, MOVE_ROCK_SLIDE, MOVE_STOMPING_TANTRUM, MOVE_FIRE_PUNCH, MOVE_HEAVY_SLAM, MOVE_SWORDS_DANCE },
+        .moveP = { 98, 89, 67, 43, 28, 14, 12, 7, 7, 6 },
+        .items = { ITEM_CLEAR_AMULET, ITEM_ASSAULT_VEST, ITEM_LIFE_ORB, ITEM_CHOICE_SPECS },
+        .itemP = { 61, 30, 5, 2 },
+        .abilities = { ABILITY_DROUGHT },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_ADAMANT, 25, { 53, 41, 3, 0, 11, 19 } },
+            { NATURE_ADAMANT, 14, { 63, 63, 0, 0, 1, 0 } },
+            { NATURE_ADAMANT, 13, { 63, 19, 1, 0, 27, 17 } },
+        },
+    },
+    {
+        .species = SPECIES_JIRACHI, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 4288 lotte
+        .moves = { MOVE_IRON_HEAD, MOVE_FOLLOW_ME, MOVE_PROTECT, MOVE_TRICK_ROOM, MOVE_LIFE_DEW, MOVE_STEALTH_ROCK, MOVE_HELPING_HAND, MOVE_ENCORE, MOVE_BATON_PASS, MOVE_DOOM_DESIRE },
+        .moveP = { 65, 58, 32, 29, 21, 15, 14, 13, 10, 10 },
+        .items = { ITEM_LEFTOVERS, ITEM_SITRUS_BERRY, ITEM_SAFETY_GOGGLES, ITEM_COVERT_CLOAK },
+        .itemP = { 25, 24, 10, 8 },
+        .abilities = { ABILITY_SERENE_GRACE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_CAREFUL, 17, { 60, 0, 23, 0, 44, 0 } },
+            { NATURE_ADAMANT, 6, { 59, 60, 4, 0, 4, 0 } },
+            { NATURE_IMPISH, 5, { 63, 0, 19, 0, 45, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_TORTERRA, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 8524 lotte
+        .moves = { MOVE_WOOD_HAMMER, MOVE_HEADLONG_RUSH, MOVE_EARTHQUAKE, MOVE_WIDE_GUARD, MOVE_PROTECT, MOVE_SHELL_SMASH, MOVE_ROCK_SLIDE, MOVE_HIGH_HORSEPOWER, MOVE_LEECH_SEED, MOVE_SEED_BOMB },
+        .moveP = { 91, 81, 80, 77, 26, 17, 8, 3, 3, 2 },
+        .items = { ITEM_LIFE_ORB, ITEM_WHITE_HERB, ITEM_LEFTOVERS, ITEM_SOFT_SAND },
+        .itemP = { 70, 15, 3, 3 },
+        .abilities = { ABILITY_SHELL_ARMOR, ABILITY_OVERGROW },
+        .abilityP = { 54, 46 },
+        .spreads = {
+            { NATURE_ADAMANT, 62, { 63, 21, 29, 0, 0, 15 } },
+            { NATURE_ADAMANT, 11, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 4, { 63, 63, 0, 0, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_INFERNAPE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 7857 lotte
+        .moves = { MOVE_FAKE_OUT, MOVE_PROTECT, MOVE_AURA_SPHERE, MOVE_HEAT_WAVE, MOVE_OVERHEAT, MOVE_CLOSE_COMBAT, MOVE_FLARE_BLITZ, MOVE_U_TURN, MOVE_COACHING, MOVE_FOCUS_BLAST },
+        .moveP = { 89, 51, 46, 31, 30, 29, 17, 15, 12, 11 },
+        .items = { ITEM_FOCUS_SASH, ITEM_LIFE_ORB, ITEM_WIDE_LENS, ITEM_WHITE_HERB },
+        .itemP = { 55, 24, 7, 3 },
+        .abilities = { ABILITY_BLAZE, ABILITY_IRON_FIST },
+        .abilityP = { 81, 19 },
+        .spreads = {
+            { NATURE_TIMID, 35, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_JOLLY, 18, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_NAIVE, 13, { 3, 0, 0, 63, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_EMPOLEON, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 37588 lotte
+        .moves = { MOVE_PROTECT, MOVE_HYDRO_PUMP, MOVE_FLASH_CANNON, MOVE_ICE_BEAM, MOVE_YAWN, MOVE_ICY_WIND, MOVE_VACUUM_WAVE, MOVE_SURF, MOVE_BLIZZARD, MOVE_ROOST },
+        .moveP = { 89, 78, 78, 66, 20, 15, 11, 8, 4, 4 },
+        .items = { ITEM_LEFTOVERS, ITEM_CHOPLE_BERRY, ITEM_LIFE_ORB, ITEM_GRASSY_SEED },
+        .itemP = { 27, 22, 16, 11 },
+        .abilities = { ABILITY_COMPETITIVE, ABILITY_TORRENT },
+        .abilityP = { 99, 1 },
+        .spreads = {
+            { NATURE_MODEST, 28, { 63, 0, 0, 63, 3, 0 } },
+            { NATURE_MODEST, 8, { 63, 0, 5, 37, 0, 23 } },
+            { NATURE_MODEST, 7, { 63, 0, 43, 17, 5, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_STARAPTOR, .usage = 7, .source = 0, // gen9championsvgc2026regmc-1630, 250405 lotte
+        .moves = { MOVE_CLOSE_COMBAT, MOVE_PROTECT, MOVE_BRAVE_BIRD, MOVE_TAILWIND, MOVE_ROOST, MOVE_DUAL_WINGBEAT, MOVE_FINAL_GAMBIT, MOVE_U_TURN },
+        .moveP = { 98, 84, 83, 57, 30, 16, 15, 13 },
+        .items = { ITEM_CHOICE_SCARF },
+        .itemP = { 14 },
+        .abilities = { ABILITY_INTIMIDATE, ABILITY_RECKLESS },
+        .abilityP = { 97, 3 },
+        .megas = { SPECIES_STARAPTOR_MEGA },
+        .megaP = { 86 },
+        .spreads = {
+            { NATURE_JOLLY, 35, { 63, 3, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 18, { 29, 37, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 11, { 3, 63, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_RAMPARDOS, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 4766 lotte
+        .moves = { MOVE_ROCK_SLIDE, MOVE_PROTECT, MOVE_FIRE_PUNCH, MOVE_THUNDER_PUNCH, MOVE_IRON_HEAD, MOVE_HAMMER_ARM, MOVE_HEAD_SMASH, MOVE_ZEN_HEADBUTT, MOVE_ICE_BEAM, MOVE_CRUNCH },
+        .moveP = { 99, 83, 42, 30, 20, 20, 17, 17, 14, 13 },
+        .items = { ITEM_LIFE_ORB, ITEM_FOCUS_SASH, ITEM_WIDE_LENS, ITEM_CHOICE_SCARF },
+        .itemP = { 74, 12, 6, 5 },
+        .abilities = { ABILITY_SHEER_FORCE, ABILITY_MOLD_BREAKER },
+        .abilityP = { 94, 6 },
+        .spreads = {
+            { NATURE_BRAVE, 45, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 16, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 14, { 15, 63, 0, 0, 0, 51 } },
+        },
+    },
+    {
+        .species = SPECIES_GASTRODON, .usage = 3, .source = 2, // gen9nationaldexdoubles-0, 7042 lotte
+        .moves = { MOVE_EARTH_POWER, MOVE_ICE_BEAM, MOVE_RECOVER, MOVE_MUDDY_WATER, MOVE_PROTECT, MOVE_SCALD, MOVE_YAWN, MOVE_CLEAR_SMOG, MOVE_SLUDGE_BOMB, MOVE_SURF },
+        .moveP = { 84, 55, 49, 36, 31, 24, 15, 14, 11, 11 },
+        .items = { ITEM_LEFTOVERS, ITEM_AGUAV_BERRY, ITEM_SITRUS_BERRY, ITEM_GROUNDIUM_Z },
+        .itemP = { 53, 9, 9, 9 },
+        .abilities = { ABILITY_STORM_DRAIN, ABILITY_STICKY_HOLD, ABILITY_SAND_FORCE },
+        .abilityP = { 98, 2, 1 },
+        .spreads = {
+            { NATURE_MODEST, 21, { 63, 0, 0, 63, 1, 0 } },
+            { NATURE_QUIET, 17, { 63, 0, 0, 63, 1, 0 } },
+            { NATURE_QUIET, 5, { 40, 0, 31, 43, 13, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_LOPUNNY, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 35167 lotte
+        .moves = { MOVE_CLOSE_COMBAT, MOVE_FAKE_OUT, MOVE_TRIPLE_AXEL, MOVE_PROTECT, MOVE_ENCORE, MOVE_THUNDER_PUNCH, MOVE_U_TURN, MOVE_MACH_PUNCH, MOVE_AFTER_YOU, MOVE_FACADE },
+        .moveP = { 95, 91, 70, 31, 25, 23, 18, 9, 7, 4 },
+        .items = { ITEM_CHOPLE_BERRY },
+        .itemP = { 3 },
+        .abilities = { ABILITY_CUTE_CHARM, ABILITY_LIMBER, ABILITY_KLUTZ },
+        .abilityP = { 91, 8, 1 },
+        .megas = { SPECIES_LOPUNNY_MEGA },
+        .megaP = { 97 },
+        .spreads = {
+            { NATURE_JOLLY, 87, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 5, { 63, 3, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 3, { 3, 63, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_BRONZONG, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 3456 lotte
+        .moves = { MOVE_TRICK_ROOM, MOVE_GYRO_BALL, MOVE_HYPNOSIS, MOVE_BODY_PRESS, MOVE_IRON_DEFENSE, MOVE_PROTECT, MOVE_HEAVY_SLAM, MOVE_HELPING_HAND, MOVE_LIGHT_SCREEN, MOVE_ICE_SPINNER },
+        .moveP = { 88, 37, 34, 34, 25, 21, 14, 14, 13, 11 },
+        .items = { ITEM_PSYCHIUM_Z, ITEM_LEFTOVERS, ITEM_MENTAL_HERB, ITEM_COVERT_CLOAK },
+        .itemP = { 31, 24, 14, 6 },
+        .abilities = { ABILITY_LEVITATE, ABILITY_HEATPROOF, ABILITY_HEAVY_METAL },
+        .abilityP = { 73, 25, 2 },
+        .spreads = {
+            { NATURE_SASSY, 24, { 63, 0, 32, 0, 32, 0 } },
+            { NATURE_SASSY, 20, { 63, 0, 1, 0, 63, 0 } },
+            { NATURE_RELAXED, 10, { 63, 0, 33, 0, 30, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_CHATOT, .usage = 0, .source = 2, // gen9nationaldexdoubles-0, 180 lotte
+        .moves = { MOVE_BOOMBURST, MOVE_CHATTER, MOVE_HEAT_WAVE, MOVE_ROOST, MOVE_TAILWIND, MOVE_PROTECT, MOVE_AGILITY, MOVE_ENCORE, MOVE_U_TURN, MOVE_DEFOG },
+        .moveP = { 86, 78, 31, 31, 27, 26, 14, 11, 9, 8 },
+        .items = { ITEM_THROAT_SPRAY, ITEM_FOCUS_SASH, ITEM_CHOICE_SPECS, ITEM_NORMAL_GEM },
+        .itemP = { 23, 18, 17, 10 },
+        .abilities = { ABILITY_KEEN_EYE, ABILITY_TANGLED_FEET, ABILITY_BIG_PECKS },
+        .abilityP = { 53, 36, 11 },
+        .spreads = {
+            { NATURE_TIMID, 33, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 31, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_JOLLY, 21, { 0, 0, 0, 63, 1, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_SPIRITOMB, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 9133 lotte
+        .moves = { MOVE_TRICK_ROOM, MOVE_WILL_O_WISP, MOVE_SNARL, MOVE_PAIN_SPLIT, MOVE_FOUL_PLAY, MOVE_DESTINY_BOND, MOVE_ALLY_SWITCH, MOVE_PROTECT, MOVE_HELPING_HAND, MOVE_DARK_PULSE },
+        .moveP = { 99, 75, 63, 43, 42, 19, 17, 12, 5, 4 },
+        .items = { ITEM_ROSELI_BERRY, ITEM_SITRUS_BERRY, ITEM_MENTAL_HERB, ITEM_LEFTOVERS },
+        .itemP = { 56, 22, 8, 7 },
+        .abilities = { ABILITY_INFILTRATOR, ABILITY_PRESSURE },
+        .abilityP = { 66, 34 },
+        .spreads = {
+            { NATURE_SASSY, 35, { 63, 0, 0, 3, 63, 0 } },
+            { NATURE_SASSY, 15, { 63, 0, 33, 0, 33, 0 } },
+            { NATURE_RELAXED, 14, { 3, 0, 63, 0, 63, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_GARCHOMP, .usage = 17, .source = 0, // gen9championsvgc2026regmc-1630, 573377 lotte
+        .moves = { MOVE_PROTECT, MOVE_DRAGON_CLAW, MOVE_POWER_GEM, MOVE_ROCK_SLIDE, MOVE_STOMPING_TANTRUM, MOVE_EARTHQUAKE, MOVE_EARTH_POWER, MOVE_DRACO_METEOR, MOVE_FLAMETHROWER, MOVE_DRAGON_PULSE },
+        .moveP = { 81, 46, 39, 38, 37, 36, 29, 28, 25, 24 },
+        .items = { ITEM_LIFE_ORB, ITEM_CHOICE_SCARF, ITEM_SITRUS_BERRY, ITEM_ROCKY_HELMET },
+        .itemP = { 23, 16, 4, 2 },
+        .abilities = { ABILITY_ROUGH_SKIN, ABILITY_SAND_VEIL },
+        .abilityP = { 97, 3 },
+        .megas = { SPECIES_GARCHOMP_MEGA_Z, SPECIES_GARCHOMP_MEGA },
+        .megaP = { 48, 2 },
+        .spreads = {
+            { NATURE_MODEST, 25, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_JOLLY, 23, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 13, { 3, 63, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_LUCARIO, .usage = 4, .source = 0, // gen9championsvgc2026regmc-1630, 228803 lotte
+        .moves = { MOVE_AURA_SPHERE, MOVE_FLASH_CANNON, MOVE_PROTECT, MOVE_CALM_MIND, MOVE_DETECT, MOVE_NASTY_PLOT, MOVE_DARK_PULSE, MOVE_STEEL_BEAM, MOVE_VACUUM_WAVE, MOVE_TERRAIN_PULSE },
+        .moveP = { 94, 84, 57, 38, 36, 22, 16, 10, 6, 5 },
+        .abilities = { ABILITY_INNER_FOCUS, ABILITY_STEADFAST, ABILITY_JUSTIFIED },
+        .abilityP = { 94, 4, 2 },
+        .megas = { SPECIES_LUCARIO_MEGA_Z, SPECIES_LUCARIO_MEGA },
+        .megaP = { 95, 4 },
+        .spreads = {
+            { NATURE_TIMID, 17, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 10, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 9, { 63, 0, 0, 3, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_HIPPOWDON, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 11010 lotte
+        .moves = { MOVE_HIGH_HORSEPOWER, MOVE_PROTECT, MOVE_SLACK_OFF, MOVE_YAWN, MOVE_ROAR, MOVE_ICE_FANG, MOVE_ROCK_SLIDE, MOVE_STEALTH_ROCK, MOVE_STONE_EDGE, MOVE_EARTHQUAKE },
+        .moveP = { 90, 85, 53, 53, 26, 18, 15, 11, 10, 7 },
+        .items = { ITEM_LEFTOVERS, ITEM_SITRUS_BERRY, ITEM_ROCKY_HELMET, ITEM_GRASSY_SEED },
+        .itemP = { 49, 37, 5, 2 },
+        .abilities = { ABILITY_SAND_STREAM },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_BRAVE, 33, { 63, 15, 3, 0, 47, 0 } },
+            { NATURE_CAREFUL, 21, { 63, 0, 3, 0, 63, 0 } },
+            { NATURE_RELAXED, 12, { 63, 7, 3, 0, 55, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_TOXICROAK, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 4701 lotte
+        .moves = { MOVE_FAKE_OUT, MOVE_CLOSE_COMBAT, MOVE_POISON_JAB, MOVE_PROTECT, MOVE_GUNK_SHOT, MOVE_DRAIN_PUNCH, MOVE_SUCKER_PUNCH, MOVE_KNOCK_OFF, MOVE_UPPER_HAND, MOVE_COACHING },
+        .moveP = { 83, 70, 59, 47, 28, 25, 16, 11, 11, 7 },
+        .items = { ITEM_LIFE_ORB, ITEM_FOCUS_SASH, ITEM_LEFTOVERS, ITEM_SHUCA_BERRY },
+        .itemP = { 35, 20, 10, 7 },
+        .abilities = { ABILITY_DRY_SKIN, ABILITY_POISON_TOUCH },
+        .abilityP = { 94, 5 },
+        .spreads = {
+            { NATURE_JOLLY, 31, { 1, 63, 0, 0, 1, 63 } },
+            { NATURE_ADAMANT, 12, { 23, 63, 17, 0, 5, 19 } },
+            { NATURE_ADAMANT, 11, { 63, 63, 0, 0, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_ABOMASNOW, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 13619 lotte
+        .moves = { MOVE_BLIZZARD, MOVE_EARTH_POWER, MOVE_PROTECT, MOVE_ENERGY_BALL, MOVE_ICE_SHARD, MOVE_GIGA_DRAIN, MOVE_AURORA_VEIL, MOVE_WOOD_HAMMER, MOVE_LEAF_STORM, MOVE_GRASSY_GLIDE },
+        .moveP = { 94, 68, 63, 49, 38, 28, 20, 9, 5, 4 },
+        .items = { ITEM_FOCUS_SASH, ITEM_OCCA_BERRY, ITEM_LIGHT_CLAY },
+        .itemP = { 4, 2, 2 },
+        .abilities = { ABILITY_SNOW_WARNING, ABILITY_SOUNDPROOF },
+        .abilityP = { 83, 17 },
+        .megas = { SPECIES_ABOMASNOW_MEGA },
+        .megaP = { 89 },
+        .spreads = {
+            { NATURE_QUIET, 73, { 63, 0, 0, 63, 3, 0 } },
+            { NATURE_MODEST, 6, { 63, 0, 0, 63, 3, 0 } },
+            { NATURE_SASSY, 3, { 63, 0, 3, 0, 63, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_WEAVILE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 39416 lotte
+        .moves = { MOVE_FAKE_OUT, MOVE_KNOCK_OFF, MOVE_ICE_SPINNER, MOVE_TRIPLE_AXEL, MOVE_PROTECT, MOVE_LOW_KICK, MOVE_FEINT, MOVE_UPPER_HAND, MOVE_ICE_SHARD, MOVE_THROAT_CHOP },
+        .moveP = { 90, 77, 51, 42, 35, 26, 16, 12, 11, 10 },
+        .items = { ITEM_FOCUS_SASH, ITEM_LIFE_ORB, ITEM_WIDE_LENS, ITEM_WHITE_HERB },
+        .itemP = { 77, 8, 6, 3 },
+        .abilities = { ABILITY_PICKPOCKET, ABILITY_PRESSURE },
+        .abilityP = { 68, 32 },
+        .spreads = {
+            { NATURE_JOLLY, 87, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 4, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_HARDY, 4, { 3, 63, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_RHYPERIOR, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 10130 lotte
+        .moves = { MOVE_ROCK_SLIDE, MOVE_PROTECT, MOVE_HIGH_HORSEPOWER, MOVE_EARTHQUAKE, MOVE_ICE_PUNCH, MOVE_HAMMER_ARM, MOVE_HEAT_CRASH, MOVE_ROAR, MOVE_METAL_BURST, MOVE_BODY_PRESS },
+        .moveP = { 96, 87, 64, 39, 31, 23, 10, 5, 4, 4 },
+        .items = { ITEM_LIFE_ORB, ITEM_WHITE_HERB, ITEM_FOCUS_SASH, ITEM_PASSHO_BERRY },
+        .itemP = { 35, 24, 13, 4 },
+        .abilities = { ABILITY_SOLID_ROCK, ABILITY_LIGHTNING_ROD },
+        .abilityP = { 79, 21 },
+        .spreads = {
+            { NATURE_BRAVE, 27, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 24, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_BRAVE, 7, { 17, 63, 0, 0, 49, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_TOGEKISS, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 5215 lotte
+        .moves = { MOVE_AIR_SLASH, MOVE_FOLLOW_ME, MOVE_DAZZLING_GLEAM, MOVE_TAILWIND, MOVE_ANCIENT_POWER, MOVE_PROTECT, MOVE_LIFE_DEW, MOVE_HEAT_WAVE, MOVE_AURA_SPHERE, MOVE_DRAINING_KISS },
+        .moveP = { 73, 57, 48, 35, 15, 15, 13, 13, 13, 12 },
+        .items = { ITEM_SITRUS_BERRY, ITEM_LEFTOVERS, ITEM_SCOPE_LENS, ITEM_BABIRI_BERRY },
+        .itemP = { 23, 23, 9, 5 },
+        .abilities = { ABILITY_SERENE_GRACE, ABILITY_SUPER_LUCK, ABILITY_HUSTLE },
+        .abilityP = { 82, 15, 3 },
+        .spreads = {
+            { NATURE_TIMID, 13, { 0, 0, 0, 63, 1, 63 } },
+            { NATURE_BOLD, 8, { 63, 0, 49, 0, 15, 0 } },
+            { NATURE_BOLD, 7, { 63, 0, 32, 0, 32, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_LEAFEON, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 2389 lotte
+        .moves = { MOVE_KNOCK_OFF, MOVE_SOLAR_BLADE, MOVE_LEAF_BLADE, MOVE_PROTECT, MOVE_X_SCISSOR, MOVE_DETECT, MOVE_AERIAL_ACE, MOVE_FAKE_TEARS, MOVE_HELPING_HAND, MOVE_SWORDS_DANCE },
+        .moveP = { 88, 65, 57, 40, 34, 29, 18, 17, 9, 8 },
+        .items = { ITEM_LIFE_ORB, ITEM_FOCUS_SASH, ITEM_CHOICE_SCARF, ITEM_MIRACLE_SEED },
+        .itemP = { 33, 18, 17, 14 },
+        .abilities = { ABILITY_CHLOROPHYLL, ABILITY_LEAF_GUARD },
+        .abilityP = { 95, 5 },
+        .spreads = {
+            { NATURE_ADAMANT, 54, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 20, { 49, 63, 17, 0, 0, 0 } },
+            { NATURE_ADAMANT, 5, { 17, 63, 29, 0, 0, 19 } },
+        },
+    },
+    {
+        .species = SPECIES_GLACEON, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 6378 lotte
+        .moves = { MOVE_FREEZE_DRY, MOVE_BLIZZARD, MOVE_PROTECT, MOVE_CALM_MIND, MOVE_ICE_SHARD, MOVE_DETECT, MOVE_YAWN, MOVE_WISH, MOVE_ICE_BEAM, MOVE_SHADOW_BALL },
+        .moveP = { 98, 95, 55, 47, 30, 26, 17, 4, 4, 4 },
+        .items = { ITEM_LEFTOVERS, ITEM_NEVER_MELT_ICE, ITEM_BRIGHT_POWDER, ITEM_FOCUS_SASH },
+        .itemP = { 44, 31, 17, 2 },
+        .abilities = { ABILITY_SNOW_CLOAK, ABILITY_ICE_BODY },
+        .abilityP = { 54, 46 },
+        .spreads = {
+            { NATURE_MODEST, 33, { 63, 0, 15, 9, 41, 0 } },
+            { NATURE_MODEST, 14, { 63, 0, 47, 19, 0, 0 } },
+            { NATURE_MODEST, 12, { 63, 0, 0, 31, 35, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_GLISCOR, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 13250 lotte
+        .moves = { MOVE_HIGH_HORSEPOWER, MOVE_PROTECT, MOVE_TAILWIND, MOVE_ACROBATICS, MOVE_DUAL_WINGBEAT, MOVE_SWORDS_DANCE, MOVE_EARTHQUAKE, MOVE_ROCK_SLIDE, MOVE_ICE_FANG, MOVE_FEINT },
+        .moveP = { 90, 87, 69, 45, 41, 22, 10, 9, 6, 5 },
+        .items = { ITEM_PSYCHIC_SEED, ITEM_SITRUS_BERRY, ITEM_GRASSY_SEED, ITEM_LIFE_ORB },
+        .itemP = { 19, 17, 14, 11 },
+        .abilities = { ABILITY_HYPER_CUTTER, ABILITY_SAND_VEIL, ABILITY_POISON_HEAL },
+        .abilityP = { 94, 4, 2 },
+        .spreads = {
+            { NATURE_JOLLY, 19, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 18, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 8, { 27, 63, 0, 0, 0, 39 } },
+        },
+    },
+    {
+        .species = SPECIES_MAMOSWINE, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 38289 lotte
+        .moves = { MOVE_ICE_SHARD, MOVE_ICICLE_CRASH, MOVE_HIGH_HORSEPOWER, MOVE_PROTECT, MOVE_EARTHQUAKE, MOVE_ROCK_SLIDE, MOVE_ICICLE_SPEAR, MOVE_KNOCK_OFF, MOVE_STOMPING_TANTRUM, MOVE_SUPERPOWER },
+        .moveP = { 83, 81, 78, 77, 38, 21, 4, 4, 3, 2 },
+        .items = { ITEM_FOCUS_SASH, ITEM_LIFE_ORB, ITEM_CHOICE_SCARF, ITEM_NEVER_MELT_ICE },
+        .itemP = { 44, 31, 19, 2 },
+        .abilities = { ABILITY_OBLIVIOUS, ABILITY_THICK_FAT, ABILITY_SNOW_CLOAK },
+        .abilityP = { 94, 6, 1 },
+        .spreads = {
+            { NATURE_ADAMANT, 46, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 32, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 6, { 63, 63, 0, 0, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_PORYGON_Z, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 1792 lotte
+        .moves = { MOVE_TRI_ATTACK, MOVE_ICE_BEAM, MOVE_SHADOW_BALL, MOVE_HYPER_BEAM, MOVE_THUNDERBOLT, MOVE_PROTECT, MOVE_CONVERSION, MOVE_BLIZZARD, MOVE_PSYCHIC, MOVE_DARK_PULSE },
+        .moveP = { 58, 40, 35, 31, 26, 25, 20, 19, 18, 15 },
+        .items = { ITEM_NORMALIUM_Z, ITEM_CHOICE_SPECS, ITEM_LIFE_ORB, ITEM_CHOICE_SCARF },
+        .itemP = { 22, 17, 15, 8 },
+        .abilities = { ABILITY_ADAPTABILITY, ABILITY_DOWNLOAD, ABILITY_ANALYTIC },
+        .abilityP = { 85, 13, 2 },
+        .spreads = {
+            { NATURE_TIMID, 49, { 0, 0, 0, 63, 1, 63 } },
+            { NATURE_MODEST, 22, { 0, 0, 0, 63, 1, 63 } },
+            { NATURE_QUIET, 5, { 63, 0, 0, 63, 1, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_GALLADE, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 59004 lotte
+        .moves = { MOVE_SACRED_SWORD, MOVE_PSYCHO_CUT, MOVE_TRICK_ROOM, MOVE_WIDE_GUARD, MOVE_PROTECT, MOVE_LEAF_BLADE, MOVE_NIGHT_SLASH, MOVE_ROCK_SLIDE, MOVE_POISON_JAB, MOVE_SHADOW_SNEAK },
+        .moveP = { 96, 90, 55, 54, 34, 23, 16, 3, 3, 3 },
+        .items = { ITEM_FOCUS_SASH, ITEM_WHITE_HERB, ITEM_IRON_BALL, ITEM_SITRUS_BERRY },
+        .itemP = { 24, 13, 12, 12 },
+        .abilities = { ABILITY_SHARPNESS, ABILITY_STEADFAST },
+        .abilityP = { 99, 1 },
+        .megas = { SPECIES_GALLADE_MEGA },
+        .megaP = { 7 },
+        .spreads = {
+            { NATURE_BRAVE, 29, { 63, 63, 3, 0, 0, 0 } },
+            { NATURE_ADAMANT, 17, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 13, { 63, 63, 3, 0, 0, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_FROSLASS, .usage = 5, .source = 0, // gen9championsvgc2026regmc-1630, 155704 lotte
+        .moves = { MOVE_BLIZZARD, MOVE_PROTECT, MOVE_AURORA_VEIL, MOVE_SHADOW_BALL, MOVE_RAIN_DANCE, MOVE_NASTY_PLOT, MOVE_TAUNT, MOVE_THUNDERBOLT, MOVE_WILL_O_WISP },
+        .moveP = { 99, 98, 87, 87, 10, 4, 3, 2, 2 },
+        .megas = { SPECIES_FROSLASS_MEGA },
+        .megaP = { 100 },
+        .spreads = {
+            { NATURE_TIMID, 26, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 14, { 27, 0, 0, 39, 0, 63 } },
+            { NATURE_TIMID, 12, { 63, 0, 0, 3, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_HEATRAN, .usage = 3, .source = 1, // gen9vgc2024regg-0, 721 lotte
+        .moves = { MOVE_PROTECT, MOVE_MAGMA_STORM, MOVE_HEAVY_SLAM, MOVE_TERA_BLAST, MOVE_EARTH_POWER, MOVE_WILL_O_WISP, MOVE_SUBSTITUTE, MOVE_HEAT_WAVE, MOVE_FLASH_CANNON, MOVE_OVERHEAT },
+        .moveP = { 95, 90, 72, 53, 25, 21, 15, 14, 10, 2 },
+        .items = { ITEM_SITRUS_BERRY, ITEM_ZOOM_LENS, ITEM_ASSAULT_VEST, ITEM_LEFTOVERS },
+        .itemP = { 48, 39, 4, 3 },
+        .abilities = { ABILITY_FLASH_FIRE, ABILITY_FLAME_BODY },
+        .abilityP = { 96, 4 },
+        .spreads = {
+            { NATURE_QUIET, 31, { 63, 1, 25, 19, 19, 0 } },
+            { NATURE_BOLD, 14, { 61, 0, 61, 5, 0, 0 } },
+            { NATURE_RELAXED, 12, { 63, 0, 47, 17, 0, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_REGIGIGAS, .usage = 1, .source = 1, // gen9vgc2024regg-0, 250 lotte
+        .moves = { MOVE_PROTECT, MOVE_CRUSH_GRIP, MOVE_KNOCK_OFF, MOVE_WIDE_GUARD, MOVE_HIGH_HORSEPOWER, MOVE_DRAIN_PUNCH, MOVE_ROCK_SLIDE, MOVE_DOUBLE_EDGE, MOVE_THUNDER_WAVE },
+        .moveP = { 96, 94, 91, 91, 8, 4, 4, 2, 2 },
+        .items = { ITEM_LIFE_ORB, ITEM_COVERT_CLOAK, ITEM_ASSAULT_VEST, ITEM_SITRUS_BERRY },
+        .itemP = { 91, 4, 2, 2 },
+        .abilities = { ABILITY_SLOW_START },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_ADAMANT, 88, { 0, 63, 0, 0, 1, 63 } },
+            { NATURE_JOLLY, 6, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 2, { 57, 63, 3, 0, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_CRESSELIA, .usage = 1, .source = 1, // gen9vgc2024regg-0, 175 lotte
+        .moves = { MOVE_TRICK_ROOM, MOVE_LUNAR_BLESSING, MOVE_HELPING_HAND, MOVE_MOONBLAST, MOVE_ALLY_SWITCH, MOVE_PROTECT, MOVE_ICY_WIND, MOVE_DAZZLING_GLEAM, MOVE_PSYCHIC, MOVE_STORED_POWER },
+        .moveP = { 82, 73, 40, 33, 32, 18, 17, 17, 14, 12 },
+        .items = { ITEM_COVERT_CLOAK, ITEM_MENTAL_HERB, ITEM_SAFETY_GOGGLES, ITEM_SITRUS_BERRY },
+        .itemP = { 30, 29, 16, 11 },
+        .abilities = { ABILITY_LEVITATE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_SASSY, 19, { 63, 0, 63, 0, 1, 0 } },
+            { NATURE_RELAXED, 12, { 63, 0, 39, 0, 25, 0 } },
+            { NATURE_SASSY, 11, { 63, 0, 0, 1, 63, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_SERPERIOR, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 11331 lotte
+        .moves = { MOVE_LEAF_STORM, MOVE_PROTECT, MOVE_DRAGON_PULSE, MOVE_GLARE, MOVE_GIGA_DRAIN, MOVE_SYNTHESIS, MOVE_TAUNT, MOVE_SUBSTITUTE, MOVE_LEECH_SEED, MOVE_LIGHT_SCREEN },
+        .moveP = { 97, 82, 56, 41, 30, 14, 14, 13, 11, 8 },
+        .items = { ITEM_LEFTOVERS, ITEM_MIRACLE_SEED, ITEM_ROCKY_HELMET, ITEM_SITRUS_BERRY },
+        .itemP = { 34, 8, 7, 7 },
+        .abilities = { ABILITY_CONTRARY, ABILITY_OVERGROW },
+        .abilityP = { 97, 3 },
+        .spreads = {
+            { NATURE_TIMID, 23, { 1, 0, 0, 63, 1, 63 } },
+            { NATURE_TIMID, 20, { 63, 0, 0, 3, 0, 63 } },
+            { NATURE_MODEST, 12, { 3, 0, 0, 63, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_EMBOAR, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 5703 lotte
+        .moves = { MOVE_FLARE_BLITZ, MOVE_PROTECT, MOVE_CLOSE_COMBAT, MOVE_DRAIN_PUNCH, MOVE_ROCK_SLIDE, MOVE_WILD_CHARGE, MOVE_SUCKER_PUNCH, MOVE_BULK_UP, MOVE_HEAD_SMASH, MOVE_HEAT_CRASH },
+        .moveP = { 87, 74, 56, 33, 27, 22, 17, 16, 14, 8 },
+        .items = { ITEM_CHOICE_SCARF, ITEM_LIFE_ORB, ITEM_SITRUS_BERRY },
+        .itemP = { 18, 3, 2 },
+        .abilities = { ABILITY_RECKLESS, ABILITY_BLAZE },
+        .abilityP = { 94, 6 },
+        .megas = { SPECIES_EMBOAR_MEGA },
+        .megaP = { 74 },
+        .spreads = {
+            { NATURE_JOLLY, 18, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 17, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_BRAVE, 16, { 63, 63, 0, 0, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_LIEPARD, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 7617 lotte
+        .moves = { MOVE_ENCORE, MOVE_FAKE_OUT, MOVE_KNOCK_OFF, MOVE_RAIN_DANCE, MOVE_FAKE_TEARS, MOVE_FOUL_PLAY, MOVE_COPYCAT, MOVE_THUNDER_WAVE, MOVE_SNARL, MOVE_TAUNT },
+        .moveP = { 92, 86, 83, 81, 15, 6, 5, 5, 5, 4 },
+        .items = { ITEM_FOCUS_SASH, ITEM_PSYCHIC_SEED },
+        .itemP = { 92, 3 },
+        .abilities = { ABILITY_PRANKSTER, ABILITY_UNBURDEN, ABILITY_LIMBER },
+        .abilityP = { 96, 3, 1 },
+        .spreads = {
+            { NATURE_JOLLY, 65, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 17, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 4, { 63, 3, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_SIMIPOUR, .usage = 0, .source = 3, // gen9championsvgc2026regmc-0, 851 lotte
+        .moves = { MOVE_FAKE_OUT, MOVE_SCALD, MOVE_PROTECT, MOVE_ICE_BEAM, MOVE_ICY_WIND, MOVE_HYDRO_PUMP, MOVE_NASTY_PLOT, MOVE_TAUNT, MOVE_HELPING_HAND, MOVE_FLIP_TURN },
+        .moveP = { 78, 53, 45, 42, 31, 18, 16, 15, 12, 11 },
+        .items = { ITEM_FOCUS_SASH, ITEM_SITRUS_BERRY, ITEM_EXPERT_BELT, ITEM_LIFE_ORB },
+        .itemP = { 38, 22, 9, 5 },
+        .abilities = { ABILITY_TORRENT, ABILITY_GLUTTONY },
+        .abilityP = { 68, 32 },
+        .spreads = {
+            { NATURE_TIMID, 19, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_HASTY, 17, { 0, 3, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 11, { 0, 3, 0, 63, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_EXCADRILL, .usage = 6, .source = 0, // gen9championsvgc2026regmc-1630, 204980 lotte
+        .moves = { MOVE_IRON_HEAD, MOVE_PROTECT, MOVE_HIGH_HORSEPOWER, MOVE_ROCK_SLIDE, MOVE_EARTHQUAKE, MOVE_SWORDS_DANCE },
+        .moveP = { 99, 98, 91, 84, 19, 3 },
+        .items = { ITEM_FOCUS_SASH, ITEM_LIFE_ORB },
+        .itemP = { 89, 7 },
+        .abilities = { ABILITY_SAND_RUSH, ABILITY_MOLD_BREAKER, ABILITY_SAND_FORCE },
+        .abilityP = { 98, 1, 1 },
+        .megas = { SPECIES_EXCADRILL_MEGA },
+        .megaP = { 1 },
+        .spreads = {
+            { NATURE_ADAMANT, 63, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 31, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 1, { 27, 63, 0, 0, 0, 39 } },
+        },
+    },
+    {
+        .species = SPECIES_AUDINO, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 14249 lotte
+        .moves = { MOVE_TRICK_ROOM, MOVE_SIMPLE_BEAM, MOVE_HEAL_PULSE, MOVE_YAWN, MOVE_PROTECT, MOVE_LIFE_DEW, MOVE_ALLY_SWITCH, MOVE_ENCORE, MOVE_DAZZLING_GLEAM, MOVE_CALM_MIND },
+        .moveP = { 92, 90, 75, 45, 43, 19, 12, 5, 3, 2 },
+        .items = { ITEM_MENTAL_HERB, ITEM_SITRUS_BERRY, ITEM_CHOPLE_BERRY, ITEM_LEFTOVERS },
+        .itemP = { 39, 5, 3, 2 },
+        .abilities = { ABILITY_HEALER, ABILITY_REGENERATOR },
+        .abilityP = { 85, 15 },
+        .megas = { SPECIES_AUDINO_MEGA },
+        .megaP = { 51 },
+        .spreads = {
+            { NATURE_RELAXED, 25, { 63, 0, 63, 0, 3, 0 } },
+            { NATURE_RELAXED, 25, { 63, 0, 27, 0, 39, 0 } },
+            { NATURE_RELAXED, 19, { 63, 0, 47, 0, 19, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_CONKELDURR, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 8168 lotte
+        .moves = { MOVE_DRAIN_PUNCH, MOVE_MACH_PUNCH, MOVE_ICE_PUNCH, MOVE_THUNDER_PUNCH, MOVE_KNOCK_OFF, MOVE_WIDE_GUARD, MOVE_PROTECT, MOVE_CLOSE_COMBAT, MOVE_DETECT, MOVE_ROCK_SLIDE },
+        .moveP = { 69, 53, 42, 37, 35, 32, 27, 20, 19, 16 },
+        .items = { ITEM_LIFE_ORB, ITEM_EXPERT_BELT, ITEM_BLACK_BELT, ITEM_LEFTOVERS },
+        .itemP = { 54, 10, 10, 6 },
+        .abilities = { ABILITY_IRON_FIST, ABILITY_SHEER_FORCE, ABILITY_GUTS },
+        .abilityP = { 76, 18, 7 },
+        .spreads = {
+            { NATURE_BRAVE, 56, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 17, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_BRAVE, 7, { 0, 63, 3, 0, 63, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_SCOLIPEDE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 8443 lotte
+        .moves = { MOVE_PROTECT, MOVE_LEECH_LIFE, MOVE_SWORDS_DANCE, MOVE_POISON_JAB, MOVE_GUNK_SHOT, MOVE_EARTHQUAKE, MOVE_ROCK_SLIDE, MOVE_MEGAHORN, MOVE_BATON_PASS, MOVE_STEEL_ROLLER },
+        .moveP = { 94, 80, 76, 68, 13, 12, 12, 10, 7, 6 },
+        .items = { ITEM_FOCUS_SASH, ITEM_LIFE_ORB, ITEM_WIDE_LENS },
+        .itemP = { 9, 4, 2 },
+        .abilities = { ABILITY_SPEED_BOOST, ABILITY_POISON_POINT },
+        .abilityP = { 97, 3 },
+        .megas = { SPECIES_SCOLIPEDE_MEGA },
+        .megaP = { 79 },
+        .spreads = {
+            { NATURE_CAREFUL, 23, { 61, 23, 5, 0, 31, 7 } },
+            { NATURE_ADAMANT, 13, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 10, { 63, 11, 0, 0, 0, 17 } },
+        },
+    },
+    {
+        .species = SPECIES_WHIMSICOTT, .usage = 8, .source = 0, // gen9championsvgc2026regmc-1630, 390815 lotte
+        .moves = { MOVE_TAILWIND, MOVE_MOONBLAST, MOVE_ENCORE, MOVE_PROTECT, MOVE_LIGHT_SCREEN, MOVE_SUNNY_DAY, MOVE_CHARM, MOVE_FAKE_TEARS, MOVE_HELPING_HAND, MOVE_DAZZLING_GLEAM },
+        .moveP = { 99, 91, 70, 64, 23, 16, 11, 7, 6, 5 },
+        .items = { ITEM_FOCUS_SASH, ITEM_FAIRY_FEATHER, ITEM_OCCA_BERRY, ITEM_MENTAL_HERB },
+        .itemP = { 71, 8, 6, 4 },
+        .abilities = { ABILITY_PRANKSTER, ABILITY_CHLOROPHYLL },
+        .abilityP = { 99, 1 },
+        .spreads = {
+            { NATURE_TIMID, 60, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 6, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_BOLD, 5, { 63, 0, 63, 3, 0, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_LILLIGANT, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 1683 lotte
+        .moves = { MOVE_QUIVER_DANCE, MOVE_POLLEN_PUFF, MOVE_SLEEP_POWDER, MOVE_PETAL_DANCE, MOVE_GIGA_DRAIN, MOVE_HELPING_HAND, MOVE_WEATHER_BALL, MOVE_SOLAR_BEAM, MOVE_ALLURING_VOICE, MOVE_PROTECT },
+        .moveP = { 78, 71, 48, 36, 33, 23, 20, 16, 15, 9 },
+        .items = { ITEM_FOCUS_SASH, ITEM_SITRUS_BERRY, ITEM_LEFTOVERS, ITEM_ROCKY_HELMET },
+        .itemP = { 43, 8, 7, 6 },
+        .abilities = { ABILITY_OWN_TEMPO, ABILITY_CHLOROPHYLL },
+        .abilityP = { 57, 43 },
+        .spreads = {
+            { NATURE_MODEST, 26, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 22, { 63, 0, 1, 0, 0, 63 } },
+            { NATURE_TIMID, 15, { 1, 0, 0, 63, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_KROOKODILE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 15651 lotte
+        .moves = { MOVE_HIGH_HORSEPOWER, MOVE_KNOCK_OFF, MOVE_PROTECT, MOVE_ROCK_SLIDE, MOVE_EARTHQUAKE, MOVE_CLOSE_COMBAT, MOVE_STONE_EDGE, MOVE_THROAT_CHOP, MOVE_GUNK_SHOT, MOVE_SNARL },
+        .moveP = { 81, 72, 51, 45, 44, 17, 15, 15, 11, 9 },
+        .items = { ITEM_CHOICE_SCARF, ITEM_PASSHO_BERRY, ITEM_LIFE_ORB, ITEM_FOCUS_SASH },
+        .itemP = { 46, 15, 15, 8 },
+        .abilities = { ABILITY_INTIMIDATE, ABILITY_MOXIE, ABILITY_ANGER_POINT },
+        .abilityP = { 80, 19, 2 },
+        .spreads = {
+            { NATURE_ADAMANT, 33, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 29, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_IMPISH, 14, { 63, 0, 5, 0, 49, 11 } },
+        },
+    },
+    {
+        .species = SPECIES_SCRAFTY, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 36064 lotte
+        .moves = { MOVE_FAKE_OUT, MOVE_KNOCK_OFF, MOVE_CLOSE_COMBAT, MOVE_DRAIN_PUNCH, MOVE_PROTECT, MOVE_DETECT, MOVE_THROAT_CHOP, MOVE_ICE_PUNCH, MOVE_COACHING, MOVE_POISON_JAB },
+        .moveP = { 85, 83, 54, 44, 35, 18, 13, 9, 8, 6 },
+        .items = { ITEM_FOCUS_SASH, ITEM_SITRUS_BERRY, ITEM_EJECT_BUTTON, ITEM_LEFTOVERS },
+        .itemP = { 10, 6, 3, 3 },
+        .abilities = { ABILITY_INTIMIDATE, ABILITY_MOXIE, ABILITY_SHED_SKIN },
+        .abilityP = { 97, 2, 1 },
+        .megas = { SPECIES_SCRAFTY_MEGA },
+        .megaP = { 69 },
+        .spreads = {
+            { NATURE_ADAMANT, 25, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_BRAVE, 24, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 7, { 63, 27, 0, 0, 39, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_COFAGRIGUS, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 14075 lotte
+        .moves = { MOVE_TRICK_ROOM, MOVE_BODY_PRESS, MOVE_SHADOW_BALL, MOVE_WILL_O_WISP, MOVE_IRON_DEFENSE, MOVE_PROTECT, MOVE_ALLY_SWITCH, MOVE_HAZE, MOVE_HEX, MOVE_FAKE_TEARS },
+        .moveP = { 94, 61, 55, 52, 30, 16, 12, 11, 10, 10 },
+        .items = { ITEM_SITRUS_BERRY, ITEM_LEFTOVERS, ITEM_COLBUR_BERRY, ITEM_ELECTRIC_SEED },
+        .itemP = { 24, 19, 13, 9 },
+        .abilities = { ABILITY_MUMMY },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_RELAXED, 23, { 63, 0, 9, 0, 57, 0 } },
+            { NATURE_SASSY, 17, { 63, 0, 3, 0, 63, 0 } },
+            { NATURE_RELAXED, 17, { 63, 0, 29, 0, 37, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_GOTHITELLE, .usage = 4, .source = 1, // gen9vgc2024regg-0, 918 lotte
+        .moves = { MOVE_FAKE_OUT, MOVE_PROTECT, MOVE_PSYCHIC, MOVE_TAUNT, MOVE_TRICK_ROOM, MOVE_FOUL_PLAY, MOVE_HEAL_PULSE, MOVE_THUNDER_WAVE },
+        .moveP = { 99, 98, 97, 87, 5, 3, 2, 2 },
+        .items = { ITEM_LEFTOVERS, ITEM_SITRUS_BERRY, ITEM_WIKI_BERRY, ITEM_SAFETY_GOGGLES },
+        .itemP = { 85, 7, 2, 2 },
+        .abilities = { ABILITY_SHADOW_TAG },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_BOLD, 51, { 63, 0, 49, 1, 13, 1 } },
+            { NATURE_CALM, 26, { 63, 0, 25, 0, 39, 0 } },
+            { NATURE_SASSY, 6, { 63, 0, 1, 0, 63, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_REUNICLUS, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 9370 lotte
+        .moves = { MOVE_TRICK_ROOM, MOVE_EXPANDING_FORCE, MOVE_PROTECT, MOVE_FOCUS_BLAST, MOVE_SHADOW_BALL, MOVE_PSYCHIC, MOVE_ENERGY_BALL, MOVE_HELPING_HAND, MOVE_RECOVER, MOVE_CALM_MIND },
+        .moveP = { 85, 72, 67, 58, 28, 26, 14, 12, 7, 7 },
+        .items = { ITEM_LIFE_ORB, ITEM_SITRUS_BERRY, ITEM_LEFTOVERS, ITEM_COLBUR_BERRY },
+        .itemP = { 72, 14, 5, 2 },
+        .abilities = { ABILITY_MAGIC_GUARD, ABILITY_REGENERATOR, ABILITY_OVERCOAT },
+        .abilityP = { 69, 25, 6 },
+        .spreads = {
+            { NATURE_QUIET, 37, { 63, 0, 3, 63, 0, 0 } },
+            { NATURE_QUIET, 23, { 63, 0, 19, 33, 13, 0 } },
+            { NATURE_MODEST, 13, { 63, 0, 3, 63, 0, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_VANILLUXE, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 20169 lotte
+        .moves = { MOVE_BLIZZARD, MOVE_FREEZE_DRY, MOVE_ICY_WIND, MOVE_SHEER_COLD, MOVE_PROTECT, MOVE_ICE_SHARD, MOVE_AURORA_VEIL, MOVE_WEATHER_BALL, MOVE_TAUNT, MOVE_ALLY_SWITCH },
+        .moveP = { 99, 97, 48, 39, 36, 32, 28, 6, 3, 3 },
+        .items = { ITEM_CHOICE_SCARF, ITEM_NEVER_MELT_ICE, ITEM_LIGHT_CLAY },
+        .itemP = { 55, 38, 3 },
+        .abilities = { ABILITY_SNOW_WARNING },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_TIMID, 41, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_QUIET, 30, { 63, 0, 1, 63, 1, 0 } },
+            { NATURE_MODEST, 9, { 9, 0, 0, 63, 0, 57 } },
+        },
+    },
+    {
+        .species = SPECIES_AMOONGUSS, .usage = 26, .source = 1, // gen9vgc2024regg-0, 5592 lotte
+        .moves = { MOVE_SPORE, MOVE_RAGE_POWDER, MOVE_PROTECT, MOVE_POLLEN_PUFF, MOVE_SLUDGE_BOMB, MOVE_CLEAR_SMOG, MOVE_GIGA_DRAIN },
+        .moveP = { 100, 100, 84, 58, 43, 12, 2 },
+        .items = { ITEM_ROCKY_HELMET, ITEM_MENTAL_HERB, ITEM_COVERT_CLOAK, ITEM_SITRUS_BERRY },
+        .itemP = { 51, 18, 15, 12 },
+        .abilities = { ABILITY_REGENERATOR, ABILITY_EFFECT_SPORE },
+        .abilityP = { 97, 3 },
+        .spreads = {
+            { NATURE_BOLD, 21, { 59, 0, 59, 0, 9, 0 } },
+            { NATURE_RELAXED, 19, { 61, 0, 39, 0, 27, 0 } },
+            { NATURE_BOLD, 10, { 59, 0, 41, 0, 27, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_FERROTHORN, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 5716 lotte
+        .moves = { MOVE_LEECH_SEED, MOVE_PROTECT, MOVE_GYRO_BALL, MOVE_BODY_PRESS, MOVE_POWER_WHIP, MOVE_IRON_DEFENSE, MOVE_STEALTH_ROCK, MOVE_SPIKES, MOVE_KNOCK_OFF, MOVE_TOXIC },
+        .moveP = { 78, 55, 48, 43, 34, 28, 27, 14, 12, 10 },
+        .items = { ITEM_ROCKY_HELMET, ITEM_LEFTOVERS, ITEM_ASSAULT_VEST, ITEM_IRON_BALL },
+        .itemP = { 45, 43, 3, 2 },
+        .abilities = { ABILITY_IRON_BARBS, ABILITY_ANTICIPATION },
+        .abilityP = { 99, 1 },
+        .spreads = {
+            { NATURE_RELAXED, 19, { 62, 2, 63, 0, 0, 0 } },
+            { NATURE_SASSY, 9, { 63, 0, 25, 0, 39, 0 } },
+            { NATURE_RELAXED, 9, { 63, 0, 26, 0, 38, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_EELEKTROSS, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 16171 lotte
+        .moves = { MOVE_PROTECT, MOVE_FLAMETHROWER, MOVE_THUNDERBOLT, MOVE_GIGA_DRAIN, MOVE_DRAGON_PULSE, MOVE_DISCHARGE, MOVE_DRAIN_PUNCH, MOVE_THUNDER, MOVE_COIL, MOVE_THUNDER_PUNCH },
+        .moveP = { 89, 58, 51, 42, 37, 27, 14, 14, 11, 6 },
+        .megas = { SPECIES_EELEKTROSS_MEGA },
+        .megaP = { 100 },
+        .spreads = {
+            { NATURE_MODEST, 27, { 61, 0, 5, 49, 0, 13 } },
+            { NATURE_TIMID, 15, { 1, 0, 0, 63, 1, 63 } },
+            { NATURE_QUIET, 7, { 63, 0, 3, 63, 0, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_CHANDELURE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 34345 lotte
+        .moves = { MOVE_SHADOW_BALL, MOVE_HEAT_WAVE, MOVE_PROTECT, MOVE_TRICK_ROOM, MOVE_ENERGY_BALL, MOVE_FLAMETHROWER, MOVE_OVERHEAT, MOVE_CALM_MIND, MOVE_TRICK, MOVE_WILL_O_WISP },
+        .moveP = { 96, 90, 79, 54, 12, 11, 11, 11, 6, 4 },
+        .items = { ITEM_FOCUS_SASH, ITEM_CHOICE_SCARF, ITEM_CHARCOAL, ITEM_COLBUR_BERRY },
+        .itemP = { 32, 9, 4, 3 },
+        .abilities = { ABILITY_FLASH_FIRE, ABILITY_FLAME_BODY, ABILITY_INFILTRATOR },
+        .abilityP = { 85, 12, 3 },
+        .megas = { SPECIES_CHANDELURE_MEGA },
+        .megaP = { 44 },
+        .spreads = {
+            { NATURE_QUIET, 24, { 63, 0, 1, 63, 1, 0 } },
+            { NATURE_MODEST, 14, { 63, 0, 3, 63, 0, 0 } },
+            { NATURE_TIMID, 13, { 3, 0, 0, 63, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_GOLURK, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 18413 lotte
+        .moves = { MOVE_PROTECT, MOVE_HEADLONG_RUSH, MOVE_POLTERGEIST, MOVE_ICE_PUNCH, MOVE_EARTHQUAKE, MOVE_DRAIN_PUNCH, MOVE_KNOCK_OFF, MOVE_CLOSE_COMBAT, MOVE_HIGH_HORSEPOWER, MOVE_ROCK_SLIDE },
+        .moveP = { 89, 86, 85, 47, 12, 10, 9, 9, 7, 6 },
+        .items = { ITEM_LIFE_ORB },
+        .itemP = { 3 },
+        .abilities = { ABILITY_NO_GUARD, ABILITY_IRON_FIST },
+        .abilityP = { 68, 32 },
+        .megas = { SPECIES_GOLURK_MEGA },
+        .megaP = { 93 },
+        .spreads = {
+            { NATURE_BRAVE, 48, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 19, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_BRAVE, 6, { 59, 31, 19, 0, 19, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_HYDREIGON, .usage = 2, .source = 0, // gen9championsvgc2026regmc-1630, 69330 lotte
+        .moves = { MOVE_DARK_PULSE, MOVE_DRACO_METEOR, MOVE_SNARL, MOVE_EARTH_POWER, MOVE_PROTECT, MOVE_FLAMETHROWER, MOVE_TAILWIND, MOVE_HEAT_WAVE, MOVE_DRAGON_PULSE, MOVE_U_TURN },
+        .moveP = { 92, 86, 52, 46, 41, 18, 16, 15, 13, 8 },
+        .items = { ITEM_CHOICE_SCARF, ITEM_LIFE_ORB, ITEM_FOCUS_SASH, ITEM_CHOPLE_BERRY },
+        .itemP = { 53, 18, 11, 4 },
+        .abilities = { ABILITY_LEVITATE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_MODEST, 53, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 30, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 3, { 43, 0, 0, 49, 0, 37 } },
+        },
+    },
+    {
+        .species = SPECIES_VOLCARONA, .usage = 9, .source = 0, // gen9championsvgc2026regmc-1630, 264576 lotte
+        .moves = { MOVE_PROTECT, MOVE_RAGE_POWDER, MOVE_QUIVER_DANCE, MOVE_STRUGGLE_BUG, MOVE_HEAT_WAVE, MOVE_TAILWIND, MOVE_OVERHEAT, MOVE_GIGA_DRAIN, MOVE_WILL_O_WISP, MOVE_FIERY_DANCE },
+        .moveP = { 68, 55, 47, 45, 42, 35, 33, 25, 24, 19 },
+        .items = { ITEM_GRASSY_SEED, ITEM_ROCKY_HELMET, ITEM_SITRUS_BERRY, ITEM_LEFTOVERS },
+        .itemP = { 35, 29, 17, 8 },
+        .abilities = { ABILITY_FLAME_BODY },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_BOLD, 18, { 63, 0, 63, 0, 3, 0 } },
+            { NATURE_MODEST, 12, { 41, 0, 29, 9, 1, 47 } },
+            { NATURE_TIMID, 11, { 63, 0, 21, 0, 0, 45 } },
+        },
+    },
+    {
+        .species = SPECIES_TORNADUS, .usage = 12, .source = 1, // gen9vgc2024regg-0, 2666 lotte
+        .moves = { MOVE_TAILWIND, MOVE_BLEAKWIND_STORM, MOVE_RAIN_DANCE, MOVE_TAUNT, MOVE_PROTECT, MOVE_SUNNY_DAY, MOVE_ICY_WIND, MOVE_SCARY_FACE, MOVE_HEAT_WAVE, MOVE_HURRICANE },
+        .moveP = { 100, 97, 72, 61, 37, 8, 7, 5, 2, 2 },
+        .items = { ITEM_COVERT_CLOAK, ITEM_FOCUS_SASH, ITEM_SHARP_BEAK, ITEM_ABILITY_SHIELD },
+        .itemP = { 75, 11, 4, 2 },
+        .abilities = { ABILITY_PRANKSTER },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_TIMID, 17, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 7, { 63, 0, 25, 1, 1, 37 } },
+            { NATURE_MODEST, 6, { 63, 0, 51, 1, 11, 1 } },
+        },
+    },
+    {
+        .species = SPECIES_THUNDURUS, .usage = 1, .source = 1, // gen9vgc2024regg-0, 274 lotte
+        .moves = { MOVE_EERIE_IMPULSE, MOVE_THUNDER_WAVE, MOVE_THUNDERBOLT, MOVE_RAIN_DANCE, MOVE_TAUNT, MOVE_WILDBOLT_STORM, MOVE_PROTECT, MOVE_SCARY_FACE, MOVE_THUNDER, MOVE_ELECTROWEB },
+        .moveP = { 85, 85, 77, 66, 19, 18, 11, 10, 8, 5 },
+        .items = { ITEM_ROCKY_HELMET, ITEM_COVERT_CLOAK, ITEM_SAFETY_GOGGLES, ITEM_CHOICE_SCARF },
+        .itemP = { 51, 22, 18, 4 },
+        .abilities = { ABILITY_PRANKSTER },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_BOLD, 72, { 63, 0, 53, 1, 9, 1 } },
+            { NATURE_CALM, 10, { 63, 0, 0, 0, 63, 1 } },
+            { NATURE_CALM, 4, { 43, 0, 19, 1, 59, 5 } },
+        },
+    },
+    {
+        .species = SPECIES_LANDORUS, .usage = 14, .source = 1, // gen9vgc2024regg-0, 2993 lotte
+        .moves = { MOVE_SLUDGE_BOMB, MOVE_EARTH_POWER, MOVE_SANDSEAR_STORM, MOVE_PROTECT, MOVE_U_TURN, MOVE_TAUNT, MOVE_SUBSTITUTE, MOVE_PSYCHIC },
+        .moveP = { 99, 98, 91, 77, 17, 5, 4, 4 },
+        .items = { ITEM_LIFE_ORB, ITEM_CHOICE_SCARF },
+        .itemP = { 78, 21 },
+        .abilities = { ABILITY_SHEER_FORCE, ABILITY_SAND_FORCE },
+        .abilityP = { 98, 2 },
+        .spreads = {
+            { NATURE_MODEST, 28, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 23, { 61, 0, 1, 31, 1, 33 } },
+            { NATURE_TIMID, 23, { 0, 0, 0, 63, 1, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_KYUREM, .usage = 0, .source = 2, // gen9nationaldexdoubles-0, 1053 lotte
+        .moves = { MOVE_FREEZE_DRY, MOVE_EARTH_POWER, MOVE_BLIZZARD, MOVE_DRACO_METEOR, MOVE_FLASH_CANNON, MOVE_PROTECT, MOVE_SUBSTITUTE, MOVE_FOCUS_BLAST, MOVE_DRAGON_DANCE, MOVE_ICICLE_SPEAR },
+        .moveP = { 78, 70, 48, 43, 38, 18, 11, 10, 10, 8 },
+        .items = { ITEM_ASSAULT_VEST, ITEM_LEFTOVERS, ITEM_LIFE_ORB, ITEM_LOADED_DICE },
+        .itemP = { 34, 15, 15, 10 },
+        .abilities = { ABILITY_PRESSURE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_TIMID, 26, { 0, 0, 0, 63, 1, 63 } },
+            { NATURE_MODEST, 23, { 46, 0, 9, 63, 9, 0 } },
+            { NATURE_MODEST, 17, { 63, 0, 0, 63, 1, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_CHESNAUGHT, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 17172 lotte
+        .moves = { MOVE_SPIKY_SHIELD, MOVE_BODY_PRESS, MOVE_WOOD_HAMMER, MOVE_DRAIN_PUNCH, MOVE_WIDE_GUARD, MOVE_GRASSY_GLIDE, MOVE_IRON_DEFENSE, MOVE_BELLY_DRUM, MOVE_LEECH_SEED, MOVE_PROTECT },
+        .moveP = { 76, 58, 42, 35, 35, 31, 28, 24, 14, 14 },
+        .items = { ITEM_LEFTOVERS, ITEM_SITRUS_BERRY, ITEM_PSYCHIC_SEED },
+        .itemP = { 12, 8, 2 },
+        .abilities = { ABILITY_BULLETPROOF, ABILITY_OVERGROW },
+        .abilityP = { 99, 1 },
+        .megas = { SPECIES_CHESNAUGHT_MEGA },
+        .megaP = { 72 },
+        .spreads = {
+            { NATURE_BRAVE, 10, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_IMPISH, 9, { 57, 0, 15, 0, 57, 0 } },
+            { NATURE_ADAMANT, 8, { 63, 63, 0, 0, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_DELPHOX, .usage = 4, .source = 0, // gen9championsvgc2026regmc-1630, 122339 lotte
+        .moves = { MOVE_PROTECT, MOVE_HEAT_WAVE, MOVE_NASTY_PLOT, MOVE_PSYCHIC, MOVE_EXPANDING_FORCE, MOVE_PSYSHOCK, MOVE_ENCORE, MOVE_SUBSTITUTE, MOVE_FOCUS_BLAST, MOVE_CALM_MIND },
+        .moveP = { 98, 97, 66, 62, 23, 15, 7, 6, 4, 4 },
+        .items = { ITEM_PSYCHIC_SEED, ITEM_LIFE_ORB, ITEM_FOCUS_SASH },
+        .itemP = { 3, 3, 3 },
+        .abilities = { ABILITY_BLAZE, ABILITY_MAGICIAN },
+        .abilityP = { 60, 40 },
+        .megas = { SPECIES_DELPHOX_MEGA },
+        .megaP = { 91 },
+        .spreads = {
+            { NATURE_TIMID, 45, { 1, 0, 0, 63, 1, 63 } },
+            { NATURE_TIMID, 16, { 17, 0, 27, 21, 0, 63 } },
+            { NATURE_TIMID, 12, { 21, 0, 7, 37, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_GRENINJA, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 26412 lotte
+        .moves = { MOVE_DARK_PULSE, MOVE_PROTECT, MOVE_ICE_BEAM, MOVE_HYDRO_PUMP, MOVE_WATER_SHURIKEN, MOVE_WEATHER_BALL, MOVE_BLIZZARD, MOVE_EXTRASENSORY, MOVE_SLUDGE_WAVE, MOVE_ICY_WIND },
+        .moveP = { 69, 65, 60, 39, 33, 16, 16, 13, 11, 9 },
+        .items = { ITEM_FOCUS_SASH, ITEM_LIFE_ORB, ITEM_CHOICE_SCARF, ITEM_EXPERT_BELT },
+        .itemP = { 21, 12, 5, 3 },
+        .abilities = { ABILITY_PROTEAN, ABILITY_TORRENT },
+        .abilityP = { 67, 33 },
+        .megas = { SPECIES_GRENINJA_MEGA },
+        .megaP = { 57 },
+        .spreads = {
+            { NATURE_TIMID, 65, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 13, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_HASTY, 6, { 0, 3, 0, 63, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_TALONFLAME, .usage = 2, .source = 0, // gen9championsvgc2026regmc-1630, 114745 lotte
+        .moves = { MOVE_TAILWIND, MOVE_PROTECT, MOVE_FLARE_BLITZ, MOVE_BRAVE_BIRD, MOVE_OVERHEAT, MOVE_DUAL_WINGBEAT, MOVE_AIR_SLASH, MOVE_QUICK_GUARD, MOVE_WILL_O_WISP, MOVE_TAUNT },
+        .moveP = { 99, 72, 55, 37, 29, 26, 24, 18, 9, 9 },
+        .items = { ITEM_SHARP_BEAK, ITEM_CHARCOAL, ITEM_FOCUS_SASH, ITEM_LIFE_ORB },
+        .itemP = { 33, 25, 13, 11 },
+        .abilities = { ABILITY_GALE_WINGS, ABILITY_FLAME_BODY },
+        .abilityP = { 98, 2 },
+        .spreads = {
+            { NATURE_JOLLY, 47, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_TIMID, 26, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_ADAMANT, 12, { 3, 63, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_VIVILLON, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 44502 lotte
+        .moves = { MOVE_SLEEP_POWDER, MOVE_HURRICANE, MOVE_RAGE_POWDER, MOVE_PROTECT, MOVE_TAILWIND, MOVE_POLLEN_PUFF, MOVE_STRUGGLE_BUG, MOVE_U_TURN },
+        .moveP = { 99, 91, 88, 79, 22, 9, 4, 2 },
+        .items = { ITEM_FOCUS_SASH, ITEM_CHOICE_SCARF },
+        .itemP = { 88, 11 },
+        .abilities = { ABILITY_COMPOUND_EYES, ABILITY_SHIELD_DUST, ABILITY_FRIEND_GUARD },
+        .abilityP = { 96, 2, 2 },
+        .spreads = {
+            { NATURE_TIMID, 82, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 12, { 63, 0, 0, 3, 0, 63 } },
+            { NATURE_TIMID, 1, { 0, 0, 47, 9, 9, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_PYROAR, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 24900 lotte
+        .moves = { MOVE_PROTECT, MOVE_HEAT_WAVE, MOVE_OVERHEAT, MOVE_SCORCHING_SANDS, MOVE_SOLAR_BEAM, MOVE_DARK_PULSE, MOVE_HYPER_VOICE, MOVE_FLAMETHROWER, MOVE_SNARL, MOVE_SUNNY_DAY },
+        .moveP = { 100, 98, 89, 39, 35, 7, 7, 5, 5, 5 },
+        .megas = { SPECIES_PYROAR_MEGA },
+        .megaP = { 100 },
+        .spreads = {
+            { NATURE_TIMID, 92, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 4, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 1, { 61, 0, 3, 3, 5, 55 } },
+        },
+    },
+    {
+        .species = SPECIES_MEOWSTIC, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 14380 lotte
+        .moves = { MOVE_FAKE_OUT, MOVE_LIGHT_SCREEN, MOVE_EXPANDING_FORCE, MOVE_SKILL_SWAP, MOVE_TRICK_ROOM, MOVE_REFLECT, MOVE_RAIN_DANCE, MOVE_YAWN, MOVE_SUNNY_DAY, MOVE_PSYCHIC },
+        .moveP = { 49, 35, 30, 28, 28, 27, 27, 23, 21, 19 },
+        .items = { ITEM_LIGHT_CLAY, ITEM_FOCUS_SASH, ITEM_BRIGHT_POWDER, ITEM_MENTAL_HERB },
+        .itemP = { 22, 20, 13, 11 },
+        .abilities = { ABILITY_PRANKSTER, ABILITY_COMPETITIVE },
+        .abilityP = { 97, 3 },
+        .spreads = {
+            { NATURE_TIMID, 14, { 63, 0, 3, 0, 0, 63 } },
+            { NATURE_TIMID, 11, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_BOLD, 10, { 3, 0, 63, 0, 63, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_AEGISLASH, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 47591 lotte
+        .moves = { MOVE_POLTERGEIST, MOVE_KINGS_SHIELD, MOVE_WIDE_GUARD, MOVE_IRON_HEAD, MOVE_SHADOW_SNEAK, MOVE_CLOSE_COMBAT, MOVE_SACRED_SWORD, MOVE_SHADOW_BALL, MOVE_FLASH_CANNON, MOVE_SWORDS_DANCE },
+        .moveP = { 65, 65, 61, 59, 39, 30, 25, 20, 18, 8 },
+        .items = { ITEM_FOCUS_SASH, ITEM_LEFTOVERS, ITEM_LIFE_ORB, ITEM_SPELL_TAG },
+        .itemP = { 36, 19, 14, 10 },
+        .abilities = { ABILITY_STANCE_CHANGE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_ADAMANT, 35, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 24, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_BRAVE, 10, { 63, 63, 0, 0, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_AROMATISSE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 4950 lotte
+        .moves = { MOVE_TRICK_ROOM, MOVE_MOONBLAST, MOVE_HEAL_PULSE, MOVE_ENCORE, MOVE_PROTECT, MOVE_FAKE_TEARS, MOVE_DAZZLING_GLEAM, MOVE_DISABLE, MOVE_HELPING_HAND, MOVE_ALLY_SWITCH },
+        .moveP = { 97, 81, 42, 30, 28, 23, 14, 12, 10, 9 },
+        .items = { ITEM_SITRUS_BERRY, ITEM_BABIRI_BERRY, ITEM_LEFTOVERS, ITEM_FOCUS_SASH },
+        .itemP = { 55, 16, 10, 6 },
+        .abilities = { ABILITY_AROMA_VEIL, ABILITY_HEALER },
+        .abilityP = { 98, 2 },
+        .spreads = {
+            { NATURE_RELAXED, 39, { 63, 0, 63, 0, 3, 0 } },
+            { NATURE_SASSY, 12, { 61, 0, 0, 5, 63, 0 } },
+            { NATURE_QUIET, 8, { 61, 0, 0, 63, 5, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_MALAMAR, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 38738 lotte
+        .moves = { MOVE_SUPERPOWER, MOVE_PROTECT, MOVE_KNOCK_OFF, MOVE_TRICK_ROOM, MOVE_SKILL_SWAP, MOVE_STORED_POWER, MOVE_PSYCH_UP, MOVE_PSYCHO_CUT, MOVE_REST, MOVE_THROAT_CHOP },
+        .moveP = { 95, 56, 53, 43, 23, 18, 17, 17, 17, 14 },
+        .items = { ITEM_ROSELI_BERRY, ITEM_SITRUS_BERRY, ITEM_LEFTOVERS, ITEM_CHOICE_SCARF },
+        .itemP = { 10, 9, 8, 8 },
+        .abilities = { ABILITY_CONTRARY },
+        .abilityP = { 100 },
+        .megas = { SPECIES_MALAMAR_MEGA },
+        .megaP = { 60 },
+        .spreads = {
+            { NATURE_SASSY, 18, { 63, 0, 3, 0, 63, 0 } },
+            { NATURE_ADAMANT, 11, { 63, 63, 3, 0, 0, 0 } },
+            { NATURE_BRAVE, 8, { 63, 63, 0, 0, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_BARBARACLE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 2977 lotte
+        .moves = { MOVE_ROCK_SLIDE, MOVE_CLOSE_COMBAT, MOVE_PROTECT, MOVE_SHELL_SMASH, MOVE_POISON_JAB, MOVE_LIQUIDATION, MOVE_BRICK_BREAK, MOVE_STONE_EDGE, MOVE_NIGHT_SLASH, MOVE_EARTHQUAKE },
+        .moveP = { 94, 91, 91, 78, 15, 9, 4, 4, 2, 2 },
+        .megas = { SPECIES_BARBARACLE_MEGA },
+        .megaP = { 100 },
+        .spreads = {
+            { NATURE_ADAMANT, 35, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 31, { 59, 63, 0, 0, 0, 7 } },
+            { NATURE_BRAVE, 12, { 63, 63, 3, 0, 0, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_DRAGALGE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 18820 lotte
+        .moves = { MOVE_SLUDGE_BOMB, MOVE_PROTECT, MOVE_DRACO_METEOR, MOVE_DRAGON_PULSE, MOVE_FLIP_TURN, MOVE_THUNDERBOLT, MOVE_TOXIC, MOVE_SCALD, MOVE_FOCUS_BLAST, MOVE_SLUDGE_WAVE },
+        .moveP = { 90, 89, 60, 42, 41, 19, 14, 12, 9, 8 },
+        .items = { ITEM_LIFE_ORB },
+        .itemP = { 4 },
+        .abilities = { ABILITY_ADAPTABILITY, ABILITY_POISON_POINT },
+        .abilityP = { 99, 1 },
+        .megas = { SPECIES_DRAGALGE_MEGA },
+        .megaP = { 94 },
+        .spreads = {
+            { NATURE_QUIET, 26, { 63, 0, 3, 63, 0, 0 } },
+            { NATURE_MODEST, 20, { 63, 0, 0, 63, 3, 0 } },
+            { NATURE_QUIET, 8, { 63, 0, 29, 35, 1, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_CLAWITZER, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 12859 lotte
+        .moves = { MOVE_WATER_PULSE, MOVE_AURA_SPHERE, MOVE_DARK_PULSE, MOVE_PROTECT, MOVE_TERRAIN_PULSE, MOVE_DRAGON_PULSE, MOVE_HEAL_PULSE, MOVE_ICE_BEAM, MOVE_MUDDY_WATER, MOVE_SLUDGE_BOMB },
+        .moveP = { 80, 76, 64, 53, 46, 21, 20, 20, 5, 3 },
+        .items = { ITEM_LIFE_ORB, ITEM_EXPERT_BELT, ITEM_SITRUS_BERRY, ITEM_IRON_BALL },
+        .itemP = { 57, 13, 6, 5 },
+        .abilities = { ABILITY_MEGA_LAUNCHER },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_QUIET, 54, { 63, 0, 3, 63, 0, 0 } },
+            { NATURE_MODEST, 15, { 63, 0, 0, 63, 3, 0 } },
+            { NATURE_TIMID, 5, { 3, 0, 0, 63, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_HELIOLISK, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 18755 lotte
+        .moves = { MOVE_HYPER_VOICE, MOVE_SHED_TAIL, MOVE_ELECTROWEB, MOVE_THUNDERBOLT, MOVE_PROTECT, MOVE_VOLT_SWITCH, MOVE_DARK_PULSE, MOVE_WEATHER_BALL, MOVE_THUNDER, MOVE_DRAGON_PULSE },
+        .moveP = { 62, 45, 41, 41, 35, 29, 29, 23, 14, 11 },
+        .items = { ITEM_CHOICE_SCARF, ITEM_LIFE_ORB, ITEM_FOCUS_SASH, ITEM_SITRUS_BERRY },
+        .itemP = { 52, 19, 9, 5 },
+        .abilities = { ABILITY_SOLAR_POWER, ABILITY_DRY_SKIN, ABILITY_SAND_VEIL },
+        .abilityP = { 53, 44, 3 },
+        .spreads = {
+            { NATURE_TIMID, 45, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 39, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 2, { 0, 0, 19, 63, 5, 41 } },
+        },
+    },
+    {
+        .species = SPECIES_TYRANTRUM, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 3300 lotte
+        .moves = { MOVE_ROCK_SLIDE, MOVE_PSYCHIC_FANGS, MOVE_ICE_FANG, MOVE_HIGH_HORSEPOWER, MOVE_HEAD_SMASH, MOVE_PROTECT, MOVE_CRUNCH, MOVE_DRAGON_CLAW, MOVE_CLOSE_COMBAT, MOVE_FIRE_FANG },
+        .moveP = { 68, 58, 53, 49, 33, 30, 23, 22, 17, 8 },
+        .items = { ITEM_CHOICE_SCARF, ITEM_LIFE_ORB, ITEM_PSYCHIC_SEED, ITEM_FOCUS_SASH },
+        .itemP = { 60, 11, 9, 8 },
+        .abilities = { ABILITY_STRONG_JAW, ABILITY_ROCK_HEAD },
+        .abilityP = { 68, 32 },
+        .spreads = {
+            { NATURE_JOLLY, 35, { 31, 35, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 24, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 10, { 39, 57, 0, 0, 1, 31 } },
+        },
+    },
+    {
+        .species = SPECIES_AURORUS, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 6908 lotte
+        .moves = { MOVE_PROTECT, MOVE_BLIZZARD, MOVE_ANCIENT_POWER, MOVE_FREEZE_DRY, MOVE_AURORA_VEIL, MOVE_EARTH_POWER, MOVE_HYPER_VOICE, MOVE_ROUND, MOVE_HYPER_BEAM, MOVE_WEATHER_BALL },
+        .moveP = { 83, 77, 75, 52, 34, 28, 15, 6, 5, 5 },
+        .items = { ITEM_LIFE_ORB, ITEM_NEVER_MELT_ICE, ITEM_CHOPLE_BERRY, ITEM_FOCUS_SASH },
+        .itemP = { 24, 19, 14, 13 },
+        .abilities = { ABILITY_SNOW_WARNING, ABILITY_REFRIGERATE },
+        .abilityP = { 80, 20 },
+        .spreads = {
+            { NATURE_QUIET, 38, { 63, 0, 3, 63, 0, 0 } },
+            { NATURE_MODEST, 11, { 63, 0, 0, 63, 3, 0 } },
+            { NATURE_MODEST, 5, { 1, 0, 3, 61, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_SYLVEON, .usage = 9, .source = 0, // gen9championsvgc2026regmc-1630, 262857 lotte
+        .moves = { MOVE_HYPER_VOICE, MOVE_HYPER_BEAM, MOVE_QUICK_ATTACK, MOVE_DETECT, MOVE_PROTECT, MOVE_YAWN, MOVE_MYSTICAL_FIRE, MOVE_CALM_MIND, MOVE_MOONBLAST, MOVE_ROUND },
+        .moveP = { 100, 84, 75, 64, 35, 13, 8, 8, 6, 2 },
+        .items = { ITEM_FAIRY_FEATHER, ITEM_LIFE_ORB },
+        .itemP = { 88, 7 },
+        .abilities = { ABILITY_PIXILATE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_MODEST, 13, { 17, 0, 43, 39, 0, 29 } },
+            { NATURE_MODEST, 9, { 63, 0, 3, 63, 0, 0 } },
+            { NATURE_MODEST, 9, { 37, 0, 1, 59, 0, 31 } },
+        },
+    },
+    {
+        .species = SPECIES_HAWLUCHA, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 20015 lotte
+        .moves = { MOVE_ENTRAINMENT, MOVE_DETECT, MOVE_CLOSE_COMBAT, MOVE_ACROBATICS, MOVE_CROSS_CHOP, MOVE_PROTECT, MOVE_BRAVE_BIRD, MOVE_DUAL_WINGBEAT, MOVE_SWORDS_DANCE, MOVE_COACHING },
+        .moveP = { 57, 57, 47, 36, 35, 35, 32, 21, 16, 9 },
+        .items = { ITEM_PSYCHIC_SEED, ITEM_GRASSY_SEED, ITEM_ELECTRIC_SEED },
+        .itemP = { 18, 11, 9 },
+        .abilities = { ABILITY_UNBURDEN },
+        .abilityP = { 99 },
+        .megas = { SPECIES_HAWLUCHA_MEGA },
+        .megaP = { 60 },
+        .spreads = {
+            { NATURE_JOLLY, 25, { 63, 0, 0, 0, 33, 33 } },
+            { NATURE_JOLLY, 17, { 63, 0, 0, 0, 3, 63 } },
+            { NATURE_ADAMANT, 16, { 3, 63, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_GOODRA, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 4118 lotte
+        .moves = { MOVE_PROTECT, MOVE_FLAMETHROWER, MOVE_ICE_BEAM, MOVE_DRACO_METEOR, MOVE_DRAGON_PULSE, MOVE_THUNDERBOLT, MOVE_LIFE_DEW, MOVE_SLUDGE_BOMB, MOVE_THUNDER, MOVE_SCALD },
+        .moveP = { 52, 45, 44, 39, 38, 27, 25, 19, 14, 12 },
+        .items = { ITEM_LEFTOVERS, ITEM_SITRUS_BERRY, ITEM_HABAN_BERRY, ITEM_ROCKY_HELMET },
+        .itemP = { 27, 19, 15, 13 },
+        .abilities = { ABILITY_SAP_SIPPER, ABILITY_GOOEY, ABILITY_HYDRATION },
+        .abilityP = { 79, 13, 8 },
+        .spreads = {
+            { NATURE_MODEST, 25, { 63, 0, 3, 63, 0, 0 } },
+            { NATURE_SASSY, 11, { 3, 0, 0, 63, 63, 0 } },
+            { NATURE_MODEST, 9, { 39, 0, 15, 63, 0, 11 } },
+        },
+    },
+    {
+        .species = SPECIES_KLEFKI, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 23270 lotte
+        .moves = { MOVE_LIGHT_SCREEN, MOVE_REFLECT, MOVE_RAIN_DANCE, MOVE_DAZZLING_GLEAM, MOVE_THUNDER_WAVE, MOVE_TRICK_ROOM, MOVE_DRAINING_KISS, MOVE_CALM_MIND, MOVE_PSYCH_UP, MOVE_FOUL_PLAY },
+        .moveP = { 80, 76, 64, 53, 25, 15, 13, 13, 12, 11 },
+        .items = { ITEM_LIGHT_CLAY, ITEM_SITRUS_BERRY, ITEM_MENTAL_HERB, ITEM_LEFTOVERS },
+        .itemP = { 72, 11, 5, 3 },
+        .abilities = { ABILITY_PRANKSTER },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_BOLD, 22, { 63, 0, 63, 0, 3, 0 } },
+            { NATURE_BOLD, 19, { 63, 0, 37, 0, 29, 0 } },
+            { NATURE_CALM, 19, { 63, 0, 41, 0, 25, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_NOIVERN, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 17180 lotte
+        .moves = { MOVE_TAILWIND, MOVE_DRACO_METEOR, MOVE_PROTECT, MOVE_SUPER_FANG, MOVE_FLAMETHROWER, MOVE_HURRICANE, MOVE_AIR_SLASH, MOVE_TAUNT, MOVE_HEAT_WAVE, MOVE_BOOMBURST },
+        .moveP = { 93, 83, 63, 29, 22, 21, 20, 16, 10, 9 },
+        .items = { ITEM_FOCUS_SASH, ITEM_LIFE_ORB, ITEM_EXPERT_BELT, ITEM_NORMAL_GEM },
+        .itemP = { 61, 11, 4, 4 },
+        .abilities = { ABILITY_TELEPATHY, ABILITY_FRISK, ABILITY_INFILTRATOR },
+        .abilityP = { 46, 39, 14 },
+        .spreads = {
+            { NATURE_TIMID, 82, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 7, { 61, 0, 0, 5, 0, 63 } },
+            { NATURE_TIMID, 3, { 31, 0, 0, 39, 0, 59 } },
+        },
+    },
+    {
+        .species = SPECIES_DIANCIE, .usage = 4, .source = 2, // gen9nationaldexdoubles-0, 10343 lotte
+        .moves = { MOVE_DIAMOND_STORM, MOVE_PROTECT, MOVE_BODY_PRESS, MOVE_TRICK_ROOM, MOVE_MOONBLAST, MOVE_PLAY_ROUGH, MOVE_EARTH_POWER, MOVE_DRAINING_KISS, MOVE_DAZZLING_GLEAM, MOVE_ENCORE },
+        .moveP = { 93, 65, 43, 40, 21, 17, 16, 16, 14, 11 },
+        .items = { ITEM_HARD_STONE, ITEM_LEFTOVERS, ITEM_COVERT_CLOAK, ITEM_WEAKNESS_POLICY },
+        .itemP = { 8, 6, 5, 4 },
+        .abilities = { ABILITY_CLEAR_BODY },
+        .abilityP = { 100 },
+        .megas = { SPECIES_DIANCIE_MEGA },
+        .megaP = { 64 },
+        .spreads = {
+            { NATURE_BRAVE, 14, { 63, 63, 0, 0, 1, 0 } },
+            { NATURE_HARDY, 10, { 62, 2, 37, 0, 26, 0 } },
+            { NATURE_HASTY, 6, { 0, 1, 0, 63, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_VOLCANION, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 3612 lotte
+        .moves = { MOVE_STEAM_ERUPTION, MOVE_HEAT_WAVE, MOVE_EARTH_POWER, MOVE_SLUDGE_BOMB, MOVE_PROTECT, MOVE_FLAMETHROWER, MOVE_FLASH_CANNON, MOVE_WILL_O_WISP, MOVE_SCORCHING_SANDS, MOVE_SCALD },
+        .moveP = { 90, 74, 73, 30, 28, 17, 10, 10, 6, 5 },
+        .items = { ITEM_ASSAULT_VEST, ITEM_LEFTOVERS, ITEM_SITRUS_BERRY, ITEM_LIFE_ORB },
+        .itemP = { 44, 24, 7, 6 },
+        .abilities = { ABILITY_WATER_ABSORB },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_MODEST, 34, { 62, 0, 0, 63, 2, 0 } },
+            { NATURE_MODEST, 19, { 35, 0, 11, 47, 30, 4 } },
+            { NATURE_QUIET, 9, { 62, 0, 0, 63, 2, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_INCINEROAR, .usage = 31, .source = 0, // gen9championsvgc2026regmc-1630, 1005513 lotte
+        .moves = { MOVE_FAKE_OUT, MOVE_PARTING_SHOT, MOVE_FLARE_BLITZ, MOVE_KNOCK_OFF, MOVE_THROAT_CHOP, MOVE_DARKEST_LARIAT, MOVE_PROTECT, MOVE_WILL_O_WISP, MOVE_HELPING_HAND, MOVE_TAUNT },
+        .moveP = { 99, 95, 90, 43, 41, 33, 17, 12, 8, 7 },
+        .items = { ITEM_SITRUS_BERRY, ITEM_CHOPLE_BERRY, ITEM_PASSHO_BERRY, ITEM_ROCKY_HELMET },
+        .itemP = { 61, 12, 10, 7 },
+        .abilities = { ABILITY_INTIMIDATE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_CAREFUL, 18, { 63, 0, 27, 0, 39, 0 } },
+            { NATURE_IMPISH, 15, { 63, 0, 39, 0, 27, 0 } },
+            { NATURE_SASSY, 6, { 61, 0, 29, 0, 39, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_PRIMARINA, .usage = 4, .source = 0, // gen9championsvgc2026regmc-1630, 142440 lotte
+        .moves = { MOVE_HYPER_VOICE, MOVE_PROTECT, MOVE_MOONBLAST, MOVE_CALM_MIND, MOVE_AQUA_JET, MOVE_DAZZLING_GLEAM, MOVE_ICE_BEAM, MOVE_PERISH_SONG, MOVE_ICY_WIND, MOVE_HAZE },
+        .moveP = { 97, 97, 96, 47, 14, 11, 8, 4, 3, 3 },
+        .items = { ITEM_LEFTOVERS, ITEM_LIFE_ORB, ITEM_GRASSY_SEED, ITEM_MYSTIC_WATER },
+        .itemP = { 35, 31, 9, 9 },
+        .abilities = { ABILITY_LIQUID_VOICE, ABILITY_TORRENT },
+        .abilityP = { 98, 2 },
+        .spreads = {
+            { NATURE_MODEST, 16, { 63, 0, 0, 63, 3, 0 } },
+            { NATURE_QUIET, 9, { 63, 0, 3, 63, 0, 0 } },
+            { NATURE_MODEST, 8, { 61, 0, 31, 35, 0, 1 } },
+        },
+    },
+    {
+        .species = SPECIES_TOUCANNON, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 3382 lotte
+        .moves = { MOVE_ROCK_BLAST, MOVE_BULLET_SEED, MOVE_BEAK_BLAST, MOVE_PROTECT, MOVE_TAILWIND, MOVE_BRAVE_BIRD, MOVE_GIGA_IMPACT, MOVE_TEMPER_FLARE, MOVE_U_TURN, MOVE_ACROBATICS },
+        .moveP = { 89, 77, 76, 61, 31, 20, 6, 6, 6, 5 },
+        .items = { ITEM_KINGS_ROCK, ITEM_FOCUS_SASH, ITEM_LIFE_ORB, ITEM_SITRUS_BERRY },
+        .itemP = { 22, 18, 15, 15 },
+        .abilities = { ABILITY_SKILL_LINK, ABILITY_SHEER_FORCE, ABILITY_KEEN_EYE },
+        .abilityP = { 92, 5, 3 },
+        .spreads = {
+            { NATURE_ADAMANT, 30, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_BRAVE, 28, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_JOLLY, 8, { 3, 63, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_CRABOMINABLE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 24929 lotte
+        .moves = { MOVE_ICE_HAMMER, MOVE_PROTECT, MOVE_DRAIN_PUNCH, MOVE_ROCK_SLIDE, MOVE_MACH_PUNCH, MOVE_CLOSE_COMBAT, MOVE_THUNDER_PUNCH, MOVE_ICE_PUNCH, MOVE_WIDE_GUARD, MOVE_KNOCK_OFF },
+        .moveP = { 89, 87, 77, 33, 22, 22, 19, 10, 9, 8 },
+        .abilities = { ABILITY_HYPER_CUTTER, ABILITY_IRON_FIST, ABILITY_ANGER_POINT },
+        .abilityP = { 64, 28, 8 },
+        .megas = { SPECIES_CRABOMINABLE_MEGA },
+        .megaP = { 97 },
+        .spreads = {
+            { NATURE_BRAVE, 81, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 8, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_BRAVE, 2, { 31, 63, 0, 0, 35, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_LYCANROC, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 3399 lotte
+        .moves = { MOVE_ROCK_SLIDE, MOVE_PROTECT, MOVE_CLOSE_COMBAT, MOVE_PSYCHIC_FANGS, MOVE_ACCELEROCK, MOVE_ENDEAVOR, MOVE_TAUNT },
+        .moveP = { 99, 99, 98, 75, 12, 9, 5 },
+        .items = { ITEM_FOCUS_SASH },
+        .itemP = { 99 },
+        .abilities = { ABILITY_SAND_RUSH, ABILITY_KEEN_EYE, ABILITY_STEADFAST },
+        .abilityP = { 94, 5, 1 },
+        .spreads = {
+            { NATURE_ADAMANT, 77, { 0, 63, 0, 0, 3, 63 } },
+            { NATURE_JOLLY, 21, { 1, 63, 0, 0, 1, 63 } },
+            { NATURE_TIMID, 1, { 3, 63, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_TOXAPEX, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 48545 lotte
+        .moves = { MOVE_INFESTATION, MOVE_BANEFUL_BUNKER, MOVE_TOXIC, MOVE_WIDE_GUARD, MOVE_RECOVER, MOVE_STOCKPILE, MOVE_HAZE, MOVE_PROTECT },
+        .moveP = { 96, 93, 93, 76, 24, 4, 3, 2 },
+        .items = { ITEM_LEFTOVERS, ITEM_BINDING_BAND, ITEM_ROCKY_HELMET, ITEM_SITRUS_BERRY },
+        .itemP = { 84, 6, 4, 2 },
+        .abilities = { ABILITY_REGENERATOR, ABILITY_MERCILESS },
+        .abilityP = { 97, 3 },
+        .spreads = {
+            { NATURE_BOLD, 29, { 63, 0, 35, 0, 31, 0 } },
+            { NATURE_CALM, 14, { 63, 0, 31, 0, 35, 0 } },
+            { NATURE_BOLD, 10, { 63, 0, 63, 3, 0, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_MUDSDALE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 8989 lotte
+        .moves = { MOVE_HIGH_HORSEPOWER, MOVE_PROTECT, MOVE_HEAVY_SLAM, MOVE_ROCK_SLIDE, MOVE_EARTHQUAKE, MOVE_BODY_PRESS, MOVE_CURSE, MOVE_CLOSE_COMBAT },
+        .moveP = { 92, 90, 79, 72, 23, 16, 11, 6 },
+        .items = { ITEM_LIFE_ORB, ITEM_RINDO_BERRY, ITEM_LEFTOVERS, ITEM_SOFT_SAND },
+        .itemP = { 49, 16, 16, 5 },
+        .abilities = { ABILITY_INNER_FOCUS, ABILITY_STAMINA, ABILITY_OWN_TEMPO },
+        .abilityP = { 78, 19, 3 },
+        .spreads = {
+            { NATURE_BRAVE, 58, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 7, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_BRAVE, 6, { 33, 49, 0, 0, 47, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_ARAQUANID, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 41813 lotte
+        .moves = { MOVE_WIDE_GUARD, MOVE_LIQUIDATION, MOVE_PROTECT, MOVE_LEECH_LIFE, MOVE_INFESTATION, MOVE_ENTRAINMENT, MOVE_LUNGE, MOVE_MIRROR_COAT, MOVE_HYDRO_PUMP, MOVE_WATERFALL },
+        .moveP = { 88, 84, 64, 55, 18, 11, 10, 9, 7, 7 },
+        .items = { ITEM_MYSTIC_WATER, ITEM_LEFTOVERS, ITEM_SITRUS_BERRY, ITEM_LIFE_ORB },
+        .itemP = { 42, 19, 12, 9 },
+        .abilities = { ABILITY_WATER_BUBBLE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_BRAVE, 33, { 63, 63, 3, 0, 0, 0 } },
+            { NATURE_ADAMANT, 14, { 63, 63, 3, 0, 0, 0 } },
+            { NATURE_CAREFUL, 5, { 63, 1, 63, 0, 1, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_LURANTIS, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 1600 lotte
+        .moves = { MOVE_SUPERPOWER, MOVE_LEAF_BLADE, MOVE_LEECH_LIFE, MOVE_LEAF_STORM, MOVE_KNOCK_OFF, MOVE_PROTECT, MOVE_POISON_JAB, MOVE_SYNTHESIS, MOVE_POLLEN_PUFF, MOVE_PSYCHO_CUT },
+        .moveP = { 96, 44, 43, 42, 34, 24, 16, 13, 10, 9 },
+        .items = { ITEM_ASSAULT_VEST, ITEM_LEFTOVERS, ITEM_SITRUS_BERRY, ITEM_SHELL_BELL },
+        .itemP = { 44, 17, 7, 6 },
+        .abilities = { ABILITY_CONTRARY, ABILITY_LEAF_GUARD },
+        .abilityP = { 99, 1 },
+        .spreads = {
+            { NATURE_BRAVE, 31, { 62, 63, 0, 0, 2, 0 } },
+            { NATURE_ADAMANT, 12, { 62, 63, 0, 0, 2, 0 } },
+            { NATURE_SASSY, 10, { 62, 0, 2, 0, 63, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_SALAZZLE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 11084 lotte
+        .moves = { MOVE_FAKE_OUT, MOVE_SLUDGE_BOMB, MOVE_DRAGON_CHEER, MOVE_HEAT_WAVE, MOVE_PROTECT, MOVE_OVERHEAT, MOVE_FLAMETHROWER, MOVE_TOXIC, MOVE_ENCORE, MOVE_FIRE_BLAST },
+        .moveP = { 86, 78, 56, 46, 23, 21, 18, 14, 13, 9 },
+        .items = { ITEM_FOCUS_SASH, ITEM_LIFE_ORB, ITEM_AIR_BALLOON, ITEM_CHOICE_SCARF },
+        .itemP = { 78, 10, 3, 2 },
+        .abilities = { ABILITY_OBLIVIOUS, ABILITY_CORROSION },
+        .abilityP = { 61, 39 },
+        .spreads = {
+            { NATURE_TIMID, 63, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_HASTY, 15, { 0, 3, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 10, { 3, 0, 0, 63, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_TSAREENA, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 49478 lotte
+        .moves = { MOVE_TRIPLE_AXEL, MOVE_POWER_WHIP, MOVE_PROTECT, MOVE_LOW_KICK, MOVE_HIGH_JUMP_KICK, MOVE_TROP_KICK, MOVE_TAUNT, MOVE_U_TURN, MOVE_KNOCK_OFF, MOVE_HELPING_HAND },
+        .moveP = { 93, 68, 58, 50, 27, 27, 26, 18, 15, 12 },
+        .items = { ITEM_WIDE_LENS, ITEM_CHOICE_SCARF, ITEM_FOCUS_SASH, ITEM_WHITE_HERB },
+        .itemP = { 48, 14, 12, 7 },
+        .abilities = { ABILITY_QUEENLY_MAJESTY, ABILITY_LEAF_GUARD },
+        .abilityP = { 99, 1 },
+        .spreads = {
+            { NATURE_JOLLY, 29, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 13, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 10, { 63, 63, 0, 0, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_COMFEY, .usage = 1, .source = 1, // gen9vgc2024regg-0, 197 lotte
+        .moves = { MOVE_DRAINING_KISS, MOVE_FLORAL_HEALING, MOVE_PROTECT, MOVE_TAUNT, MOVE_TRICK_ROOM, MOVE_TAILWIND, MOVE_POLLEN_PUFF, MOVE_U_TURN, MOVE_SYNTHESIS, MOVE_SWEET_SCENT },
+        .moveP = { 94, 93, 79, 46, 39, 18, 11, 7, 4, 3 },
+        .items = { ITEM_SITRUS_BERRY, ITEM_LIFE_ORB, ITEM_FOCUS_SASH, ITEM_MENTAL_HERB },
+        .itemP = { 30, 28, 16, 15 },
+        .abilities = { ABILITY_TRIAGE, ABILITY_FLOWER_VEIL },
+        .abilityP = { 99, 1 },
+        .spreads = {
+            { NATURE_MODEST, 33, { 25, 0, 0, 63, 0, 39 } },
+            { NATURE_CALM, 19, { 63, 0, 39, 5, 19, 1 } },
+            { NATURE_BOLD, 13, { 63, 0, 37, 1, 3, 23 } },
+        },
+    },
+    {
+        .species = SPECIES_ORANGURU, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 27545 lotte
+        .moves = { MOVE_INSTRUCT, MOVE_TRICK_ROOM, MOVE_PSYCHIC, MOVE_PROTECT, MOVE_ENCORE, MOVE_EXPANDING_FORCE, MOVE_FOUL_PLAY, MOVE_IMPRISON, MOVE_YAWN, MOVE_PSYCHIC_NOISE },
+        .moveP = { 97, 97, 52, 44, 36, 15, 10, 10, 6, 5 },
+        .items = { ITEM_MENTAL_HERB, ITEM_COLBUR_BERRY, ITEM_SITRUS_BERRY, ITEM_ROCKY_HELMET },
+        .itemP = { 45, 22, 16, 5 },
+        .abilities = { ABILITY_INNER_FOCUS, ABILITY_TELEPATHY, ABILITY_SYMBIOSIS },
+        .abilityP = { 79, 19, 2 },
+        .spreads = {
+            { NATURE_RELAXED, 40, { 63, 0, 63, 0, 3, 0 } },
+            { NATURE_BOLD, 13, { 63, 0, 63, 0, 3, 0 } },
+            { NATURE_SASSY, 13, { 63, 0, 0, 3, 63, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_GOLISOPOD, .usage = 16, .source = 0, // gen9championsvgc2026regmc-1630, 677921 lotte
+        .moves = { MOVE_LEECH_LIFE, MOVE_IRON_HEAD, MOVE_PROTECT, MOVE_SWORDS_DANCE, MOVE_SUCKER_PUNCH, MOVE_FIRST_IMPRESSION, MOVE_LIQUIDATION, MOVE_DRILL_RUN, MOVE_CLOSE_COMBAT, MOVE_AQUA_JET },
+        .moveP = { 92, 84, 70, 42, 28, 22, 22, 10, 9, 6 },
+        .megas = { SPECIES_GOLISOPOD_MEGA },
+        .megaP = { 99 },
+        .spreads = {
+            { NATURE_ADAMANT, 44, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_BRAVE, 27, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 5, { 63, 39, 0, 0, 27, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_MIMIKYU, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 22365 lotte
+        .moves = { MOVE_PLAY_ROUGH, MOVE_SHADOW_SNEAK, MOVE_TRICK_ROOM, MOVE_SHADOW_CLAW, MOVE_PROTECT, MOVE_WILL_O_WISP, MOVE_SWORDS_DANCE, MOVE_WOOD_HAMMER, MOVE_SUNNY_DAY, MOVE_CURSE },
+        .moveP = { 89, 60, 57, 32, 29, 24, 21, 14, 13, 11 },
+        .items = { ITEM_LIFE_ORB, ITEM_MENTAL_HERB, ITEM_WIDE_LENS, ITEM_BABIRI_BERRY },
+        .itemP = { 46, 20, 8, 3 },
+        .abilities = { ABILITY_DISGUISE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_ADAMANT, 27, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_BRAVE, 17, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_JOLLY, 14, { 3, 63, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_DRAMPA, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 26703 lotte
+        .moves = { MOVE_PROTECT, MOVE_HYPER_VOICE, MOVE_DRAGON_PULSE, MOVE_EARTH_POWER, MOVE_FLAMETHROWER, MOVE_DRACO_METEOR, MOVE_HEAT_WAVE, MOVE_THUNDERBOLT, MOVE_CALM_MIND, MOVE_SUBSTITUTE },
+        .moveP = { 83, 67, 53, 50, 38, 24, 17, 16, 14, 5 },
+        .items = { ITEM_LIFE_ORB, ITEM_SITRUS_BERRY, ITEM_LEFTOVERS, ITEM_HABAN_BERRY },
+        .itemP = { 18, 9, 4, 2 },
+        .abilities = { ABILITY_CLOUD_NINE, ABILITY_BERSERK },
+        .abilityP = { 96, 4 },
+        .megas = { SPECIES_DRAMPA_MEGA },
+        .megaP = { 59 },
+        .spreads = {
+            { NATURE_QUIET, 56, { 63, 0, 3, 63, 0, 0 } },
+            { NATURE_MODEST, 16, { 63, 0, 0, 63, 3, 0 } },
+            { NATURE_BOLD, 6, { 63, 0, 33, 0, 23, 9 } },
+        },
+    },
+    {
+        .species = SPECIES_KOMMO_O, .usage = 4, .source = 0, // gen9championsvgc2026regmc-1630, 79927 lotte
+        .moves = { MOVE_PROTECT, MOVE_CLANGING_SCALES, MOVE_AURA_SPHERE, MOVE_CLANGOROUS_SOUL, MOVE_FLAMETHROWER, MOVE_VACUUM_WAVE, MOVE_BODY_PRESS, MOVE_IRON_DEFENSE },
+        .moveP = { 98, 97, 90, 62, 35, 7, 2, 2 },
+        .items = { ITEM_LEFTOVERS, ITEM_LIFE_ORB, ITEM_SITRUS_BERRY },
+        .itemP = { 56, 37, 2 },
+        .abilities = { ABILITY_SOUNDPROOF, ABILITY_BULLETPROOF, ABILITY_OVERCOAT },
+        .abilityP = { 93, 5, 2 },
+        .spreads = {
+            { NATURE_MODEST, 31, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 12, { 63, 0, 0, 63, 3, 0 } },
+            { NATURE_MODEST, 10, { 21, 0, 0, 39, 5, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_TAPU_KOKO, .usage = 4, .source = 2, // gen9nationaldexdoubles-0, 9519 lotte
+        .moves = { MOVE_DAZZLING_GLEAM, MOVE_VOLT_SWITCH, MOVE_PROTECT, MOVE_THUNDERBOLT, MOVE_DISCHARGE, MOVE_ELECTROWEB, MOVE_U_TURN, MOVE_TAUNT, MOVE_NATURES_MADNESS, MOVE_GRASS_KNOT },
+        .moveP = { 74, 59, 42, 33, 26, 23, 17, 16, 14, 11 },
+        .items = { ITEM_TERRAIN_EXTENDER, ITEM_CHOICE_SPECS, ITEM_ELECTRIUM_Z, ITEM_LIFE_ORB },
+        .itemP = { 21, 16, 12, 9 },
+        .abilities = { ABILITY_ELECTRIC_SURGE, ABILITY_TELEPATHY },
+        .abilityP = { 98, 2 },
+        .spreads = {
+            { NATURE_TIMID, 56, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 10, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 5, { 63, 0, 1, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_TAPU_LELE, .usage = 4, .source = 2, // gen9nationaldexdoubles-0, 8675 lotte
+        .moves = { MOVE_DAZZLING_GLEAM, MOVE_PSYCHIC, MOVE_MOONBLAST, MOVE_PROTECT, MOVE_SHADOW_BALL, MOVE_FOCUS_BLAST, MOVE_PSYSHOCK, MOVE_ENERGY_BALL, MOVE_THUNDERBOLT, MOVE_TAUNT },
+        .moveP = { 60, 57, 50, 28, 21, 17, 17, 16, 14, 12 },
+        .items = { ITEM_CHOICE_SCARF, ITEM_TERRAIN_EXTENDER, ITEM_CHOICE_SPECS, ITEM_LEFTOVERS },
+        .itemP = { 16, 10, 10, 7 },
+        .abilities = { ABILITY_PSYCHIC_SURGE, ABILITY_TELEPATHY },
+        .abilityP = { 99, 1 },
+        .spreads = {
+            { NATURE_TIMID, 61, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 9, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 4, { 63, 0, 0, 63, 1, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_TAPU_FINI, .usage = 3, .source = 2, // gen9nationaldexdoubles-0, 6333 lotte
+        .moves = { MOVE_MOONBLAST, MOVE_MUDDY_WATER, MOVE_PROTECT, MOVE_CALM_MIND, MOVE_DAZZLING_GLEAM, MOVE_ICY_WIND, MOVE_HEAL_PULSE, MOVE_SCALD, MOVE_NATURES_MADNESS, MOVE_TRICK },
+        .moveP = { 71, 62, 53, 44, 25, 19, 19, 16, 12, 10 },
+        .items = { ITEM_LEFTOVERS, ITEM_CHOICE_SPECS, ITEM_SITRUS_BERRY, ITEM_CHOICE_SCARF },
+        .itemP = { 50, 11, 7, 4 },
+        .abilities = { ABILITY_MISTY_SURGE, ABILITY_TELEPATHY },
+        .abilityP = { 94, 6 },
+        .spreads = {
+            { NATURE_MODEST, 14, { 63, 0, 0, 63, 1, 0 } },
+            { NATURE_TIMID, 9, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_BOLD, 7, { 62, 0, 19, 39, 1, 6 } },
+        },
+    },
+    {
+        .species = SPECIES_LUNALA, .usage = 3, .source = 1, // gen9vgc2024regg-0, 592 lotte
+        .moves = { MOVE_MOONGEIST_BEAM, MOVE_METEOR_BEAM, MOVE_TRICK_ROOM, MOVE_EXPANDING_FORCE, MOVE_WIDE_GUARD, MOVE_MOONBLAST, MOVE_PROTECT, MOVE_CALM_MIND, MOVE_DAZZLING_GLEAM },
+        .moveP = { 100, 77, 69, 45, 30, 27, 23, 20, 5 },
+        .items = { ITEM_POWER_HERB, ITEM_LEFTOVERS },
+        .itemP = { 77, 20 },
+        .abilities = { ABILITY_SHADOW_SHIELD },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_MODEST, 24, { 29, 0, 27, 63, 7, 1 } },
+            { NATURE_MODEST, 22, { 63, 0, 1, 61, 1, 1 } },
+            { NATURE_MODEST, 12, { 55, 0, 11, 45, 1, 15 } },
+        },
+    },
+    {
+        .species = SPECIES_XURKITREE, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 3950 lotte
+        .moves = { MOVE_DAZZLING_GLEAM, MOVE_ENERGY_BALL, MOVE_TAIL_GLOW, MOVE_THUNDERBOLT, MOVE_DISCHARGE, MOVE_PROTECT, MOVE_VOLT_SWITCH, MOVE_ELECTROWEB, MOVE_RISING_VOLTAGE, MOVE_SIGNAL_BEAM },
+        .moveP = { 67, 50, 48, 47, 39, 33, 31, 15, 12, 10 },
+        .items = { ITEM_CHOICE_SCARF, ITEM_FOCUS_SASH, ITEM_AIR_BALLOON, ITEM_LIFE_ORB },
+        .itemP = { 18, 16, 10, 10 },
+        .abilities = { ABILITY_BEAST_BOOST },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_TIMID, 60, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 8, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_QUIET, 5, { 63, 0, 0, 63, 1, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_CELESTEELA, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 3810 lotte
+        .moves = { MOVE_LEECH_SEED, MOVE_PROTECT, MOVE_HEAVY_SLAM, MOVE_WIDE_GUARD, MOVE_FLASH_CANNON, MOVE_FLAMETHROWER, MOVE_AIR_SLASH, MOVE_ACROBATICS, MOVE_METEOR_BEAM, MOVE_SUBSTITUTE },
+        .moveP = { 76, 68, 55, 33, 28, 28, 20, 17, 12, 11 },
+        .items = { ITEM_LEFTOVERS, ITEM_POWER_HERB, ITEM_MISTY_SEED, ITEM_MIRROR_HERB },
+        .itemP = { 61, 12, 6, 4 },
+        .abilities = { ABILITY_BEAST_BOOST },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_BOLD, 7, { 63, 0, 63, 1, 0, 0 } },
+            { NATURE_IMPISH, 7, { 63, 1, 63, 0, 0, 0 } },
+            { NATURE_CAREFUL, 5, { 63, 1, 26, 0, 35, 2 } },
+        },
+    },
+    {
+        .species = SPECIES_KARTANA, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 4978 lotte
+        .moves = { MOVE_LEAF_BLADE, MOVE_SACRED_SWORD, MOVE_SMART_STRIKE, MOVE_KNOCK_OFF, MOVE_PROTECT, MOVE_SWORDS_DANCE, MOVE_PSYCHO_CUT, MOVE_X_SCISSOR, MOVE_TAILWIND, MOVE_SOLAR_BLADE },
+        .moveP = { 89, 81, 66, 28, 27, 23, 17, 15, 15, 8 },
+        .items = { ITEM_FOCUS_SASH, ITEM_CHOICE_BAND, ITEM_CHOICE_SCARF, ITEM_LIFE_ORB },
+        .itemP = { 25, 13, 13, 12 },
+        .abilities = { ABILITY_BEAST_BOOST },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_JOLLY, 60, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 9, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_HARDY, 8, { 0, 63, 1, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_MARSHADOW, .usage = 4, .source = 2, // gen9nationaldexdoubles-0, 9065 lotte
+        .moves = { MOVE_SPECTRAL_THIEF, MOVE_SHADOW_SNEAK, MOVE_CLOSE_COMBAT, MOVE_PROTECT, MOVE_FORCE_PALM, MOVE_DRAIN_PUNCH, MOVE_KNOCK_OFF, MOVE_BULK_UP, MOVE_ROCK_SLIDE, MOVE_ROCK_TOMB },
+        .moveP = { 94, 80, 56, 55, 24, 18, 17, 8, 7, 4 },
+        .items = { ITEM_MARSHADIUM_Z, ITEM_LIFE_ORB, ITEM_SPELL_TAG, ITEM_FOCUS_SASH },
+        .itemP = { 31, 24, 14, 12 },
+        .abilities = { ABILITY_TECHNICIAN },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_JOLLY, 78, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 13, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_HASTY, 1, { 0, 63, 0, 1, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_ZERAORA, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 4576 lotte
+        .moves = { MOVE_PLASMA_FISTS, MOVE_FAKE_OUT, MOVE_CLOSE_COMBAT, MOVE_VOLT_SWITCH, MOVE_PROTECT, MOVE_PLAY_ROUGH, MOVE_KNOCK_OFF, MOVE_SNARL, MOVE_DRAIN_PUNCH, MOVE_ELECTROWEB },
+        .moveP = { 85, 64, 39, 28, 21, 19, 19, 14, 12, 9 },
+        .items = { ITEM_ASSAULT_VEST, ITEM_LIFE_ORB, ITEM_FOCUS_SASH, ITEM_ELECTRIUM_Z },
+        .itemP = { 20, 16, 10, 9 },
+        .abilities = { ABILITY_VOLT_ABSORB },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_JOLLY, 49, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 11, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 7, { 62, 7, 8, 0, 0, 50 } },
+        },
+    },
+    {
+        .species = SPECIES_RILLABOOM, .usage = 46, .source = 0, // gen9championsvgc2026regmc-1630, 1410840 lotte
+        .moves = { MOVE_FAKE_OUT, MOVE_GRASSY_GLIDE, MOVE_WOOD_HAMMER, MOVE_U_TURN, MOVE_HIGH_HORSEPOWER, MOVE_PROTECT, MOVE_SUPERPOWER, MOVE_DRUM_BEATING, MOVE_KNOCK_OFF },
+        .moveP = { 99, 98, 86, 48, 44, 14, 3, 2, 2 },
+        .items = { ITEM_MIRACLE_SEED, ITEM_SITRUS_BERRY, ITEM_LIFE_ORB, ITEM_EJECT_BUTTON },
+        .itemP = { 64, 9, 8, 5 },
+        .abilities = { ABILITY_GRASSY_SURGE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_ADAMANT, 19, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 13, { 63, 29, 0, 0, 37, 0 } },
+            { NATURE_ADAMANT, 6, { 35, 49, 9, 0, 19, 15 } },
+        },
+    },
+    {
+        .species = SPECIES_CINDERACE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 19301 lotte
+        .moves = { MOVE_PYRO_BALL, MOVE_PROTECT, MOVE_HIGH_JUMP_KICK, MOVE_U_TURN, MOVE_GUNK_SHOT, MOVE_SUCKER_PUNCH, MOVE_COACHING, MOVE_HELPING_HAND, MOVE_IRON_HEAD, MOVE_SNARL },
+        .moveP = { 96, 52, 46, 34, 30, 28, 22, 16, 12, 11 },
+        .items = { ITEM_FOCUS_SASH, ITEM_LIFE_ORB, ITEM_WIDE_LENS, ITEM_CHOICE_SCARF },
+        .itemP = { 28, 17, 15, 15 },
+        .abilities = { ABILITY_LIBERO, ABILITY_BLAZE },
+        .abilityP = { 80, 20 },
+        .spreads = {
+            { NATURE_JOLLY, 57, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 33, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 2, { 63, 0, 1, 0, 1, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_INTELEON, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 49797 lotte
+        .moves = { MOVE_SNIPE_SHOT, MOVE_PROTECT, MOVE_ICE_BEAM, MOVE_FOCUS_ENERGY, MOVE_VACUUM_WAVE, MOVE_DARK_PULSE, MOVE_TAUNT, MOVE_ICY_WIND, MOVE_SOAK, MOVE_AIR_CUTTER },
+        .moveP = { 95, 92, 75, 40, 19, 12, 10, 10, 8, 7 },
+        .items = { ITEM_SCOPE_LENS, ITEM_FOCUS_SASH, ITEM_LIFE_ORB, ITEM_MYSTIC_WATER },
+        .itemP = { 63, 24, 6, 4 },
+        .abilities = { ABILITY_SNIPER, ABILITY_TORRENT },
+        .abilityP = { 95, 5 },
+        .spreads = {
+            { NATURE_TIMID, 75, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 18, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 1, { 19, 0, 0, 63, 0, 47 } },
+        },
+    },
+    {
+        .species = SPECIES_CORVIKNIGHT, .usage = 2, .source = 0, // gen9championsvgc2026regmc-1630, 115866 lotte
+        .moves = { MOVE_BRAVE_BIRD, MOVE_ROOST, MOVE_BULK_UP, MOVE_POWER_TRIP, MOVE_TAILWIND, MOVE_BODY_PRESS, MOVE_IRON_HEAD, MOVE_PROTECT, MOVE_IRON_DEFENSE, MOVE_TAUNT },
+        .moveP = { 85, 80, 73, 50, 30, 27, 25, 14, 10, 3 },
+        .items = { ITEM_PSYCHIC_SEED, ITEM_LEFTOVERS, ITEM_SITRUS_BERRY, ITEM_ROCKY_HELMET },
+        .itemP = { 50, 28, 7, 7 },
+        .abilities = { ABILITY_MIRROR_ARMOR, ABILITY_PRESSURE, ABILITY_UNNERVE },
+        .abilityP = { 97, 2, 1 },
+        .spreads = {
+            { NATURE_CAREFUL, 24, { 63, 3, 0, 0, 63, 0 } },
+            { NATURE_CAREFUL, 7, { 63, 1, 1, 0, 29, 33 } },
+            { NATURE_IMPISH, 5, { 63, 0, 63, 0, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_APPLETUN, .usage = 0, .source = 3, // gen9championsvgc2026regmc-0, 1066 lotte
+        .moves = { MOVE_APPLE_ACID, MOVE_PROTECT, MOVE_LEECH_SEED, MOVE_DRAGON_PULSE, MOVE_DRACO_METEOR, MOVE_RECOVER, MOVE_RECYCLE, MOVE_GIGA_DRAIN, MOVE_IRON_DEFENSE, MOVE_HELPING_HAND },
+        .moveP = { 82, 67, 53, 38, 33, 23, 17, 16, 11, 9 },
+        .items = { ITEM_SITRUS_BERRY, ITEM_LEFTOVERS, ITEM_YACHE_BERRY, ITEM_MIRACLE_SEED },
+        .itemP = { 33, 26, 7, 6 },
+        .abilities = { ABILITY_THICK_FAT, ABILITY_RIPEN, ABILITY_GLUTTONY },
+        .abilityP = { 72, 25, 3 },
+        .spreads = {
+            { NATURE_CALM, 22, { 63, 0, 0, 3, 63, 0 } },
+            { NATURE_SASSY, 12, { 63, 0, 3, 0, 63, 0 } },
+            { NATURE_MODEST, 9, { 63, 0, 0, 63, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_TOXTRICITY, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 45306 lotte
+        .moves = { MOVE_OVERDRIVE, MOVE_SLUDGE_BOMB, MOVE_PROTECT, MOVE_BOOMBURST, MOVE_VOLT_SWITCH, MOVE_SNARL, MOVE_SLUDGE_WAVE, MOVE_ELECTROWEB, MOVE_RISING_VOLTAGE, MOVE_PSYCHIC_NOISE },
+        .moveP = { 94, 83, 64, 58, 28, 15, 11, 8, 6, 6 },
+        .items = { ITEM_LIFE_ORB, ITEM_CHOICE_SCARF, ITEM_FOCUS_SASH, ITEM_AIR_BALLOON },
+        .itemP = { 46, 32, 7, 4 },
+        .abilities = { ABILITY_PUNK_ROCK, ABILITY_TECHNICIAN, ABILITY_MINUS },
+        .abilityP = { 97, 2, 1 },
+        .spreads = {
+            { NATURE_TIMID, 28, { 1, 0, 0, 63, 1, 63 } },
+            { NATURE_MODEST, 23, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 18, { 37, 0, 0, 51, 0, 41 } },
+        },
+    },
+    {
+        .species = SPECIES_GRAPPLOCT, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 49812 lotte
+        .moves = { MOVE_STORM_THROW, MOVE_MACH_PUNCH, MOVE_DETECT, MOVE_PROTECT, MOVE_ICE_PUNCH, MOVE_PAYBACK, MOVE_FEINT, MOVE_STOMPING_TANTRUM, MOVE_OCTOLOCK, MOVE_SUCKER_PUNCH },
+        .moveP = { 97, 65, 52, 36, 25, 22, 18, 17, 13, 10 },
+        .items = { ITEM_BLACK_BELT, ITEM_LIFE_ORB, ITEM_PSYCHIC_SEED, ITEM_EXPERT_BELT },
+        .itemP = { 37, 36, 6, 5 },
+        .abilities = { ABILITY_TECHNICIAN, ABILITY_LIMBER },
+        .abilityP = { 99, 1 },
+        .spreads = {
+            { NATURE_BRAVE, 61, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 20, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_BRAVE, 2, { 63, 43, 0, 0, 19, 3 } },
+        },
+    },
+    {
+        .species = SPECIES_HATTERENE, .usage = 2, .source = 0, // gen9championsvgc2026regmc-1630, 126010 lotte
+        .moves = { MOVE_DAZZLING_GLEAM, MOVE_TRICK_ROOM, MOVE_EXPANDING_FORCE, MOVE_PROTECT, MOVE_MYSTICAL_FIRE, MOVE_PSYCHIC, MOVE_MAGIC_POWDER, MOVE_DRAINING_KISS, MOVE_TERA_BLAST, MOVE_CALM_MIND },
+        .moveP = { 96, 95, 91, 76, 14, 12, 5, 4, 4, 2 },
+        .items = { ITEM_LIFE_ORB, ITEM_FOCUS_SASH, ITEM_TWISTED_SPOON, ITEM_PSYCHIC_SEED },
+        .itemP = { 75, 7, 3, 3 },
+        .abilities = { ABILITY_MAGIC_BOUNCE, ABILITY_HEALER },
+        .abilityP = { 97, 3 },
+        .spreads = {
+            { NATURE_QUIET, 80, { 63, 0, 3, 63, 0, 0 } },
+            { NATURE_MODEST, 4, { 63, 0, 3, 63, 0, 0 } },
+            { NATURE_SASSY, 3, { 63, 0, 0, 3, 63, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_GRIMMSNARL, .usage = 5, .source = 0, // gen9championsvgc2026regmc-1630, 174777 lotte
+        .moves = { MOVE_LIGHT_SCREEN, MOVE_REFLECT, MOVE_PARTING_SHOT, MOVE_SPIRIT_BREAK, MOVE_THUNDER_WAVE, MOVE_FOUL_PLAY, MOVE_FAKE_OUT, MOVE_SUCKER_PUNCH, MOVE_FAKE_TEARS, MOVE_SCARY_FACE },
+        .moveP = { 97, 95, 93, 80, 31, 18, 10, 4, 4, 2 },
+        .items = { ITEM_LIGHT_CLAY, ITEM_ROSELI_BERRY },
+        .itemP = { 94, 2 },
+        .abilities = { ABILITY_PRANKSTER },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_CAREFUL, 31, { 63, 0, 37, 0, 29, 0 } },
+            { NATURE_SASSY, 21, { 63, 0, 37, 0, 29, 0 } },
+            { NATURE_CAREFUL, 7, { 63, 3, 0, 0, 63, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_PERRSERKER, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 20456 lotte
+        .moves = { MOVE_FAKE_OUT, MOVE_IRON_HEAD, MOVE_HELPING_HAND, MOVE_PROTECT, MOVE_CLOSE_COMBAT, MOVE_GYRO_BALL, MOVE_KNOCK_OFF, MOVE_TAUNT, MOVE_U_TURN, MOVE_THUNDER_WAVE },
+        .moveP = { 89, 77, 58, 48, 45, 20, 18, 11, 10, 3 },
+        .items = { ITEM_FOCUS_SASH, ITEM_IRON_BALL, ITEM_CHOPLE_BERRY, ITEM_METAL_COAT },
+        .itemP = { 29, 16, 9, 7 },
+        .abilities = { ABILITY_STEELY_SPIRIT, ABILITY_TOUGH_CLAWS, ABILITY_BATTLE_ARMOR },
+        .abilityP = { 93, 5, 1 },
+        .spreads = {
+            { NATURE_BRAVE, 25, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 18, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 12, { 3, 63, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_SIRFETCHD, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 62505 lotte
+        .moves = { MOVE_CLOSE_COMBAT, MOVE_METEOR_ASSAULT, MOVE_DETECT, MOVE_FEINT, MOVE_PROTECT, MOVE_LEAF_BLADE, MOVE_BRAVE_BIRD, MOVE_FIRST_IMPRESSION, MOVE_NIGHT_SLASH, MOVE_KNOCK_OFF },
+        .moveP = { 80, 73, 57, 35, 31, 31, 14, 14, 12, 10 },
+        .items = { ITEM_LEEK, ITEM_FOCUS_SASH, ITEM_LIFE_ORB, ITEM_BLACK_BELT },
+        .itemP = { 79, 7, 6, 4 },
+        .abilities = { ABILITY_SCRAPPY, ABILITY_STEADFAST },
+        .abilityP = { 98, 2 },
+        .spreads = {
+            { NATURE_BRAVE, 27, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 24, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 17, { 43, 63, 0, 0, 0, 23 } },
+        },
+    },
+    {
+        .species = SPECIES_MR_RIME, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 8453 lotte
+        .moves = { MOVE_FAKE_OUT, MOVE_FREEZE_DRY, MOVE_TRICK_ROOM, MOVE_EXPANDING_FORCE, MOVE_PROTECT, MOVE_SHEER_COLD, MOVE_ROLE_PLAY, MOVE_PSYCHIC, MOVE_ICY_WIND, MOVE_BLIZZARD },
+        .moveP = { 65, 61, 52, 41, 34, 23, 16, 14, 14, 9 },
+        .items = { ITEM_TWISTED_SPOON, ITEM_FOCUS_SASH, ITEM_SITRUS_BERRY, ITEM_BRIGHT_POWDER },
+        .itemP = { 19, 18, 15, 7 },
+        .abilities = { ABILITY_SCREEN_CLEANER, ABILITY_ICE_BODY, ABILITY_TANGLED_FEET },
+        .abilityP = { 86, 12, 3 },
+        .spreads = {
+            { NATURE_QUIET, 35, { 63, 0, 3, 63, 0, 0 } },
+            { NATURE_TIMID, 10, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_SASSY, 7, { 63, 0, 0, 3, 63, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_RUNERIGUS, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 9569 lotte
+        .moves = { MOVE_TRICK_ROOM, MOVE_WILL_O_WISP, MOVE_ALLY_SWITCH, MOVE_POLTERGEIST, MOVE_PROTECT, MOVE_BODY_PRESS, MOVE_EARTHQUAKE, MOVE_ROCK_SLIDE, MOVE_DESTINY_BOND, MOVE_IRON_DEFENSE },
+        .moveP = { 93, 49, 47, 47, 40, 36, 26, 14, 6, 5 },
+        .items = { ITEM_LEFTOVERS, ITEM_ROCKY_HELMET, ITEM_SITRUS_BERRY, ITEM_COLBUR_BERRY },
+        .itemP = { 21, 18, 17, 13 },
+        .abilities = { ABILITY_WANDERING_SPIRIT },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_RELAXED, 21, { 63, 0, 63, 0, 3, 0 } },
+            { NATURE_SASSY, 14, { 63, 3, 0, 0, 63, 0 } },
+            { NATURE_IMPISH, 8, { 63, 9, 9, 0, 47, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_ALCREMIE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 15783 lotte
+        .moves = { MOVE_DECORATE, MOVE_DAZZLING_GLEAM, MOVE_PROTECT, MOVE_HELPING_HAND, MOVE_ENCORE, MOVE_ALLURING_VOICE, MOVE_MYSTICAL_FIRE, MOVE_DRAINING_KISS, MOVE_CHARM, MOVE_PSYCH_UP },
+        .moveP = { 99, 69, 57, 40, 27, 19, 18, 10, 9, 8 },
+        .items = { ITEM_LEFTOVERS, ITEM_SITRUS_BERRY, ITEM_FOCUS_SASH, ITEM_CHOICE_SCARF },
+        .itemP = { 24, 20, 14, 12 },
+        .abilities = { ABILITY_AROMA_VEIL, ABILITY_SWEET_VEIL },
+        .abilityP = { 77, 23 },
+        .spreads = {
+            { NATURE_BOLD, 21, { 63, 0, 63, 3, 0, 0 } },
+            { NATURE_RELAXED, 16, { 63, 0, 63, 3, 0, 0 } },
+            { NATURE_CALM, 12, { 63, 0, 0, 3, 63, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_FALINKS, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 5734 lotte
+        .moves = { MOVE_NO_RETREAT, MOVE_CLOSE_COMBAT, MOVE_PROTECT, MOVE_KNOCK_OFF, MOVE_ROCK_SLIDE, MOVE_IRON_HEAD, MOVE_BODY_PRESS, MOVE_BRICK_BREAK, MOVE_POISON_JAB, MOVE_FIRST_IMPRESSION },
+        .moveP = { 90, 79, 75, 43, 41, 24, 12, 9, 5, 5 },
+        .megas = { SPECIES_FALINKS_MEGA },
+        .megaP = { 100 },
+        .spreads = {
+            { NATURE_JOLLY, 26, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 25, { 0, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 9, { 63, 63, 0, 0, 0, 3 } },
+        },
+    },
+    {
+        .species = SPECIES_PINCURCHIN, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 51040 lotte
+        .moves = { MOVE_RISING_VOLTAGE, MOVE_PROTECT, MOVE_SCALD, MOVE_SUCKER_PUNCH, MOVE_RECOVER, MOVE_THUNDERBOLT, MOVE_ELECTROWEB, MOVE_ACUPRESSURE, MOVE_PAIN_SPLIT, MOVE_RAIN_DANCE },
+        .moveP = { 85, 74, 59, 47, 14, 12, 12, 10, 10, 9 },
+        .items = { ITEM_MAGNET, ITEM_LIFE_ORB, ITEM_ELECTRIC_SEED, ITEM_SITRUS_BERRY },
+        .itemP = { 28, 23, 12, 11 },
+        .abilities = { ABILITY_ELECTRIC_SURGE, ABILITY_LIGHTNING_ROD },
+        .abilityP = { 92, 8 },
+        .spreads = {
+            { NATURE_QUIET, 47, { 63, 0, 0, 63, 3, 0 } },
+            { NATURE_RELAXED, 8, { 63, 0, 63, 3, 0, 0 } },
+            { NATURE_MODEST, 6, { 63, 0, 0, 63, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_INDEEDEE, .usage = 7, .source = 0, // gen9championsvgc2026regmc-1630, 242274 lotte
+        .moves = { MOVE_EXPANDING_FORCE, MOVE_TRICK, MOVE_MYSTICAL_FIRE, MOVE_TRICK_ROOM, MOVE_PROTECT, MOVE_IMPRISON, MOVE_DAZZLING_GLEAM, MOVE_ENCORE, MOVE_HYPER_VOICE, MOVE_HELPING_HAND },
+        .moveP = { 100, 53, 48, 41, 39, 32, 30, 26, 23, 21 },
+        .items = { ITEM_CHOICE_SCARF, ITEM_FOCUS_SASH, ITEM_COLBUR_BERRY, ITEM_LIFE_ORB },
+        .itemP = { 66, 26, 2, 2 },
+        .abilities = { ABILITY_PSYCHIC_SURGE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_MODEST, 42, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 42, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 3, { 23, 0, 0, 63, 0, 43 } },
+        },
+    },
+    {
+        .species = SPECIES_MORPEKO, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 3950 lotte
+        .moves = { MOVE_AURA_WHEEL, MOVE_FAKE_OUT, MOVE_PROTECT, MOVE_PARTING_SHOT, MOVE_KNOCK_OFF, MOVE_BATON_PASS, MOVE_ELECTROWEB, MOVE_PSYCHIC_FANGS, MOVE_ENDEAVOR, MOVE_TAUNT },
+        .moveP = { 99, 93, 65, 51, 25, 13, 8, 7, 7, 4 },
+        .items = { ITEM_FOCUS_SASH, ITEM_LIFE_ORB, ITEM_MENTAL_HERB, ITEM_AIR_BALLOON },
+        .itemP = { 67, 16, 4, 4 },
+        .abilities = { ABILITY_HUNGER_SWITCH },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_JOLLY, 71, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 18, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 4, { 63, 0, 0, 0, 3, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_COPPERAJAH, .usage = 0, .source = 2, // gen9nationaldexdoubles-0, 250 lotte
+        .moves = { MOVE_IRON_HEAD, MOVE_PLAY_ROUGH, MOVE_HEAVY_SLAM, MOVE_HEAT_CRASH, MOVE_KNOCK_OFF, MOVE_BULLDOZE, MOVE_HIGH_HORSEPOWER, MOVE_CURSE, MOVE_PROTECT, MOVE_BODY_PRESS },
+        .moveP = { 48, 48, 44, 38, 34, 31, 30, 21, 20, 14 },
+        .items = { ITEM_LIFE_ORB, ITEM_QUICK_CLAW, ITEM_LEFTOVERS, ITEM_ASSAULT_VEST },
+        .itemP = { 51, 16, 11, 7 },
+        .abilities = { ABILITY_SHEER_FORCE, ABILITY_HEAVY_METAL },
+        .abilityP = { 61, 39 },
+        .spreads = {
+            { NATURE_ADAMANT, 38, { 63, 63, 1, 0, 0, 0 } },
+            { NATURE_BRAVE, 29, { 0, 63, 32, 0, 32, 0 } },
+            { NATURE_BRAVE, 10, { 62, 63, 0, 0, 2, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_DRACOVISH, .usage = 3, .source = 2, // gen9nationaldexdoubles-0, 8293 lotte
+        .moves = { MOVE_FISHIOUS_REND, MOVE_PSYCHIC_FANGS, MOVE_CRUNCH, MOVE_ICE_FANG, MOVE_OUTRAGE, MOVE_PROTECT, MOVE_DRAGON_RUSH, MOVE_LEECH_LIFE, MOVE_ROCK_SLIDE, MOVE_IRON_HEAD },
+        .moveP = { 100, 63, 55, 42, 28, 22, 18, 15, 12, 8 },
+        .items = { ITEM_CHOICE_SCARF, ITEM_CHOICE_BAND, ITEM_LIFE_ORB, ITEM_MYSTIC_WATER },
+        .itemP = { 45, 30, 7, 6 },
+        .abilities = { ABILITY_STRONG_JAW, ABILITY_SAND_RUSH, ABILITY_WATER_ABSORB },
+        .abilityP = { 76, 23, 2 },
+        .spreads = {
+            { NATURE_JOLLY, 49, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 30, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 5, { 62, 63, 0, 0, 2, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_DRAGAPULT, .usage = 2, .source = 0, // gen9championsvgc2026regmc-1630, 102368 lotte
+        .moves = { MOVE_WILL_O_WISP, MOVE_PROTECT, MOVE_DRACO_METEOR, MOVE_SHADOW_BALL, MOVE_DRAGON_DARTS, MOVE_LIGHT_SCREEN, MOVE_PHANTOM_FORCE, MOVE_CURSE, MOVE_BEAT_UP, MOVE_DRAGON_CHEER },
+        .moveP = { 70, 67, 67, 63, 20, 17, 12, 12, 9, 8 },
+        .items = { ITEM_LIFE_ORB, ITEM_FOCUS_SASH, ITEM_LIGHT_CLAY, ITEM_WIDE_LENS },
+        .itemP = { 58, 22, 4, 3 },
+        .abilities = { ABILITY_CLEAR_BODY, ABILITY_INFILTRATOR, ABILITY_CURSED_BODY },
+        .abilityP = { 49, 44, 7 },
+        .spreads = {
+            { NATURE_TIMID, 33, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 27, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_JOLLY, 11, { 3, 63, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_URSHIFU, .usage = 8, .source = 1, // gen9vgc2024regg-0, 1663 lotte
+        .moves = { MOVE_WICKED_BLOW, MOVE_CLOSE_COMBAT, MOVE_SUCKER_PUNCH, MOVE_DETECT, MOVE_PROTECT, MOVE_U_TURN, MOVE_POISON_JAB, MOVE_IRON_HEAD },
+        .moveP = { 100, 100, 92, 35, 27, 23, 12, 8 },
+        .items = { ITEM_FOCUS_SASH, ITEM_CHOICE_BAND, ITEM_CHOICE_SCARF },
+        .itemP = { 58, 30, 7 },
+        .abilities = { ABILITY_UNSEEN_FIST },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_ADAMANT, 67, { 0, 63, 0, 0, 1, 63 } },
+            { NATURE_JOLLY, 13, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_BRAVE, 9, { 63, 63, 0, 0, 1, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_REGIELEKI, .usage = 1, .source = 1, // gen9vgc2024regg-0, 302 lotte
+        .moves = { MOVE_ELECTROWEB, MOVE_PROTECT, MOVE_VOLT_SWITCH, MOVE_THUNDERBOLT, MOVE_TERA_BLAST, MOVE_THUNDER_CAGE, MOVE_THUNDER, MOVE_ELECTRIC_TERRAIN, MOVE_THUNDER_WAVE, MOVE_ELECTRO_BALL },
+        .moveP = { 92, 79, 72, 67, 23, 14, 12, 7, 5, 5 },
+        .items = { ITEM_FOCUS_SASH, ITEM_LIFE_ORB, ITEM_COVERT_CLOAK, ITEM_CHOICE_SCARF },
+        .itemP = { 60, 12, 12, 6 },
+        .abilities = { ABILITY_TRANSISTOR },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_MODEST, 47, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 28, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 11, { 0, 0, 61, 41, 0, 25 } },
+        },
+    },
+    {
+        .species = SPECIES_REGIDRAGO, .usage = 2, .source = 1, // gen9vgc2024regg-0, 539 lotte
+        .moves = { MOVE_DRAGON_ENERGY, MOVE_PROTECT, MOVE_DRACO_METEOR, MOVE_TERA_BLAST, MOVE_EARTH_POWER },
+        .moveP = { 100, 100, 99, 76, 22 },
+        .items = { ITEM_LIFE_ORB, ITEM_DRAGON_FANG, ITEM_DRACO_PLATE },
+        .itemP = { 90, 6, 4 },
+        .abilities = { ABILITY_DRAGONS_MAW },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_MODEST, 79, { 1, 0, 5, 63, 1, 57 } },
+            { NATURE_TIMID, 7, { 0, 0, 1, 63, 0, 63 } },
+            { NATURE_MODEST, 6, { 1, 0, 21, 63, 17, 25 } },
+        },
+    },
+    {
+        .species = SPECIES_WYRDEER, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 12578 lotte
+        .moves = { MOVE_TRICK_ROOM, MOVE_SKILL_SWAP, MOVE_EARTH_POWER, MOVE_PSYCHIC, MOVE_PROTECT, MOVE_EXPANDING_FORCE, MOVE_PSYSHIELD_BASH, MOVE_HELPING_HAND, MOVE_HYPNOSIS, MOVE_GRAVITY },
+        .moveP = { 82, 77, 36, 32, 31, 30, 20, 14, 10, 9 },
+        .items = { ITEM_COLBUR_BERRY, ITEM_SITRUS_BERRY, ITEM_MENTAL_HERB, ITEM_FOCUS_SASH },
+        .itemP = { 33, 23, 22, 4 },
+        .abilities = { ABILITY_INTIMIDATE, ABILITY_SAP_SIPPER },
+        .abilityP = { 98, 2 },
+        .spreads = {
+            { NATURE_SASSY, 27, { 53, 0, 0, 13, 63, 0 } },
+            { NATURE_QUIET, 11, { 63, 0, 17, 49, 0, 0 } },
+            { NATURE_QUIET, 4, { 63, 0, 3, 63, 0, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_KLEAVOR, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 36201 lotte
+        .moves = { MOVE_STONE_AXE, MOVE_X_SCISSOR, MOVE_PROTECT, MOVE_CLOSE_COMBAT, MOVE_FEINT, MOVE_U_TURN, MOVE_ROCK_SLIDE, MOVE_TAILWIND, MOVE_NIGHT_SLASH, MOVE_AERIAL_ACE },
+        .moveP = { 98, 88, 55, 33, 28, 26, 22, 22, 16, 4 },
+        .items = { ITEM_FOCUS_SASH, ITEM_CHOICE_SCARF, ITEM_LIFE_ORB, ITEM_WHITE_HERB },
+        .itemP = { 51, 37, 4, 3 },
+        .abilities = { ABILITY_SHARPNESS, ABILITY_SHEER_FORCE, ABILITY_SWARM },
+        .abilityP = { 98, 1, 1 },
+        .spreads = {
+            { NATURE_JOLLY, 46, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 45, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 3, { 63, 63, 0, 0, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_URSALUNA, .usage = 4, .source = 1, // gen9vgc2024regg-0, 836 lotte
+        .moves = { MOVE_FACADE, MOVE_PROTECT, MOVE_HEADLONG_RUSH, MOVE_EARTHQUAKE, MOVE_CLOSE_COMBAT, MOVE_SHADOW_CLAW, MOVE_SWORDS_DANCE, MOVE_HIGH_HORSEPOWER, MOVE_CRUNCH, MOVE_SUBSTITUTE },
+        .moveP = { 99, 99, 91, 74, 6, 5, 4, 3, 3, 2 },
+        .items = { ITEM_FLAME_ORB },
+        .itemP = { 100 },
+        .abilities = { ABILITY_GUTS },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_BRAVE, 61, { 63, 63, 0, 0, 1, 0 } },
+            { NATURE_ADAMANT, 14, { 63, 63, 0, 0, 1, 0 } },
+            { NATURE_BRAVE, 8, { 35, 61, 21, 0, 9, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_BASCULEGION, .usage = 19, .source = 0, // gen9championsvgc2026regmc-1630, 633262 lotte
+        .moves = { MOVE_LAST_RESPECTS, MOVE_WAVE_CRASH, MOVE_AQUA_JET, MOVE_PROTECT, MOVE_FLIP_TURN, MOVE_LIQUIDATION, MOVE_ICY_WIND, MOVE_HEAD_SMASH, MOVE_PSYCHIC_FANGS, MOVE_CRUNCH },
+        .moveP = { 100, 94, 93, 56, 43, 6, 3, 2, 2, 2 },
+        .items = { ITEM_CHOICE_SCARF, ITEM_LIFE_ORB, ITEM_MYSTIC_WATER, ITEM_FOCUS_SASH },
+        .itemP = { 42, 34, 13, 7 },
+        .abilities = { ABILITY_ADAPTABILITY, ABILITY_SWIFT_SWIM },
+        .abilityP = { 93, 7 },
+        .spreads = {
+            { NATURE_JOLLY, 36, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 21, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 7, { 7, 45, 25, 0, 0, 51 } },
+        },
+    },
+    {
+        .species = SPECIES_SNEASLER, .usage = 37, .source = 0, // gen9championsvgc2026regmc-1630, 1241478 lotte
+        .moves = { MOVE_CLOSE_COMBAT, MOVE_DIRE_CLAW, MOVE_PROTECT, MOVE_FAKE_OUT, MOVE_ROCK_SLIDE, MOVE_COACHING, MOVE_ACROBATICS, MOVE_POISON_JAB, MOVE_TOXIC_SPIKES, MOVE_THROAT_CHOP },
+        .moveP = { 100, 88, 71, 52, 24, 15, 14, 12, 12, 10 },
+        .items = { ITEM_PSYCHIC_SEED, ITEM_WHITE_HERB, ITEM_GRASSY_SEED, ITEM_FOCUS_SASH },
+        .itemP = { 30, 28, 25, 15 },
+        .abilities = { ABILITY_UNBURDEN, ABILITY_POISON_TOUCH, ABILITY_PRESSURE },
+        .abilityP = { 88, 11, 1 },
+        .spreads = {
+            { NATURE_ADAMANT, 41, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 25, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 8, { 31, 39, 0, 0, 0, 59 } },
+        },
+    },
+    {
+        .species = SPECIES_OVERQWIL, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 22486 lotte
+        .moves = { MOVE_THROAT_CHOP, MOVE_MINIMIZE, MOVE_STOCKPILE, MOVE_SWORDS_DANCE, MOVE_PROTECT, MOVE_BARB_BARRAGE, MOVE_GUNK_SHOT, MOVE_LIQUIDATION, MOVE_POISON_JAB, MOVE_CRUNCH },
+        .moveP = { 77, 63, 62, 49, 42, 18, 17, 17, 13, 10 },
+        .items = { ITEM_LEFTOVERS, ITEM_LIFE_ORB, ITEM_SITRUS_BERRY, ITEM_ROCKY_HELMET },
+        .itemP = { 62, 27, 4, 2 },
+        .abilities = { ABILITY_INTIMIDATE, ABILITY_SWIFT_SWIM, ABILITY_POISON_POINT },
+        .abilityP = { 47, 29, 23 },
+        .spreads = {
+            { NATURE_ADAMANT, 19, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_IMPISH, 15, { 63, 0, 9, 0, 57, 0 } },
+            { NATURE_RELAXED, 14, { 63, 0, 3, 0, 63, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_ENAMORUS, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 1245 lotte
+        .moves = { MOVE_SUPERPOWER, MOVE_PROTECT, MOVE_PLAY_ROUGH, MOVE_FLY, MOVE_DAZZLING_GLEAM, MOVE_EARTH_POWER, MOVE_TAILWIND, MOVE_IRON_HEAD, MOVE_SPRINGTIDE_STORM, MOVE_MOONBLAST },
+        .moveP = { 74, 61, 44, 27, 23, 23, 17, 14, 14, 11 },
+        .items = { ITEM_LEFTOVERS, ITEM_FOCUS_SASH, ITEM_BLACK_BELT, ITEM_FLYINIUM_Z },
+        .itemP = { 27, 10, 10, 9 },
+        .abilities = { ABILITY_CONTRARY, ABILITY_CUTE_CHARM },
+        .abilityP = { 97, 3 },
+        .spreads = {
+            { NATURE_JOLLY, 24, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_HASTY, 17, { 0, 63, 0, 1, 0, 63 } },
+            { NATURE_TIMID, 13, { 1, 0, 0, 63, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_RAICHU_ALOLA, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 15165 lotte
+        .moves = { MOVE_RISING_VOLTAGE, MOVE_PROTECT, MOVE_FAKE_OUT, MOVE_EXPANDING_FORCE, MOVE_PSYCHIC, MOVE_ENCORE, MOVE_VOLT_SWITCH, MOVE_ELECTROWEB, MOVE_SPEED_SWAP, MOVE_NASTY_PLOT },
+        .moveP = { 87, 78, 65, 58, 26, 13, 13, 8, 7, 5 },
+        .items = { ITEM_FOCUS_SASH, ITEM_LIFE_ORB, ITEM_ELECTRIC_SEED, ITEM_MAGNET },
+        .itemP = { 44, 43, 5, 3 },
+        .abilities = { ABILITY_SURGE_SURFER },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_MODEST, 50, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 22, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_HASTY, 11, { 0, 3, 0, 63, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_NINETALES_ALOLA, .usage = 3, .source = 0, // gen9championsvgc2026regmc-1630, 168774 lotte
+        .moves = { MOVE_BLIZZARD, MOVE_PROTECT, MOVE_AURORA_VEIL, MOVE_FREEZE_DRY, MOVE_MOONBLAST, MOVE_ENCORE, MOVE_ICY_WIND, MOVE_HELPING_HAND, MOVE_TERA_BLAST, MOVE_DISABLE },
+        .moveP = { 92, 68, 67, 48, 40, 37, 27, 14, 6, 5 },
+        .items = { ITEM_LIGHT_CLAY, ITEM_FOCUS_SASH, ITEM_CHOICE_SCARF, ITEM_NEVER_MELT_ICE },
+        .itemP = { 36, 25, 17, 15 },
+        .abilities = { ABILITY_SNOW_WARNING, ABILITY_SNOW_CLOAK },
+        .abilityP = { 99, 1 },
+        .spreads = {
+            { NATURE_TIMID, 58, { 1, 0, 0, 63, 1, 63 } },
+            { NATURE_TIMID, 14, { 63, 0, 0, 3, 0, 63 } },
+            { NATURE_MODEST, 8, { 3, 0, 0, 63, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_DUGTRIO_ALOLA, .usage = 0, .source = 4, // gen9doublesou-0, 221 lotte
+        .moves = { MOVE_IRON_HEAD, MOVE_EARTHQUAKE, MOVE_ROCK_SLIDE, MOVE_SUCKER_PUNCH, MOVE_STOMPING_TANTRUM, MOVE_PROTECT, MOVE_STONE_EDGE, MOVE_ENDEAVOR, MOVE_SWORDS_DANCE, MOVE_TERA_BLAST },
+        .moveP = { 84, 74, 48, 42, 16, 14, 13, 11, 11, 9 },
+        .items = { ITEM_ROCKY_HELMET, ITEM_FOCUS_SASH, ITEM_ASSAULT_VEST, ITEM_LIFE_ORB },
+        .itemP = { 16, 16, 13, 13 },
+        .abilities = { ABILITY_TANGLING_HAIR, ABILITY_SAND_FORCE },
+        .abilityP = { 72, 28 },
+        .spreads = {
+            { NATURE_JOLLY, 62, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_HASTY, 15, { 0, 63, 0, 1, 0, 63 } },
+            { NATURE_HARDY, 12, { 1, 63, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_PERSIAN_ALOLA, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 12423 lotte
+        .moves = { MOVE_FAKE_OUT, MOVE_PARTING_SHOT, MOVE_FOUL_PLAY, MOVE_SNARL, MOVE_ICY_WIND, MOVE_TAUNT, MOVE_PROTECT, MOVE_BEAT_UP, MOVE_KNOCK_OFF, MOVE_FAKE_TEARS },
+        .moveP = { 92, 81, 63, 42, 36, 23, 13, 7, 7, 6 },
+        .items = { ITEM_SITRUS_BERRY, ITEM_BLACK_GLASSES, ITEM_ROSELI_BERRY, ITEM_CHOPLE_BERRY },
+        .itemP = { 24, 18, 17, 15 },
+        .abilities = { ABILITY_FUR_COAT, ABILITY_TECHNICIAN },
+        .abilityP = { 96, 4 },
+        .spreads = {
+            { NATURE_TIMID, 24, { 63, 0, 3, 0, 0, 63 } },
+            { NATURE_TIMID, 17, { 41, 0, 1, 0, 29, 57 } },
+            { NATURE_JOLLY, 13, { 63, 0, 0, 0, 3, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_SLOWBRO_GALAR, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 5370 lotte
+        .moves = { MOVE_SHELL_SIDE_ARM, MOVE_EXPANDING_FORCE, MOVE_TRICK_ROOM, MOVE_PSYCHIC, MOVE_FIRE_BLAST, MOVE_FOCUS_BLAST, MOVE_PROTECT, MOVE_ICE_BEAM, MOVE_FLAMETHROWER, MOVE_SLUDGE_BOMB },
+        .moveP = { 83, 48, 35, 34, 31, 26, 23, 22, 19, 13 },
+        .items = { ITEM_QUICK_CLAW, ITEM_ROCKY_HELMET, ITEM_PSYCHIC_SEED, ITEM_SITRUS_BERRY },
+        .itemP = { 55, 17, 6, 5 },
+        .abilities = { ABILITY_QUICK_DRAW, ABILITY_REGENERATOR, ABILITY_OWN_TEMPO },
+        .abilityP = { 79, 15, 6 },
+        .spreads = {
+            { NATURE_QUIET, 51, { 63, 0, 0, 63, 3, 0 } },
+            { NATURE_RELAXED, 11, { 19, 0, 39, 11, 59, 0 } },
+            { NATURE_MODEST, 8, { 63, 0, 0, 63, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_WEEZING_GALAR, .usage = 2, .source = 1, // gen9vgc2024regg-0, 579 lotte
+        .moves = { MOVE_PROTECT, MOVE_TOXIC_SPIKES, MOVE_POISON_GAS, MOVE_DAZZLING_GLEAM, MOVE_STRANGE_STEAM, MOVE_TAUNT, MOVE_WILL_O_WISP, MOVE_SLUDGE_BOMB, MOVE_MISTY_EXPLOSION, MOVE_FLAMETHROWER },
+        .moveP = { 97, 79, 72, 62, 31, 19, 15, 11, 5, 3 },
+        .items = { ITEM_MENTAL_HERB, ITEM_COVERT_CLOAK, ITEM_ROCKY_HELMET, ITEM_SITRUS_BERRY },
+        .itemP = { 43, 23, 10, 6 },
+        .abilities = { ABILITY_NEUTRALIZING_GAS, ABILITY_LEVITATE },
+        .abilityP = { 98, 2 },
+        .spreads = {
+            { NATURE_BOLD, 69, { 63, 0, 1, 1, 59, 3 } },
+            { NATURE_TIMID, 5, { 9, 0, 0, 63, 0, 55 } },
+            { NATURE_MODEST, 4, { 29, 0, 1, 49, 29, 19 } },
+        },
+    },
+    {
+        .species = SPECIES_MOLTRES_GALAR, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 1378 lotte
+        .moves = { MOVE_FIERY_WRATH, MOVE_NASTY_PLOT, MOVE_PROTECT, MOVE_AIR_SLASH, MOVE_TAILWIND, MOVE_HURRICANE, MOVE_SHADOW_BALL, MOVE_TERA_BLAST, MOVE_SNARL, MOVE_HYPER_VOICE },
+        .moveP = { 95, 51, 50, 47, 35, 27, 14, 11, 10, 8 },
+        .items = { ITEM_SITRUS_BERRY, ITEM_WEAKNESS_POLICY, ITEM_LEFTOVERS, ITEM_BLACK_GLASSES },
+        .itemP = { 30, 19, 10, 7 },
+        .abilities = { ABILITY_BERSERK },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_TIMID, 37, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 16, { 63, 0, 1, 63, 0, 0 } },
+            { NATURE_MODEST, 6, { 1, 0, 0, 63, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_SLOWKING_GALAR, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 24023 lotte
+        .moves = { MOVE_TRICK_ROOM, MOVE_SLUDGE_BOMB, MOVE_CHILLY_RECEPTION, MOVE_PROTECT, MOVE_PSYCHIC, MOVE_EXPANDING_FORCE, MOVE_FLAMETHROWER, MOVE_POWER_GEM, MOVE_PSYCHIC_NOISE, MOVE_ACID_SPRAY },
+        .moveP = { 80, 53, 45, 39, 31, 29, 18, 12, 11, 11 },
+        .items = { ITEM_SITRUS_BERRY, ITEM_LEFTOVERS, ITEM_COLBUR_BERRY, ITEM_LIFE_ORB },
+        .itemP = { 24, 18, 16, 14 },
+        .abilities = { ABILITY_REGENERATOR, ABILITY_CURIOUS_MEDICINE, ABILITY_OWN_TEMPO },
+        .abilityP = { 83, 16, 1 },
+        .spreads = {
+            { NATURE_QUIET, 18, { 63, 0, 0, 63, 3, 0 } },
+            { NATURE_SASSY, 9, { 63, 0, 9, 37, 19, 0 } },
+            { NATURE_SASSY, 8, { 63, 0, 0, 3, 63, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_ARCANINE_HISUI, .usage = 12, .source = 0, // gen9championsvgc2026regmc-1630, 337729 lotte
+        .moves = { MOVE_FLARE_BLITZ, MOVE_PROTECT, MOVE_HEAD_SMASH, MOVE_EXTREME_SPEED, MOVE_ROCK_SLIDE, MOVE_CLOSE_COMBAT },
+        .moveP = { 100, 95, 93, 86, 19, 3 },
+        .items = { ITEM_FOCUS_SASH, ITEM_CHOICE_SCARF, ITEM_LIFE_ORB },
+        .itemP = { 92, 4, 2 },
+        .abilities = { ABILITY_ROCK_HEAD, ABILITY_INTIMIDATE },
+        .abilityP = { 96, 4 },
+        .spreads = {
+            { NATURE_JOLLY, 84, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 13, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 1, { 63, 63, 0, 0, 0, 3 } },
+        },
+    },
+    {
+        .species = SPECIES_TYPHLOSION_HISUI, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 49007 lotte
+        .moves = { MOVE_ERUPTION, MOVE_SHADOW_BALL, MOVE_HEAT_WAVE, MOVE_OVERHEAT, MOVE_PROTECT, MOVE_FLAMETHROWER, MOVE_FOCUS_BLAST, MOVE_SOLAR_BEAM, MOVE_EXTRASENSORY, MOVE_LAVA_PLUME },
+        .moveP = { 99, 96, 80, 48, 17, 12, 10, 7, 6, 4 },
+        .items = { ITEM_CHOICE_SCARF, ITEM_CHARCOAL, ITEM_LIFE_ORB, ITEM_FOCUS_SASH },
+        .itemP = { 82, 6, 6, 3 },
+        .abilities = { ABILITY_FRISK, ABILITY_BLAZE },
+        .abilityP = { 69, 31 },
+        .spreads = {
+            { NATURE_MODEST, 51, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 41, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 3, { 19, 0, 1, 63, 1, 43 } },
+        },
+    },
+    {
+        .species = SPECIES_SAMUROTT_HISUI, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 24227 lotte
+        .moves = { MOVE_SACRED_SWORD, MOVE_AQUA_CUTTER, MOVE_NIGHT_SLASH, MOVE_CEASELESS_EDGE, MOVE_PROTECT, MOVE_SUCKER_PUNCH, MOVE_FLIP_TURN, MOVE_RAZOR_SHELL, MOVE_DETECT, MOVE_ICY_WIND },
+        .moveP = { 86, 59, 49, 42, 39, 34, 26, 22, 17, 10 },
+        .items = { ITEM_CHOICE_SCARF, ITEM_LIFE_ORB, ITEM_FOCUS_SASH, ITEM_EXPERT_BELT },
+        .itemP = { 35, 30, 10, 6 },
+        .abilities = { ABILITY_SHARPNESS, ABILITY_TORRENT },
+        .abilityP = { 99, 1 },
+        .spreads = {
+            { NATURE_JOLLY, 47, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 23, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 6, { 51, 63, 0, 0, 0, 15 } },
+        },
+    },
+    {
+        .species = SPECIES_LILLIGANT_HISUI, .usage = 1, .source = 1, // gen9vgc2024regg-0, 203 lotte
+        .moves = { MOVE_SLEEP_POWDER, MOVE_CLOSE_COMBAT, MOVE_AFTER_YOU, MOVE_SOLAR_BLADE, MOVE_COACHING, MOVE_TRIPLE_AXEL, MOVE_LEAF_BLADE, MOVE_PROTECT, MOVE_ICE_SPINNER, MOVE_ENTRAINMENT },
+        .moveP = { 95, 85, 63, 49, 39, 28, 18, 11, 5, 2 },
+        .items = { ITEM_FOCUS_SASH, ITEM_COVERT_CLOAK },
+        .itemP = { 72, 23 },
+        .abilities = { ABILITY_CHLOROPHYLL },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_JOLLY, 65, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 18, { 27, 37, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 13, { 1, 63, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_ZOROARK_HISUI, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 38011 lotte
+        .moves = { MOVE_HYPER_VOICE, MOVE_BITTER_MALICE, MOVE_ICY_WIND, MOVE_SHADOW_BALL, MOVE_TAUNT, MOVE_WILL_O_WISP, MOVE_PROTECT, MOVE_MEMENTO, MOVE_FLAMETHROWER, MOVE_RAIN_DANCE },
+        .moveP = { 45, 44, 40, 37, 33, 33, 27, 25, 22, 17 },
+        .items = { ITEM_FOCUS_SASH, ITEM_CHOICE_SCARF, ITEM_LIFE_ORB, ITEM_COLBUR_BERRY },
+        .itemP = { 45, 32, 15, 2 },
+        .abilities = { ABILITY_ILLUSION },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_TIMID, 52, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 17, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_HASTY, 13, { 0, 63, 0, 3, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_GOODRA_HISUI, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 23107 lotte
+        .moves = { MOVE_BODY_PRESS, MOVE_SHELTER, MOVE_PROTECT, MOVE_LIFE_DEW, MOVE_HEAVY_SLAM, MOVE_FLASH_CANNON, MOVE_FLAMETHROWER, MOVE_DRAGON_PULSE, MOVE_DRACO_METEOR, MOVE_THUNDERBOLT },
+        .moveP = { 62, 57, 51, 37, 31, 28, 23, 22, 20, 9 },
+        .items = { ITEM_LEFTOVERS, ITEM_ROCKY_HELMET, ITEM_GRASSY_SEED, ITEM_IRON_BALL },
+        .itemP = { 68, 5, 5, 4 },
+        .abilities = { ABILITY_SHELL_ARMOR, ABILITY_SAP_SIPPER, ABILITY_GOOEY },
+        .abilityP = { 69, 22, 9 },
+        .spreads = {
+            { NATURE_BOLD, 11, { 63, 0, 63, 0, 3, 0 } },
+            { NATURE_MODEST, 9, { 63, 0, 0, 63, 3, 0 } },
+            { NATURE_RELAXED, 7, { 63, 0, 63, 3, 0, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_DECIDUEYE_HISUI, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 8821 lotte
+        .moves = { MOVE_LEAF_BLADE, MOVE_PROTECT, MOVE_TRIPLE_ARROWS, MOVE_SUCKER_PUNCH, MOVE_TAILWIND, MOVE_CLOSE_COMBAT, MOVE_TAUNT, MOVE_BRAVE_BIRD, MOVE_KNOCK_OFF, MOVE_COACHING },
+        .moveP = { 96, 85, 85, 33, 17, 16, 13, 12, 8, 6 },
+        .items = { ITEM_SCOPE_LENS, ITEM_FOCUS_SASH, ITEM_LIFE_ORB, ITEM_EXPERT_BELT },
+        .itemP = { 40, 24, 10, 9 },
+        .abilities = { ABILITY_SCRAPPY, ABILITY_OVERGROW },
+        .abilityP = { 99, 1 },
+        .spreads = {
+            { NATURE_BRAVE, 22, { 63, 63, 3, 0, 0, 0 } },
+            { NATURE_ADAMANT, 20, { 63, 55, 9, 0, 0, 1 } },
+            { NATURE_ADAMANT, 20, { 9, 63, 0, 0, 1, 55 } },
+        },
+    },
+    {
+        .species = SPECIES_ROTOM_HEAT, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 35721 lotte
+        .moves = { MOVE_OVERHEAT, MOVE_THUNDERBOLT, MOVE_VOLT_SWITCH, MOVE_WILL_O_WISP, MOVE_ELECTROWEB, MOVE_PROTECT, MOVE_TRICK, MOVE_DISCHARGE, MOVE_LIGHT_SCREEN, MOVE_NASTY_PLOT },
+        .moveP = { 100, 64, 49, 49, 39, 30, 23, 20, 13, 4 },
+        .items = { ITEM_CHOICE_SCARF, ITEM_SITRUS_BERRY, ITEM_LEFTOVERS, ITEM_MAGNET },
+        .itemP = { 41, 34, 10, 4 },
+        .abilities = { ABILITY_LEVITATE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_TIMID, 21, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 12, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_BOLD, 11, { 63, 0, 33, 33, 0, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_ROTOM_WASH, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 74990 lotte
+        .moves = { MOVE_HYDRO_PUMP, MOVE_WILL_O_WISP, MOVE_THUNDERBOLT, MOVE_PROTECT, MOVE_VOLT_SWITCH, MOVE_ELECTROWEB, MOVE_LIGHT_SCREEN, MOVE_TRICK, MOVE_DISCHARGE, MOVE_THUNDER },
+        .moveP = { 96, 74, 70, 53, 38, 21, 14, 11, 6, 3 },
+        .items = { ITEM_SITRUS_BERRY, ITEM_LEFTOVERS, ITEM_CHOICE_SCARF, ITEM_MAGNET },
+        .itemP = { 41, 24, 19, 4 },
+        .abilities = { ABILITY_LEVITATE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_TIMID, 12, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 12, { 63, 0, 7, 15, 31, 11 } },
+            { NATURE_MODEST, 11, { 63, 0, 0, 63, 0, 3 } },
+        },
+    },
+    {
+        .species = SPECIES_ROTOM_FROST, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 4694 lotte
+        .moves = { MOVE_BLIZZARD, MOVE_THUNDERBOLT, MOVE_VOLT_SWITCH, MOVE_TRICK, MOVE_ELECTROWEB, MOVE_DISCHARGE, MOVE_PROTECT, MOVE_WILL_O_WISP, MOVE_RISING_VOLTAGE, MOVE_LIGHT_SCREEN },
+        .moveP = { 99, 66, 59, 38, 34, 32, 21, 19, 5, 5 },
+        .items = { ITEM_CHOICE_SCARF, ITEM_LEFTOVERS, ITEM_SITRUS_BERRY, ITEM_LIFE_ORB },
+        .itemP = { 68, 10, 9, 5 },
+        .abilities = { ABILITY_LEVITATE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_TIMID, 47, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 18, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 10, { 63, 0, 0, 63, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_ROTOM_MOW, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 5430 lotte
+        .moves = { MOVE_LEAF_STORM, MOVE_THUNDERBOLT, MOVE_VOLT_SWITCH, MOVE_ELECTROWEB, MOVE_WILL_O_WISP, MOVE_PROTECT, MOVE_TRICK, MOVE_THUNDER, MOVE_DISCHARGE, MOVE_LIGHT_SCREEN },
+        .moveP = { 98, 83, 67, 51, 37, 34, 9, 4, 4, 3 },
+        .items = { ITEM_CHOICE_SCARF, ITEM_SITRUS_BERRY, ITEM_LIFE_ORB, ITEM_LEFTOVERS },
+        .itemP = { 58, 33, 2, 2 },
+        .abilities = { ABILITY_LEVITATE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_TIMID, 45, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_HARDY, 20, { 63, 0, 7, 15, 31, 11 } },
+            { NATURE_MODEST, 7, { 3, 0, 0, 63, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_LANDORUS_THERIAN, .usage = 5, .source = 2, // gen9nationaldexdoubles-0, 11035 lotte
+        .moves = { MOVE_U_TURN, MOVE_ROCK_SLIDE, MOVE_EARTHQUAKE, MOVE_STOMPING_TANTRUM, MOVE_KNOCK_OFF, MOVE_PROTECT, MOVE_STEALTH_ROCK, MOVE_TERA_BLAST, MOVE_TAUNT, MOVE_EXPLOSION },
+        .moveP = { 81, 65, 58, 42, 24, 20, 15, 13, 12, 11 },
+        .items = { ITEM_CHOICE_SCARF, ITEM_ASSAULT_VEST, ITEM_GROUNDIUM_Z, ITEM_CHOICE_BAND },
+        .itemP = { 27, 14, 13, 11 },
+        .abilities = { ABILITY_INTIMIDATE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_JOLLY, 44, { 0, 63, 0, 0, 1, 63 } },
+            { NATURE_ADAMANT, 14, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 4, { 26, 46, 5, 0, 18, 32 } },
+        },
+    },
+    {
+        .species = SPECIES_FLOETTE_ETERNAL, .usage = 11, .source = 0, // gen9championsvgc2026regmc-1630, 279193 lotte
+        .moves = { MOVE_PROTECT, MOVE_DAZZLING_GLEAM, MOVE_MOONBLAST, MOVE_CALM_MIND, MOVE_DRAINING_KISS, MOVE_LIGHT_OF_RUIN },
+        .moveP = { 98, 95, 71, 69, 32, 31 },
+        .abilities = { ABILITY_FLOWER_VEIL, ABILITY_SYMBIOSIS },
+        .abilityP = { 99, 1 },
+        .megas = { SPECIES_FLOETTE_MEGA },
+        .megaP = { 99 },
+        .spreads = {
+            { NATURE_MODEST, 14, { 53, 0, 29, 9, 0, 37 } },
+            { NATURE_TIMID, 12, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 10, { 3, 0, 0, 63, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_MEOWSTIC_F, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 23144 lotte
+        .moves = { MOVE_EXPANDING_FORCE, MOVE_PROTECT, MOVE_THUNDERBOLT, MOVE_FAKE_OUT, MOVE_ALLURING_VOICE, MOVE_DARK_PULSE, MOVE_NASTY_PLOT, MOVE_SHADOW_BALL, MOVE_CALM_MIND },
+        .moveP = { 99, 99, 81, 78, 13, 10, 10, 4, 2 },
+        .megas = { SPECIES_MEOWSTIC_F_MEGA },
+        .megaP = { 100 },
+        .spreads = {
+            { NATURE_TIMID, 77, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 9, { 31, 0, 7, 33, 0, 57 } },
+            { NATURE_HASTY, 7, { 0, 3, 0, 63, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_GOURGEIST_SUPER, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 2291 lotte
+        .moves = { MOVE_TRICK_ROOM, MOVE_POLTERGEIST, MOVE_TRICK_OR_TREAT, MOVE_EXPLOSION, MOVE_POWER_WHIP, MOVE_PROTECT, MOVE_ALLY_SWITCH, MOVE_WILL_O_WISP, MOVE_SHADOW_SNEAK, MOVE_LEECH_SEED },
+        .moveP = { 87, 44, 44, 31, 30, 26, 24, 19, 16, 14 },
+        .items = { ITEM_FOCUS_SASH, ITEM_SITRUS_BERRY, ITEM_OCCA_BERRY, ITEM_KASIB_BERRY },
+        .itemP = { 30, 21, 10, 8 },
+        .abilities = { ABILITY_FRISK, ABILITY_INSOMNIA, ABILITY_PICKUP },
+        .abilityP = { 85, 10, 5 },
+        .spreads = {
+            { NATURE_BRAVE, 28, { 61, 63, 0, 0, 5, 0 } },
+            { NATURE_SASSY, 15, { 63, 0, 3, 0, 63, 0 } },
+            { NATURE_ADAMANT, 8, { 3, 63, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_HOOPA_UNBOUND, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 2228 lotte
+        .moves = { MOVE_HYPERSPACE_FURY, MOVE_EXPANDING_FORCE, MOVE_PROTECT, MOVE_DRAIN_PUNCH, MOVE_TRICK_ROOM, MOVE_DARK_PULSE, MOVE_PSYCHIC, MOVE_ZEN_HEADBUTT, MOVE_FOCUS_BLAST, MOVE_KNOCK_OFF },
+        .moveP = { 68, 39, 39, 34, 31, 30, 21, 14, 14, 9 },
+        .items = { ITEM_LIFE_ORB, ITEM_SITRUS_BERRY, ITEM_PSYCHIC_SEED, ITEM_IRON_BALL },
+        .itemP = { 11, 9, 6, 6 },
+        .abilities = { ABILITY_MAGICIAN },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_JOLLY, 9, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_HASTY, 9, { 0, 1, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 9, { 1, 0, 0, 63, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_LYCANROC_DUSK, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 27118 lotte
+        .moves = { MOVE_ACCELEROCK, MOVE_ROCK_SLIDE, MOVE_PROTECT, MOVE_CLOSE_COMBAT, MOVE_PSYCHIC_FANGS, MOVE_CRUNCH },
+        .moveP = { 99, 97, 95, 93, 6, 2 },
+        .items = { ITEM_FOCUS_SASH, ITEM_LIFE_ORB },
+        .itemP = { 93, 3 },
+        .abilities = { ABILITY_TOUGH_CLAWS },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_ADAMANT, 63, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 34, { 1, 63, 0, 0, 1, 63 } },
+            { NATURE_ADAMANT, 1, { 19, 53, 0, 0, 0, 57 } },
+        },
+    },
+    {
+        .species = SPECIES_INDEEDEE_F, .usage = 21, .source = 0, // gen9championsvgc2026regmc-1630, 833895 lotte
+        .moves = { MOVE_FOLLOW_ME, MOVE_HELPING_HAND, MOVE_TRICK_ROOM, MOVE_PSYCHIC, MOVE_PROTECT, MOVE_TERRAIN_PULSE, MOVE_DAZZLING_GLEAM, MOVE_IMPRISON, MOVE_ALLURING_VOICE, MOVE_PSYSHOCK },
+        .moveP = { 99, 78, 77, 69, 29, 13, 10, 9, 8, 6 },
+        .items = { ITEM_ROCKY_HELMET, ITEM_COLBUR_BERRY, ITEM_PSYCHIC_SEED, ITEM_SITRUS_BERRY },
+        .itemP = { 33, 28, 19, 11 },
+        .abilities = { ABILITY_PSYCHIC_SURGE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_BOLD, 35, { 63, 0, 63, 0, 3, 0 } },
+            { NATURE_RELAXED, 34, { 63, 0, 63, 0, 3, 0 } },
+            { NATURE_SASSY, 4, { 63, 0, 63, 0, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_ZACIAN_CROWNED, .usage = 3, .source = 1, // gen9vgc2024regg-0, 715 lotte
+        .moves = { MOVE_PROTECT, MOVE_IRON_HEAD, MOVE_PLAY_ROUGH, MOVE_TERA_BLAST, MOVE_SACRED_SWORD, MOVE_SWORDS_DANCE, MOVE_BEHEMOTH_BLADE, MOVE_SUBSTITUTE, MOVE_CLOSE_COMBAT },
+        .moveP = { 99, 93, 67, 60, 52, 10, 6, 5, 5 },
+        .items = { ITEM_RUSTED_SWORD },
+        .itemP = { 100 },
+        .abilities = { ABILITY_INTREPID_SWORD },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_JOLLY, 26, { 1, 63, 1, 0, 17, 45 } },
+            { NATURE_JOLLY, 25, { 13, 63, 0, 0, 0, 51 } },
+            { NATURE_JOLLY, 17, { 17, 63, 1, 0, 1, 45 } },
+        },
+    },
+    {
+        .species = SPECIES_ZAMAZENTA_CROWNED, .usage = 7, .source = 1, // gen9vgc2024regg-0, 1471 lotte
+        .moves = { MOVE_BODY_PRESS, MOVE_PROTECT, MOVE_WIDE_GUARD, MOVE_HEAVY_SLAM, MOVE_IRON_HEAD, MOVE_IRON_DEFENSE, MOVE_TRAILBLAZE, MOVE_BEHEMOTH_BASH, MOVE_SNARL },
+        .moveP = { 100, 85, 72, 47, 46, 32, 10, 4, 2 },
+        .items = { ITEM_RUSTED_SHIELD },
+        .itemP = { 100 },
+        .abilities = { ABILITY_DAUNTLESS_SHIELD },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_IMPISH, 22, { 1, 1, 61, 0, 1, 63 } },
+            { NATURE_IMPISH, 17, { 45, 0, 39, 0, 0, 43 } },
+            { NATURE_CAREFUL, 12, { 63, 0, 1, 0, 63, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_URSHIFU_RAPID_STRIKE, .usage = 51, .source = 1, // gen9vgc2024regg-0, 11286 lotte
+        .moves = { MOVE_SURGING_STRIKES, MOVE_CLOSE_COMBAT, MOVE_AQUA_JET, MOVE_DETECT, MOVE_U_TURN, MOVE_PROTECT, MOVE_TAUNT, MOVE_COACHING, MOVE_ROCK_TOMB },
+        .moveP = { 100, 94, 77, 42, 34, 24, 17, 5, 2 },
+        .items = { ITEM_FOCUS_SASH, ITEM_CHOICE_SCARF, ITEM_MYSTIC_WATER, ITEM_CHOICE_BAND },
+        .itemP = { 36, 28, 21, 5 },
+        .abilities = { ABILITY_UNSEEN_FIST },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_ADAMANT, 55, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 12, { 0, 63, 0, 0, 1, 63 } },
+            { NATURE_ADAMANT, 5, { 13, 61, 1, 0, 25, 27 } },
+        },
+    },
+    {
+        .species = SPECIES_CALYREX_ICE, .usage = 15, .source = 1, // gen9vgc2024regg-0, 3318 lotte
+        .moves = { MOVE_GLACIAL_LANCE, MOVE_TRICK_ROOM, MOVE_PROTECT, MOVE_HIGH_HORSEPOWER, MOVE_LEECH_SEED, MOVE_CLOSE_COMBAT, MOVE_SWORDS_DANCE, MOVE_IMPRISON, MOVE_ZEN_HEADBUTT, MOVE_SEED_BOMB },
+        .moveP = { 100, 95, 93, 76, 11, 7, 4, 4, 2, 2 },
+        .items = { ITEM_CLEAR_AMULET, ITEM_LEFTOVERS, ITEM_SITRUS_BERRY, ITEM_CHOICE_BAND },
+        .itemP = { 81, 10, 2, 2 },
+        .spreads = {
+            { NATURE_ADAMANT, 21, { 63, 29, 1, 0, 5, 29 } },
+            { NATURE_BRAVE, 14, { 63, 63, 0, 0, 1, 0 } },
+            { NATURE_ADAMANT, 13, { 63, 49, 1, 0, 5, 9 } },
+        },
+    },
+    {
+        .species = SPECIES_CALYREX_SHADOW, .usage = 26, .source = 1, // gen9vgc2024regg-0, 5796 lotte
+        .moves = { MOVE_ASTRAL_BARRAGE, MOVE_PROTECT, MOVE_NASTY_PLOT, MOVE_PSYCHIC, MOVE_DRAINING_KISS, MOVE_EXPANDING_FORCE, MOVE_PSYSHOCK, MOVE_POLLEN_PUFF, MOVE_CALM_MIND, MOVE_TERA_BLAST },
+        .moveP = { 100, 90, 58, 39, 23, 21, 16, 15, 8, 5 },
+        .items = { ITEM_LIFE_ORB, ITEM_COVERT_CLOAK, ITEM_FOCUS_SASH, ITEM_SPELL_TAG },
+        .itemP = { 38, 18, 14, 12 },
+        .spreads = {
+            { NATURE_TIMID, 41, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 21, { 35, 0, 1, 25, 3, 63 } },
+            { NATURE_TIMID, 5, { 7, 0, 21, 35, 1, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_BASCULEGION_F, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 15389 lotte
+        .moves = { MOVE_SHADOW_BALL, MOVE_MUDDY_WATER, MOVE_ICE_BEAM, MOVE_PROTECT, MOVE_FLIP_TURN, MOVE_HYDRO_PUMP, MOVE_ICY_WIND, MOVE_SOAK, MOVE_LAST_RESPECTS, MOVE_SURF },
+        .moveP = { 98, 94, 88, 75, 12, 10, 9, 3, 2, 2 },
+        .items = { ITEM_LIFE_ORB, ITEM_FOCUS_SASH, ITEM_CHOICE_SCARF },
+        .itemP = { 48, 27, 23 },
+        .abilities = { ABILITY_SWIFT_SWIM, ABILITY_ADAPTABILITY },
+        .abilityP = { 54, 46 },
+        .spreads = {
+            { NATURE_MODEST, 50, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 22, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 18, { 17, 0, 31, 37, 5, 37 } },
+        },
+    },
+    {
+        .species = SPECIES_MEOWSCARADA, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 36073 lotte
+        .moves = { MOVE_FLOWER_TRICK, MOVE_TRIPLE_AXEL, MOVE_KNOCK_OFF, MOVE_U_TURN, MOVE_PROTECT, MOVE_LOW_KICK, MOVE_SUCKER_PUNCH, MOVE_PLAY_ROUGH, MOVE_BRICK_BREAK, MOVE_THROAT_CHOP },
+        .moveP = { 99, 84, 82, 54, 22, 21, 9, 6, 4, 3 },
+        .items = { ITEM_CHOICE_SCARF, ITEM_FOCUS_SASH, ITEM_LIFE_ORB, ITEM_EXPERT_BELT },
+        .itemP = { 59, 19, 12, 4 },
+        .abilities = { ABILITY_PROTEAN, ABILITY_OVERGROW },
+        .abilityP = { 89, 11 },
+        .spreads = {
+            { NATURE_JOLLY, 65, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 26, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 2, { 53, 63, 0, 0, 0, 13 } },
+        },
+    },
+    {
+        .species = SPECIES_SKELEDIRGE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 13709 lotte
+        .moves = { MOVE_TORCH_SONG, MOVE_PROTECT, MOVE_SHADOW_BALL, MOVE_SLACK_OFF, MOVE_WILL_O_WISP, MOVE_EARTH_POWER, MOVE_YAWN, MOVE_HEAT_WAVE, MOVE_SNARL, MOVE_HEX },
+        .moveP = { 94, 71, 70, 54, 32, 20, 14, 13, 7, 7 },
+        .items = { ITEM_LEFTOVERS, ITEM_SITRUS_BERRY, ITEM_CHARCOAL, ITEM_GRASSY_SEED },
+        .itemP = { 43, 23, 7, 6 },
+        .abilities = { ABILITY_UNAWARE, ABILITY_BLAZE },
+        .abilityP = { 99, 1 },
+        .spreads = {
+            { NATURE_CALM, 11, { 63, 0, 3, 0, 63, 0 } },
+            { NATURE_MODEST, 10, { 63, 0, 0, 63, 3, 0 } },
+            { NATURE_BOLD, 6, { 63, 0, 15, 0, 51, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_QUAQUAVAL, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 8593 lotte
+        .moves = { MOVE_CLOSE_COMBAT, MOVE_AQUA_STEP, MOVE_PROTECT, MOVE_ICE_SPINNER, MOVE_DETECT, MOVE_TRIPLE_AXEL, MOVE_AQUA_JET, MOVE_WAVE_CRASH, MOVE_FLIP_TURN, MOVE_BRAVE_BIRD },
+        .moveP = { 94, 88, 48, 44, 22, 19, 18, 13, 9, 7 },
+        .items = { ITEM_LIFE_ORB, ITEM_FOCUS_SASH, ITEM_CHOICE_SCARF, ITEM_MYSTIC_WATER },
+        .itemP = { 31, 28, 13, 10 },
+        .abilities = { ABILITY_MOXIE, ABILITY_TORRENT },
+        .abilityP = { 96, 4 },
+        .spreads = {
+            { NATURE_JOLLY, 43, { 1, 63, 0, 0, 1, 63 } },
+            { NATURE_ADAMANT, 37, { 1, 63, 0, 0, 1, 63 } },
+            { NATURE_ADAMANT, 5, { 17, 63, 0, 0, 0, 49 } },
+        },
+    },
+    {
+        .species = SPECIES_PAWMOT, .usage = 3, .source = 0, // gen9championsvgc2026regmc-1630, 153341 lotte
+        .moves = { MOVE_CLOSE_COMBAT, MOVE_DOUBLE_SHOCK, MOVE_REVIVAL_BLESSING, MOVE_FAKE_OUT, MOVE_PROTECT, MOVE_COACHING, MOVE_ICE_PUNCH, MOVE_MACH_PUNCH, MOVE_THUNDER_PUNCH, MOVE_NUZZLE },
+        .moveP = { 95, 94, 64, 60, 31, 25, 18, 3, 2, 2 },
+        .items = { ITEM_FOCUS_SASH, ITEM_LIFE_ORB, ITEM_LEPPA_BERRY },
+        .itemP = { 85, 5, 3 },
+        .abilities = { ABILITY_IRON_FIST, ABILITY_VOLT_ABSORB, ABILITY_NATURAL_CURE },
+        .abilityP = { 85, 13, 2 },
+        .spreads = {
+            { NATURE_JOLLY, 74, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 21, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 2, { 63, 3, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_MAUSHOLD, .usage = 3, .source = 0, // gen9championsvgc2026regmc-1630, 112095 lotte
+        .moves = { MOVE_FOLLOW_ME, MOVE_PROTECT, MOVE_POPULATION_BOMB, MOVE_TAUNT, MOVE_SUPER_FANG, MOVE_FEINT, MOVE_HELPING_HAND, MOVE_ENCORE, MOVE_BEAT_UP, MOVE_AFTER_YOU },
+        .moveP = { 97, 84, 43, 39, 38, 38, 36, 21, 11, 7 },
+        .items = { ITEM_WIDE_LENS, ITEM_CHOPLE_BERRY, ITEM_FOCUS_SASH, ITEM_SITRUS_BERRY },
+        .itemP = { 36, 30, 21, 6 },
+        .abilities = { ABILITY_FRIEND_GUARD, ABILITY_TECHNICIAN },
+        .abilityP = { 66, 34 },
+        .spreads = {
+            { NATURE_JOLLY, 29, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 17, { 63, 0, 3, 0, 0, 63 } },
+            { NATURE_TIMID, 16, { 63, 0, 0, 0, 3, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_ARBOLIVA, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 13538 lotte
+        .moves = { MOVE_PROTECT, MOVE_EARTH_POWER, MOVE_GIGA_DRAIN, MOVE_HYPER_VOICE, MOVE_LEECH_SEED, MOVE_ENERGY_BALL, MOVE_STRENGTH_SAP, MOVE_POLLEN_PUFF, MOVE_WEATHER_BALL, MOVE_HELPING_HAND },
+        .moveP = { 89, 59, 52, 43, 42, 28, 19, 15, 11, 8 },
+        .items = { ITEM_SITRUS_BERRY, ITEM_LEFTOVERS, ITEM_LIFE_ORB, ITEM_GRASSY_SEED },
+        .itemP = { 47, 16, 11, 10 },
+        .abilities = { ABILITY_SEED_SOWER, ABILITY_HARVEST },
+        .abilityP = { 58, 42 },
+        .spreads = {
+            { NATURE_QUIET, 25, { 63, 0, 3, 63, 0, 0 } },
+            { NATURE_SASSY, 17, { 61, 0, 41, 0, 27, 0 } },
+            { NATURE_MODEST, 14, { 63, 0, 0, 63, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_SQUAWKABILLY, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 12166 lotte
+        .moves = { MOVE_FINAL_GAMBIT, MOVE_BRAVE_BIRD, MOVE_PARTING_SHOT, MOVE_U_TURN, MOVE_TAILWIND, MOVE_DOUBLE_EDGE, MOVE_TAUNT, MOVE_FOUL_PLAY, MOVE_PROTECT, MOVE_DUAL_WINGBEAT },
+        .moveP = { 85, 84, 78, 41, 25, 19, 16, 15, 8, 5 },
+        .items = { ITEM_CHOICE_SCARF, ITEM_FOCUS_SASH },
+        .itemP = { 85, 9 },
+        .abilities = { ABILITY_INTIMIDATE, ABILITY_SHEER_FORCE, ABILITY_GUTS },
+        .abilityP = { 85, 11, 3 },
+        .spreads = {
+            { NATURE_JOLLY, 78, { 63, 3, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 4, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_TIMID, 4, { 63, 0, 0, 0, 3, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_GARGANACL, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 7385 lotte
+        .moves = { MOVE_WIDE_GUARD, MOVE_SALT_CURE, MOVE_BODY_PRESS, MOVE_RECOVER, MOVE_PROTECT, MOVE_STONE_EDGE, MOVE_ROCK_SLIDE, MOVE_IRON_DEFENSE, MOVE_CURSE, MOVE_EXPLOSION },
+        .moveP = { 73, 70, 57, 56, 53, 20, 18, 14, 5, 5 },
+        .items = { ITEM_LEFTOVERS, ITEM_ROCKY_HELMET, ITEM_SITRUS_BERRY, ITEM_PSYCHIC_SEED },
+        .itemP = { 56, 23, 4, 4 },
+        .abilities = { ABILITY_PURIFYING_SALT, ABILITY_CLEAR_BODY, ABILITY_STURDY },
+        .abilityP = { 67, 29, 3 },
+        .spreads = {
+            { NATURE_IMPISH, 25, { 63, 3, 59, 0, 0, 3 } },
+            { NATURE_IMPISH, 16, { 63, 3, 0, 0, 63, 0 } },
+            { NATURE_CAREFUL, 9, { 63, 0, 3, 0, 63, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_ARMAROUGE, .usage = 6, .source = 0, // gen9championsvgc2026regmc-1630, 234003 lotte
+        .moves = { MOVE_EXPANDING_FORCE, MOVE_ARMOR_CANNON, MOVE_PROTECT, MOVE_WIDE_GUARD, MOVE_TRICK_ROOM, MOVE_HEAT_WAVE, MOVE_AURA_SPHERE, MOVE_STORED_POWER, MOVE_ENERGY_BALL, MOVE_METEOR_BEAM },
+        .moveP = { 96, 81, 65, 48, 46, 24, 24, 21, 4, 4 },
+        .items = { ITEM_LIFE_ORB, ITEM_FOCUS_SASH, ITEM_TWISTED_SPOON, ITEM_PSYCHIC_SEED },
+        .itemP = { 47, 30, 7, 4 },
+        .abilities = { ABILITY_FLASH_FIRE, ABILITY_WEAK_ARMOR },
+        .abilityP = { 82, 18 },
+        .spreads = {
+            { NATURE_QUIET, 27, { 63, 0, 0, 63, 3, 0 } },
+            { NATURE_MODEST, 23, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 20, { 63, 0, 0, 63, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_CERULEDGE, .usage = 2, .source = 0, // gen9championsvgc2026regmc-1630, 91889 lotte
+        .moves = { MOVE_BITTER_BLADE, MOVE_PROTECT, MOVE_SHADOW_SNEAK, MOVE_SWORDS_DANCE, MOVE_BULK_UP, MOVE_POLTERGEIST, MOVE_CLOSE_COMBAT, MOVE_ALLY_SWITCH, MOVE_TAUNT },
+        .moveP = { 100, 87, 85, 45, 45, 21, 8, 3, 2 },
+        .items = { ITEM_GRASSY_SEED, ITEM_COLBUR_BERRY, ITEM_FOCUS_SASH, ITEM_LIFE_ORB },
+        .itemP = { 35, 29, 14, 7 },
+        .abilities = { ABILITY_FLASH_FIRE, ABILITY_WEAK_ARMOR },
+        .abilityP = { 97, 3 },
+        .spreads = {
+            { NATURE_ADAMANT, 20, { 63, 51, 7, 0, 1, 5 } },
+            { NATURE_ADAMANT, 15, { 61, 13, 47, 0, 5, 1 } },
+            { NATURE_JOLLY, 14, { 3, 63, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_BELLIBOLT, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 16081 lotte
+        .moves = { MOVE_PARABOLIC_CHARGE, MOVE_PROTECT, MOVE_THUNDERBOLT, MOVE_SOAK, MOVE_TOXIC, MOVE_SLACK_OFF, MOVE_MUDDY_WATER, MOVE_VOLT_SWITCH, MOVE_THUNDER, MOVE_CHILLING_WATER },
+        .moveP = { 89, 78, 72, 62, 25, 16, 9, 8, 6, 5 },
+        .items = { ITEM_SITRUS_BERRY, ITEM_MAGNET, ITEM_LEFTOVERS, ITEM_BIG_ROOT },
+        .itemP = { 33, 28, 19, 5 },
+        .abilities = { ABILITY_ELECTROMORPHOSIS },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_MODEST, 17, { 63, 0, 29, 33, 1, 1 } },
+            { NATURE_MODEST, 13, { 63, 0, 0, 63, 3, 0 } },
+            { NATURE_BOLD, 12, { 61, 0, 31, 0, 37, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_KILOWATTREL, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 2222 lotte
+        .moves = { MOVE_TAILWIND, MOVE_DISCHARGE, MOVE_VOLT_SWITCH, MOVE_HURRICANE, MOVE_AIR_SLASH, MOVE_PROTECT, MOVE_THUNDERBOLT, MOVE_WEATHER_BALL, MOVE_THUNDER, MOVE_ELECTROWEB },
+        .moveP = { 69, 51, 44, 43, 42, 29, 29, 21, 16, 9 },
+        .items = { ITEM_FOCUS_SASH, ITEM_COVERT_CLOAK, ITEM_CHOICE_SPECS, ITEM_LIFE_ORB },
+        .itemP = { 36, 11, 11, 10 },
+        .abilities = { ABILITY_COMPETITIVE, ABILITY_WIND_POWER, ABILITY_VOLT_ABSORB },
+        .abilityP = { 45, 34, 22 },
+        .spreads = {
+            { NATURE_TIMID, 77, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 10, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 3, { 18, 0, 0, 46, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_TOEDSCRUEL, .usage = 0, .source = 2, // gen9nationaldexdoubles-0, 868 lotte
+        .moves = { MOVE_SPORE, MOVE_EARTH_POWER, MOVE_RAGE_POWDER, MOVE_ACID_SPRAY, MOVE_GIGA_DRAIN, MOVE_LEECH_SEED, MOVE_PROTECT, MOVE_ENERGY_BALL, MOVE_TAUNT, MOVE_TRICK_ROOM },
+        .moveP = { 87, 80, 61, 37, 28, 18, 14, 13, 7, 6 },
+        .items = { ITEM_COVERT_CLOAK, ITEM_LEFTOVERS, ITEM_FOCUS_SASH, ITEM_SITRUS_BERRY },
+        .itemP = { 35, 27, 12, 5 },
+        .abilities = { ABILITY_MYCELIUM_MIGHT },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_TIMID, 38, { 49, 0, 0, 15, 0, 63 } },
+            { NATURE_TIMID, 21, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_CALM, 6, { 63, 0, 0, 32, 32, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_SCOVILLAIN, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 48364 lotte
+        .moves = { MOVE_RAGE_POWDER, MOVE_PROTECT, MOVE_OVERHEAT, MOVE_GIGA_DRAIN, MOVE_LEECH_SEED, MOVE_FLAMETHROWER, MOVE_ENERGY_BALL, MOVE_LEAF_STORM, MOVE_SUPER_FANG },
+        .moveP = { 97, 97, 77, 56, 37, 19, 4, 3, 2 },
+        .abilities = { ABILITY_CHLOROPHYLL, ABILITY_MOODY },
+        .abilityP = { 71, 28 },
+        .megas = { SPECIES_SCOVILLAIN_MEGA },
+        .megaP = { 98 },
+        .spreads = {
+            { NATURE_BOLD, 27, { 63, 0, 29, 0, 37, 0 } },
+            { NATURE_CALM, 20, { 63, 0, 37, 0, 29, 0 } },
+            { NATURE_BOLD, 15, { 63, 0, 63, 0, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_ESPATHRA, .usage = 2, .source = 0, // gen9championsvgc2026regmc-1630, 44757 lotte
+        .moves = { MOVE_PROTECT, MOVE_LUMINA_CRASH, MOVE_CALM_MIND, MOVE_BATON_PASS, MOVE_EXPANDING_FORCE, MOVE_DAZZLING_GLEAM, MOVE_SUBSTITUTE, MOVE_STORED_POWER, MOVE_SKILL_SWAP, MOVE_SUNNY_DAY },
+        .moveP = { 99, 91, 87, 87, 9, 4, 3, 3, 3, 2 },
+        .items = { ITEM_ELECTRIC_SEED, ITEM_GRASSY_SEED, ITEM_FOCUS_SASH, ITEM_COLBUR_BERRY },
+        .itemP = { 38, 24, 15, 7 },
+        .abilities = { ABILITY_SPEED_BOOST },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_TIMID, 19, { 63, 0, 27, 0, 3, 35 } },
+            { NATURE_TIMID, 11, { 63, 0, 7, 0, 0, 59 } },
+            { NATURE_TIMID, 7, { 63, 0, 13, 0, 27, 25 } },
+        },
+    },
+    {
+        .species = SPECIES_TINKATON, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 27258 lotte
+        .moves = { MOVE_GIGATON_HAMMER, MOVE_FAKE_OUT, MOVE_PROTECT, MOVE_ENCORE, MOVE_PLAY_ROUGH, MOVE_ROCK_TOMB, MOVE_FEINT, MOVE_HELPING_HAND, MOVE_THUNDER_WAVE, MOVE_KNOCK_OFF },
+        .moveP = { 97, 95, 69, 52, 29, 12, 11, 8, 5, 3 },
+        .items = { ITEM_EJECT_BUTTON, ITEM_METAL_COAT, ITEM_OCCA_BERRY, ITEM_SITRUS_BERRY },
+        .itemP = { 21, 20, 11, 10 },
+        .abilities = { ABILITY_MOLD_BREAKER, ABILITY_OWN_TEMPO, ABILITY_PICKPOCKET },
+        .abilityP = { 86, 13, 1 },
+        .spreads = {
+            { NATURE_JOLLY, 29, { 5, 51, 11, 0, 0, 61 } },
+            { NATURE_JOLLY, 13, { 45, 29, 0, 0, 0, 55 } },
+            { NATURE_JOLLY, 12, { 63, 3, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_PALAFIN, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 32205 lotte
+        .moves = { MOVE_WAVE_CRASH, MOVE_JET_PUNCH, MOVE_PROTECT, MOVE_CLOSE_COMBAT, MOVE_FLIP_TURN, MOVE_ICE_PUNCH, MOVE_DRAIN_PUNCH, MOVE_BULK_UP, MOVE_LIQUIDATION, MOVE_THROAT_CHOP },
+        .moveP = { 86, 84, 69, 45, 42, 20, 17, 17, 3, 3 },
+        .items = { ITEM_MYSTIC_WATER, ITEM_LIFE_ORB, ITEM_CHOICE_SCARF, ITEM_LEFTOVERS },
+        .itemP = { 47, 18, 17, 8 },
+        .abilities = { ABILITY_ZERO_TO_HERO },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_ADAMANT, 28, { 63, 63, 0, 0, 0, 3 } },
+            { NATURE_JOLLY, 23, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 14, { 3, 63, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_ORTHWORM, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 7978 lotte
+        .moves = { MOVE_SHED_TAIL, MOVE_BODY_PRESS, MOVE_PROTECT, MOVE_HEAVY_SLAM, MOVE_IRON_DEFENSE, MOVE_HELPING_HAND, MOVE_IRON_HEAD, MOVE_COIL, MOVE_ROCK_SLIDE, MOVE_HIGH_HORSEPOWER },
+        .moveP = { 84, 82, 66, 55, 40, 29, 15, 7, 6, 3 },
+        .items = { ITEM_SITRUS_BERRY, ITEM_LEFTOVERS, ITEM_CHOPLE_BERRY, ITEM_PSYCHIC_SEED },
+        .itemP = { 73, 11, 4, 4 },
+        .abilities = { ABILITY_EARTH_EATER },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_CAREFUL, 24, { 63, 0, 3, 0, 63, 0 } },
+            { NATURE_RELAXED, 13, { 61, 0, 5, 0, 63, 0 } },
+            { NATURE_IMPISH, 11, { 63, 0, 63, 0, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_GLIMMORA, .usage = 4, .source = 0, // gen9championsvgc2026regmc-1630, 135876 lotte
+        .moves = { MOVE_POWER_GEM, MOVE_EARTH_POWER, MOVE_SLUDGE_BOMB, MOVE_SPIKY_SHIELD, MOVE_MORTAL_SPIN, MOVE_PROTECT, MOVE_SLUDGE_WAVE, MOVE_ENERGY_BALL },
+        .moveP = { 99, 96, 94, 93, 4, 4, 4, 2 },
+        .items = { ITEM_FOCUS_SASH, ITEM_LIFE_ORB, ITEM_CHOICE_SCARF },
+        .itemP = { 34, 4, 2 },
+        .abilities = { ABILITY_TOXIC_DEBRIS, ABILITY_CORROSION },
+        .abilityP = { 99, 1 },
+        .megas = { SPECIES_GLIMMORA_MEGA },
+        .megaP = { 56 },
+        .spreads = {
+            { NATURE_TIMID, 43, { 1, 0, 0, 63, 1, 63 } },
+            { NATURE_MODEST, 34, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 4, { 25, 0, 0, 41, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_HOUNDSTONE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 10447 lotte
+        .moves = { MOVE_LAST_RESPECTS, MOVE_PROTECT, MOVE_WILL_O_WISP, MOVE_SHADOW_SNEAK, MOVE_ALLY_SWITCH, MOVE_POLTERGEIST, MOVE_STOMPING_TANTRUM, MOVE_HOWL, MOVE_PSYCHIC_FANGS, MOVE_PLAY_ROUGH },
+        .moveP = { 95, 78, 46, 27, 23, 17, 16, 15, 14, 12 },
+        .items = { ITEM_SPELL_TAG, ITEM_SITRUS_BERRY, ITEM_LIFE_ORB, ITEM_FOCUS_SASH },
+        .itemP = { 36, 21, 17, 10 },
+        .abilities = { ABILITY_SAND_RUSH, ABILITY_FLUFFY },
+        .abilityP = { 77, 23 },
+        .spreads = {
+            { NATURE_ADAMANT, 25, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 16, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 8, { 17, 63, 0, 0, 0, 49 } },
+        },
+    },
+    {
+        .species = SPECIES_FLAMIGO, .usage = 1, .source = 1, // gen9vgc2024regg-0, 208 lotte
+        .moves = { MOVE_CLOSE_COMBAT, MOVE_WIDE_GUARD, MOVE_BRAVE_BIRD, MOVE_TAILWIND, MOVE_ENDEAVOR, MOVE_ROOST, MOVE_DUAL_WINGBEAT, MOVE_ACROBATICS, MOVE_SWORDS_DANCE, MOVE_PROTECT },
+        .moveP = { 97, 59, 51, 36, 29, 26, 23, 22, 14, 13 },
+        .items = { ITEM_FOCUS_SASH, ITEM_WHITE_HERB, ITEM_AGUAV_BERRY, ITEM_BRIGHT_POWDER },
+        .itemP = { 35, 24, 19, 14 },
+        .abilities = { ABILITY_COSTAR, ABILITY_SCRAPPY },
+        .abilityP = { 80, 20 },
+        .spreads = {
+            { NATURE_JOLLY, 48, { 0, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 21, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_CAREFUL, 19, { 63, 0, 25, 0, 39, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_DONDOZO, .usage = 6, .source = 1, // gen9vgc2024regg-0, 1502 lotte
+        .moves = { MOVE_PROTECT, MOVE_ORDER_UP, MOVE_WAVE_CRASH, MOVE_EARTHQUAKE, MOVE_BODY_PRESS, MOVE_YAWN, MOVE_SUBSTITUTE, MOVE_FISSURE, MOVE_LIQUIDATION, MOVE_WATERFALL },
+        .moveP = { 94, 77, 71, 51, 39, 23, 14, 11, 4, 2 },
+        .items = { ITEM_LEFTOVERS, ITEM_CLEAR_AMULET, ITEM_ROCKY_HELMET, ITEM_ASSAULT_VEST },
+        .itemP = { 91, 3, 2, 2 },
+        .abilities = { ABILITY_UNAWARE, ABILITY_OBLIVIOUS, ABILITY_WATER_VEIL },
+        .abilityP = { 80, 19, 1 },
+        .spreads = {
+            { NATURE_IMPISH, 24, { 1, 1, 49, 0, 37, 39 } },
+            { NATURE_ADAMANT, 14, { 1, 39, 21, 0, 53, 13 } },
+            { NATURE_CAREFUL, 9, { 63, 0, 0, 0, 63, 1 } },
+        },
+    },
+    {
+        .species = SPECIES_TATSUGIRI, .usage = 5, .source = 1, // gen9vgc2024regg-0, 1206 lotte
+        .moves = { MOVE_DRACO_METEOR, MOVE_MUDDY_WATER, MOVE_PROTECT, MOVE_HELPING_HAND, MOVE_ICY_WIND, MOVE_COUNTER, MOVE_MIRROR_COAT, MOVE_SURF, MOVE_TAUNT, MOVE_DRAGON_PULSE },
+        .moveP = { 92, 76, 62, 51, 24, 20, 20, 10, 9, 6 },
+        .items = { ITEM_FOCUS_SASH, ITEM_ASSAULT_VEST, ITEM_CHOICE_SCARF, ITEM_TOXIC_ORB },
+        .itemP = { 49, 18, 12, 5 },
+        .abilities = { ABILITY_COMMANDER, ABILITY_STORM_DRAIN },
+        .abilityP = { 99, 1 },
+        .spreads = {
+            { NATURE_MODEST, 33, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 26, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_CALM, 19, { 59, 0, 59, 0, 9, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_ANNIHILAPE, .usage = 3, .source = 0, // gen9championsvgc2026regmc-1630, 113973 lotte
+        .moves = { MOVE_CLOSE_COMBAT, MOVE_RAGE_FIST, MOVE_PROTECT, MOVE_ICE_PUNCH, MOVE_DRAIN_PUNCH, MOVE_SHADOW_CLAW, MOVE_FINAL_GAMBIT, MOVE_BULK_UP, MOVE_PHANTOM_FORCE, MOVE_U_TURN },
+        .moveP = { 68, 48, 43, 41, 32, 28, 28, 27, 26, 21 },
+        .items = { ITEM_CHOICE_SCARF, ITEM_LEFTOVERS, ITEM_FOCUS_SASH, ITEM_SITRUS_BERRY },
+        .itemP = { 48, 14, 11, 10 },
+        .abilities = { ABILITY_DEFIANT, ABILITY_VITAL_SPIRIT },
+        .abilityP = { 99, 1 },
+        .spreads = {
+            { NATURE_JOLLY, 30, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 29, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 6, { 63, 63, 0, 0, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_FARIGIRAF, .usage = 16, .source = 0, // gen9championsvgc2026regmc-1630, 595738 lotte
+        .moves = { MOVE_TRICK_ROOM, MOVE_PSYCHIC, MOVE_HELPING_HAND, MOVE_PROTECT, MOVE_THUNDERBOLT, MOVE_FOUL_PLAY, MOVE_HYPER_VOICE, MOVE_EXPANDING_FORCE, MOVE_TWIN_BEAM, MOVE_PSYCHIC_NOISE },
+        .moveP = { 98, 56, 53, 50, 39, 28, 20, 17, 16, 14 },
+        .items = { ITEM_SITRUS_BERRY, ITEM_COLBUR_BERRY, ITEM_GRASSY_SEED, ITEM_MENTAL_HERB },
+        .itemP = { 64, 16, 9, 2 },
+        .abilities = { ABILITY_ARMOR_TAIL, ABILITY_SAP_SIPPER, ABILITY_CUD_CHEW },
+        .abilityP = { 98, 1, 1 },
+        .spreads = {
+            { NATURE_BOLD, 23, { 53, 0, 39, 0, 37, 0 } },
+            { NATURE_RELAXED, 9, { 63, 0, 39, 0, 27, 0 } },
+            { NATURE_CALM, 9, { 57, 0, 27, 0, 45, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_KINGAMBIT, .usage = 24, .source = 0, // gen9championsvgc2026regmc-1630, 717550 lotte
+        .moves = { MOVE_SUCKER_PUNCH, MOVE_KOWTOW_CLEAVE, MOVE_IRON_HEAD, MOVE_PROTECT, MOVE_LOW_KICK, MOVE_SWORDS_DANCE, MOVE_BRICK_BREAK },
+        .moveP = { 98, 98, 72, 58, 52, 20, 2 },
+        .items = { ITEM_CHOPLE_BERRY, ITEM_BLACK_GLASSES, ITEM_LIFE_ORB, ITEM_FOCUS_SASH },
+        .itemP = { 44, 18, 17, 16 },
+        .abilities = { ABILITY_DEFIANT, ABILITY_SUPREME_OVERLORD },
+        .abilityP = { 99, 1 },
+        .spreads = {
+            { NATURE_ADAMANT, 44, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 14, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_BRAVE, 10, { 63, 63, 0, 0, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_GREAT_TUSK, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 3908 lotte
+        .moves = { MOVE_HEADLONG_RUSH, MOVE_CLOSE_COMBAT, MOVE_ICE_SPINNER, MOVE_RAPID_SPIN, MOVE_EARTHQUAKE, MOVE_PROTECT, MOVE_BRICK_BREAK, MOVE_IRON_HEAD, MOVE_KNOCK_OFF, MOVE_ROCK_SLIDE },
+        .moveP = { 73, 66, 49, 32, 28, 26, 17, 15, 14, 12 },
+        .items = { ITEM_BOOSTER_ENERGY, ITEM_ASSAULT_VEST, ITEM_CHOICE_BAND, ITEM_CLEAR_AMULET },
+        .itemP = { 39, 20, 8, 6 },
+        .abilities = { ABILITY_PROTOSYNTHESIS },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_JOLLY, 42, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 17, { 63, 63, 0, 0, 1, 0 } },
+            { NATURE_JOLLY, 10, { 63, 1, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_SCREAM_TAIL, .usage = 7, .source = 1, // gen9vgc2024regg-0, 1530 lotte
+        .moves = { MOVE_ENCORE, MOVE_PROTECT, MOVE_DISABLE, MOVE_PERISH_SONG, MOVE_DAZZLING_GLEAM, MOVE_PLAY_ROUGH, MOVE_THUNDER_WAVE },
+        .moveP = { 98, 98, 95, 54, 41, 5, 2 },
+        .items = { ITEM_BOOSTER_ENERGY },
+        .itemP = { 97 },
+        .abilities = { ABILITY_PROTOSYNTHESIS },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_TIMID, 39, { 57, 0, 37, 1, 7, 25 } },
+            { NATURE_TIMID, 23, { 63, 0, 21, 0, 17, 25 } },
+            { NATURE_TIMID, 18, { 63, 0, 5, 1, 9, 49 } },
+        },
+    },
+    {
+        .species = SPECIES_BRUTE_BONNET, .usage = 4, .source = 1, // gen9vgc2024regg-0, 776 lotte
+        .moves = { MOVE_SPORE, MOVE_RAGE_POWDER, MOVE_SUCKER_PUNCH, MOVE_SEED_BOMB, MOVE_PROTECT, MOVE_POLLEN_PUFF, MOVE_CRUNCH, MOVE_CLOSE_COMBAT, MOVE_BULLET_SEED },
+        .moveP = { 100, 96, 96, 90, 5, 5, 2, 2, 2 },
+        .items = { ITEM_COVERT_CLOAK, ITEM_SITRUS_BERRY, ITEM_ROCKY_HELMET, ITEM_BOOSTER_ENERGY },
+        .itemP = { 66, 19, 5, 3 },
+        .abilities = { ABILITY_PROTOSYNTHESIS },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_IMPISH, 26, { 63, 0, 31, 0, 0, 33 } },
+            { NATURE_IMPISH, 23, { 63, 1, 33, 0, 29, 1 } },
+            { NATURE_RELAXED, 22, { 63, 0, 31, 0, 33, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_FLUTTER_MANE, .usage = 21, .source = 1, // gen9vgc2024regg-0, 4596 lotte
+        .moves = { MOVE_MOONBLAST, MOVE_ICY_WIND, MOVE_SHADOW_BALL, MOVE_PROTECT, MOVE_DAZZLING_GLEAM, MOVE_TAUNT, MOVE_THUNDER_WAVE, MOVE_TRICK_ROOM, MOVE_POWER_GEM, MOVE_MYSTICAL_FIRE },
+        .moveP = { 97, 79, 75, 73, 22, 18, 16, 6, 3, 2 },
+        .items = { ITEM_BOOSTER_ENERGY, ITEM_FOCUS_SASH, ITEM_CHOICE_SPECS, ITEM_LIFE_ORB },
+        .itemP = { 45, 43, 8, 2 },
+        .abilities = { ABILITY_PROTOSYNTHESIS },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_TIMID, 50, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 13, { 61, 0, 33, 1, 1, 31 } },
+            { NATURE_TIMID, 5, { 33, 0, 51, 1, 1, 41 } },
+        },
+    },
+    {
+        .species = SPECIES_SLITHER_WING, .usage = 0, .source = 2, // gen9nationaldexdoubles-0, 969 lotte
+        .moves = { MOVE_CLOSE_COMBAT, MOVE_FIRST_IMPRESSION, MOVE_U_TURN, MOVE_LEECH_LIFE, MOVE_FLARE_BLITZ, MOVE_LUNGE, MOVE_WILD_CHARGE, MOVE_EARTHQUAKE, MOVE_HIGH_HORSEPOWER, MOVE_BULK_UP },
+        .moveP = { 69, 65, 32, 26, 21, 20, 15, 13, 12, 12 },
+        .items = { ITEM_BOOSTER_ENERGY, ITEM_ASSAULT_VEST, ITEM_CHOICE_BAND, ITEM_LIFE_ORB },
+        .itemP = { 28, 18, 13, 9 },
+        .abilities = { ABILITY_PROTOSYNTHESIS },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_JOLLY, 46, { 0, 63, 0, 0, 1, 63 } },
+            { NATURE_ADAMANT, 13, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 9, { 63, 63, 0, 0, 1, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_IRON_BUNDLE, .usage = 1, .source = 1, // gen9vgc2024regg-0, 191 lotte
+        .moves = { MOVE_ICY_WIND, MOVE_PROTECT, MOVE_HYDRO_PUMP, MOVE_FREEZE_DRY, MOVE_ENCORE, MOVE_ICE_BEAM, MOVE_TERA_BLAST, MOVE_BLIZZARD, MOVE_FLIP_TURN, MOVE_AIR_CUTTER },
+        .moveP = { 92, 88, 73, 71, 23, 22, 10, 9, 5, 2 },
+        .items = { ITEM_FOCUS_SASH, ITEM_BOOSTER_ENERGY, ITEM_LIFE_ORB, ITEM_COVERT_CLOAK },
+        .itemP = { 69, 9, 6, 6 },
+        .abilities = { ABILITY_QUARK_DRIVE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_TIMID, 85, { 0, 0, 0, 63, 1, 63 } },
+            { NATURE_MODEST, 7, { 0, 0, 0, 63, 1, 63 } },
+            { NATURE_TIMID, 2, { 21, 0, 0, 43, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_IRON_HANDS, .usage = 15, .source = 1, // gen9vgc2024regg-0, 3234 lotte
+        .moves = { MOVE_FAKE_OUT, MOVE_DRAIN_PUNCH, MOVE_WILD_CHARGE, MOVE_LOW_KICK, MOVE_HEAVY_SLAM, MOVE_ICE_PUNCH, MOVE_VOLT_SWITCH, MOVE_CLOSE_COMBAT, MOVE_SUPERCELL_SLAM },
+        .moveP = { 99, 93, 79, 69, 38, 6, 4, 4, 2 },
+        .items = { ITEM_ASSAULT_VEST, ITEM_ROCKY_HELMET },
+        .itemP = { 94, 2 },
+        .abilities = { ABILITY_QUARK_DRIVE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_BRAVE, 36, { 19, 45, 3, 0, 59, 0 } },
+            { NATURE_ADAMANT, 8, { 63, 63, 0, 0, 1, 0 } },
+            { NATURE_ADAMANT, 7, { 31, 51, 9, 0, 23, 13 } },
+        },
+    },
+    {
+        .species = SPECIES_BAXCALIBUR, .usage = 4, .source = 0, // gen9championsvgc2026regmc-1630, 210117 lotte
+        .moves = { MOVE_PROTECT, MOVE_GLAIVE_RUSH, MOVE_ICE_SHARD, MOVE_ICICLE_CRASH, MOVE_HIGH_HORSEPOWER, MOVE_SWORDS_DANCE, MOVE_DRAGON_DANCE, MOVE_ICICLE_SPEAR, MOVE_SCALE_SHOT, MOVE_DRAGON_CLAW },
+        .moveP = { 93, 92, 78, 44, 30, 24, 19, 4, 3, 2 },
+        .items = { ITEM_LIFE_ORB, ITEM_CHOICE_SCARF, ITEM_LEFTOVERS },
+        .itemP = { 9, 4, 2 },
+        .abilities = { ABILITY_THERMAL_EXCHANGE, ABILITY_ICE_BODY },
+        .abilityP = { 93, 7 },
+        .megas = { SPECIES_BAXCALIBUR_MEGA },
+        .megaP = { 82 },
+        .spreads = {
+            { NATURE_ADAMANT, 17, { 63, 63, 0, 0, 3, 0 } },
+            { NATURE_ADAMANT, 13, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 11, { 1, 63, 0, 0, 1, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_GHOLDENGO, .usage = 19, .source = 0, // gen9championsvgc2026regmc-1630, 533753 lotte
+        .moves = { MOVE_SHADOW_BALL, MOVE_MAKE_IT_RAIN, MOVE_PROTECT, MOVE_NASTY_PLOT, MOVE_TRICK, MOVE_POWER_GEM, MOVE_THUNDERBOLT, MOVE_FOCUS_BLAST, MOVE_DAZZLING_GLEAM, MOVE_THUNDER },
+        .moveP = { 100, 99, 94, 87, 18, 14, 14, 4, 4, 3 },
+        .items = { ITEM_LIFE_ORB, ITEM_GRASSY_SEED, ITEM_CHOICE_SCARF, ITEM_LEFTOVERS },
+        .itemP = { 76, 6, 6, 4 },
+        .abilities = { ABILITY_GOOD_AS_GOLD },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_TIMID, 25, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 13, { 3, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 8, { 33, 0, 0, 33, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_CHIEN_PAO, .usage = 12, .source = 1, // gen9vgc2024regg-0, 2688 lotte
+        .moves = { MOVE_SUCKER_PUNCH, MOVE_PROTECT, MOVE_ICE_SPINNER, MOVE_ICICLE_CRASH, MOVE_THROAT_CHOP, MOVE_SACRED_SWORD, MOVE_CRUNCH, MOVE_TAUNT, MOVE_ICE_SHARD, MOVE_HAZE },
+        .moveP = { 93, 92, 57, 41, 36, 34, 15, 7, 7, 5 },
+        .items = { ITEM_FOCUS_SASH, ITEM_LIFE_ORB, ITEM_ASSAULT_VEST },
+        .itemP = { 90, 4, 2 },
+        .abilities = { ABILITY_SWORD_OF_RUIN },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_JOLLY, 71, { 0, 63, 1, 0, 0, 63 } },
+            { NATURE_ADAMANT, 23, { 0, 63, 1, 0, 0, 63 } },
+            { NATURE_ADAMANT, 2, { 1, 39, 23, 0, 1, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_TING_LU, .usage = 3, .source = 1, // gen9vgc2024regg-0, 545 lotte
+        .moves = { MOVE_RUINATION, MOVE_SAND_TOMB, MOVE_PROTECT, MOVE_STEALTH_ROCK, MOVE_STOMPING_TANTRUM, MOVE_THROAT_CHOP, MOVE_SNARL, MOVE_HEAVY_SLAM, MOVE_FISSURE, MOVE_TAUNT },
+        .moveP = { 86, 66, 64, 38, 31, 21, 20, 18, 17, 15 },
+        .items = { ITEM_ROCKY_HELMET, ITEM_ASSAULT_VEST, ITEM_LEFTOVERS, ITEM_SITRUS_BERRY },
+        .itemP = { 53, 30, 11, 2 },
+        .abilities = { ABILITY_VESSEL_OF_RUIN },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_RELAXED, 23, { 59, 0, 9, 0, 59, 0 } },
+            { NATURE_IMPISH, 18, { 57, 1, 9, 0, 59, 1 } },
+            { NATURE_IMPISH, 9, { 53, 0, 29, 0, 45, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_CHI_YU, .usage = 13, .source = 1, // gen9vgc2024regg-0, 2768 lotte
+        .moves = { MOVE_HEAT_WAVE, MOVE_DARK_PULSE, MOVE_OVERHEAT, MOVE_SNARL, MOVE_PROTECT, MOVE_FLAMETHROWER, MOVE_TERA_BLAST, MOVE_TAUNT, MOVE_RUINATION, MOVE_PSYCHIC },
+        .moveP = { 97, 93, 86, 66, 26, 13, 6, 4, 3, 2 },
+        .items = { ITEM_CHOICE_SCARF, ITEM_FOCUS_SASH, ITEM_CHOICE_SPECS, ITEM_COVERT_CLOAK },
+        .itemP = { 59, 18, 11, 5 },
+        .abilities = { ABILITY_BEADS_OF_RUIN },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_MODEST, 38, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 30, { 0, 0, 0, 63, 1, 63 } },
+            { NATURE_MODEST, 16, { 33, 0, 1, 29, 1, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_ROARING_MOON, .usage = 6, .source = 1, // gen9vgc2024regg-0, 1220 lotte
+        .moves = { MOVE_KNOCK_OFF, MOVE_TAILWIND, MOVE_PROTECT, MOVE_ACROBATICS, MOVE_EARTHQUAKE, MOVE_BREAKING_SWIPE, MOVE_DRAGON_CLAW, MOVE_TAUNT },
+        .moveP = { 98, 97, 97, 81, 12, 6, 2, 2 },
+        .items = { ITEM_BOOSTER_ENERGY },
+        .itemP = { 99 },
+        .abilities = { ABILITY_PROTOSYNTHESIS },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_JOLLY, 35, { 7, 55, 1, 0, 1, 63 } },
+            { NATURE_JOLLY, 30, { 37, 21, 29, 0, 1, 39 } },
+            { NATURE_JOLLY, 12, { 9, 13, 39, 0, 3, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_IRON_VALIANT, .usage = 1, .source = 1, // gen9vgc2024regg-0, 226 lotte
+        .moves = { MOVE_SPIRIT_BREAK, MOVE_WIDE_GUARD, MOVE_ENCORE, MOVE_PROTECT, MOVE_COACHING, MOVE_MOONBLAST, MOVE_CLOSE_COMBAT, MOVE_DISABLE, MOVE_KNOCK_OFF, MOVE_ICY_WIND },
+        .moveP = { 74, 56, 50, 41, 40, 27, 23, 23, 14, 10 },
+        .items = { ITEM_BOOSTER_ENERGY, ITEM_FOCUS_SASH, ITEM_LIFE_ORB, ITEM_COVERT_CLOAK },
+        .itemP = { 69, 15, 9, 4 },
+        .abilities = { ABILITY_QUARK_DRIVE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_JOLLY, 21, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 17, { 63, 1, 17, 0, 31, 15 } },
+            { NATURE_JOLLY, 12, { 51, 1, 25, 0, 7, 43 } },
+        },
+    },
+    {
+        .species = SPECIES_KORAIDON, .usage = 10, .source = 1, // gen9vgc2024regg-0, 2295 lotte
+        .moves = { MOVE_FLARE_BLITZ, MOVE_PROTECT, MOVE_FLAME_CHARGE, MOVE_CLOSE_COMBAT, MOVE_COLLISION_COURSE, MOVE_BREAKING_SWIPE, MOVE_DRAGON_CLAW, MOVE_U_TURN, MOVE_SCALE_SHOT },
+        .moveP = { 99, 95, 76, 69, 30, 10, 7, 5, 4 },
+        .items = { ITEM_LIFE_ORB, ITEM_CLEAR_AMULET, ITEM_LOADED_DICE, ITEM_ABILITY_SHIELD },
+        .itemP = { 70, 21, 3, 2 },
+        .abilities = { ABILITY_ORICHALCUM_PULSE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_JOLLY, 70, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 10, { 1, 61, 1, 0, 1, 63 } },
+            { NATURE_ADAMANT, 10, { 25, 49, 1, 0, 1, 51 } },
+        },
+    },
+    {
+        .species = SPECIES_MIRAIDON, .usage = 12, .source = 1, // gen9vgc2024regg-0, 2677 lotte
+        .moves = { MOVE_ELECTRO_DRIFT, MOVE_DRACO_METEOR, MOVE_VOLT_SWITCH, MOVE_DAZZLING_GLEAM, MOVE_PROTECT, MOVE_SNARL, MOVE_DISCHARGE, MOVE_DRAGON_PULSE },
+        .moveP = { 99, 97, 93, 88, 5, 5, 5, 3 },
+        .items = { ITEM_CHOICE_SPECS, ITEM_CHOICE_SCARF, ITEM_LIFE_ORB, ITEM_ASSAULT_VEST },
+        .itemP = { 84, 5, 5, 4 },
+        .abilities = { ABILITY_HADRON_ENGINE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_MODEST, 39, { 11, 0, 1, 61, 3, 51 } },
+            { NATURE_TIMID, 17, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_MODEST, 15, { 55, 0, 1, 55, 3, 13 } },
+        },
+    },
+    {
+        .species = SPECIES_TAUROS_PALDEA_BLAZE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 5959 lotte
+        .moves = { MOVE_PROTECT, MOVE_CLOSE_COMBAT, MOVE_RAGING_BULL, MOVE_FLARE_BLITZ, MOVE_ROCK_SLIDE, MOVE_BODY_PRESS, MOVE_WILD_CHARGE, MOVE_WILL_O_WISP, MOVE_FLAME_CHARGE, MOVE_LASH_OUT },
+        .moveP = { 86, 83, 66, 48, 32, 13, 11, 9, 8, 8 },
+        .items = { ITEM_WHITE_HERB, ITEM_SITRUS_BERRY, ITEM_LIFE_ORB, ITEM_CHOICE_SCARF },
+        .itemP = { 23, 22, 12, 10 },
+        .abilities = { ABILITY_INTIMIDATE, ABILITY_ANGER_POINT, ABILITY_CUD_CHEW },
+        .abilityP = { 81, 15, 5 },
+        .spreads = {
+            { NATURE_JOLLY, 47, { 0, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 11, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_CAREFUL, 6, { 63, 0, 63, 0, 3, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_TAUROS_PALDEA_AQUA, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 9242 lotte
+        .moves = { MOVE_CLOSE_COMBAT, MOVE_PROTECT, MOVE_AQUA_JET, MOVE_WAVE_CRASH, MOVE_RAGING_BULL, MOVE_ROCK_SLIDE, MOVE_EARTHQUAKE, MOVE_WILD_CHARGE, MOVE_HIGH_HORSEPOWER, MOVE_ROCK_TOMB },
+        .moveP = { 92, 85, 74, 50, 44, 19, 7, 7, 5, 2 },
+        .items = { ITEM_MYSTIC_WATER, ITEM_LIFE_ORB, ITEM_SITRUS_BERRY, ITEM_WHITE_HERB },
+        .itemP = { 27, 21, 10, 10 },
+        .abilities = { ABILITY_INTIMIDATE, ABILITY_ANGER_POINT },
+        .abilityP = { 90, 10 },
+        .spreads = {
+            { NATURE_JOLLY, 44, { 1, 63, 0, 0, 1, 63 } },
+            { NATURE_ADAMANT, 19, { 3, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 10, { 45, 51, 0, 0, 13, 19 } },
+        },
+    },
+    {
+        .species = SPECIES_WALKING_WAKE, .usage = 2, .source = 1, // gen9vgc2024regg-0, 417 lotte
+        .moves = { MOVE_HYDRO_STEAM, MOVE_DRACO_METEOR, MOVE_SNARL, MOVE_DRAGON_PULSE, MOVE_PROTECT, MOVE_WEATHER_BALL, MOVE_FLAMETHROWER, MOVE_FLIP_TURN, MOVE_TERA_BLAST, MOVE_AQUA_JET },
+        .moveP = { 100, 81, 63, 53, 37, 26, 23, 7, 3, 2 },
+        .items = { ITEM_CHOICE_SPECS, ITEM_LIFE_ORB, ITEM_ASSAULT_VEST, ITEM_BOOSTER_ENERGY },
+        .itemP = { 47, 26, 18, 5 },
+        .abilities = { ABILITY_PROTOSYNTHESIS },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_TIMID, 63, { 9, 0, 1, 63, 1, 53 } },
+            { NATURE_TIMID, 20, { 23, 0, 1, 49, 1, 53 } },
+            { NATURE_RASH, 8, { 1, 0, 0, 63, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_SINISTCHA, .usage = 8, .source = 0, // gen9championsvgc2026regmc-1630, 394023 lotte
+        .moves = { MOVE_MATCHA_GOTCHA, MOVE_RAGE_POWDER, MOVE_TRICK_ROOM, MOVE_PROTECT, MOVE_LIFE_DEW, MOVE_SHADOW_BALL, MOVE_STRENGTH_SAP, MOVE_IMPRISON, MOVE_MEMENTO, MOVE_POLTERGEIST },
+        .moveP = { 98, 96, 72, 63, 36, 19, 8, 2, 2, 1 },
+        .items = { ITEM_COLBUR_BERRY, ITEM_SITRUS_BERRY, ITEM_KASIB_BERRY, ITEM_COBA_BERRY },
+        .itemP = { 25, 24, 12, 8 },
+        .abilities = { ABILITY_HOSPITALITY, ABILITY_HEATPROOF },
+        .abilityP = { 98, 2 },
+        .spreads = {
+            { NATURE_BOLD, 22, { 63, 0, 27, 0, 39, 0 } },
+            { NATURE_BOLD, 11, { 63, 0, 7, 0, 59, 0 } },
+            { NATURE_CALM, 8, { 63, 0, 27, 0, 39, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_OKIDOGI, .usage = 0, .source = 2, // gen9nationaldexdoubles-0, 1080 lotte
+        .moves = { MOVE_DRAIN_PUNCH, MOVE_KNOCK_OFF, MOVE_GUNK_SHOT, MOVE_POISON_JAB, MOVE_ICE_PUNCH, MOVE_PROTECT, MOVE_PSYCHIC_FANGS, MOVE_BULK_UP, MOVE_CLOSE_COMBAT, MOVE_HIGH_HORSEPOWER },
+        .moveP = { 80, 58, 46, 37, 26, 26, 21, 19, 17, 12 },
+        .items = { ITEM_ASSAULT_VEST, ITEM_ADRENALINE_ORB, ITEM_LEFTOVERS, ITEM_LIFE_ORB },
+        .itemP = { 33, 19, 18, 16 },
+        .abilities = { ABILITY_GUARD_DOG, ABILITY_TOXIC_CHAIN },
+        .abilityP = { 75, 25 },
+        .spreads = {
+            { NATURE_JOLLY, 38, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 22, { 63, 63, 0, 0, 1, 0 } },
+            { NATURE_ADAMANT, 6, { 8, 42, 34, 0, 34, 9 } },
+        },
+    },
+    {
+        .species = SPECIES_OGERPON_WELLSPRING, .usage = 3, .source = 1, // gen9vgc2024regg-0, 655 lotte
+        .moves = { MOVE_IVY_CUDGEL, MOVE_FOLLOW_ME, MOVE_SPIKY_SHIELD, MOVE_HORN_LEECH, MOVE_WOOD_HAMMER, MOVE_GRASSY_GLIDE, MOVE_TAUNT, MOVE_SWORDS_DANCE, MOVE_ENCORE, MOVE_HELPING_HAND },
+        .moveP = { 100, 95, 90, 64, 20, 5, 4, 4, 4, 2 },
+        .items = { ITEM_WELLSPRING_MASK },
+        .itemP = { 100 },
+        .abilities = { ABILITY_WATER_ABSORB },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_JOLLY, 19, { 32, 49, 0, 0, 0, 45 } },
+            { NATURE_JOLLY, 12, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_IMPISH, 11, { 59, 1, 59, 0, 7, 1 } },
+        },
+    },
+    {
+        .species = SPECIES_OGERPON_HEARTHFLAME, .usage = 21, .source = 1, // gen9vgc2024regg-0, 4542 lotte
+        .moves = { MOVE_IVY_CUDGEL, MOVE_SPIKY_SHIELD, MOVE_FOLLOW_ME, MOVE_WOOD_HAMMER, MOVE_HORN_LEECH, MOVE_GRASSY_GLIDE, MOVE_FOCUS_ENERGY, MOVE_PLAY_ROUGH, MOVE_PROTECT },
+        .moveP = { 100, 98, 95, 48, 23, 21, 7, 2, 2 },
+        .items = { ITEM_HEARTHFLAME_MASK },
+        .itemP = { 100 },
+        .abilities = { ABILITY_MOLD_BREAKER },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_ADAMANT, 24, { 47, 19, 13, 0, 1, 47 } },
+            { NATURE_IMPISH, 14, { 55, 3, 63, 0, 1, 5 } },
+            { NATURE_JOLLY, 12, { 0, 63, 0, 0, 1, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_OGERPON_CORNERSTONE, .usage = 10, .source = 1, // gen9vgc2024regg-0, 2213 lotte
+        .moves = { MOVE_IVY_CUDGEL, MOVE_FOLLOW_ME, MOVE_SPIKY_SHIELD, MOVE_POWER_WHIP, MOVE_HORN_LEECH, MOVE_WOOD_HAMMER, MOVE_TAUNT, MOVE_GRASSY_GLIDE, MOVE_HELPING_HAND, MOVE_PROTECT },
+        .moveP = { 100, 99, 98, 68, 17, 6, 4, 2, 2, 2 },
+        .items = { ITEM_CORNERSTONE_MASK },
+        .itemP = { 100 },
+        .abilities = { ABILITY_STURDY },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_JOLLY, 52, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_ADAMANT, 15, { 1, 63, 0, 0, 0, 63 } },
+            { NATURE_JOLLY, 5, { 41, 1, 57, 0, 1, 27 } },
+        },
+    },
+    {
+        .species = SPECIES_URSALUNA_BLOODMOON, .usage = 4, .source = 1, // gen9vgc2024regg-0, 807 lotte
+        .moves = { MOVE_BLOOD_MOON, MOVE_EARTH_POWER, MOVE_HYPER_VOICE, MOVE_PROTECT, MOVE_VACUUM_WAVE, MOVE_MOONBLAST, MOVE_BRICK_BREAK, MOVE_COUNTER, MOVE_CLOSE_COMBAT, MOVE_CALM_MIND },
+        .moveP = { 98, 96, 84, 79, 14, 8, 7, 4, 3, 2 },
+        .items = { ITEM_LIFE_ORB, ITEM_ASSAULT_VEST, ITEM_THROAT_SPRAY, ITEM_SAFETY_GOGGLES },
+        .itemP = { 56, 16, 14, 4 },
+        .abilities = { ABILITY_MINDS_EYE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_QUIET, 28, { 63, 0, 0, 63, 1, 0 } },
+            { NATURE_MODEST, 19, { 63, 0, 0, 63, 1, 0 } },
+            { NATURE_TIMID, 12, { 3, 0, 1, 63, 1, 59 } },
+        },
+    },
+    {
+        .species = SPECIES_ARCHALUDON, .usage = 16, .source = 0, // gen9championsvgc2026regmc-1630, 429034 lotte
+        .moves = { MOVE_ELECTRO_SHOT, MOVE_PROTECT, MOVE_DRAGON_PULSE, MOVE_FLASH_CANNON, MOVE_BODY_PRESS, MOVE_SNARL, MOVE_DRACO_METEOR, MOVE_AURA_SPHERE, MOVE_THUNDERBOLT, MOVE_IRON_DEFENSE },
+        .moveP = { 97, 96, 84, 76, 30, 21, 16, 15, 2, 2 },
+        .items = { ITEM_LEFTOVERS, ITEM_CHOICE_SCARF, ITEM_CHOPLE_BERRY },
+        .itemP = { 87, 2, 2 },
+        .abilities = { ABILITY_STAMINA, ABILITY_STURDY, ABILITY_STALWART },
+        .abilityP = { 93, 5, 1 },
+        .spreads = {
+            { NATURE_MODEST, 20, { 63, 0, 0, 1, 57, 7 } },
+            { NATURE_CALM, 15, { 63, 0, 3, 0, 63, 0 } },
+            { NATURE_BOLD, 9, { 63, 0, 1, 1, 63, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_HYDRAPPLE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 7630 lotte
+        .moves = { MOVE_PROTECT, MOVE_FICKLE_BEAM, MOVE_EARTH_POWER, MOVE_GIGA_DRAIN, MOVE_DRACO_METEOR, MOVE_LEAF_STORM, MOVE_ENERGY_BALL, MOVE_POLLEN_PUFF, MOVE_YAWN, MOVE_NASTY_PLOT },
+        .moveP = { 83, 66, 57, 43, 33, 26, 21, 19, 13, 11 },
+        .items = { ITEM_LIFE_ORB, ITEM_LEFTOVERS, ITEM_SITRUS_BERRY, ITEM_EJECT_BUTTON },
+        .itemP = { 25, 18, 12, 8 },
+        .abilities = { ABILITY_REGENERATOR, ABILITY_SUPERSWEET_SYRUP, ABILITY_STICKY_HOLD },
+        .abilityP = { 79, 19, 2 },
+        .spreads = {
+            { NATURE_QUIET, 30, { 63, 0, 0, 63, 3, 0 } },
+            { NATURE_MODEST, 30, { 63, 0, 0, 63, 3, 0 } },
+            { NATURE_MODEST, 5, { 63, 0, 0, 39, 27, 0 } },
+        },
+    },
+    {
+        .species = SPECIES_GOUGING_FIRE, .usage = 1, .source = 1, // gen9vgc2024regg-0, 160 lotte
+        .moves = { MOVE_FLARE_BLITZ, MOVE_BURNING_BULWARK, MOVE_BREAKING_SWIPE, MOVE_HOWL, MOVE_DRAGON_CLAW, MOVE_DRAGON_DANCE, MOVE_HEAT_CRASH, MOVE_PROTECT, MOVE_SNARL },
+        .moveP = { 89, 82, 81, 76, 16, 14, 13, 11, 7 },
+        .items = { ITEM_CLEAR_AMULET, ITEM_BOOSTER_ENERGY, ITEM_COVERT_CLOAK },
+        .itemP = { 72, 17, 7 },
+        .abilities = { ABILITY_PROTOSYNTHESIS },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_JOLLY, 46, { 33, 29, 1, 0, 1, 63 } },
+            { NATURE_JOLLY, 20, { 59, 9, 1, 0, 3, 55 } },
+            { NATURE_JOLLY, 11, { 0, 63, 0, 0, 0, 63 } },
+        },
+    },
+    {
+        .species = SPECIES_RAGING_BOLT, .usage = 24, .source = 1, // gen9vgc2024regg-0, 5239 lotte
+        .moves = { MOVE_THUNDERCLAP, MOVE_THUNDERBOLT, MOVE_PROTECT, MOVE_DRACO_METEOR, MOVE_DRAGON_PULSE, MOVE_SNARL, MOVE_VOLT_SWITCH, MOVE_ELECTROWEB, MOVE_CALM_MIND, MOVE_WEATHER_BALL },
+        .moveP = { 99, 81, 61, 53, 47, 18, 14, 13, 8, 3 },
+        .items = { ITEM_ASSAULT_VEST, ITEM_BOOSTER_ENERGY, ITEM_LIFE_ORB, ITEM_LEFTOVERS },
+        .itemP = { 37, 37, 10, 7 },
+        .abilities = { ABILITY_PROTOSYNTHESIS },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_MODEST, 18, { 47, 0, 33, 45, 1, 1 } },
+            { NATURE_MODEST, 18, { 63, 0, 0, 63, 1, 0 } },
+            { NATURE_MODEST, 7, { 47, 0, 9, 45, 1, 25 } },
+        },
+    },
+    {
+        .species = SPECIES_IRON_CROWN, .usage = 2, .source = 1, // gen9vgc2024regg-0, 456 lotte
+        .moves = { MOVE_EXPANDING_FORCE, MOVE_TACHYON_CUTTER, MOVE_PROTECT, MOVE_CALM_MIND, MOVE_TERA_BLAST, MOVE_GRAVITY, MOVE_VOLT_SWITCH },
+        .moveP = { 99, 99, 98, 66, 18, 12, 4 },
+        .items = { ITEM_BOOSTER_ENERGY },
+        .itemP = { 97 },
+        .abilities = { ABILITY_QUARK_DRIVE },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_MODEST, 42, { 1, 0, 0, 63, 0, 63 } },
+            { NATURE_TIMID, 27, { 23, 0, 1, 37, 3, 63 } },
+            { NATURE_MODEST, 13, { 29, 0, 31, 55, 3, 9 } },
+        },
+    },
+    {
+        .species = SPECIES_TERAPAGOS, .usage = 8, .source = 1, // gen9vgc2024regg-0, 1641 lotte
+        .moves = { MOVE_TERA_STARSTORM, MOVE_PROTECT, MOVE_CALM_MIND, MOVE_EARTH_POWER, MOVE_SUBSTITUTE, MOVE_DARK_PULSE, MOVE_METEOR_BEAM, MOVE_HYPER_BEAM, MOVE_ROCK_POLISH, MOVE_TRI_ATTACK },
+        .moveP = { 100, 73, 63, 46, 39, 19, 11, 11, 9, 9 },
+        .items = { ITEM_LEFTOVERS, ITEM_CHOICE_SPECS, ITEM_POWER_HERB, ITEM_GRASSY_SEED },
+        .itemP = { 57, 26, 11, 3 },
+        .abilities = { ABILITY_TERA_SHIFT },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_MODEST, 19, { 3, 0, 11, 49, 1, 63 } },
+            { NATURE_MODEST, 16, { 23, 0, 0, 63, 0, 41 } },
+            { NATURE_MODEST, 8, { 43, 0, 63, 1, 1, 19 } },
+        },
+    },
+    {
+        .species = SPECIES_PECHARUNT, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 3154 lotte
+        .moves = { MOVE_MALIGNANT_CHAIN, MOVE_RECOVER, MOVE_POISON_GAS, MOVE_HEX, MOVE_PROTECT, MOVE_PARTING_SHOT, MOVE_SHADOW_BALL, MOVE_TOXIC, MOVE_VENOSHOCK, MOVE_NASTY_PLOT },
+        .moveP = { 72, 58, 55, 49, 46, 32, 26, 13, 10, 7 },
+        .items = { ITEM_LEFTOVERS, ITEM_BLACK_SLUDGE, ITEM_SITRUS_BERRY, ITEM_WIDE_LENS },
+        .itemP = { 36, 20, 13, 8 },
+        .abilities = { ABILITY_POISON_PUPPETEER },
+        .abilityP = { 100 },
+        .spreads = {
+            { NATURE_MODEST, 23, { 63, 0, 0, 63, 1, 0 } },
+            { NATURE_CALM, 16, { 63, 0, 0, 0, 63, 0 } },
+            { NATURE_BOLD, 8, { 63, 0, 63, 1, 0, 0 } },
+        },
+    },
+};

@@ -13,7 +13,7 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
   - ✅ statistiche e abilità vere dei Pokémon del giocatore nel pianificatore (ora stimate da specie e livello)
   - ✅ "ha ancora lo strumento?" letto dalla RAM → ora solo se si è visto consumarlo o perderlo
   - ✅ team preview: statistiche, abilità e Fake Out del giocatore ora stimati
-  - ⬜ velocità del giocatore in `gAiLogicData->speedStats` (codice base dell'expansion) → in M1 con il belief
+  - 🔧 velocità del giocatore in `gAiLogicData->speedStats`: ora stimata dal belief (M1, branch `ia-vgc-meta`)
 - ✅ Suite di test `test/battle/ai/ai_vgc_doubles.c` attiva. WSL compila soltanto; i test si eseguono su Windows con `tools/mgba/mgba-rom-test.exe`
 - ✅ Installate con msys2 `libepoxy-0.dll` e `libwinpthread-1.dll`: `mgba-rom-test.exe` gira su Windows (aggiungere `C:\msys64\mingw64\bin` al PATH)
 - ✅ **Risultati: 13 PASS, 0 FAIL, 0 KNOWN_FAILING** (+1 test team preview)
@@ -34,11 +34,16 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
 - ⬜ Misura dei frame di "pensiero" per turno
 
 ## M1 — Belief del giocatore (esperienza da giocatore VGC)
-- ⬜ Base di conoscenza in ROM da statistiche Showdown: spread, ruoli, moveset, strumenti, abilità con frequenze
-- ⬜ Cambi d'abilità (Mega, forme, Skill Swap/Simple Beam), statistiche e tipi delle Mega
-- ⬜ Restringimento da osservazioni: velocità, danni (Choice, Assault Vest, Life Orb), Focus Sash
-- ⬜ Abilità d'ingresso non attivata → esclusa
-- ⬜ Memoria Bo3 collegata al belief
+Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 — Fonte dei dati".
+- 🔧 Base di conoscenza in ROM `src/data/vgc_meta.h` generata da `tools/vgc_meta/gen_vgc_meta.py` (statistiche Smogon/Showdown 2026-09: Champions Reg M-C con Mega, poi Reg M-B, Reg G, National Dex Doubles, Doubles OU): **310 specie** (tutte le 72 delle squadre VGC tranne Lickitung, senza dati), 3 spread, 10 mosse, 4 strumenti, 3 abilità, 2 Mega per specie, ~27 KB ROM
+- 🔧 API in `include/battle_ai_scout.h` (sezione M1): `Scout_GetMetaSpreads`, `Scout_StatsFromSpread`, `Scout_SpeciesSpeedRange`, `Scout_GetLikelyMoves`, `Scout_MoveChance`, `Scout_GetLikelyItems`, `Scout_GetMegaForms` (con abilità della Mega), `Scout_AbilityChance`, `Scout_LikelyAbility`
+- 🔧 Già collegate senza toccare il pianificatore: `Scout_EstimateStats` usa la spread più usata; `Scout_GuessItem` strumenti/Mega dalle statistiche; ruoli del profilo dalle mosse più usate (tabella a mano come minimo); `Scout_AssumedHoldEffect` usa il belief
+- 🔧 Belief in lotta (EWRAM 14 B x 6): ordine di turno → intervallo Velocità e Choice Scarf (ritirata se si dimostra più lento); danni → Choice Band/Specs, Assault Vest, Eviolite (Choice ritirata se cambia mossa); abilità d'ingresso non comparse → escluse. Agganci: `HandleAction_UseMove`, `CancelerDamageCalc`, `Ai_InitPartyStruct`, inizio turno IA
+- 🔧 `gAiLogicData->speedStats` del giocatore ora stimata (`Scout_BattlerBelievedSpeed`) invece della Velocità vera
+- 🔧 Memoria Bo3: `SeriesMonMemory.belief` (Velocità, strumenti esclusi, abilità escluse) esportata a fine gara e importata alla successiva
+- ✅ Build ROM normale compila (EWRAM 94,65%, IWRAM 53,2%, ROM 80,58%)
+- ⬜ **Prossimo passo:** compilare ed eseguire `test/battle/ai/ai_vgc_scout.c` (nuovo, 14 test) e rieseguire `ai_vgc_doubles.c` / `ai_vgc_team_preview.c` per regressioni (la Velocità stimata del giocatore e le spread meta cambiano le stime del pianificatore); correggere i test che falliscono
+- ⬜ Pianificatore (altro agente): usare `Scout_EstimateBattlerStats` al posto di `Scout_EstimateStats` per i Pokémon in campo, `Scout_BattlerMoveChance` per le mosse non viste, `Scout_BattlerAbilityChance`/`Scout_BattlerLikelyAbility` al posto di `Scout_KnownAbility`, `Scout_BattlerDeducedHoldEffect` (Assault Vest → niente Protect previsto)
 
 ## M2 — Simulatore corretto
 - 🔧 Protect di fila: il secondo ora fallisce (prima riusciva sempre)

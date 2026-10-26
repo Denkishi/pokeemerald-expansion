@@ -99,4 +99,103 @@ enum Ability Scout_KnownAbility(u16 species);
 u16 Scout_MegaTargetSpecies(u16 species);
 bool32 Scout_PoolHasItem(u16 item);
 
+// =============================================================================================
+// M1 — Base di conoscenza VGC e belief (docs/ia_vgc/piano_implementazione.md, M1)
+// =============================================================================================
+// Base di conoscenza in ROM: src/data/vgc_meta.h, generata da statistiche d'uso pubbliche Smogon/Showdown
+// con tools/vgc_meta/gen_vgc_meta.py (Champions VGC con Mega, poi Reg G / doppie per chi lì non c'è).
+// Per specie (forma esatta; una Mega usa la voce della forma base): spread con frequenza, mosse con
+// frequenza, strumenti, abilità con frequenza, Mega possibili. Le specie senza voce usano le stime da
+// learnset/tabella a mano di sopra. Tutte queste funzioni leggono solo ROM: si possono chiamare ovunque.
+//
+// Già collegate senza toccare il pianificatore: Scout_EstimateStats usa la spread più usata,
+// Scout_GuessItem gli strumenti/Mega più usati, Scout_GetSpeciesProfile i ruoli dalle mosse più usate,
+// Scout_AssumedHoldEffect lo strumento dedotto dal belief.
+
+struct ScoutSpread
+{
+    u8 nature;
+    u8 p;               // % dei set della specie con questa spread (raggruppate per profilo d'investimento)
+    u8 ev[NUM_STATS];   // EV veri (0..252), indice STAT_*
+};
+
+struct ScoutMoveChance { u16 move; u8 p; };
+struct ScoutItemChance { u16 item; u8 p; };
+struct ScoutMegaChance { u16 species; u16 ability; u8 p; };
+
+bool32 Scout_HasMetaData(u16 species);
+u32 Scout_MetaUsage(u16 species);
+bool32 Scout_MetaTableIsSorted(void); // per i test: la ricerca binaria vuole la tabella ordinata per specie   // % di squadre del formato che la portano (0 se nessun dato)
+// Spread più usate (la prima è la più probabile). Ritorna quante (0 = specie senza statistiche).
+u32 Scout_GetMetaSpreads(u16 species, struct ScoutSpread *out, u32 max);
+// Statistiche da una spread (31 IV; 0 IV in Velocità per le spread da Trick Room con natura -Vel e 0 EV).
+void Scout_StatsFromSpread(u16 species, u32 level, const struct ScoutSpread *spread, u16 stats[NUM_STATS]);
+// Velocità possibile della specie: [0 IV, 0 EV, natura -] .. [31 IV, 252 EV, natura +].
+void Scout_SpeciesSpeedRange(u16 species, u32 level, u16 *lo, u16 *hi);
+// Mosse più usate con probabilità (0..100), solo quelle che la specie può imparare in questo gioco.
+// Scorre il learnset: chiamarla una volta per turno / per specie, non in ogni simulazione.
+u32 Scout_GetLikelyMoves(u16 species, struct ScoutMoveChance *out, u32 max);
+// Probabilità (0..100) che la specie porti la mossa: statistiche se la mossa è tra le più usate,
+// altrimenti profilo dei ruoli (learnset + tabella a mano), 0 se non può impararla.
+u32 Scout_MoveChance(u16 species, enum Move move);
+// Strumenti più usati (Megapietre escluse: vedi Scout_GetMegaForms), probabilità sul totale dei set.
+u32 Scout_GetLikelyItems(u16 species, struct ScoutItemChance *out, u32 max);
+// Mega usate dalla specie con probabilità e abilità della Mega (Charizard: Y 90%, Drought...).
+u32 Scout_GetMegaForms(u16 species, struct ScoutMegaChance *out, u32 max);
+// Probabilità (0..100) di un'abilità della specie. Per una Mega (forma già in campo) l'abilità è certa.
+// Prima della Mega vale l'abilità della forma base (Salamence: Intimidate prima, Aerilate dopo).
+u32 Scout_AbilityChance(u16 species, enum Ability ability);
+enum Ability Scout_LikelyAbility(u16 species, u32 *chance);
+
+// --- Belief sui Pokémon del giocatore in lotta (EWRAM: 14 byte x 6) ---------------------------------
+// Si restringe con ciò che si VEDE: ordine di turno (Velocità, Choice Scarf), danni fatti e subiti
+// (Choice Band/Specs, Assault Vest, Eviolite, "strumento offensivo" tipo Life Orb), abilità d'ingresso
+// che non si sono attivate (Intimidate, meteo, campi, Pressure...). Una Choice dedotta si ritira se il
+// Pokémon cambia mossa senza uscire; una Scarf se si dimostra troppo lento. Le deduzioni di strumento
+// vanno anche in gBattleHistory/gAiPartyData (come Scout_AssumedHoldEffect), quindi il resto dell'IA le
+// vede già. Agganci nel motore: Scout_BeliefReset (Ai_InitPartyStruct), Scout_BeliefTurnStart
+// (inizio turno IA), Scout_BeliefNoteMove (HandleAction_UseMove), Scout_BeliefNoteDamage (calcolo danni).
+#define SCOUT_NOT_SCARF        (1 << 0)
+#define SCOUT_NOT_BAND         (1 << 1)
+#define SCOUT_NOT_SPECS        (1 << 2)
+#define SCOUT_NOT_ASSAULT_VEST (1 << 3)
+#define SCOUT_NOT_LIFE_ORB     (1 << 4)
+#define SCOUT_NOT_FOCUS_SASH   (1 << 5)
+#define SCOUT_NOT_EVIOLITE     (1 << 6)
+
+struct DamageContext;
+void Scout_BeliefReset(void);
+void Scout_BeliefTurnStart(void);
+void Scout_BeliefNoteMove(enum BattlerId battler, enum Move move);
+void Scout_BeliefNoteDamage(const struct DamageContext *ctx, s32 damage);
+
+// Velocità (statistica, senza stadi/strumento/abilità) ancora compatibile con l'ordine di turno visto.
+// FALSE = nessun belief per quel Pokémon (lo e hi = intervallo possibile della specie).
+bool32 Scout_BattlerSpeedRange(enum BattlerId battler, u16 *lo, u16 *hi);
+// Come Scout_EstimateStats, ma con la Velocità dentro l'intervallo del belief (sceglie la spread compatibile).
+void Scout_EstimateBattlerStats(enum BattlerId battler, u16 *hp, u16 stats[NUM_STATS]);
+// Velocità effettiva creduta (stadi, Tailwind, paralisi, meteo con l'abilità e lo strumento passati).
+u32 Scout_BattlerBelievedSpeed(enum BattlerId battler, enum Ability ability, enum HoldEffect holdEffect);
+enum HoldEffect Scout_BattlerDeducedHoldEffect(enum BattlerId battler);
+bool32 Scout_BattlerHoldEffectExcluded(enum BattlerId battler, enum HoldEffect holdEffect);
+bool32 Scout_BattlerOffenseBoosted(enum BattlerId battler);   // più danni del massimo senza strumento
+// Abilità: vista = 100/0; altrimenti statistiche della specie senza le abilità d'ingresso escluse.
+u32 Scout_BattlerAbilityChance(enum BattlerId battler, enum Ability ability);
+enum Ability Scout_BattlerLikelyAbility(enum BattlerId battler, u32 *chance);
+// Mossa: vista = 100; 4 viste e non c'è = 0; Choice dedotta bloccata su un'altra = 0; altrimenti Scout_MoveChance.
+u32 Scout_BattlerMoveChance(enum BattlerId battler, enum Move move);
+
+// Bo3: il belief di un Pokémon (indice di gPlayerParty) passa alla gara dopo con SeriesMonMemory.
+struct ScoutBeliefSnapshot
+{
+    u16 species;
+    u16 speedLo;
+    u16 speedHi;
+    u8 itemNot;
+    u8 abilityExcluded;
+    u8 heldEffect;
+};
+void Scout_BeliefExport(u32 partySlot, struct ScoutBeliefSnapshot *out);
+void Scout_BeliefImport(u32 partySlot, const struct ScoutBeliefSnapshot *in);
+
 #endif // GUARD_BATTLE_AI_SCOUT_H

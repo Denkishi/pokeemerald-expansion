@@ -127,6 +127,32 @@ conoscenza in ROM (generata da statistiche d'uso Showdown + learnset), per speci
 *Accettazione:* test "Choice Scarf dedotta dall'ordine", "Assault Vest dedotto dal danno → niente Protect previsto",
 "Intimidate non attivato → abilità alternativa", "mossa fuori meta vista in gara 1 ricordata in gara 2".
 
+#### M1 — Fonte dei dati e come rigenerare la tabella
+
+- **Fonte:** statistiche d'uso pubbliche di Smogon / Pokémon Showdown, file "chaos" JSON
+  (`https://www.smogon.com/stats/<mese>/chaos/<formato>-<cutoff>.json`). Catena di formati, il primo con abbastanza
+  dati per la specie vince (≥ 150 lotte): `gen9championsvgc2026regmc` (cutoff 1630, poi 0) — è il VGC con le Mega,
+  come questo gioco —, `gen9championsvgc2026regmb`, `gen9vgc2024regg`, `gen9nationaldexdoubles`, `gen9doublesou`.
+  Champions limita alcuni movepool (es. niente Fake Out a Incineroar): per le specie prese da Champions le mosse si
+  mescolano con quelle di Reg G a peso 0,5. Le spread di Champions (punti statistica 0..32) si convertono in EV
+  (punti × 8 − 4, massimo 252).
+- **Specie:** tutte quelle delle 12 squadre VGC (`AI: ... Vgc Doubles` in `src/data/trainers.party`) più le più
+  usate di ogni formato (probabili per il giocatore): 310 specie con il mese 2026-09 (solo Lickitung senza dati:
+  resta alla stima da learnset). Le Mega confluiscono nella forma base (frequenza della Mega in `megaP`; abilità e
+  statistiche della Mega dal motore).
+- **Per specie:** 3 spread (raggruppate per natura e profilo d'investimento 0/parziale/massimo, con frequenza),
+  10 mosse, 4 strumenti, 3 abilità (della forma base), 2 Mega, uso nel formato. Circa 86 byte per specie (~27 KB
+  di ROM), zero RAM.
+- **Rigenerare** (Python 3 su Windows o Linux):
+  `python tools/vgc_meta/gen_vgc_meta.py` (ultimo mese) oppure `--month 2026-09`; `--offline` usa solo i file
+  già scaricati in `tools/vgc_meta/cache/` (ignorata da git). Scrive `src/data/vgc_meta.h` ordinata per numero di
+  specie (ricerca binaria; il test `ai_vgc_scout.c` controlla l'ordine). Se un nuovo mese non ha più i formati
+  Champions, aggiornare `FORMAT_CHAIN` nello script.
+- **Belief in lotta** (`src/battle_ai_scout.c`, 14 byte × 6 in EWRAM, più 10 byte × 6 in `SeriesMonMemory` per il
+  Bo3): ordine di turno → intervallo della Velocità e Choice Scarf; danno fatto/subito ricalcolato con le statistiche
+  massime possibili e senza strumento → Choice Band/Specs, Assault Vest, Eviolite; abilità d'ingresso non comparse →
+  escluse. Le API per il pianificatore sono in `include/battle_ai_scout.h` (sezione M1).
+
 ### M2 — Simulatore corretto e cache danni
 
 1. **Cache danni** in `Begin`: `AI_CalcDamage` reale per i 4 in campo × 4 mosse × bersagli, usando per il giocatore

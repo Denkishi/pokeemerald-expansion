@@ -684,6 +684,7 @@ void Ai_InitPartyStruct(void)
     }
 
     // Al meglio di tre: l'AI parte già sapendo ciò che ha visto nelle gare precedenti.
+    Scout_BeliefReset();
     TeamPreview_SeriesInjectAiKnowledge();
 }
 
@@ -761,7 +762,12 @@ void SetBattlerAiData(enum BattlerId battler, struct AiLogicData *aiData)
     aiData->lastUsedMove[battler] = (gLastMoves[battler] == MOVE_UNAVAILABLE) ? MOVE_NONE : gLastMoves[battler];
     aiData->hpPercents[battler] = GetHealthPercentage(battler);
     aiData->moveLimitations[battler] = CheckMoveLimitations(battler, 0, ~(MOVE_LIMITATION_UNUSABLE));
-    aiData->speedStats[battler] = GetBattlerTotalSpeedStat(battler, ability, holdEffect);
+    // IA VGC: la Velocità del giocatore non si legge, si stima (spread più usata dentro l'intervallo
+    // ristretto dall'ordine di turno visto).
+    if (IsOnPlayerSide(battler) && !IsAiBattlerAware(battler) && IsAiFlagPresent(AI_FLAG_VGC_DOUBLES))
+        aiData->speedStats[battler] = Scout_BattlerBelievedSpeed(battler, ability, holdEffect);
+    else
+        aiData->speedStats[battler] = GetBattlerTotalSpeedStat(battler, ability, holdEffect);
     aiData->dragonDartsHitsBothTarget = 0;
 
     if (IsAiBattlerAssumingStab(battler))
@@ -914,6 +920,7 @@ void SetAiLogicDataForTurn(struct AiLogicData *aiData)
     gBattleStruct->dynamicMoveType = TYPE_NONE;
     gBattleStruct->dynamicMoveCategory = DAMAGE_CATEGORY_NONE;
 
+    Scout_BeliefTurnStart(); // IA VGC: abilità d'ingresso non attivate -> escluse
     AI_VgcTurnStart(); // lettura del giocatore (IA VGC): fotografa chi è sotto KO / perde il matchup
 
     AIDebugTimerEnd();

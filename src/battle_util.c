@@ -35,6 +35,7 @@
 #include "battle_ai_record.h"
 #include "battle_ai_util.h"
 #include "battle_ai_vgc.h"
+#include "battle_ai_scout.h"
 #include "event_data.h"
 #include "link.h"
 #include "malloc.h"
@@ -488,6 +489,7 @@ void HandleAction_UseMove(void)
 
     gCurrMovePos = gChosenMovePos = gBattleStruct->chosenMovePositions[gBattlerAttacker];
     AI_VgcNotePlayerMove(gBattlerAttacker, gBattleMons[gBattlerAttacker].moves[gCurrMovePos]); // IA VGC: memoria comportamento
+    Scout_BeliefNoteMove(gBattlerAttacker, gBattleMons[gBattlerAttacker].moves[gCurrMovePos]); // IA VGC: belief (ordine di turno)
 
     // choose move
     if (gProtectStructs[gBattlerAttacker].noValidMoves)
