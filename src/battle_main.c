@@ -522,6 +522,21 @@ void CB2_InitBattle(void)
     }
 }
 
+#if TESTING
+// Nei test le lotte restano a Lv50 come nel gioco, ma i valori scritti esplicitamente dal test sopravvivono
+// al ricalcolo: le statistiche impostate (Speed(), Attack(), MaxHP()... che le marcano come "hyper trained")
+// e i PS non pieni (HP(5)). Senza, HP(5) diventava PS pieni e Speed(10) la velocità di specie a Lv50.
+static const u8 sTestStatData[NUM_STATS][2] =
+{
+    [STAT_HP]    = { MON_DATA_MAX_HP, MON_DATA_HYPER_TRAINED_HP },
+    [STAT_ATK]   = { MON_DATA_ATK,    MON_DATA_HYPER_TRAINED_ATK },
+    [STAT_DEF]   = { MON_DATA_DEF,    MON_DATA_HYPER_TRAINED_DEF },
+    [STAT_SPEED] = { MON_DATA_SPEED,  MON_DATA_HYPER_TRAINED_SPEED },
+    [STAT_SPATK] = { MON_DATA_SPATK,  MON_DATA_HYPER_TRAINED_SPATK },
+    [STAT_SPDEF] = { MON_DATA_SPDEF,  MON_DATA_HYPER_TRAINED_SPDEF },
+};
+#endif
+
 // Tutte le lotte sono a Lv50: porta ogni Pokémon di ogni squadra a quel livello.
 // Chiamata anche dalla team preview, così l'AI sceglie con le statistiche giuste.
 void ScalePartiesToBattleLevel(void)
@@ -538,12 +553,33 @@ void ScalePartiesToBattleLevel(void)
             {
                 u8 growthRate = gSpeciesInfo[species].growthRate;
                 u32 exp = gExperienceTables[growthRate][50];
+#if TESTING
+                u32 oldHp = GetMonData(mon, MON_DATA_HP), oldMaxHp = GetMonData(mon, MON_DATA_MAX_HP);
+                u32 oldStats[NUM_STATS], s;
+                for (s = 0; s < NUM_STATS; s++)
+                    oldStats[s] = GetMonData(mon, sTestStatData[s][0]);
+#endif
                 SetMonData(mon, MON_DATA_EXP, &exp);
                 CalculateMonStats(mon);
                 u32 maxHp = GetMonData(mon, MON_DATA_MAX_HP);
                 u32 curHp = GetMonData(mon, MON_DATA_HP);
                 if (curHp > 0)
                     SetMonData(mon, MON_DATA_HP, &maxHp);
+#if TESTING
+                for (s = 0; s < NUM_STATS; s++)
+                    if (GetMonData(mon, sTestStatData[s][1]))
+                        SetMonData(mon, sTestStatData[s][0], &oldStats[s]);
+                maxHp = GetMonData(mon, MON_DATA_MAX_HP);
+                if (oldHp > 0 && oldHp < oldMaxHp)
+                {
+                    oldHp = min(oldHp, maxHp);
+                    SetMonData(mon, MON_DATA_HP, &oldHp);
+                }
+                else if (oldHp > 0)
+                {
+                    SetMonData(mon, MON_DATA_HP, &maxHp);
+                }
+#endif
             }
         }
     }
@@ -635,10 +671,7 @@ static void CB2_InitBattleInternal(void)
     BattleInfo_ResetBattle();
     ResetBattlerIdleBreath();
 
-    // Nei test valgono livello, PS e statistiche scritti dal test (HP(5), Speed(10)...): portare tutto a Lv50
-    // ricalcolerebbe le statistiche e curerebbe i PS, e i test proverebbero un'altra posizione.
-    if (!TESTING)
-        ScalePartiesToBattleLevel();
+    ScalePartiesToBattleLevel();
 
     for (i = 0; i < PARTY_SIZE; i++)
     {

@@ -13,10 +13,11 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
   - ✅ statistiche e abilità vere dei Pokémon del giocatore nel pianificatore (ora stimate da specie e livello)
   - ✅ "ha ancora lo strumento?" letto dalla RAM → ora solo se si è visto consumarlo o perderlo
   - ✅ team preview: statistiche, abilità e Fake Out del giocatore ora stimati
-  - ⬜ velocità del giocatore in `gAiLogicData->speedStats` (codice base dell'expansion) → in M1 con il belief
+  - ✅ velocità del giocatore nel pianificatore: stimata da specie e livello (Scout_EstimateStats) + stadi + Stolascelta nota/dedotta dall'ordine dei turni/assunta. Prima si leggeva la vera da `gAiLogicData->speedStats`, che conteneva anche Tailwind e meteo: contati due volte. I test che volevano un giocatore lento/veloce ora usano specie davvero lente/veloci (Ursaluna, Garchomp)
+  - ⬜ `gAiLogicData->speedStats` resta vera nelle regole del codice base (battle_ai_vgc.c, battle_ai_util.c) e nella deduzione della Stolascelta
 - ✅ Suite di test `test/battle/ai/ai_vgc_doubles.c` attiva. WSL compila soltanto; i test si eseguono su Windows con `tools/mgba/mgba-rom-test.exe`
 - ✅ Installate con msys2 `libepoxy-0.dll` e `libwinpthread-1.dll`: `mgba-rom-test.exe` gira su Windows (aggiungere `C:\msys64\mingw64\bin` al PATH)
-- ✅ **Risultati: 13 PASS, 0 FAIL, 0 KNOWN_FAILING** (+1 test team preview)
+- ✅ **Risultati: 13 PASS, 0 FAIL, 1 KNOWN_FAILING** (+1 test team preview, PASS) — il KNOWN_FAILING è l'ordine dei valori CM/BP con la squadra di Savarotto (vedi M3)
   - ✅ Dopo un KO entra il compagno giusto (Gallade accanto a Whimsicott)
 - ℹ️ Controllo regressioni: `test/battle/ai/ai_doubles.c` dell'expansion ha 14 test che falliscono, **identici su `master`** (prima del lavoro sull'IA VGC): non li ho introdotti io, vengono dalle modifiche precedenti del fork
   - ✅ Fake Out al turno 1 per coprire un compagno Baton Passer
@@ -31,7 +32,8 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
 - ✅ Stallo del secondo slot (TIMEOUT nei test): uno stato rimasto dalla lotta precedente lo faceva aspettare per sempre. Ora il pianificatore si azzera a inizio turno
 - 🔧 Cache dei profili scout e degli attacchi imparabili (12 specie, EWRAM): niente più scansioni dei learnset a ogni simulazione
 - ⬜ Schermo blu: serve sapere quando succede / un salvataggio per riprodurlo
-- ⬜ Misura dei frame di "pensiero" per turno
+- 🔧 Costo: da 500-1900 fotogrammi per decisione a 20-400 (la maggior parte 100-300, cioè 2-5 s a 100 righe/fotogramma). Cache di CanKoNextTurn per lavoro; probabilità di Protect/cambio del giocatore lette una volta; terzo turno ridotto con azioni scelte una volta per linea e giocato solo sulla linea migliore del turno 2; priorità e velocità calcolate una volta per passo (e priorità senza `GetBattleMovePriority`, che registrava Prankster come effetto collaterale); 10 coppie simulate per intero invece di 14. **Da fare**: scendere sotto i ~200 fotogrammi anche nei casi peggiori (407 nel test Simple Beam), poi ROM normale da compilare e provare in gioco
+- ✅ Misura dei frame di "pensiero" per decisione: riga `VGCCPU` nel log dei test (fotogrammi, simulazioni, chiamate a Evaluate/BuildActions/CanKo/stime/danni)
 
 ## M1 — Belief del giocatore (esperienza da giocatore VGC)
 - ⬜ Base di conoscenza in ROM da statistiche Showdown: spread, ruoli, moveset, strumenti, abilità con frequenze
@@ -54,7 +56,7 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
 - ✅ Schermi (Reflect, Light Screen, Aurora Veil sotto neve) piazzati nella simulazione
 - ✅ Precisione con ramo "mancato": la simulazione applica il colpo pieno (un KO resta un KO) e per ogni azione imprecisa del turno 1 si rigioca il turno col colpo mancato, togliendo (1 - precisione) x differenza. Prima `danno x precisione` trasformava un KO all'80% in "mai KO" e una mossa ad area al 90% che manda KO due bersagli in nessun KO. Precisione dalla tabella dell'IA (Compound Eyes, No Guard...). Test: Rock Slide 90% su due bersagli > Scratch sicuro; Scratch > Stone Edge a pari KO
 - ✅ **Bug trovato e corretto**: se un avversario non aveva attacchi plausibili noti, la simulazione dava per **certo** il suo Protect e qualunque nostro attacco sembrava inutile (tutte le coppie con lo stesso valore). Ora resta sempre l'alternativa "non si protegge" con la probabilità complementare
-- ✅ **Causa trovata** (test "accurate move", Scratch che non mandava KO il bersaglio a 5 PS): non era il simulatore. `ScalePartiesToBattleLevel` (tutte le lotte a Lv50) ricalcolava le statistiche e curava i PS anche nei test: `HP(5)` diventava 250 PS e `Speed(10)` veniva ignorato. Ora nei test valgono PS e statistiche scritti dal test (nel gioco resta tutto a Lv50). Diagnostica `VGCDMG`/`VGCFOE` nel log dei test
+- ✅ **Causa trovata** (test "accurate move", Scratch che non mandava KO il bersaglio a 5 PS): non era il simulatore. `ScalePartiesToBattleLevel` (tutte le lotte a Lv50) ricalcolava le statistiche e curava i PS anche nei test: `HP(5)` diventava 250 PS e `Speed(10)` veniva ignorato. Ora anche i test sono a Lv50 come il gioco, ma i valori scritti dal test sopravvivono al ricalcolo: statistiche impostate (Speed(), Attack(), MaxHP()...) e PS non pieni (HP(5)). Solo nei test (`#if TESTING` in `ScalePartiesToBattleLevel`); nel gioco non cambia nulla. Diagnostica `VGCDMG`/`VGCFOE` nel log dei test
 - ✅ Mosse ad area sul compagno (Earthquake, Surf, Discharge: TARGET_FOES_AND_ALLY) con Protect, Wide Guard e immunità d'abilità (Levitate, Flash Fire, Water/Volt Absorb, Lightning Rod, Storm Drain, Sap Sipper, Telepathy...; Mold Breaker le ignora). Test con il set vero del Rotom-Mow di Simone
 - ⬜ Mega, terreni, Sostituto
 - ✅ Cambi d'abilità a metà turno (Simple Beam, Worry Seed, Skill Swap, Gastro Acid, Entrainment)
@@ -74,6 +76,8 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
 - ✅ Stadi valutati solo se servono: chi attacca (stadio offensivo giusto per fisico/speciale), o chi ha Baton Pass e qualcuno in panchina (potenziale trasferibile); Velocità e difese con peso minore
 - ✅ Risorse: Focus Sash intatto, Fake Out pronto per chi entra durante la simulazione
 - ⬜ Mega non usata (il simulatore non modella la Mega: sarebbe uguale in ogni ramo)
+- 🔧 Candidate complete al turno 1: tutte le mosse legali su tutti i bersagli (niente taglio `best-14` delle regole), ordinate da una simulazione a 1 turno (fase 2 del lavoro, a pezzi); nelle coppie entrano le 7 migliori per lato più, sempre, l'azione delle regole, le combo e la migliore azione "utile" (setup, Protect, Tailwind, Trick Room, Baton Pass). Turno 2: 3 azioni per nostro Pokémon con una corsia protetta per le azioni utili. Il pianificatore parte anche con una sola coppia possibile
+- ❌ Test con la squadra vera di Savarotto (Incineroar Fake Out + Espathra + Chandelure dietro, contro due Machamp): Fake Out giusto, ma Calm Mind (-224) vale ancora meno di Baton Pass subito (-156). KNOWN_FAILING. **Prossimo passo**: guardare le righe VGCLEAF di quel test (il seguito BP al turno 2 dopo CM), il peso degli stadi sul passatore (40/24/8) contro quello sull'attaccante (20/12/6) e il terzo turno ridotto, che ora usa azioni fisse per linea
 - ⚠️ Punto aperto: il valore del setup su più turni (Calm Mind ora, Baton Pass dopo) è ancora sottostimato rispetto a far entrare subito l'attaccante. In alcuni casi è giusto (avversari innocui o non minacciosi), ma va misurato meglio: minacce credute degli avversari (M1), Intimidate e danni reali (M2), pressione del turno dopo (M3). Diagnostica nei test: `VGCLEAF` (valore dopo il turno 1 e miglior seguito al turno 2)
 
 ## M4 — Ricerca congiunta dei due slot

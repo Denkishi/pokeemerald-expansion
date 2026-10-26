@@ -41,6 +41,10 @@ enum BattlerId AI_VgcPlanBattler(void);
 bool32 AI_VgcPlanIsBusy(enum BattlerId battler);
 // A inizio turno: azzera lavori e decisioni rimasti dal turno (o dalla lotta) precedente.
 void AI_VgcPlanResetTurn(void);
+#if TESTING
+// Test: miglior valore simulato, nella prima decisione del turno 0, di una coppia in cui `battler` usa `move`.
+s32 AI_VgcPlanTestValue(enum BattlerId battler, enum Move move);
+#endif
 // Chi entra quando `battler` usa Baton Pass: il ricevente designato dal grafo della squadra (PARTY_SIZE = nessuno).
 u32 AI_VgcBatonRecipient(enum BattlerId battler);
 // Freno ai cambi (src/battle_ai_switch.c): chi è appena entrato con un cambio volontario resta un turno.

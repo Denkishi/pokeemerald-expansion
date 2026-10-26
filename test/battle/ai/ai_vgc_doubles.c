@@ -1,6 +1,7 @@
 #include "global.h"
 #include "test/battle.h"
 #include "battle_ai_util.h"
+#include "battle_ai_vgc.h"
 
 // Suite dell'IA per i doppi VGC (AI_FLAG_VGC_DOUBLES): una posizione = una risposta attesa.
 // Piano e lista delle posizioni: docs/ia_vgc/piano_implementazione.md (sezione 4).
@@ -48,10 +49,12 @@ AI_DOUBLE_BATTLE_TEST("VGC: Simple Beam on a Mycelium Might partner lets Spore g
 {
     // Avversari più lenti di Toedscruel ma che attaccano forte: addormentarne uno PRIMA che colpisca vale
     // l'azione del compagno. Nessuna regola sulla specie: lo vede la simulazione.
+    // La velocità del giocatore l'IA la stima dalla specie (quella vera non si vede): serve una specie
+    // davvero lenta (Ursaluna, base 50), non un Garchomp con Speed(60) che per l'IA resta un Garchomp veloce.
     GIVEN {
         AI_FLAGS(VGC_AI_FLAGS);
-        PLAYER(SPECIES_GARCHOMP) { Speed(60); }
-        PLAYER(SPECIES_GARCHOMP) { Speed(60); }
+        PLAYER(SPECIES_URSALUNA) { Speed(60); }
+        PLAYER(SPECIES_URSALUNA) { Speed(60); }
         OPPONENT(SPECIES_WOBBUFFET) { Moves(MOVE_SIMPLE_BEAM, MOVE_SCRATCH); Speed(150); }
         OPPONENT(SPECIES_TOEDSCRUEL) { Ability(ABILITY_MYCELIUM_MIGHT); Moves(MOVE_SPORE, MOVE_EARTH_POWER); Speed(100); }
     } WHEN {
@@ -191,8 +194,9 @@ AI_DOUBLE_BATTLE_TEST("VGC: Trick Room setter sets the room for its slow partner
 {
     GIVEN {
         AI_FLAGS(VGC_AI_FLAGS);
-        PLAYER(SPECIES_WOBBUFFET) { Speed(100); }
-        PLAYER(SPECIES_WOBBUFFET) { Speed(100); }
+        // Avversari veloci per specie (l'IA stima la velocità del giocatore dalla specie, non legge la vera).
+        PLAYER(SPECIES_GARCHOMP) { Speed(150); }
+        PLAYER(SPECIES_GARCHOMP) { Speed(150); }
         OPPONENT(SPECIES_INDEEDEE_F) { Moves(MOVE_TRICK_ROOM, MOVE_FOLLOW_ME, MOVE_PSYCHIC); Speed(85); }
         OPPONENT(SPECIES_COPPERAJAH) { Moves(MOVE_IRON_HEAD, MOVE_HEAVY_SLAM); Speed(30); }
     } WHEN {
@@ -211,5 +215,29 @@ AI_DOUBLE_BATTLE_TEST("VGC: no Simple Beam on Mycelium Might when Spore would fa
         OPPONENT(SPECIES_TOEDSCRUEL) { Ability(ABILITY_MYCELIUM_MIGHT); Moves(MOVE_SPORE, MOVE_EARTH_POWER); Speed(100); }
     } WHEN {
         TURN { NOT_EXPECT_MOVE(opponentLeft, MOVE_SIMPLE_BEAM); }
+    }
+}
+
+AI_DOUBLE_BATTLE_TEST("VGC: real team (Savarotto) - Calm Mind now is worth more than Baton Pass now")
+{
+    // Set veri della squadra di Savarotto (src/data/trainers.party). Incineroar copre con Fake Out; Espathra
+    // (Speed Boost) fa Calm Mind e passa i boost a Chandelure il turno dopo. Prima le regole filtravano le
+    // candidate (solo le mosse vicine alla migliore delle regole) e il seguito "Baton Pass dopo il setup" non
+    // entrava nella ricerca del turno 2: Baton Pass subito sembrava meglio. Si controlla l'ORDINE dei valori.
+    // KNOWN_FAILING: con le candidate complete e la corsia protetta, oggi Baton Pass subito vale -156 e
+    // Calm Mind -224 (Fake Out deciso giusto). Il seguito "CM ora, BP dopo" resta sottostimato: vedi checklist M3.
+    KNOWN_FAILING;
+    GIVEN {
+        AI_FLAGS(VGC_AI_FLAGS);
+        // Avversari forti ma che Espathra resiste (Lotta su Psico): il momento giusto per il setup.
+        PLAYER(SPECIES_MACHAMP);
+        PLAYER(SPECIES_MACHAMP);
+        OPPONENT(SPECIES_INCINEROAR) { Ability(ABILITY_INTIMIDATE); Item(ITEM_SITRUS_BERRY); Moves(MOVE_FAKE_OUT, MOVE_FLARE_BLITZ, MOVE_PARTING_SHOT, MOVE_DARKEST_LARIAT); }
+        OPPONENT(SPECIES_ESPATHRA) { Ability(ABILITY_SPEED_BOOST); Item(ITEM_COLBUR_BERRY); Moves(MOVE_BATON_PASS, MOVE_PROTECT, MOVE_CALM_MIND, MOVE_SUBSTITUTE); }
+        OPPONENT(SPECIES_CHANDELURE) { Ability(ABILITY_FLASH_FIRE); Moves(MOVE_SHADOW_BALL, MOVE_PROTECT, MOVE_HEAT_WAVE, MOVE_ENERGY_BALL); }
+    } WHEN {
+        TURN { EXPECT_MOVE(opponentLeft, MOVE_FAKE_OUT); }
+    } THEN {
+        EXPECT_GT(AI_VgcPlanTestValue(GetBattlerAtPosition(B_POSITION_OPPONENT_RIGHT), MOVE_CALM_MIND), AI_VgcPlanTestValue(GetBattlerAtPosition(B_POSITION_OPPONENT_RIGHT), MOVE_BATON_PASS));
     }
 }
