@@ -116,7 +116,7 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
 ## Test di scenario con le squadre vere (richiesta del 26/10)
 - ⬜ **Tutte le 144 combinazioni** squadra VGC contro squadra VGC (12 × 12, set completi da `trainers.party`), IA contro IA:
   ogni scontro deve finire senza crash né blocchi, senza errori evidenti (mosse fallite su immunità note, Protect consecutivi, Fake Out dopo il turno 1, cambi a ripetizione…), con log delle decisioni per rivedere le partite
-- ⬜ Infrastruttura: verificare se il test runner dell'expansion può far giocare l'IA anche sul lato del giocatore; altrimenti ROM dedicata IA contro IA eseguita senza video (base anche per M9)
+- ⬜ Infrastruttura: l'expansion ha già la modalità **IA contro IA** (`B_FLAG_AI_VS_AI_BATTLE`, `IsAiVsAiBattle()` in `src/battle_controllers.c`: il lato del giocatore lo comanda l'IA). Piano: ROM dedicata che per ogni coppia (X, Y) carica la squadra X come "giocatore", avvia la lotta contro l'allenatore Y con il flag attivo, registra esito/turni/decisioni nel log mGBA; script su Windows che lancia le 144 partite in parallelo con `mgba-rom-test.exe` (base anche per M9)
 - ⬜ Per ogni allenatore: test sulle giocate chiave della sua linea di gioco (lead, combo, cambi)
 
 ## M9 — Allenamento automatico (dopo M4)
