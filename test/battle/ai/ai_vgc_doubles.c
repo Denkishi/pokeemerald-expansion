@@ -131,8 +131,7 @@ AI_DOUBLE_BATTLE_TEST("VGC: at equal damage the accurate move is preferred to cl
 {
     // Entrambe le mosse mandano KO il bersaglio a 1 PS: quella al 100% batte quella all'80%.
     // (Una mossa ad area al 90% che manda KO due bersagli, invece, vale di più: ~1,8 KO attesi.)
-    // DA INDAGARE: nel log VGCPLAN tutte le coppie hanno lo stesso valore, anche "Stone Edge sul bersaglio a PS
-    // pieni" contro "Scratch che manda KO": il danno fisico di Garchomp non sembra entrare nella simulazione.
+    // DA INDAGARE: nel log VGCLEAF lo Scratch sul bersaglio a 5 PS non risulta KO (valore come un danno parziale).
     KNOWN_FAILING;
     GIVEN {
         AI_FLAGS(VGC_AI_FLAGS);

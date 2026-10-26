@@ -53,7 +53,8 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
 - ✅ Scottatura e paralisi (inflitte da Will-O-Wisp/Thunder Wave con le immunità; dimezzano attacchi fisici / Velocità)
 - ✅ Schermi (Reflect, Light Screen, Aurora Veil sotto neve) piazzati nella simulazione
 - ✅ Precisione come valore atteso sul danno utile (un KO all'80% vale l'80% del KO)
-- ❌ **Da indagare per primo**: nel test "accurate move" tutte le coppie simulate hanno lo stesso valore, anche quelle in cui Garchomp manda KO e quelle in cui non lo fa: il danno di quell'attaccante non entra nella simulazione. Possibile bug nella lettura della tabella dei danni (test marcato KNOWN_FAILING)
+- ✅ **Bug trovato e corretto**: se un avversario non aveva attacchi plausibili noti, la simulazione dava per **certo** il suo Protect e qualunque nostro attacco sembrava inutile (tutte le coppie con lo stesso valore). Ora resta sempre l'alternativa "non si protegge" con la probabilità complementare
+- ❌ **Da indagare per primo**: nel test "accurate move" lo Scratch di Garchomp sul bersaglio a 5 PS non risulta KO nella simulazione (valore da danno parziale). Possibile problema nella tabella dei danni o nella stima dei PS (test KNOWN_FAILING)
 - ⬜ Mega, terreni, Sostituto
 - ✅ Cambi d'abilità a metà turno (Simple Beam, Worry Seed, Skill Swap, Gastro Acid, Entrainment)
 - ✅ Mycelium Might: mosse di stato per ultime nella fascia di priorità, ignorano le abilità del bersaglio
@@ -111,6 +112,12 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
   - lead: sinergia della coppia (Fake Out + setup, Beat Up + Justified, Simple Beam + Mycelium Might, meteo + chi lo sfrutta...), Commander, abilità penalizzanti, chi sfrutta il meteo accanto a chi lo porta, mosse ad area che colpiscono il compagno
 - ✅ Test `test/battle/ai/ai_vgc_team_preview.c`: Espathra portata solo con Chandelure, che resta in panchina (lead Espathra + Incineroar) — passa
 - ⬜ Regole ridotte a filtro di candidate, ogni regola con un test
+
+## Test di scenario con le squadre vere (richiesta del 26/10)
+- ⬜ **Tutte le 144 combinazioni** squadra VGC contro squadra VGC (12 × 12, set completi da `trainers.party`), IA contro IA:
+  ogni scontro deve finire senza crash né blocchi, senza errori evidenti (mosse fallite su immunità note, Protect consecutivi, Fake Out dopo il turno 1, cambi a ripetizione…), con log delle decisioni per rivedere le partite
+- ⬜ Infrastruttura: verificare se il test runner dell'expansion può far giocare l'IA anche sul lato del giocatore; altrimenti ROM dedicata IA contro IA eseguita senza video (base anche per M9)
+- ⬜ Per ogni allenatore: test sulle giocate chiave della sua linea di gioco (lead, combo, cambi)
 
 ## M9 — Allenamento automatico (dopo M4)
 - ⬜ ROM di allenamento (senza animazioni), IA su entrambi i lati

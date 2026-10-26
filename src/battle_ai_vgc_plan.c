@@ -1298,8 +1298,22 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
         }
     }
 
-    if (n == 0)
-        AddCand(cand, &n, PLAN_CAND_MAX, PLAN_ACT_NONE, 0, -1, MOVE_NONE, b, b, 50);
+    // Un avversario senza mosse plausibili note non "fa Protect di sicuro": resta sempre l'alternativa in cui
+    // non si protegge (qui come azione neutra), con la probabilità complementare. Senza, la simulazione dava
+    // per certo il Protect e qualunque nostro attacco sembrava inutile.
+    {
+        bool32 hasMove = FALSE;
+        s32 protectW = 0;
+        for (i = 0; i < n; i++)
+        {
+            if (cand[i].kind == PLAN_ACT_MOVE)
+                hasMove = TRUE;
+            if (cand[i].kind == PLAN_ACT_PROTECT)
+                protectW = cand[i].weight;
+        }
+        if (!hasMove)
+            AddCand(cand, &n, PLAN_CAND_MAX, PLAN_ACT_NONE, 0, -1, MOVE_NONE, b, b, max(10, 100 - protectW));
+    }
 
     {
         u32 outN = 0;
