@@ -102,7 +102,10 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
 - ⬜ Mega con/senza come candidata
 
 ## M7 — Team preview sul grafo · M8 — Pulizia
-- ⬜ Team preview senza regole per allenatore
+- ✅ **Team preview senza regole per allenatore**: tolti i blocchi di Mario Lett, Tony, Gigi Pinto, Mario, Enzo, Patatina, Savarotto, Simone, Gerozz. Al loro posto, dal grafo della squadra:
+  - gruppo di 4: Baton Passer solo col suo ricevente; Truant & co. solo con Gas Reagente o chi cambia abilità; Commander solo con Dondozo; Gas Reagente non con Commander/Hospitality; sole contro attaccanti d'Acqua e pioggia contro attaccanti di Fuoco; Trick Room non con chi è veloce grazie al meteo; attaccante lento non senza il setter di Trick Room della squadra; una sola Mega; sinergie di coppia
+  - lead: sinergia della coppia (Fake Out + setup, Beat Up + Justified, Simple Beam + Mycelium Might, meteo + chi lo sfrutta...), Commander, abilità penalizzanti, chi sfrutta il meteo accanto a chi lo porta, mosse ad area che colpiscono il compagno
+- ✅ Test `test/battle/ai/ai_vgc_team_preview.c`: Espathra portata solo con Chandelure, che resta in panchina (lead Espathra + Incineroar) — passa
 - ⬜ Regole ridotte a filtro di candidate, ogni regola con un test
 
 ## M9 — Allenamento automatico (dopo M4)

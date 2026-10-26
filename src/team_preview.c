@@ -29,6 +29,7 @@
 #include "script_pokemon_util.h"
 #include "battle_ai_main.h"
 #include "battle_ai_vgc.h"
+#include "battle_ai_vgc_graph.h"
 #include "battle_ai_scout.h"
 #include "task.h"
 #include "text.h"
@@ -909,14 +910,160 @@ static bool32 MaskHasSpecies(struct Pokemon *enemy, const u32 *slots, u32 n, u32
     return FALSE;
 }
 
+// ---------------------------------------------------------------------
+// Conoscenza della squadra dell'IA dal grafo (src/battle_ai_vgc_graph.c): regole per ruolo e per abilità,
+// valide per qualunque squadra (al posto delle regole scritte per singolo allenatore).
+// ---------------------------------------------------------------------
+static EWRAM_DATA struct VgcTeamGraph sTPGraph = {0};
+
+static bool32 MaskHasAbility(struct Pokemon *enemy, const u32 *slots, u32 n, u32 mask, enum Ability ability)
+{
+    u32 i;
+    for (i = 0; i < n; i++)
+        if ((mask & (1u << i)) && GetMonAbility(&enemy[slots[i]]) == ability)
+            return TRUE;
+    return FALSE;
+}
+
+static bool32 MaskHasRole(const u32 *slots, u32 n, u32 mask, u32 role)
+{
+    u32 i;
+    for (i = 0; i < n; i++)
+        if ((mask & (1u << i)) && (sTPGraph.roles[slots[i]] & role))
+            return TRUE;
+    return FALSE;
+}
+
+static bool32 MonReliesOnType(struct Pokemon *mon, enum Type type)
+{
+    u32 i, n = 0;
+    for (i = 0; i < MAX_MON_MOVES; i++)
+    {
+        enum Move m = GetMonData(mon, MON_DATA_MOVE1 + i);
+        if (m != MOVE_NONE && !IsBattleMoveStatus(m) && GetMoveType(m) == type && GetMovePower(m) >= 70)
+            n++;
+    }
+    return n >= 2;
+}
+
+static bool32 IsWeatherSpeedAbility(enum Ability ab)
+{
+    return ab == ABILITY_SWIFT_SWIM || ab == ABILITY_CHLOROPHYLL || ab == ABILITY_SAND_RUSH || ab == ABILITY_SLUSH_RUSH;
+}
+
+// Coerenza del gruppo di 4: dipendenze e conflitti ricavati dalle proprietà.
+static s32 GraphGroupScore(struct Pokemon *enemy, const u32 *slots, u32 n, u32 mask)
+{
+    s32 score = 0;
+    u32 i, j, megas = 0;
+    u32 teamMask = (1u << n) - 1;
+
+    for (i = 0; i < n; i++)
+    {
+        u32 slot = slots[i], recipient;
+        enum Ability ab;
+        if (!(mask & (1u << i)))
+            continue;
+        ab = GetMonAbility(&enemy[slot]);
+        // Baton Passer senza il suo ricevente: inutile.
+        recipient = sTPGraph.requiredBack[slot];
+        if (recipient != VGC_GRAPH_NONE)
+        {
+            bool32 found = FALSE;
+            for (j = 0; j < n; j++)
+                if ((mask & (1u << j)) && slots[j] == recipient)
+                    found = TRUE;
+            if (!found)
+                score -= 10000;
+        }
+        // Abilità penalizzante (Truant, Slow Start...) senza chi la spegne o la toglie.
+        if ((sTPGraph.roles[slot] & VGC_ROLE_HINDER_ABILITY) && ab != ABILITY_MYCELIUM_MIGHT
+         && !MaskHasAbility(enemy, slots, n, mask, ABILITY_NEUTRALIZING_GAS)
+         && !MaskHasRole(slots, n, mask, VGC_ROLE_ABILITY_CHANGER))
+            score -= 5000;
+        // Commander funziona solo con Dondozo (regola del gioco): se la squadra li ha entrambi, insieme o niente.
+        if (ab == ABILITY_COMMANDER && MaskHasSpecies(enemy, slots, n, teamMask, SPECIES_DONDOZO)
+         && !MaskHasSpecies(enemy, slots, n, mask, SPECIES_DONDOZO))
+            score -= 5000;
+        if (AI_VgcSameSpecies(SPECIES_DONDOZO, GetMonData(&enemy[slot], MON_DATA_SPECIES))
+         && MaskHasAbility(enemy, slots, n, teamMask, ABILITY_COMMANDER) && !MaskHasAbility(enemy, slots, n, mask, ABILITY_COMMANDER))
+            score -= 5000;
+        // Il Gas Reagente spegne le abilità dei compagni che servono (Commander, Hospitality).
+        if (ab == ABILITY_COMMANDER && MaskHasAbility(enemy, slots, n, mask, ABILITY_NEUTRALIZING_GAS))
+            score -= 5000;
+        if (ab == ABILITY_HOSPITALITY && MaskHasAbility(enemy, slots, n, mask, ABILITY_NEUTRALIZING_GAS))
+            score -= 60;
+        // Sole e attaccanti d'Acqua (o pioggia e attaccanti di Fuoco) si danneggiano a vicenda.
+        if ((ab == ABILITY_DROUGHT || ab == ABILITY_ORICHALCUM_PULSE))
+            for (j = 0; j < n; j++)
+                if ((mask & (1u << j)) && MonReliesOnType(&enemy[slots[j]], TYPE_WATER))
+                    score -= 3000;
+        if (ab == ABILITY_DRIZZLE)
+            for (j = 0; j < n; j++)
+                if ((mask & (1u << j)) && MonReliesOnType(&enemy[slots[j]], TYPE_FIRE))
+                    score -= 3000;
+        // Trick Room e chi è veloce grazie al meteo non stanno insieme.
+        if ((sTPGraph.roles[slot] & VGC_ROLE_TRICK_ROOM))
+            for (j = 0; j < n; j++)
+                if ((mask & (1u << j)) && IsWeatherSpeedAbility(GetMonAbility(&enemy[slots[j]])))
+                    score -= 3000;
+        // Un attaccante lento senza chi gli piazza Trick Room (se in squadra c'è).
+        if ((sTPGraph.roles[slot] & VGC_ROLE_SLOW) && (sTPGraph.roles[slot] & (VGC_ROLE_ATK_SWEEPER | VGC_ROLE_SPA_SWEEPER))
+         && MaskHasRole(slots, n, teamMask & ~(1u << i), VGC_ROLE_TRICK_ROOM)
+         && !MaskHasRole(slots, n, mask & ~(1u << i), VGC_ROLE_TRICK_ROOM))
+            score -= 2000;
+        if (GetItemHoldEffect(GetMonData(&enemy[slot], MON_DATA_HELD_ITEM)) == HOLD_EFFECT_MEGA_STONE)
+            megas++;
+        // Sinergie di coppia del grafo.
+        for (j = i + 1; j < n; j++)
+            if (mask & (1u << j))
+                score += sTPGraph.leadPair[slot][slots[j]] / 2;
+    }
+    if (megas >= 2)
+        score -= 40; // una sola Mega per lotta
+    return score;
+}
+
+// Coerenza della coppia di lead (indici di party `a` e `b`).
+static s32 GraphLeadScore(struct Pokemon *enemy, u32 a, u32 b)
+{
+    s32 s = sTPGraph.leadPair[a][b] * 4;
+    enum Ability abA = GetMonAbility(&enemy[a]), abB = GetMonAbility(&enemy[b]);
+    bool32 donA = AI_VgcSameSpecies(SPECIES_DONDOZO, GetMonData(&enemy[a], MON_DATA_SPECIES));
+    bool32 donB = AI_VgcSameSpecies(SPECIES_DONDOZO, GetMonData(&enemy[b], MON_DATA_SPECIES));
+    u32 i;
+
+    // Commander: Tatsugiri entra in Dondozo solo se partono insieme.
+    if ((abA == ABILITY_COMMANDER && !donB) || (abB == ABILITY_COMMANDER && !donA))
+        s -= 10000;
+    // Abilità penalizzante in lead senza chi la spegne o la toglie accanto.
+    if ((sTPGraph.roles[a] & VGC_ROLE_HINDER_ABILITY) && abA != ABILITY_MYCELIUM_MIGHT
+     && abB != ABILITY_NEUTRALIZING_GAS && !(sTPGraph.roles[b] & VGC_ROLE_ABILITY_CHANGER))
+        s -= 10000;
+    if ((sTPGraph.roles[b] & VGC_ROLE_HINDER_ABILITY) && abB != ABILITY_MYCELIUM_MIGHT
+     && abA != ABILITY_NEUTRALIZING_GAS && !(sTPGraph.roles[a] & VGC_ROLE_ABILITY_CHANGER))
+        s -= 10000;
+    // Chi sfrutta il meteo parte accanto a chi lo porta.
+    if (((sTPGraph.roles[a] & VGC_ROLE_WEATHER_ABUSER) && !(sTPGraph.roles[b] & VGC_ROLE_WEATHER_SETTER))
+     || ((sTPGraph.roles[b] & VGC_ROLE_WEATHER_ABUSER) && !(sTPGraph.roles[a] & VGC_ROLE_WEATHER_SETTER)))
+        s -= 400;
+    // Mosse ad area che colpiscono anche il compagno (Earthquake...): male se il compagno non è immune.
+    for (i = 0; i < MAX_MON_MOVES; i++)
+    {
+        enum Move ma = GetMonData(&enemy[a], MON_DATA_MOVE1 + i), mb = GetMonData(&enemy[b], MON_DATA_MOVE1 + i);
+        if (ma != MOVE_NONE && GetMoveTarget(ma) == TARGET_FOES_AND_ALLY && !IsBattleMoveStatus(ma)
+         && TypeVsMonPct(GetMoveType(ma), &enemy[b]) != 0)
+            s -= 80;
+        if (mb != MOVE_NONE && GetMoveTarget(mb) == TARGET_FOES_AND_ALLY && !IsBattleMoveStatus(mb)
+         && TypeVsMonPct(GetMoveType(mb), &enemy[a]) != 0)
+            s -= 80;
+    }
+    return s;
+}
+
 static bool32 PairIs(u16 a, u16 b, u16 x, u16 y)
 {
     return (AI_VgcSameSpecies(x, a) && AI_VgcSameSpecies(y, b)) || (AI_VgcSameSpecies(x, b) && AI_VgcSameSpecies(y, a));
-}
-
-static bool32 PairHas(u16 a, u16 b, u16 x)
-{
-    return AI_VgcSameSpecies(x, a) || AI_VgcSameSpecies(x, b);
 }
 
 // ---------------------------------------------------------------------
@@ -1327,6 +1474,7 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
     bool32 planTrViable = FALSE, planTwViable = FALSE;
     u16 trainerId = TRAINER_BATTLE_PARAM.opponentA;
 
+    AI_VgcBuildTeamGraph(enemy, &sTPGraph);
     for (i = 0; i < PARTY_SIZE; i++)
     {
         if (IsMonUsable(&enemy[i])) enemySlots[nEnemy++] = i;
@@ -1548,136 +1696,10 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
             }
         }
 
-        // Risoluzione conflitti interni di squadra (Team Preview):
-        // 1. Mario Lett:
-        // - MAI selezionare Weezing-Galar con Dondozo o Tatsugiri (Neutralizing Gas annulla Commander).
-        // - Dondozo e Tatsugiri devono sempre essere scelti INSIEME (mai uno senza l'altro).
-        // - Slaking può essere scelto SOLO se presente Weezing.
-        if (trainerId == TRAINER_MARIO_LETT)
-        {
-            bool32 hasWeezing = FALSE, hasSlaking = FALSE, hasDondozo = FALSE, hasTatsugiri = FALSE;
-            for (i = 0; i < nEnemy; i++)
-            {
-                if (mask & (1u << i))
-                {
-                    u16 sp = GET_BASE_SPECIES_ID(GetMonData(&enemy[enemySlots[i]], MON_DATA_SPECIES));
-                    if (sp == SPECIES_WEEZING || sp == SPECIES_WEEZING_GALAR)
-                        hasWeezing = TRUE;
-                    else if (sp == SPECIES_SLAKING)
-                        hasSlaking = TRUE;
-                    else if (sp == SPECIES_DONDOZO)
-                        hasDondozo = TRUE;
-                    else if (sp == SPECIES_TATSUGIRI)
-                        hasTatsugiri = TRUE;
-                }
-            }
-            if (hasWeezing && (hasDondozo || hasTatsugiri))
-                score -= 5000;
-            if (hasSlaking && !hasWeezing)
-                score -= 5000;
-            if (hasDondozo != hasTatsugiri)
-                score -= 5000;
-            // Il Gas Reagente spegne anche Hospitality di Sinistcha.
-            if (hasWeezing && MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_SINISTCHA))
-                score -= 60;
-        }
-        // 2. Tony:
-        // - MAI schierare Mega Charizard Y e Gyarados insieme (il sole dimezza Waterfall ed entrambi competono per la Mega).
-        // - Se sta usando una forma paleo (Roaring Moon, Slither Wing, Brute Bonnet), DEVE portare Charizard per garantire il Sole.
-        else if (trainerId == TRAINER_TONY)
-        {
-            bool32 hasZard = FALSE, hasGyara = FALSE, hasPaleo = FALSE;
-            for (i = 0; i < nEnemy; i++)
-            {
-                if (mask & (1u << i))
-                {
-                    u16 sp = GET_BASE_SPECIES_ID(GetMonData(&enemy[enemySlots[i]], MON_DATA_SPECIES));
-                    if (sp == SPECIES_CHARIZARD)
-                        hasZard = TRUE;
-                    else if (sp == SPECIES_GYARADOS)
-                        hasGyara = TRUE;
-                    else if (sp == SPECIES_ROARING_MOON || sp == SPECIES_SLITHER_WING || sp == SPECIES_BRUTE_BONNET)
-                        hasPaleo = TRUE;
-                }
-            }
-            if (hasZard && hasGyara)
-                score -= 3000;
-            if (hasPaleo && !hasZard)
-                score -= 5000;
-        }
-        // 3. Gigi Pinto: MAI schierare Mega Blastoise e Torkoal insieme sotto il sole a meno di counter-pick contro pioggia/sabbia.
-        else if (trainerId == TRAINER_GIGI_PINTO)
-        {
-            bool32 hasTorkoal = FALSE, hasBlastoise = FALSE;
-            for (i = 0; i < nEnemy; i++)
-            {
-                if (mask & (1u << i))
-                {
-                    u16 sp = GET_BASE_SPECIES_ID(GetMonData(&enemy[enemySlots[i]], MON_DATA_SPECIES));
-                    if (sp == SPECIES_TORKOAL)
-                        hasTorkoal = TRUE;
-                    if (sp == SPECIES_BLASTOISE)
-                        hasBlastoise = TRUE;
-                }
-            }
-            if (hasTorkoal && hasBlastoise)
-                score -= 3000; // sotto il sole Water Spout fa metà danno: mai insieme
-            // Mega Blastoise è un counter-pick: solo contro chi porta pioggia o sabbia da sovrascrivere.
-            if (hasBlastoise && !PlayerMayHaveAbility(player, playerSlots, nPlayer, ABILITY_DRIZZLE)
-             && !PlayerMayHaveAbility(player, playerSlots, nPlayer, ABILITY_SAND_STREAM))
-                score -= 150;
-        }
-        // 4. Mario: Distorsione e Pioggia non si mischiano. Sotto Distorsione Golduck (Nuotovelox) diventa il
-        //    più lento del campo: Oranguru e Golduck mai negli stessi 4.
-        else if (trainerId == TRAINER_MARIO)
-        {
-            if (MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_ORANGURU)
-             && MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_GOLDUCK))
-                score -= 3000;
-            // Golduck senza chi porta la pioggia non ha senso.
-            if (MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_GOLDUCK)
-             && !MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_POLITOED))
-                score -= 400;
-        }
-        // 5. Enzo: una sola Mega per lotta. Si può portare anche Aerodactyl (la Mega resta a Gengar,
-        //    vedi AI_VgcShouldHoldMega), ma senza Mega rende meno.
-        else if (trainerId == TRAINER_ENZO)
-        {
-            if (MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_GENGAR)
-             && MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_AERODACTYL))
-                score -= 40;
-        }
-        // 6. Patatina:
-        // - Deve obbligatoriamente avere almeno uno tra Indeedee-F e Altaria nei 4 (i suoi setter/abilitatori).
-        // - Se porta Copperajah, DEVE avere Indeedee-F per la Distorsione.
-        // - Ha forte sinergia portando Indeedee-F + Armarouge (PsySpam) o Altaria + Ceruledge (Tailwind).
-        else if (trainerId == TRAINER_PATATINA)
-        {
-            bool32 hasIndeedee = MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_INDEEDEE_F);
-            bool32 hasAltaria = MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_ALTARIA);
-            bool32 hasCopperajah = MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_COPPERAJAH);
-            bool32 hasArmarouge = MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_ARMAROUGE);
-            bool32 hasCeruledge = MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_CERULEDGE);
-
-            if (!hasIndeedee && !hasAltaria)
-                score -= 10000;
-            if (hasCopperajah && !hasIndeedee)
-                score -= 5000;
-            if (hasIndeedee && hasArmarouge)
-                score += 300;
-            if (hasIndeedee && hasCopperajah)
-                score += 250;
-            if (hasAltaria && (hasCeruledge || hasArmarouge))
-                score += 250;
-        }
-        else if (trainerId == TRAINER_SAVAROTTO)
-        {
-            bool32 hasEspathra = MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_ESPATHRA);
-            bool32 hasChandelure = MaskHasSpecies(enemy, enemySlots, nEnemy, mask, SPECIES_CHANDELURE);
-            // Ogni volta che porta Espathra deve portare Chandelure
-            if (hasEspathra && !hasChandelure)
-                score -= 10000;
-        }
+        // Dipendenze e conflitti del gruppo ricavati dalle proprietà (grafo della squadra): Baton Passer col suo
+        // ricevente, Truant col Gas Reagente, Commander con Dondozo, meteo contro attaccanti, Trick Room contro
+        // meteo veloce, sinergie di coppia.
+        score += GraphGroupScore(enemy, enemySlots, nEnemy, mask);
 
         // Troppi Pokémon deboli allo stesso tipo = male.
         for (t = TYPE_NORMAL; t < NUMBER_OF_MON_TYPES; t++)
@@ -1833,161 +1855,9 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                             s -= 2000;
                     }
 
-                    if (trainerId == TRAINER_MARIO_LETT)
-                    {
-                        u16 spA = GET_BASE_SPECIES_ID(GetMonData(&enemy[enemySlots[ea]], MON_DATA_SPECIES));
-                        u16 spB = GET_BASE_SPECIES_ID(GetMonData(&enemy[enemySlots[eb]], MON_DATA_SPECIES));
-                        bool32 dondozoLead = (spA == SPECIES_DONDOZO || spB == SPECIES_DONDOZO);
-                        bool32 tatsugiriLead = (spA == SPECIES_TATSUGIRI || spB == SPECIES_TATSUGIRI);
-                        bool32 slakingLead = (spA == SPECIES_SLAKING || spB == SPECIES_SLAKING);
-                        bool32 weezingLead = (spA == SPECIES_WEEZING || spA == SPECIES_WEEZING_GALAR || spB == SPECIES_WEEZING || spB == SPECIES_WEEZING_GALAR);
-
-                        // Se starta con Dondozo deve portare sempre in lead anche Tatsugiri
-                        if (dondozoLead && !tatsugiriLead)
-                            s -= 10000;
-                        if (tatsugiriLead && !dondozoLead)
-                            s -= 10000;
-                        // Slaking solo in coppia con Weezing
-                        if (slakingLead && !weezingLead)
-                            s -= 10000;
-                    }
-                    else if (trainerId == TRAINER_TONY)
-                    {
-                        u16 spA = GET_BASE_SPECIES_ID(GetMonData(&enemy[enemySlots[ea]], MON_DATA_SPECIES));
-                        u16 spB = GET_BASE_SPECIES_ID(GetMonData(&enemy[enemySlots[eb]], MON_DATA_SPECIES));
-                        bool32 aIsPaleo = (spA == SPECIES_ROARING_MOON || spA == SPECIES_SLITHER_WING || spA == SPECIES_BRUTE_BONNET);
-                        bool32 bIsPaleo = (spB == SPECIES_ROARING_MOON || spB == SPECIES_SLITHER_WING || spB == SPECIES_BRUTE_BONNET);
-                        bool32 aIsZard = (spA == SPECIES_CHARIZARD);
-                        bool32 bIsZard = (spB == SPECIES_CHARIZARD);
-
-                        // Controlla se la squadra scelta ha almeno un Pokémon paleo
-                        bool32 teamHasPaleo = FALSE;
-                        u32 cIdx;
-                        for (cIdx = 0; cIdx < nChosen; cIdx++)
-                        {
-                            u16 spC = GET_BASE_SPECIES_ID(GetMonData(&enemy[enemySlots[chosen[cIdx]]], MON_DATA_SPECIES));
-                            if (spC == SPECIES_ROARING_MOON || spC == SPECIES_SLITHER_WING || spC == SPECIES_BRUTE_BONNET)
-                            {
-                                teamHasPaleo = TRUE;
-                                break;
-                            }
-                        }
-
-                        if (teamHasPaleo)
-                        {
-                            // Se sta usando una forma paleo, DEVE partire con forma paleo + Mega Charizard Y per il sole immediato
-                            bool32 validSunPaleoLead = (aIsZard && bIsPaleo) || (bIsZard && aIsPaleo);
-                            if (!validSunPaleoLead)
-                                s -= 10000;
-                        }
-                        else
-                        {
-                            // Se non ha paleo in squadra, un Pokémon paleo comunque non può leadare senza sole
-                            if ((aIsPaleo || bIsPaleo) && !(aIsZard || bIsZard))
-                                s -= 10000;
-                        }
-                    }
-                    else
-                    {
-                        u16 spA = GetMonData(&enemy[enemySlots[ea]], MON_DATA_SPECIES);
-                        u16 spB = GetMonData(&enemy[enemySlots[eb]], MON_DATA_SPECIES);
-
-                        // Simone: Porygon-Z + Toedscruel (Raggio Semplice -> Spora veloce) solo contro squadre senza
-                        // Fake Out e senza chi è immune al sonno o rimbalza lo stato.
-                        if (trainerId == TRAINER_SIMONE && PairIs(spA, spB, SPECIES_PORYGON_Z, SPECIES_TOEDSCRUEL))
-                        {
-                            if (foeHasFakeOut
-                             || PlayerMayHaveAbility(player, playerSlots, nPlayer, ABILITY_GOOD_AS_GOLD)
-                             || PlayerMayHaveAbility(player, playerSlots, nPlayer, ABILITY_MAGIC_BOUNCE)
-                             || PlayerMayHaveAbility(player, playerSlots, nPlayer, ABILITY_PURIFYING_SALT)
-                             || PlayerMayHaveAbility(player, playerSlots, nPlayer, ABILITY_INSOMNIA)
-                             || PlayerMayHaveAbility(player, playerSlots, nPlayer, ABILITY_VITAL_SPIRIT)
-                             || PlayerMayHaveAbility(player, playerSlots, nPlayer, ABILITY_SWEET_VEIL))
-                                s -= 150;
-                        }
-                        // Gigi Pinto: Lilligant + Torkoal (Dopo di te -> Eruzione) perde valore se l'avversario può
-                        // cambiare meteo o colpire Torkoal con Fake Out prima.
-                        else if (trainerId == TRAINER_GIGI_PINTO && PairIs(spA, spB, SPECIES_LILLIGANT, SPECIES_TORKOAL))
-                        {
-                            if (PlayerMayHaveAbility(player, playerSlots, nPlayer, ABILITY_DRIZZLE)
-                             || PlayerMayHaveAbility(player, playerSlots, nPlayer, ABILITY_SAND_STREAM)
-                             || PlayerMayHaveAbility(player, playerSlots, nPlayer, ABILITY_SNOW_WARNING))
-                                s -= 60;
-                            if (foeHasFakeOut)
-                                s -= 30;
-                        }
-                        // Mario: Golduck in lead solo con Politoed (pioggia subito); Oranguru in lead con chi ha Fake Out.
-                        else if (trainerId == TRAINER_MARIO)
-                        {
-                            if (PairHas(spA, spB, SPECIES_GOLDUCK) && !PairHas(spA, spB, SPECIES_POLITOED))
-                                s -= 120;
-                            if (PairHas(spA, spB, SPECIES_ORANGURU) && PairHas(spA, spB, SPECIES_HARIYAMA))
-                                s += 30;
-                        }
-                        // Enzo: Smeargle + Gengar (Gravità + Ipnosi + Pedinombra) è la lead da manuale, ma senza
-                        // Focus Sash utile contro chi ha Fake Out rischia: Annihilape + Grimmsnarl come alternativa.
-                        else if (trainerId == TRAINER_ENZO && PairIs(spA, spB, SPECIES_SMEARGLE, SPECIES_GENGAR) && foeHasFakeOut)
-                        {
-                            s -= 40;
-                        }
-                        // Patatina: ha ESATTAMENTE 3 modalità di lead permesse:
-                        // 1. Indeedee-F + Armarouge (Campo Psichico + Segui Me + Forzespansa)
-                        // 2. Indeedee-F + Copperajah (Distorsione + Copperajah)
-                        // 3. Altaria + Ceruledge / Armarouge / Rotom-Wash (Ventoincoda)
-                        // Qualsiasi altra lead NON è permessa per Patatina.
-                        else if (trainerId == TRAINER_SAVAROTTO)
-                        {
-                            bool32 isSneaslerEspathra = PairIs(spA, spB, SPECIES_SNEASLER, SPECIES_ESPATHRA);
-                            bool32 isInciEspathra = PairIs(spA, spB, SPECIES_INCINEROAR, SPECIES_ESPATHRA);
-                            bool32 isWhimsiEspathra = PairIs(spA, spB, SPECIES_WHIMSICOTT, SPECIES_ESPATHRA);
-                            bool32 isWhimsiGallade = PairIs(spA, spB, SPECIES_WHIMSICOTT, SPECIES_GALLADE);
-
-                            if (!isSneaslerEspathra && !isInciEspathra && !isWhimsiEspathra && !isWhimsiGallade)
-                            {
-                                s -= 10000;
-                            }
-                            else
-                            {
-                                if (isSneaslerEspathra)
-                                    s += 500;
-                                else if (isInciEspathra)
-                                    s += 480;
-                                else if (isWhimsiEspathra)
-                                    s += 460;
-                                else if (isWhimsiGallade)
-                                    s += 450;
-                            }
-                        }
-                        else if (trainerId == TRAINER_PATATINA)
-                        {
-                            bool32 isPsySpam = PairIs(spA, spB, SPECIES_INDEEDEE_F, SPECIES_ARMAROUGE);
-                            bool32 isTrickRoom = PairIs(spA, spB, SPECIES_INDEEDEE_F, SPECIES_COPPERAJAH);
-                            bool32 isTailwind = (PairIs(spA, spB, SPECIES_ALTARIA, SPECIES_CERULEDGE)
-                                              || PairIs(spA, spB, SPECIES_ALTARIA, SPECIES_ARMAROUGE)
-                                              || PairIs(spA, spB, SPECIES_ALTARIA, SPECIES_ROTOM_WASH));
-
-                            if (!isPsySpam && !isTrickRoom && !isTailwind)
-                            {
-                                s -= 10000;
-                            }
-                            else
-                            {
-                                if (isPsySpam)
-                                    s += 500;
-                                else if (isTrickRoom)
-                                    s += 450;
-                                else if (isTailwind)
-                                    s += 400;
-                            }
-                        }
-                        // Gerozz: chi usa Terremoto (Dugtrio-A, Great Tusk) in lead preferibilmente con Rotom-Heat
-                        // (Levitazione); con Tyranitar è accettato perché è la lead del piano (Tyranitar protegge o
-                        // Dugtrio usa Frana).
-                        else if (trainerId == TRAINER_GEROZZ && PairIs(spA, spB, SPECIES_GREAT_TUSK, SPECIES_DUGTRIO_ALOLA))
-                        {
-                            s -= 80; // Terremoto si colpirebbero a vicenda
-                        }
-                    }
+                    // Coerenza della coppia di lead dal grafo della squadra (sinergie, Commander, abilità
+                    // penalizzanti, meteo, mosse ad area sul compagno).
+                    s += GraphLeadScore(enemy, enemySlots[ea], enemySlots[eb]);
                 }
                 // Scouting: questa lead contro le lead probabili del giocatore. Media pesata (70%) +
                 // caso peggiore (30%): si evita la lead che una contro-lead del giocatore smonta.
