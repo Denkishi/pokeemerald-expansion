@@ -1342,10 +1342,11 @@ static bool32 VgcIsSwitchinSafeFromField(enum BattlerId battler, u32 targetMonIn
     hazardDmg = 0;
     if (ability != ABILITY_MAGIC_GUARD && heldItemEffect != HOLD_EFFECT_HEAVY_DUTY_BOOTS)
     {
+        // Danno calcolato sui tipi e sui PS di chi ENTRA (prima si usava il Pokémon in campo).
         if (IsHazardOnSide(side, HAZARDS_STEALTH_ROCK))
-            hazardDmg += GetStealthHazardDamage(TYPE_SIDE_HAZARD_POINTED_STONES, battler);
+            hazardDmg += GetStealthHazardDamageByTypesAndHP(TYPE_SIDE_HAZARD_POINTED_STONES, type1, type2, maxHp);
         if (IsHazardOnSide(side, HAZARDS_STEELSURGE))
-            hazardDmg += GetStealthHazardDamage(TYPE_SIDE_HAZARD_SHARP_STEEL, battler);
+            hazardDmg += GetStealthHazardDamageByTypesAndHP(TYPE_SIDE_HAZARD_SHARP_STEEL, type1, type2, maxHp);
         if (IsHazardOnSide(side, HAZARDS_SPIKES) && (type1 != TYPE_FLYING && type2 != TYPE_FLYING && ability != ABILITY_LEVITATE))
         {
             u32 spikesDmg = maxHp / ((5 - gSideTimers[side].spikesAmount) * 2);
@@ -1391,6 +1392,19 @@ static bool32 VgcIsSwitchinSafeFromField(enum BattlerId battler, u32 targetMonIn
     return TRUE;
 }
 
+// Turno (+1) in cui il Pokémon in campo è entrato con un cambio volontario dell'IA VGC: per il freno ai cambi.
+static EWRAM_DATA u16 sVgcSwitchedInTurn[MAX_BATTLERS_COUNT] = {0};
+
+bool32 AI_VgcJustSwitchedIn(enum BattlerId battler)
+{
+    return gBattleTurnCounter != 0 && sVgcSwitchedInTurn[battler] == gBattleTurnCounter;
+}
+
+void AI_VgcNoteSwitchIn(enum BattlerId battler)
+{
+    sVgcSwitchedInTurn[battler] = gBattleTurnCounter + 1;
+}
+
 static enum VgcSwitchResult VgcShouldSwitch(struct SwitchAiContext *switchContext)
 {
     enum BattlerId battler = switchContext->battler;
@@ -1425,17 +1439,22 @@ static enum VgcSwitchResult VgcShouldSwitch(struct SwitchAiContext *switchContex
     if (!VgcIsSwitchinSafeFromField(battler, bestSwitchin, switchContext->party))
         return VGC_SWITCH_STAY;
 
-    // Mario Lett: Se siamo Weezing e il partner è Slaking vivo, NON switchare (altrimenti Slaking riattiva Truant)
+    // Chi tiene acceso il Gas Reagente accanto a un compagno con abilità penalizzante (es. Truant) non esce:
+    // uscendo la riattiverebbe.
     {
         enum BattlerId partner = GetPartnerBattler(battler);
-        if (IsBattlerAlive(partner))
+        if (IsBattlerAlive(partner) && gAiLogicData->abilities[battler] == ABILITY_NEUTRALIZING_GAS)
         {
-            u16 mySpecies = GET_BASE_SPECIES_ID(gBattleMons[battler].species);
-            u16 partnerSpecies = GET_BASE_SPECIES_ID(gBattleMons[partner].species);
-            if ((mySpecies == SPECIES_WEEZING || mySpecies == SPECIES_WEEZING_GALAR) && partnerSpecies == SPECIES_SLAKING)
+            enum Ability pAb = gAiLogicData->abilities[partner];
+            if (pAb == ABILITY_TRUANT || pAb == ABILITY_SLOW_START || pAb == ABILITY_DEFEATIST || pAb == ABILITY_KLUTZ)
                 return VGC_SWITCH_STAY;
         }
     }
+
+    // Niente cambi a ripetizione: chi è appena entrato con un cambio volontario resta almeno un turno
+    // (altrimenti si regalano turni all'avversario cambiando avanti e indietro).
+    if (AI_VgcJustSwitchedIn(battler) && !((threatL && slowerL) && (threatR && slowerR)))
+        return VGC_SWITCH_STAY;
 
     // Pigrizia attiva (niente Gas Reagente in campo) e turno di riposo in arrivo: uscire azzera Pigrizia.
     if (truantLoafing && hpPct >= 40 && Random() % 100 < 70)
@@ -1642,6 +1661,7 @@ bool32 ShouldSwitch(enum BattlerId battler)
     switch (VgcShouldSwitch(&switchContext))
     {
     case VGC_SWITCH_GO:
+        AI_VgcNoteSwitchIn(switchContext.battler); // chi entra resta almeno il turno dopo
         return TRUE;
     case VGC_SWITCH_STAY:
         return FALSE;

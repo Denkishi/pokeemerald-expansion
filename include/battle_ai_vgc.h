@@ -43,6 +43,11 @@ bool32 AI_VgcPlanIsBusy(enum BattlerId battler);
 void AI_VgcPlanResetTurn(void);
 // Chi entra quando `battler` usa Baton Pass: il ricevente designato dal grafo della squadra (PARTY_SIZE = nessuno).
 u32 AI_VgcBatonRecipient(enum BattlerId battler);
+// Freno ai cambi (src/battle_ai_switch.c): chi è appena entrato con un cambio volontario resta un turno.
+bool32 AI_VgcJustSwitchedIn(enum BattlerId battler);
+void AI_VgcNoteSwitchIn(enum BattlerId battler);
+// Chi mandare in campo dopo un KO: il compagno che fa coppia migliore con chi è rimasto (grafo della squadra).
+u32 AI_VgcReplacementAfterKo(enum BattlerId battler, u32 defaultIdx);
 bool32 AI_VgcPlanIsSetter(u16 trainerId, u16 species);
 bool32 AI_VgcPlanIsBack(u16 trainerId, u16 species);
 s32 AI_VgcPlanLeadBonus(u16 trainerId, u16 a, u16 b, bool32 trViable, bool32 twViable);

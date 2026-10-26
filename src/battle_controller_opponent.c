@@ -665,6 +665,12 @@ static void OpponentHandleChoosePokemon(enum BattlerId battler)
             if (recipient < PARTY_SIZE)
                 chosenMonId = recipient;
         }
+        // IA VGC: dopo un KO entra chi fa la coppia migliore con chi è rimasto in campo.
+        else if ((gAiThinkingStruct->aiFlags[battler] & AI_FLAG_VGC_DOUBLES) && IsDoubleBattle()
+              && switchType == SWITCH_AFTER_KO && chosenMonId < PARTY_SIZE)
+        {
+            chosenMonId = AI_VgcReplacementAfterKo(battler, chosenMonId);
+        }
         if (chosenMonId == PARTY_SIZE) // Advanced logic failed so we pick the next available battler
         {
             enum BattlerId battler1, battler2;

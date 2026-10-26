@@ -16,7 +16,9 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
   - ⬜ velocità del giocatore in `gAiLogicData->speedStats` (codice base dell'expansion) → in M1 con il belief
 - ✅ Suite di test `test/battle/ai/ai_vgc_doubles.c` attiva. WSL compila soltanto; i test si eseguono su Windows con `tools/mgba/mgba-rom-test.exe`
 - ✅ Installate con msys2 `libepoxy-0.dll` e `libwinpthread-1.dll`: `mgba-rom-test.exe` gira su Windows (aggiungere `C:\msys64\mingw64\bin` al PATH)
-- ✅ **Risultati: 8 PASS, 0 FAIL, 0 KNOWN_FAILING**
+- ✅ **Risultati: 9 PASS, 0 FAIL, 0 KNOWN_FAILING**
+  - ✅ Dopo un KO entra il compagno giusto (Gallade accanto a Whimsicott)
+- ℹ️ Controllo regressioni: `test/battle/ai/ai_doubles.c` dell'expansion ha 14 test che falliscono, **identici su `master`** (prima del lavoro sull'IA VGC): non li ho introdotti io, vengono dalle modifiche precedenti del fork
   - ✅ Fake Out al turno 1 per coprire un compagno Baton Passer
   - ✅ Trick Room per il compagno lento (Indeedee + Copperajah)
   - ✅ Baton Pass fa entrare lo sweeper designato (Chandelure), non un Pokémon qualsiasi
@@ -92,8 +94,11 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
 
 ## M6 — Cambi, sostituzioni e Mega nel pianificatore
 - ✅ Baton Pass: nel gioco vero entra il ricevente designato dal grafo (es. Espathra → Chandelure), non il "migliore" generico — test passa
-- ⬜ Parting Shot / U-turn, doppio KO, freno ai cambi ripetuti
-- ⬜ Bug Stealth Rock calcolato su chi esce
+- ✅ Dopo un KO entra chi fa la coppia migliore con chi è rimasto (grafo della squadra); il ricevente di un Baton Passer ancora in gioco resta in panchina — test passa
+- ✅ Freno ai cambi: chi è appena entrato con un cambio volontario resta almeno un turno (regole e pianificatore), salvo pericolo grave
+- ✅ Bug Stealth Rock / Steelsurge: ora calcolati sui tipi e PS di chi entra
+- ✅ Gas Reagente accanto a Truant & co.: non esce (prima: regola su Weezing/Slaking)
+- ⬜ Parting Shot / U-turn: chi entra
 - ⬜ Mega con/senza come candidata
 
 ## M7 — Team preview sul grafo · M8 — Pulizia

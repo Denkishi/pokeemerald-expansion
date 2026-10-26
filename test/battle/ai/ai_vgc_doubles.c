@@ -109,6 +109,24 @@ AI_DOUBLE_BATTLE_TEST("VGC: Fake Out on turn 1 covers a Baton Passer partner")
     }
 }
 
+AI_DOUBLE_BATTLE_TEST("VGC: after a KO the replacement that pairs best with the partner comes in")
+{
+    // Whimsicott è in campo: dopo il KO del compagno entra Gallade (Beat Up -> Justified), non il Pokémon
+    // che il motore sceglierebbe per il solo matchup.
+    GIVEN {
+        AI_FLAGS(VGC_AI_FLAGS);
+        PLAYER(SPECIES_WOBBUFFET) { Speed(200); Moves(MOVE_SCRATCH); }
+        PLAYER(SPECIES_WOBBUFFET) { Speed(200); Moves(MOVE_SCRATCH); }
+        OPPONENT(SPECIES_WOBBUFFET) { HP(1); Moves(MOVE_SCRATCH); Speed(10); }
+        OPPONENT(SPECIES_WHIMSICOTT) { Moves(MOVE_BEAT_UP, MOVE_MOONBLAST); Speed(116); }
+        OPPONENT(SPECIES_WOBBUFFET) { Moves(MOVE_SCRATCH); Speed(10); }
+        OPPONENT(SPECIES_GALLADE) { Ability(ABILITY_JUSTIFIED); Moves(MOVE_CLOSE_COMBAT); Speed(80); }
+    } WHEN {
+        TURN { MOVE(playerLeft, MOVE_SCRATCH, target: opponentLeft); MOVE(playerRight, MOVE_SCRATCH, target: opponentRight);
+               EXPECT_SEND_OUT(opponentLeft, 3); }
+    }
+}
+
 AI_DOUBLE_BATTLE_TEST("VGC: Trick Room setter sets the room for its slow partner")
 {
     GIVEN {

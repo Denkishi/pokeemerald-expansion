@@ -1327,7 +1327,8 @@ static u32 BuildOurFirstActions(enum BattlerId me, struct PlanAction *out, u32 c
             AddCand(out, &n, PLAN_MAX_OURS - 1, PLAN_ACT_MOVE, chosenMove, -1, gBattleMons[me].moves[chosenMove], me, chosenTarget, best);
         }
     }
-    if (gAiLogicData->mostSuitableMonId[me] != PARTY_SIZE && CountUsablePartyMons(me) > 0)
+    // Il cambio è candidato solo se non siamo appena entrati con un cambio (freno ai cambi a ripetizione).
+    if (gAiLogicData->mostSuitableMonId[me] != PARTY_SIZE && CountUsablePartyMons(me) > 0 && !AI_VgcJustSwitchedIn(me))
     {
         u32 idx = gAiLogicData->mostSuitableMonId[me];
         enum BattlerId partner = GetPartnerBattler(me);
@@ -1664,6 +1665,51 @@ enum BattlerId AI_VgcPlanBattler(void)
     return sJob.me;
 }
 
+// Chi mandare in campo dopo un KO: tra i Pokémon utilizzabili in panchina, quello che fa la coppia migliore
+// (grafo della squadra) con chi è in campo o sta per entrare accanto; a pari sinergia vale la scelta del motore.
+// Il ricevente designato di un Baton Passer ancora vivo in panchina resta indietro.
+u32 AI_VgcReplacementAfterKo(enum BattlerId battler, u32 defaultIdx)
+{
+    struct VgcTeamGraph graph;
+    struct Pokemon *party = GetBattlerParty(battler);
+    enum BattlerId p = GetPartnerBattler(battler);
+    u32 mate = PARTY_SIZE, i, best = defaultIdx;
+    s32 bestScore = INT32_MIN;
+
+    AI_VgcBuildTeamGraph(party, &graph);
+    if (IsBattlerAlive(p))
+        mate = gBattlerPartyIndexes[p];
+    else if (gBattleStruct->AI_monToSwitchIntoId[p] < PARTY_SIZE)
+        mate = gBattleStruct->AI_monToSwitchIntoId[p];
+
+    for (i = 0; i < PARTY_SIZE; i++)
+    {
+        s32 score = 0;
+        u32 j;
+        bool32 reserved = FALSE;
+
+        if (GetMonData(&party[i], MON_DATA_SPECIES) == SPECIES_NONE || GetMonData(&party[i], MON_DATA_IS_EGG)
+         || GetMonData(&party[i], MON_DATA_HP) == 0 || i == gBattlerPartyIndexes[battler] || i == mate)
+            continue;
+        // Riservato al Baton Pass di un compagno ancora in gioco (in campo o in panchina).
+        for (j = 0; j < PARTY_SIZE; j++)
+            if (j != i && graph.batonRecipient[j] == i && GetMonData(&party[j], MON_DATA_HP) > 0)
+                reserved = TRUE;
+        if (mate < PARTY_SIZE)
+            score += graph.leadPair[mate][i];
+        if (i == defaultIdx)
+            score += 40;
+        if (reserved)
+            score -= 80;
+        if (score > bestScore)
+        {
+            bestScore = score;
+            best = i;
+        }
+    }
+    return best;
+}
+
 // Chi deve entrare quando `battler` usa Baton Pass (PARTY_SIZE = nessuno di adatto).
 u32 AI_VgcBatonRecipient(enum BattlerId battler)
 {
@@ -1854,6 +1900,7 @@ bool32 AI_VgcPlanApply(void)
         {
             gBattleStruct->AI_monToSwitchIntoId[me] = sJob.resultParty;
             gAiLogicData->shouldSwitch |= 1u << me;
+            AI_VgcNoteSwitchIn(me);
             changed = TRUE;
         }
         return changed;
