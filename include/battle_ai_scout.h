@@ -88,6 +88,13 @@ struct ScoutItemGuess
 void Scout_GuessItem(u16 species, struct ScoutItemGuess *out);
 // Strumento assunto per un Pokémon del giocatore in campo quando non è noto (HOLD_EFFECT_NONE se incerto).
 enum HoldEffect Scout_AssumedHoldEffect(enum BattlerId battler);
+// TRUE se si è visto lo strumento sparire (consumato o tolto con Privazione): informazione pubblica.
+bool32 Scout_ItemKnownGone(enum BattlerId battler);
+// Statistiche stimate di un Pokémon del giocatore da specie e livello (spread tipica del profilo),
+// al posto di quelle vere che il giocatore non mostra.
+void Scout_EstimateStats(u16 species, u32 level, u16 *hp, u16 stats[NUM_STATS]);
+// Abilità certa della specie (una sola possibile), altrimenti ABILITY_NONE.
+enum Ability Scout_KnownAbility(u16 species);
 // Forma Mega probabile di una specie del giocatore (SPECIES_NONE se nessuna o pietra assente dalla lista).
 u16 Scout_MegaTargetSpecies(u16 species);
 bool32 Scout_PoolHasItem(u16 item);

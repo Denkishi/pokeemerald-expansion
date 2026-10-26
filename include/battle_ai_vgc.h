@@ -36,6 +36,11 @@ bool32 AI_VgcPlanStep(void);
 bool32 AI_VgcPlanApply(void);
 bool32 AI_VgcPlanIsActive(void);
 enum BattlerId AI_VgcPlanBattler(void);
+// TRUE se il pianificatore è occupato (o ha un risultato da applicare) per un altro battler in questo turno:
+// il partner aspetta, perché la ricerca sceglie la coppia e la sua metà arriva già decisa.
+bool32 AI_VgcPlanIsBusy(enum BattlerId battler);
+// A inizio turno: azzera lavori e decisioni rimasti dal turno (o dalla lotta) precedente.
+void AI_VgcPlanResetTurn(void);
 bool32 AI_VgcPlanIsSetter(u16 trainerId, u16 species);
 bool32 AI_VgcPlanIsBack(u16 trainerId, u16 species);
 s32 AI_VgcPlanLeadBonus(u16 trainerId, u16 a, u16 b, bool32 trViable, bool32 twViable);

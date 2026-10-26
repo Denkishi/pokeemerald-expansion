@@ -435,6 +435,7 @@ static EWRAM_DATA u16 sThinkSpriteId = 0;
 static EWRAM_DATA u8 sThinkSpriteActive = 0;
 static EWRAM_DATA u8 sThinkTextShown = FALSE;
 static EWRAM_DATA u8 sThinkPlayerIdleFrames = 0;
+static EWRAM_DATA u8 sThinkPending = 0; // battler in attesa che il partner finisca di pianificare la coppia
 
 #define THINK_PIC_PAL_TAG 0x7A1C
 
@@ -458,6 +459,9 @@ static void ShowThinking(void)
     sThinkTextShown = TRUE;
     StringCopy(gStringVar1, GetTrainerNameFromId(TRAINER_BATTLE_PARAM.opponentA));
     StringExpandPlaceholders(gStringVar4, sText_Thinking);
+    // Un solo testo alla volta nella finestra dei messaggi: due stampe sovrapposte si mescolano e
+    // lasciano stampanti allocate (perdita di memoria trovata dai test).
+    DeactivateSingleTextPrinter(B_WIN_MSG, WINDOW_TEXT_PRINTER);
     BattlePutTextOnWindow(gStringVar4, B_WIN_MSG);
     sThinkSpriteId = CreateTrainerPicSprite(GetTrainerPicFromId(TRAINER_BATTLE_PARAM.opponentA), TRUE, 176, 44, 0, THINK_PIC_PAL_TAG);
     sThinkSpriteActive = (sThinkSpriteId != 0xFFFF);
@@ -478,6 +482,7 @@ static void HideThinking(void)
         FreeAndDestroyTrainerPicSprite(sThinkSpriteId);
         sThinkSpriteActive = FALSE;
     }
+    DeactivateSingleTextPrinter(B_WIN_MSG, WINDOW_TEXT_PRINTER);
     BattlePutTextOnWindow(gText_EmptyString3, B_WIN_MSG);
 }
 
@@ -485,9 +490,21 @@ static void OpponentThinkThenChooseAction(enum BattlerId battler)
 {
     bool32 done;
 
-    // Un solo pianificatore alla volta: se sta lavorando per il partner, si aspetta.
-    if (AI_VgcPlanIsActive() && AI_VgcPlanBattler() != battler)
+    // Un solo pianificatore alla volta: se sta lavorando per il partner (che decide la coppia), si aspetta.
+    if (AI_VgcPlanIsBusy(battler))
         return;
+    // In attesa del partner: ora tocca a noi (di solito con la nostra metà della coppia già decisa).
+    if (sThinkPending & (1u << battler))
+    {
+        sThinkPending &= ~(1u << battler);
+        if (!AI_VgcPlanBegin(battler))
+        {
+            HideThinking();
+            AI_TrySwitchOrUseItem(battler);
+            BtlController_Complete(battler);
+            return;
+        }
+    }
     done = AI_VgcPlanStep();
     if (!done)
     {
@@ -501,7 +518,7 @@ static void OpponentThinkThenChooseAction(enum BattlerId battler)
         {
             sThinkPlayerIdleFrames = 0;
         }
-        if (CUSTOM_VGC_THINKING_OVERLAY && sThinkPlayerIdleFrames >= 12)
+        if (CUSTOM_VGC_THINKING_OVERLAY && !TESTING && sThinkPlayerIdleFrames >= 12)
             ShowThinking();
         return;
     }
@@ -514,12 +531,19 @@ static void OpponentThinkThenChooseAction(enum BattlerId battler)
 static void OpponentHandleChooseAction(enum BattlerId battler)
 {
     if (IsDoubleBattle() && (gBattleTypeFlags & BATTLE_TYPE_TRAINER)
-     && (gAiThinkingStruct->aiFlags[battler] & AI_FLAG_VGC_DOUBLES) && AI_VgcPlanBegin(battler))
+     && (gAiThinkingStruct->aiFlags[battler] & AI_FLAG_VGC_DOUBLES))
     {
-        sThinkFrames = 0;
-        sThinkPlayerIdleFrames = 0;
-        gBattlerControllerFuncs[battler] = OpponentThinkThenChooseAction;
-        return;
+        bool32 started = AI_VgcPlanBegin(battler);
+        sThinkPending &= ~(1u << battler); // niente attese rimaste da una lotta precedente
+        if (started || AI_VgcPlanIsBusy(battler))
+        {
+            if (!started)
+                sThinkPending |= 1u << battler;
+            sThinkFrames = 0;
+            sThinkPlayerIdleFrames = 0;
+            gBattlerControllerFuncs[battler] = OpponentThinkThenChooseAction;
+            return;
+        }
     }
     AI_TrySwitchOrUseItem(battler);
     BtlController_Complete(battler);

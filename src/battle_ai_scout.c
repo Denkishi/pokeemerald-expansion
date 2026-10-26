@@ -237,7 +237,81 @@ static const enum Ability sIntim[]    = { ABILITY_INTIMIDATE };
 static const enum Ability sNoSleep[]  = { ABILITY_INSOMNIA, ABILITY_VITAL_SPIRIT, ABILITY_SWEET_VEIL, ABILITY_GOOD_AS_GOLD,
                                           ABILITY_MAGIC_BOUNCE, ABILITY_PURIFYING_SALT, ABILITY_COMATOSE };
 
+// Cache dei profili e degli attacchi imparabili: dipendono solo dalla specie (dati in ROM), ma calcolarli
+// scorre interi learnset, e il pianificatore li chiede in ogni simulazione. In lotta ci sono al massimo
+// 12 specie: le ultime usate restano qui (sostituzione circolare).
+#define SCOUT_CACHE_SIZE    12
+#define SCOUT_CACHE_MOVES   16
+
+struct ScoutCacheEntry
+{
+    struct ScoutProfile prof;
+    enum Move attacks[SCOUT_CACHE_MOVES];
+    u8 nAttacks;
+    u8 hasProf:1;
+    u8 hasAttacks:1;
+};
+
+static EWRAM_DATA struct ScoutCacheEntry sScoutCache[SCOUT_CACHE_SIZE] = {0};
+static EWRAM_DATA u8 sScoutCacheNext = 0;
+
+static struct ScoutCacheEntry *ScoutCacheGet(u16 species)
+{
+    u32 i;
+    struct ScoutCacheEntry *e;
+
+    for (i = 0; i < SCOUT_CACHE_SIZE; i++)
+    {
+        if ((sScoutCache[i].hasProf || sScoutCache[i].hasAttacks) && sScoutCache[i].prof.species == species)
+            return &sScoutCache[i];
+    }
+    e = &sScoutCache[sScoutCacheNext];
+    sScoutCacheNext = (sScoutCacheNext + 1) % SCOUT_CACHE_SIZE;
+    memset(e, 0, sizeof(*e));
+    e->prof.species = species;
+    return e;
+}
+
+static void ComputeSpeciesProfile(u16 species, struct ScoutProfile *out);
+static u32 ComputeLearnableAttacks(u16 species, enum Move *out, u32 max);
+
 void Scout_GetSpeciesProfile(u16 species, struct ScoutProfile *out)
+{
+    struct ScoutCacheEntry *e;
+
+    if (species == SPECIES_NONE || species >= NUM_SPECIES)
+    {
+        memset(out, 0, sizeof(*out));
+        return;
+    }
+    e = ScoutCacheGet(species);
+    if (!e->hasProf)
+    {
+        ComputeSpeciesProfile(species, &e->prof);
+        e->hasProf = TRUE;
+    }
+    *out = e->prof;
+}
+
+u32 Scout_CollectLearnableAttacks(u16 species, enum Move *out, u32 max)
+{
+    struct ScoutCacheEntry *e;
+    u32 n;
+
+    if (species == SPECIES_NONE || species >= NUM_SPECIES)
+        return 0;
+    e = ScoutCacheGet(species);
+    if (!e->hasAttacks)
+    {
+        e->nAttacks = ComputeLearnableAttacks(species, e->attacks, SCOUT_CACHE_MOVES);
+        e->hasAttacks = TRUE;
+    }
+    n = min(e->nAttacks, max);
+    memcpy(out, e->attacks, n * sizeof(enum Move));
+    return n;
+}
+
+static void ComputeSpeciesProfile(u16 species, struct ScoutProfile *out)
 {
     const struct SpeciesInfo *info;
     u32 i, p;
@@ -353,7 +427,7 @@ static void CollectAttack(enum Move move, enum Move *out, u32 *n, u32 max)
         out[(*n)++] = move;
 }
 
-u32 Scout_CollectLearnableAttacks(u16 species, enum Move *out, u32 max)
+static u32 ComputeLearnableAttacks(u16 species, enum Move *out, u32 max)
 {
     u32 n = 0, i, pass;
     u16 list[2];
@@ -618,4 +692,53 @@ enum HoldEffect Scout_AssumedHoldEffect(enum BattlerId battler)
     if (g.effect == HOLD_EFFECT_FOCUS_SASH && gBattleMons[battler].hp < gBattleMons[battler].maxHP)
         return HOLD_EFFECT_NONE;
     return g.effect;
+}
+
+bool32 Scout_ItemKnownGone(enum BattlerId battler)
+{
+    // Consumo e Privazione sono annunciati a schermo: è informazione pubblica.
+    struct PartyState *ps = GetBattlerPartyState(battler);
+    return ps->usedHeldItem != ITEM_NONE || ps->isKnockedOff;
+}
+
+static u16 EstimatedStat(u32 base, u32 level, u32 ev, bool32 boosted)
+{
+    u32 stat = ((2 * base + 31 + ev / 4) * level) / 100 + 5;
+    return boosted ? stat * 110 / 100 : stat;
+}
+
+void Scout_EstimateStats(u16 species, u32 level, u16 *hp, u16 stats[NUM_STATS])
+{
+    const struct SpeciesInfo *si = &gSpeciesInfo[species];
+    bool32 physical = si->baseAttack >= si->baseSpAttack;
+    u32 offBase = physical ? si->baseAttack : si->baseSpAttack;
+    bool32 sweeper = si->baseSpeed >= 85 && offBase >= 100;
+    u32 hpEv = sweeper ? 4 : 252;
+    u32 speEv = sweeper ? 252 : 0;
+    u32 defEv = sweeper ? 0 : 4;
+
+    // Spread tipica dal profilo della specie: veloce e offensivo = 4 PS / 252 attacco / 252 Velocità con
+    // natura +Velocità; altrimenti 252 PS / 252 attacco con natura +attacco. Statistiche vere mai lette.
+    *hp = ((2 * si->baseHP + 31 + hpEv / 4) * level) / 100 + level + 10;
+    stats[STAT_HP] = *hp;
+    stats[STAT_ATK] = EstimatedStat(si->baseAttack, level, physical ? 252 : 0, !sweeper && physical);
+    stats[STAT_SPATK] = EstimatedStat(si->baseSpAttack, level, physical ? 0 : 252, !sweeper && !physical);
+    stats[STAT_DEF] = EstimatedStat(si->baseDefense, level, defEv, FALSE);
+    stats[STAT_SPDEF] = EstimatedStat(si->baseSpDefense, level, 0, FALSE);
+    stats[STAT_SPEED] = EstimatedStat(si->baseSpeed, level, speEv, sweeper);
+}
+
+enum Ability Scout_KnownAbility(u16 species)
+{
+    // Abilità certa solo se la specie ne ha una sola possibile; altrimenti nessuna (ignota).
+    const enum Ability *ab = gSpeciesInfo[species].abilities;
+    enum Ability only = ab[0];
+    u32 i;
+
+    for (i = 1; i < NUM_ABILITY_SLOTS; i++)
+    {
+        if (ab[i] != ABILITY_NONE && ab[i] != only)
+            return ABILITY_NONE;
+    }
+    return only;
 }

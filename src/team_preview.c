@@ -316,6 +316,40 @@ static const struct WindowTemplate sWinTemplates[] =
 // ---------------------------------------------------------------------
 // Utilità mon
 // ---------------------------------------------------------------------
+static bool32 IsPlayerMon(struct Pokemon *mon)
+{
+    return mon >= gPlayerParty && mon < gPlayerParty + PARTY_SIZE;
+}
+
+// Statistica di un Pokémon: vera per i nostri, stimata da specie e livello per quelli del giocatore
+// (in team preview si vedono solo specie e livello).
+static u32 PreviewStat(struct Pokemon *mon, enum MonData id)
+{
+    u16 hp, stats[NUM_STATS];
+
+    if (!IsPlayerMon(mon))
+        return GetMonData(mon, id);
+    Scout_EstimateStats(GetMonData(mon, MON_DATA_SPECIES), GetMonData(mon, MON_DATA_LEVEL), &hp, stats);
+    switch (id)
+    {
+    case MON_DATA_MAX_HP: return hp;
+    case MON_DATA_ATK:    return stats[STAT_ATK];
+    case MON_DATA_DEF:    return stats[STAT_DEF];
+    case MON_DATA_SPATK:  return stats[STAT_SPATK];
+    case MON_DATA_SPDEF:  return stats[STAT_SPDEF];
+    case MON_DATA_SPEED:  return stats[STAT_SPEED];
+    default:              return GetMonData(mon, id);
+    }
+}
+
+// Abilità: vera per i nostri; per il giocatore solo se la specie ne ha una sola possibile.
+static enum Ability PreviewAbility(struct Pokemon *mon)
+{
+    if (!IsPlayerMon(mon))
+        return GetMonAbility(mon);
+    return Scout_KnownAbility(GetMonData(mon, MON_DATA_SPECIES));
+}
+
 static bool32 IsMonUsable(struct Pokemon *mon)
 {
     return GetMonData(mon, MON_DATA_SPECIES) != SPECIES_NONE
@@ -355,7 +389,7 @@ static u32 TypeVsTypesPct(enum Type atkType, enum Type def1, enum Type def2)
 static u32 TypeVsMonPct(enum Type atkType, struct Pokemon *def)
 {
     u32 pct = TypeVsTypesPct(atkType, MonType(def, 0), MonType(def, 1));
-    switch (GetMonAbility(def))
+    switch (PreviewAbility(def))
     {
     case ABILITY_LEVITATE:
     case ABILITY_EARTH_EATER:
@@ -407,9 +441,9 @@ static u32 PreviewEffectiveness(struct Pokemon *atk, struct Pokemon *def)
 static u32 CalcPct(struct Pokemon *atk, struct Pokemon *def, u32 power, enum Type type, bool32 physical)
 {
     u32 level = GetMonData(atk, MON_DATA_LEVEL);
-    u32 a = GetMonData(atk, physical ? MON_DATA_ATK : MON_DATA_SPATK);
-    u32 d = GetMonData(def, physical ? MON_DATA_DEF : MON_DATA_SPDEF);
-    u32 hp = GetMonData(def, MON_DATA_MAX_HP);
+    u32 a = PreviewStat(atk, physical ? MON_DATA_ATK : MON_DATA_SPATK);
+    u32 d = PreviewStat(def, physical ? MON_DATA_DEF : MON_DATA_SPDEF);
+    u32 hp = PreviewStat(def, MON_DATA_MAX_HP);
     u32 dmg;
 
     if (d == 0) d = 1;
@@ -447,7 +481,7 @@ static u32 BestMovePct(struct Pokemon *atk, struct Pokemon *def)
 // Senza onniscienza: l'AI vede solo specie/tipi (come una vera team preview).
 static u32 BestStabPct(struct Pokemon *atk, struct Pokemon *def)
 {
-    bool32 physical = GetMonData(atk, MON_DATA_ATK) >= GetMonData(atk, MON_DATA_SPATK);
+    bool32 physical = PreviewStat(atk, MON_DATA_ATK) >= PreviewStat(atk, MON_DATA_SPATK);
     u32 a = CalcPct(atk, def, 80, MonType(atk, 0), physical);
     u32 b = CalcPct(atk, def, 80, MonType(atk, 1), physical);
     return max(a, b);
@@ -776,7 +810,7 @@ static s32 Matchup(struct Pokemon *e, struct Pokemon *p, bool32 omniscient)
     // Senza onniscienza le mosse del giocatore non si vedono: si stima dallo STAB (come in una
     // vera team preview) e da ciò che si è visto nelle gare precedenti della serie.
     u32 def = omniscient ? BestMovePct(p, e) : max(BestStabPct(p, e), BestEstimatedPct(p, e));
-    u32 eSpd = GetMonData(e, MON_DATA_SPEED), pSpd = GetMonData(p, MON_DATA_SPEED);
+    u32 eSpd = GetMonData(e, MON_DATA_SPEED), pSpd = PreviewStat(p, MON_DATA_SPEED);
     u32 hitsE, hitsP;
     bool32 eFaster;
     s32 s;
@@ -1298,8 +1332,11 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
         if (IsMonUsable(&enemy[i])) enemySlots[nEnemy++] = i;
         if (IsMonUsable(&player[i]))
         {
+            struct ScoutProfile prof;
             playerSlots[nPlayer++] = i;
-            if (HasFakeOut(&player[i]))
+            // Le mosse del giocatore non si vedono: Fake Out probabile dal profilo della specie.
+            Scout_GetSpeciesProfile(GetMonData(&player[i], MON_DATA_SPECIES), &prof);
+            if (prof.role[SCOUT_FAKE_OUT] >= 50)
                 foeHasFakeOut = TRUE;
         }
     }
@@ -1317,7 +1354,7 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
         sum /= nEnemy;
         for (j = 0; j < nPlayer; j++)
         {
-            u32 spd = GetMonData(&player[playerSlots[j]], MON_DATA_SPEED);
+            u32 spd = PreviewStat(&player[playerSlots[j]], MON_DATA_SPEED);
             if (spd > sum)
                 fastFoes++;
             if (spd > sum && spd < sum * 2)

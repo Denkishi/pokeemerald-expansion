@@ -88,6 +88,10 @@
 // Simulazioni per fotogramma mentre pensa in sottofondo (più alto = decide prima ma la lotta può
 // scattare; più basso = fluido ma, se scegli in fretta, vedi "penso..." più a lungo).
 #define CUSTOM_VGC_PLAN_SIMS_PER_FRAME      24
+// Tempo massimo per fotogramma del pianificatore, in righe di schermo (un fotogramma = 228 righe).
+// Il pianificatore si ferma appena lo supera e riprende al fotogramma dopo: il gioco non scatta.
+// Più alto = l'IA decide prima; più basso = più margine per animazioni e menu.
+#define CUSTOM_VGC_PLAN_SCANLINES_PER_FRAME 100
 // Ritratto dell'allenatore + "penso..." quando hai già scelto e l'IA sta ancora calcolando.
 #define CUSTOM_VGC_THINKING_OVERLAY         TRUE
 // L'IA dedicata ai doppi si attiva per allenatore con il flag "Vgc Doubles" nella riga AI di

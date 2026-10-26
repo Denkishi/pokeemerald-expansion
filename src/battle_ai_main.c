@@ -756,7 +756,7 @@ void SetBattlerAiData(enum BattlerId battler, struct AiLogicData *aiData)
     // IA VGC: strumento del giocatore non ancora visto -> si assume il più probabile per la specie
     // (Focus Sash, Stolascelta, Corpetto Assalto, Evolcondensa...), come farebbe un giocatore.
     if (holdEffect == HOLD_EFFECT_NONE && IsOnPlayerSide(battler) && !IsAiBattlerAware(battler)
-     && IsAiFlagPresent(AI_FLAG_VGC_DOUBLES) && gBattleMons[battler].item != ITEM_NONE)
+     && IsAiFlagPresent(AI_FLAG_VGC_DOUBLES) && !Scout_ItemKnownGone(battler))
         holdEffect = aiData->holdEffects[battler] = Scout_AssumedHoldEffect(battler);
     aiData->lastUsedMove[battler] = (gLastMoves[battler] == MOVE_UNAVAILABLE) ? MOVE_NONE : gLastMoves[battler];
     aiData->hpPercents[battler] = GetHealthPercentage(battler);

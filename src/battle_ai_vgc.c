@@ -648,6 +648,7 @@ void AI_VgcTurnStart(void)
 {
     enum BattlerId b;
 
+    AI_VgcPlanResetTurn();
     if (!IsDoubleBattle() || !(gBattleTypeFlags & BATTLE_TYPE_TRAINER))
         return;
     sVgcProtectedLastTurn = sVgcProtectedThisTurn;

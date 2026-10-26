@@ -72,8 +72,10 @@ struct RfuDebug
     u8 padding[2];
 };
 
-COMMON_DATA u32 gRfuAPIBuffer[RFU_API_BUFF_SIZE_RAM / 4] = {0};
-COMMON_DATA struct RfuManager gRfu = {0};
+// In EWRAM per liberare IWRAM: la libreria wireless gira nella versione "ROM" (interrupt eseguito
+// dalla ROM, buffer più piccolo), l'unica ammessa con il buffer fuori dalla IWRAM.
+EWRAM_DATA u32 gRfuAPIBuffer[RFU_API_BUFF_SIZE_ROM / 4] = {0};
+EWRAM_DATA struct RfuManager gRfu = {0};
 
 static u8 sHeldKeyCount;
 static u8 sResendBlock8[CMD_LENGTH * 2];
@@ -323,7 +325,7 @@ void InitRFU(void)
 
 void InitRFUAPI(void)
 {
-    if (!rfu_initializeAPI((void *)gRfuAPIBuffer, sizeof(gRfuAPIBuffer), &gIntrTable[1], TRUE))
+    if (!rfu_initializeAPI((void *)gRfuAPIBuffer, sizeof(gRfuAPIBuffer), &gIntrTable[1], FALSE))
     {
         gLinkType = 0;
         ClearSavedLinkPlayers();
