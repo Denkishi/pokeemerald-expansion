@@ -16,7 +16,7 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
   - ⬜ velocità del giocatore in `gAiLogicData->speedStats` (codice base dell'expansion) → in M1 con il belief
 - ✅ Suite di test `test/battle/ai/ai_vgc_doubles.c` attiva. WSL compila soltanto; i test si eseguono su Windows con `tools/mgba/mgba-rom-test.exe`
 - ✅ Installate con msys2 `libepoxy-0.dll` e `libwinpthread-1.dll`: `mgba-rom-test.exe` gira su Windows (aggiungere `C:\msys64\mingw64\bin` al PATH)
-- ✅ **Risultati: 11 PASS, 0 FAIL, 0 KNOWN_FAILING** (+1 test team preview)
+- ✅ **Risultati: 13 PASS, 0 FAIL, 0 KNOWN_FAILING** (+1 test team preview)
   - ✅ Dopo un KO entra il compagno giusto (Gallade accanto a Whimsicott)
 - ℹ️ Controllo regressioni: `test/battle/ai/ai_doubles.c` dell'expansion ha 14 test che falliscono, **identici su `master`** (prima del lavoro sull'IA VGC): non li ho introdotti io, vengono dalle modifiche precedenti del fork
   - ✅ Fake Out al turno 1 per coprire un compagno Baton Passer
@@ -55,6 +55,7 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
 - ✅ Precisione con ramo "mancato": la simulazione applica il colpo pieno (un KO resta un KO) e per ogni azione imprecisa del turno 1 si rigioca il turno col colpo mancato, togliendo (1 - precisione) x differenza. Prima `danno x precisione` trasformava un KO all'80% in "mai KO" e una mossa ad area al 90% che manda KO due bersagli in nessun KO. Precisione dalla tabella dell'IA (Compound Eyes, No Guard...). Test: Rock Slide 90% su due bersagli > Scratch sicuro; Scratch > Stone Edge a pari KO
 - ✅ **Bug trovato e corretto**: se un avversario non aveva attacchi plausibili noti, la simulazione dava per **certo** il suo Protect e qualunque nostro attacco sembrava inutile (tutte le coppie con lo stesso valore). Ora resta sempre l'alternativa "non si protegge" con la probabilità complementare
 - ✅ **Causa trovata** (test "accurate move", Scratch che non mandava KO il bersaglio a 5 PS): non era il simulatore. `ScalePartiesToBattleLevel` (tutte le lotte a Lv50) ricalcolava le statistiche e curava i PS anche nei test: `HP(5)` diventava 250 PS e `Speed(10)` veniva ignorato. Ora nei test valgono PS e statistiche scritti dal test (nel gioco resta tutto a Lv50). Diagnostica `VGCDMG`/`VGCFOE` nel log dei test
+- ✅ Mosse ad area sul compagno (Earthquake, Surf, Discharge: TARGET_FOES_AND_ALLY) con Protect, Wide Guard e immunità d'abilità (Levitate, Flash Fire, Water/Volt Absorb, Lightning Rod, Storm Drain, Sap Sipper, Telepathy...; Mold Breaker le ignora). Test con il set vero del Rotom-Mow di Simone
 - ⬜ Mega, terreni, Sostituto
 - ✅ Cambi d'abilità a metà turno (Simple Beam, Worry Seed, Skill Swap, Gastro Acid, Entrainment)
 - ✅ Mycelium Might: mosse di stato per ultime nella fascia di priorità, ignorano le abilità del bersaglio
@@ -63,11 +64,16 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
 - ⬜ Sostituzioni dopo un KO nel simulatore
 
 ## M3 — Valutazione della posizione
-- ⬜ Materiale con panchina, HP pesati per ruolo
+- ✅ Materiale con panchina: Pokémon utilizzabili per lato (campo + panchina), la differenza scalata sul totale (un KO a 2 contro 2 pesa più che a 4 contro 4); squadra azzerata = partita persa/vinta
+- ✅ Minacce di KO simmetriche (prima -45 per noi e +22 per loro), tutte contate (niente `break`), pesate per la precisione della mossa
+- ✅ Velocità: contro un Pokémon andato KO la coppia conta come vinta da chi resta (prima un KO faceva perdere punti di velocità)
+- ✅ Pesi in `include/config/custom.h` (`CUSTOM_VGC_EVAL_*`)
+- ⬜ HP pesati per ruolo
 - ⬜ Velocità del turno dopo con turni rimasti di Tailwind/TR
 - ✅ Minacce credute: un avversario con mosse non ancora viste minaccia KO con le sue STAB probabili (prima era considerato innocuo)
 - ✅ Stadi valutati solo se servono: chi attacca (stadio offensivo giusto per fisico/speciale), o chi ha Baton Pass e qualcuno in panchina (potenziale trasferibile); Velocità e difese con peso minore
-- ⬜ Risorse (Fake Out, Sash, Mega)
+- ✅ Risorse: Focus Sash intatto, Fake Out pronto per chi entra durante la simulazione
+- ⬜ Mega non usata (il simulatore non modella la Mega: sarebbe uguale in ogni ramo)
 - ⚠️ Punto aperto: il valore del setup su più turni (Calm Mind ora, Baton Pass dopo) è ancora sottostimato rispetto a far entrare subito l'attaccante. In alcuni casi è giusto (avversari innocui o non minacciosi), ma va misurato meglio: minacce credute degli avversari (M1), Intimidate e danni reali (M2), pressione del turno dopo (M3). Diagnostica nei test: `VGCLEAF` (valore dopo il turno 1 e miglior seguito al turno 2)
 
 ## M4 — Ricerca congiunta dei due slot

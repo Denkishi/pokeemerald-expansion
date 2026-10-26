@@ -92,6 +92,19 @@
 // Il pianificatore si ferma appena lo supera e riprende al fotogramma dopo: il gioco non scatta.
 // Più alto = l'IA decide prima; più basso = più margine per animazioni e menu.
 #define CUSTOM_VGC_PLAN_SCANLINES_PER_FRAME 100
+// Pesi della valutazione della posizione del pianificatore (Evaluate in src/battle_ai_vgc_plan.c), in punti
+// (100 = PS pieni di un Pokémon). Ognuno vale con il segno opposto per il giocatore.
+#define CUSTOM_VGC_EVAL_KO                  160 // Pokémon in campo andato KO
+#define CUSTOM_VGC_EVAL_ALIVE               40  // Pokémon in campo vivo (in più della percentuale di PS)
+#define CUSTOM_VGC_EVAL_SLEEP               60  // addormentato
+#define CUSTOM_VGC_EVAL_BURN                35  // scottato (attaccante fisico)
+#define CUSTOM_VGC_EVAL_PARALYSIS           20  // paralizzato
+#define CUSTOM_VGC_EVAL_SPEED_PAIR          12  // per coppia (nostro, loro): chi si muove prima al turno dopo
+#define CUSTOM_VGC_EVAL_THREAT_FAST         45  // minaccia di KO al turno dopo, da chi si muove prima
+#define CUSTOM_VGC_EVAL_THREAT_SLOW         20  // minaccia di KO al turno dopo, da chi si muove dopo
+#define CUSTOM_VGC_EVAL_MATERIAL            120 // differenza di Pokémon utilizzabili (campo + panchina), sul totale
+#define CUSTOM_VGC_EVAL_FAKE_OUT            25  // Fake Out pronto per il turno dopo (appena entrato)
+#define CUSTOM_VGC_EVAL_SASH                20  // Focus Sash intatto a PS pieni
 // Ritratto dell'allenatore + "penso..." quando hai già scelto e l'IA sta ancora calcolando.
 #define CUSTOM_VGC_THINKING_OVERLAY         TRUE
 // L'IA dedicata ai doppi si attiva per allenatore con il flag "Vgc Doubles" nella riga AI di

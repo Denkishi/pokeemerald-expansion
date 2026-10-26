@@ -158,6 +158,35 @@ AI_DOUBLE_BATTLE_TEST("VGC: a 90% spread move that KOs both foes beats a sure si
     }
 }
 
+AI_DOUBLE_BATTLE_TEST("VGC: Discharge is not used when it would KO the partner (real set: Simone's Rotom-Mow)")
+{
+    // Set veri della squadra di Simone (src/data/trainers.party). Discharge colpisce anche il compagno: qui
+    // manderebbe KO Porygon-Z per un po' di danno in più sul Wobbuffet. Thunderbolt basta per Gyarados.
+    GIVEN {
+        AI_FLAGS(VGC_AI_FLAGS);
+        PLAYER(SPECIES_GYARADOS) { HP(100); Speed(50); }
+        PLAYER(SPECIES_WOBBUFFET) { Speed(50); }
+        OPPONENT(SPECIES_ROTOM_MOW) { Ability(ABILITY_LEVITATE); Moves(MOVE_LEAF_STORM, MOVE_THUNDERBOLT, MOVE_VOLT_SWITCH, MOVE_DISCHARGE); Speed(150); }
+        OPPONENT(SPECIES_PORYGON_Z) { HP(20); Moves(MOVE_TRI_ATTACK, MOVE_ICE_BEAM); Speed(120); }
+    } WHEN {
+        TURN { EXPECT_MOVE(opponentLeft, MOVE_THUNDERBOLT, target: playerLeft); }
+    }
+}
+
+AI_DOUBLE_BATTLE_TEST("VGC: Earthquake is fine next to a Levitate partner")
+{
+    // Il compagno con Levitate è immune: Earthquake manda KO entrambi gli avversari senza costi.
+    GIVEN {
+        AI_FLAGS(VGC_AI_FLAGS);
+        PLAYER(SPECIES_WOBBUFFET) { HP(30); Speed(10); }
+        PLAYER(SPECIES_WOBBUFFET) { HP(30); Speed(10); }
+        OPPONENT(SPECIES_GARCHOMP) { Moves(MOVE_EARTHQUAKE, MOVE_DRAGON_CLAW); Speed(100); }
+        OPPONENT(SPECIES_ROTOM_MOW) { Ability(ABILITY_LEVITATE); Moves(MOVE_LEAF_STORM, MOVE_THUNDERBOLT); Speed(90); }
+    } WHEN {
+        TURN { EXPECT_MOVE(opponentLeft, MOVE_EARTHQUAKE); }
+    }
+}
+
 AI_DOUBLE_BATTLE_TEST("VGC: Trick Room setter sets the room for its slow partner")
 {
     GIVEN {
