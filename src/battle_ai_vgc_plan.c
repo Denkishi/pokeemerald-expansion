@@ -881,12 +881,19 @@ static s32 Evaluate(const struct PlanState *st)
         if (pm->asleep)
             v -= side * 60;
         // Stadi: valgono se servono a qualcosa (chi attacca, o chi li passa con Baton Pass a qualcuno in panchina).
-        if (pm->canAttack || (pm->canPass && CountUsablePartyMons(b) > 0))
+        if (pm->canAttack)
         {
-            s32 off = pm->canAttack ? ((pm->atk >= pm->spa) ? pm->stage[PS_ATK] : pm->stage[PS_SPA])
-                                    : max(pm->stage[PS_ATK], pm->stage[PS_SPA]);
+            s32 off = (pm->atk >= pm->spa) ? pm->stage[PS_ATK] : pm->stage[PS_SPA];
             s32 dfn = (pm->stage[PS_DEF] + pm->stage[PS_SPD]) / 2;
             v += side * (20 * max(-4, min(4, off)) + 12 * max(-4, min(4, pm->stage[PS_SPE])) + 6 * max(-4, min(4, dfn)));
+        }
+        else if (pm->canPass && CountUsablePartyMons(b) > 0)
+        {
+            // Potenziale trasferibile: i boost di un Baton Passer finiscono su uno sweeper in panchina (scelto dal
+            // grafo per sfruttarli) e lì valgono il doppio che su un attaccante qualunque.
+            s32 off = max(pm->stage[PS_ATK], pm->stage[PS_SPA]);
+            s32 dfn = (pm->stage[PS_DEF] + pm->stage[PS_SPD]) / 2;
+            v += side * (40 * max(-4, min(4, off)) + 24 * max(-4, min(4, pm->stage[PS_SPE])) + 8 * max(-4, min(4, dfn)));
         }
     }
     for (b = 0; b < gBattlersCount; b++)
@@ -1758,6 +1765,13 @@ bool32 AI_VgcPlanStep(void)
                         if (sJob.i2 >= sJob.nM)
                         {
                             s32 v1 = (Evaluate(&sJob.s1) + sJob.laBest) / 2;
+#if TESTING
+                            {
+                                extern s32 Test_MgbaPrintf(const char *fmt, ...);
+                                Test_MgbaPrintf("VGCLEAF pair%d foes(%d,%d): turno1=%d turno2=%d", sJob.i, sJob.a, sJob.b,
+                                                Evaluate(&sJob.s1), sJob.laBest);
+                            }
+#endif
                             Accumulate(v1, PairWeight(&sJob.foeA[sJob.a], &sJob.foeB[sJob.b]));
                             sJob.phase = 0;
                             if (AdvanceLevel1())

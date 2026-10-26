@@ -26,6 +26,7 @@
 #include "battle_ai_vgc.h"
 #include "team_preview.h"
 #include "battle_ai_scout.h"
+#include "battle_ai_vgc_graph.h"
 #include "battle_gimmick.h"
 #include "battle_main.h"
 #include "battle_setup.h"
@@ -588,6 +589,15 @@ static EWRAM_DATA u8 sVgcProtectedThisTurn = 0;
 static EWRAM_DATA u8 sVgcReadRoll = 0;          // 0..99, tirato una volta a turno: quanto fidarsi della lettura
 static EWRAM_DATA enum Move sVgcPlayerLastMove[MAX_BATTLERS_COUNT] = {0}; // ultima mossa di ogni Pokémon del giocatore (blocco Choice)
 static EWRAM_DATA u8 sVgcInferredScarf = 0;             // bitmask: Stolascelta dedotta dalla velocità
+static EWRAM_DATA struct VgcTeamGraph sVgcTeamGraph = {0}; // conoscenza della squadra dell'IA (ricalcolata a ogni turno)
+
+// Ruoli (dal grafo della squadra) di un Pokémon dell'IA in campo; 0 per il giocatore.
+static u32 VgcRoles(enum BattlerId battler)
+{
+    if (IsOnPlayerSide(battler) || gBattlerPartyIndexes[battler] >= PARTY_SIZE)
+        return 0;
+    return sVgcTeamGraph.roles[gBattlerPartyIndexes[battler]];
+}
 
 void AI_VgcResetMemory(void)
 {
@@ -651,6 +661,7 @@ void AI_VgcTurnStart(void)
     AI_VgcPlanResetTurn();
     if (!IsDoubleBattle() || !(gBattleTypeFlags & BATTLE_TYPE_TRAINER))
         return;
+    AI_VgcBuildTeamGraph(GetBattlerParty(GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT)), &sVgcTeamGraph);
     sVgcProtectedLastTurn = sVgcProtectedThisTurn;
     sVgcProtectedThisTurn = 0;
     sVgcThreatened = sVgcLosing = 0;
@@ -1018,135 +1029,94 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
                 ADJUST_SCORE(4);
         }
 
-        // Weezing-Galar con Slaking accanto: il Gas Reagente tiene spento Pigrizia, Weezing va tenuto vivo.
+        // Gas Reagente accanto a un compagno con abilità penalizzante (Pigrizia, Partenzalenta...): chi lo tiene
+        // spento va tenuto vivo.
         if (effect == EFFECT_PROTECT && !targetingPartner && threatened && hasPartner
          && gAiLogicData->abilities[battlerAtk] == ABILITY_NEUTRALIZING_GAS
-         && AI_VgcSameSpecies(SPECIES_SLAKING, gBattleMons[partner].species))
+         && (VgcRoles(partner) & VGC_ROLE_HINDER_ABILITY))
             ADJUST_SCORE(3);
 
-        // --- SAVAROTTO ---
-        if (trainerId == TRAINER_SAVAROTTO)
+        // ---------------- Ruoli dal grafo della squadra (valgono per qualunque squadra) ----------------
+        // Erano le regole scritte a mano per Savarotto e Patatina: ora le dà il ruolo, non il nome.
         {
-            u16 mySpecies = gBattleMons[battlerAtk].species;
+            u32 myRoles = VgcRoles(battlerAtk);
+            u32 partnerRoles = hasPartner ? VgcRoles(partner) : 0;
+            bool32 partnerSlow = (partnerRoles & VGC_ROLE_SLOW) != 0;
+            bool32 partnerSweeper = (partnerRoles & (VGC_ROLE_ATK_SWEEPER | VGC_ROLE_SPA_SWEEPER)) != 0;
+            bool32 trActive = (gFieldStatuses & STATUS_FIELD_TRICK_ROOM) != 0;
+            bool32 twActive = (gSideStatuses[GetBattlerSide(battlerAtk)] & SIDE_STATUS_TAILWIND) != 0;
 
-            // 1. Fake Out al turno 1 da Incineroar / Sneasler per garantire il setup di Espathra
-            if (hasPartner && AI_VgcSameSpecies(SPECIES_ESPATHRA, gBattleMons[partner].species) && firstTurn)
-            {
-                if (effect == EFFECT_FIRST_TURN_ONLY && !targetingPartner && IsFlinchGuaranteed(battlerAtk, battlerDef, move))
-                    ADJUST_SCORE(8);
-            }
+            // Fake Out al turno 1 per comprare il turno a un compagno che fa setup (es. Espathra).
+            if (firstTurn && (partnerRoles & VGC_ROLE_NEEDS_COVER)
+             && effect == EFFECT_FIRST_TURN_ONLY && !targetingPartner && IsFlinchGuaranteed(battlerAtk, battlerDef, move))
+                ADJUST_SCORE(8);
 
-            // 2. Whimsicott + Gallade: Beat Up su Gallade con Giustizia (Justified)
-            if (hasPartner && AI_VgcSameSpecies(SPECIES_WHIMSICOTT, mySpecies) && AI_VgcSameSpecies(SPECIES_GALLADE, gBattleMons[partner].species))
-            {
-                if (move == MOVE_BEAT_UP && targetingPartner)
-                    ADJUST_SCORE(12);
-                else if (effect == EFFECT_TAILWIND && !(gSideStatuses[GetBattlerSide(battlerAtk)] & SIDE_STATUS_TAILWIND) && !targetingPartner)
-                    ADJUST_SCORE(5);
-            }
+            // Colpire il compagno per attivargli l'abilità (Beat Up -> Justified...): combo trovata dal grafo.
+            if (targetingPartner && !isStatus && hasPartner
+             && sVgcTeamGraph.hitPartner[gBattlerPartyIndexes[battlerAtk]] == gBattlerPartyIndexes[partner])
+                ADJUST_SCORE(12);
 
-            // 3. Espathra:
-            // - Turno 1: setup di Calm Mind
-            // - Turno 2: se non ha Substitute, Sub se non vede minacce immediate o Protect se minacciata
-            // - Poi: Baton Pass per passare i boost a Chandelure
-            if (AI_VgcSameSpecies(SPECIES_ESPATHRA, mySpecies))
+            // Tailwind per un compagno attaccante non lento.
+            if (effect == EFFECT_TAILWIND && !twActive && !targetingPartner && (myRoles & VGC_ROLE_TAILWIND)
+             && partnerSweeper && !partnerSlow)
+                ADJUST_SCORE(5);
+
+            // Baton Passer (accumula boost senza attaccare e li passa a chi in panchina li sfrutta).
+            if (myRoles & VGC_ROLE_BATON_PASSER)
             {
                 bool32 hasSub = gBattleMons[battlerAtk].volatiles.substitute;
                 s8 spatkStage = gBattleMons[battlerAtk].statStages[STAT_SPATK];
-                s8 speedStage = gBattleMons[battlerAtk].statStages[STAT_SPEED];
-                bool32 hasBoosts = (spatkStage > DEFAULT_STAT_STAGE || speedStage > DEFAULT_STAT_STAGE);
+                bool32 hasBoosts = AnyUsefulStatIsRaised(battlerAtk)
+                                || gBattleMons[battlerAtk].statStages[STAT_SPEED] > DEFAULT_STAT_STAGE;
+                bool32 setupMove = isStatus && IsStatRaisingMove(move) && GetMoveTarget(move) == TARGET_USER;
 
-                if (firstTurn)
+                if (!hasBoosts)
                 {
-                    if (move == MOVE_CALM_MIND)
-                        ADJUST_SCORE(10);
+                    if (setupMove)
+                        ADJUST_SCORE(firstTurn ? 10 : 8);
                 }
                 else
                 {
-                    if (hasBoosts)
-                    {
-                        if (move == MOVE_BATON_PASS && CountUsablePartyMons(battlerAtk) > 0)
-                        {
-                            if (hasSub || spatkStage >= DEFAULT_STAT_STAGE + 2 || !safeTurn)
-                                ADJUST_SCORE(10);
-                            else
-                                ADJUST_SCORE(5);
-                        }
-                        if (move == MOVE_SUBSTITUTE && !hasSub && hp > gBattleMons[battlerAtk].maxHP / 4)
-                        {
-                            if (!threatened)
-                                ADJUST_SCORE(8);
-                            else
-                                ADJUST_SCORE(-4);
-                        }
-                        if (effect == EFFECT_PROTECT && threatened && !hasSub)
-                        {
-                            ADJUST_SCORE(6);
-                        }
-                    }
-                    else
-                    {
-                        if (move == MOVE_CALM_MIND)
-                            ADJUST_SCORE(8);
-                    }
+                    if (effect == EFFECT_BATON_PASS && CountUsablePartyMons(battlerAtk) > 0)
+                        ADJUST_SCORE((hasSub || spatkStage >= DEFAULT_STAT_STAGE + 2 || !safeTurn) ? 10 : 5);
+                    if (effect == EFFECT_SUBSTITUTE && !hasSub && hp > gBattleMons[battlerAtk].maxHP / 4)
+                        ADJUST_SCORE(threatened ? -4 : 8);
+                    if (effect == EFFECT_PROTECT && threatened && !hasSub)
+                        ADJUST_SCORE(6);
                 }
             }
-        }
 
-        // --- PATATINA ---
-        if (trainerId == TRAINER_PATATINA && hasPartner)
-        {
-            u16 mySpecies = gBattleMons[battlerAtk].species;
-            u16 partnerSpecies = gBattleMons[partner].species;
-
-            // 1. Armarouge + Indeedee-F:
-            // Indeedee-F usa Segui Me ("sonoqui"), Armarouge usa Forzespansa (Expanding Force)
-            if (AI_VgcSameSpecies(SPECIES_INDEEDEE_F, mySpecies) && AI_VgcSameSpecies(SPECIES_ARMAROUGE, partnerSpecies))
+            // Redirect per un compagno attaccante veloce (es. Indeedee + Armarouge); Trick Room lo rallenterebbe.
+            if ((myRoles & VGC_ROLE_REDIRECT) && partnerSweeper && !partnerSlow)
             {
                 if (effect == EFFECT_FOLLOW_ME)
                     ADJUST_SCORE(8);
                 else if (effect == EFFECT_TRICK_ROOM)
-                    ADJUST_SCORE(-10); // mai fare Trick Room con Armarouge
-            }
-            if (AI_VgcSameSpecies(SPECIES_ARMAROUGE, mySpecies) && AI_VgcSameSpecies(SPECIES_INDEEDEE_F, partnerSpecies))
-            {
-                if (move == MOVE_EXPANDING_FORCE && gFieldTimers.terrain == B_TERRAIN_PSYCHIC && !targetingPartner)
-                    ADJUST_SCORE(8);
+                    ADJUST_SCORE(-10);
             }
 
-            // 2. Indeedee-F + Copperajah:
-            // Indeedee-F usa Distorsione (Trick Room), Copperajah copre/prepara
-            if (AI_VgcSameSpecies(SPECIES_INDEEDEE_F, mySpecies) && AI_VgcSameSpecies(SPECIES_COPPERAJAH, partnerSpecies))
+            // Trick Room per un compagno lento (es. Indeedee + Copperajah): prima la stanza, poi il redirect.
+            if ((myRoles & VGC_ROLE_TRICK_ROOM) && partnerSlow && !trActive)
             {
-                if (effect == EFFECT_TRICK_ROOM && !(gFieldStatuses & STATUS_FIELD_TRICK_ROOM) && !targetingPartner)
+                if (effect == EFFECT_TRICK_ROOM && !targetingPartner)
                     ADJUST_SCORE(8);
-                else if (effect == EFFECT_FOLLOW_ME && !(gFieldStatuses & STATUS_FIELD_TRICK_ROOM))
-                    ADJUST_SCORE(-8); // non fare Follow Me quando devi piazzare Distorsione per Copperajah
+                else if (effect == EFFECT_FOLLOW_ME)
+                    ADJUST_SCORE(-8);
             }
-            if (AI_VgcSameSpecies(SPECIES_COPPERAJAH, mySpecies) && AI_VgcSameSpecies(SPECIES_INDEEDEE_F, partnerSpecies))
+            // Il Pokémon lento, mentre il compagno piazza Trick Room, si protegge o si potenzia.
+            if ((myRoles & VGC_ROLE_SLOW) && (partnerRoles & VGC_ROLE_TRICK_ROOM) && !trActive && firstTurn)
             {
-                if (!(gFieldStatuses & STATUS_FIELD_TRICK_ROOM) && firstTurn)
-                {
-                    if (effect == EFFECT_PROTECT && !targetingPartner)
-                        ADJUST_SCORE(4);
-                    else if (move == MOVE_IRON_DEFENSE)
-                        ADJUST_SCORE(3);
-                }
-            }
-
-            // 3. Altaria + (Ceruledge / Armarouge / Rotom-Wash):
-            // Altaria usa Ventoincoda (Tailwind)
-            if (AI_VgcSameSpecies(SPECIES_ALTARIA, mySpecies))
-            {
-                if (effect == EFFECT_TAILWIND && !(gSideStatuses[GetBattlerSide(battlerAtk)] & SIDE_STATUS_TAILWIND) && !targetingPartner)
-                    ADJUST_SCORE(8);
+                if (effect == EFFECT_PROTECT && !targetingPartner)
+                    ADJUST_SCORE(4);
+                else if (isStatus && IsStatRaisingMove(move) && GetMoveTarget(move) == TARGET_USER)
+                    ADJUST_SCORE(3);
             }
         }
 
-        // Forzespansa sotto Campo Psichico (Armarouge): colpisce entrambi a potenza piena.
+        // Forzespansa sotto Campo Psichico: colpisce entrambi a potenza piena.
         if (move == MOVE_EXPANDING_FORCE && !targetingPartner && gFieldTimers.terrain == B_TERRAIN_PSYCHIC
          && AI_IsBattlerGrounded(battlerAtk) && foeLAlive && foeRAlive)
-            ADJUST_SCORE(3);
+            ADJUST_SCORE(8);
 
         // Dopo di te sotto Distorsione: il partner lento si muove già per primo, il turno è sprecato.
         if (move == MOVE_AFTER_YOU && targetingPartner && (gFieldStatuses & STATUS_FIELD_TRICK_ROOM)
@@ -1601,12 +1571,13 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
         }
     }
 
-    // After You (Lilligant): dà subito il turno al partner (es. Torkoal con Eruzione sotto Sole - Gigi Pinto).
+    // After You: dà subito il turno al partner lento con una mossa che vale di più a PS pieni
+    // (Eruption / Water Spout / Dragon Energy: es. Torkoal sotto Sole).
     if (move == MOVE_AFTER_YOU && hasPartner)
     {
         if (targetingPartner)
         {
-            if (gBattleMons[partner].species == SPECIES_TORKOAL && (gBattleWeather & B_WEATHER_SUN)
+            if ((VgcRoles(partner) & VGC_ROLE_SLOW) && HasMoveWithEffect(partner, EFFECT_POWER_BASED_ON_USER_HP)
              && (gBattleMons[partner].hp * 100 / max(gBattleMons[partner].maxHP, 1) >= 70))
                 ADJUST_SCORE(6);
             else if (AI_IsFaster(battlerAtk, partner, move, MOVE_NONE, CONSIDER_PRIORITY))

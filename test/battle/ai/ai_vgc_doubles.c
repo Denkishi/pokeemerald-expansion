@@ -91,6 +91,37 @@ AI_DOUBLE_BATTLE_TEST("VGC: Baton Pass sends in the designated sweeper, not the 
     }
 }
 
+AI_DOUBLE_BATTLE_TEST("VGC: Fake Out on turn 1 covers a Baton Passer partner")
+{
+    // Ruoli dal grafo (nessun nome): il compagno di un Baton Passer usa Fake Out al turno 1.
+    // Cosa fa Espathra lo decide la simulazione: contro avversari innocui, o contro cui Chandelure non ha bisogno
+    // di boost, far entrare subito l'attaccante può essere giusto (un turno d'attacco in più). Il valore del setup
+    // su più turni è un punto aperto (piano, M3).
+    GIVEN {
+        AI_FLAGS(VGC_AI_FLAGS);
+        PLAYER(SPECIES_GARCHOMP) { Speed(102); }
+        PLAYER(SPECIES_GARCHOMP) { Speed(102); }
+        OPPONENT(SPECIES_INCINEROAR) { Moves(MOVE_FAKE_OUT, MOVE_FLARE_BLITZ); Speed(60); }
+        OPPONENT(SPECIES_ESPATHRA) { Ability(ABILITY_SPEED_BOOST); Moves(MOVE_CALM_MIND, MOVE_BATON_PASS, MOVE_PROTECT); Speed(105); }
+        OPPONENT(SPECIES_CHANDELURE) { Moves(MOVE_SHADOW_BALL, MOVE_HEAT_WAVE, MOVE_ENERGY_BALL); Speed(80); }
+    } WHEN {
+        TURN { EXPECT_MOVE(opponentLeft, MOVE_FAKE_OUT); }
+    }
+}
+
+AI_DOUBLE_BATTLE_TEST("VGC: Trick Room setter sets the room for its slow partner")
+{
+    GIVEN {
+        AI_FLAGS(VGC_AI_FLAGS);
+        PLAYER(SPECIES_WOBBUFFET) { Speed(100); }
+        PLAYER(SPECIES_WOBBUFFET) { Speed(100); }
+        OPPONENT(SPECIES_INDEEDEE_F) { Moves(MOVE_TRICK_ROOM, MOVE_FOLLOW_ME, MOVE_PSYCHIC); Speed(85); }
+        OPPONENT(SPECIES_COPPERAJAH) { Moves(MOVE_IRON_HEAD, MOVE_HEAVY_SLAM); Speed(30); }
+    } WHEN {
+        TURN { EXPECT_MOVE(opponentLeft, MOVE_TRICK_ROOM); }
+    }
+}
+
 AI_DOUBLE_BATTLE_TEST("VGC: no Simple Beam on Mycelium Might when Spore would fail anyway (Good as Gold)")
 {
     // Senza Mycelium Might, Spore rimbalza su Good as Gold: togliere l'abilità al compagno è controproducente.

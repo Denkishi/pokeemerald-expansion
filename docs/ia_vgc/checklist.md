@@ -16,7 +16,9 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
   - ⬜ velocità del giocatore in `gAiLogicData->speedStats` (codice base dell'expansion) → in M1 con il belief
 - ✅ Suite di test `test/battle/ai/ai_vgc_doubles.c` attiva. WSL compila soltanto; i test si eseguono su Windows con `tools/mgba/mgba-rom-test.exe`
 - ✅ Installate con msys2 `libepoxy-0.dll` e `libwinpthread-1.dll`: `mgba-rom-test.exe` gira su Windows (aggiungere `C:\msys64\mingw64\bin` al PATH)
-- ✅ **Risultati: 6 PASS, 0 FAIL, 0 KNOWN_FAILING**
+- ✅ **Risultati: 8 PASS, 0 FAIL, 0 KNOWN_FAILING**
+  - ✅ Fake Out al turno 1 per coprire un compagno Baton Passer
+  - ✅ Trick Room per il compagno lento (Indeedee + Copperajah)
   - ✅ Baton Pass fa entrare lo sweeper designato (Chandelure), non un Pokémon qualsiasi
   - ✅ Fake Out non usato dopo il primo turno
   - ✅ Niente overkill: il più veloce manda KO, l'altro usa la mossa giusta sull'altro avversario (Ice Beam su Garchomp) — grazie alla ricerca congiunta (M4)
@@ -58,6 +60,7 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
 - ⬜ Minacce credute per avversari senza mosse viste
 - ✅ Stadi valutati solo se servono: chi attacca (stadio offensivo giusto per fisico/speciale), o chi ha Baton Pass e qualcuno in panchina (potenziale trasferibile); Velocità e difese con peso minore
 - ⬜ Risorse (Fake Out, Sash, Mega)
+- ⚠️ Punto aperto: il valore del setup su più turni (Calm Mind ora, Baton Pass dopo) è ancora sottostimato rispetto a far entrare subito l'attaccante. In alcuni casi è giusto (avversari innocui o non minacciosi), ma va misurato meglio: minacce credute degli avversari (M1), Intimidate e danni reali (M2), pressione del turno dopo (M3). Diagnostica nei test: `VGCLEAF` (valore dopo il turno 1 e miglior seguito al turno 2)
 
 ## M4 — Ricerca congiunta dei due slot
 - 🔧 Un solo calcolo per lato e per turno: il primo slot pianifica la **coppia**, il secondo aspetta e applica la sua metà già decisa (prima il secondo slot non pianificava mai)
@@ -77,7 +80,14 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
 - ✅ Grafo collegato al pianificatore (combo sul compagno)
 - ✅ Tolta la regola su Toedscruel/Machamp (Simple Beam): ora regola generica "non togliere al compagno un'abilità utile" + simulazione
 - ⬜ Collegare il grafo al team preview (M7)
-- ⬜ Rimozione blocchi Savarotto (Espathra/Baton Pass: serve prima Baton Pass nel simulatore e il potenziale trasferibile, M2/M3) e Patatina, altri `species ==`
+- ✅ **Tolti i blocchi Savarotto e Patatina** e tutti i controlli sulle specie nelle regole di battaglia: al loro posto regole per **ruolo** dal grafo, valide per qualunque squadra:
+  - Fake Out al turno 1 per un compagno che fa setup
+  - colpire il compagno per attivargli l'abilità (Beat Up → Justified)
+  - Baton Passer: setup senza boost; con boost Baton Pass / Sostituto / Protect
+  - redirect per un compagno attaccante veloce (Trick Room lo rallenterebbe)
+  - Trick Room per un compagno lento (prima la stanza, poi il redirect); il lento intanto si protegge o si potenzia
+  - Tailwind per un compagno attaccante non lento; After You per un compagno lento con Eruption/Water Spout; Gas Reagente accanto a un'abilità penalizzante
+- ✅ Grafo della squadra ricalcolato a ogni inizio turno per le regole (`sVgcTeamGraph`)
 
 ## M6 — Cambi, sostituzioni e Mega nel pianificatore
 - ✅ Baton Pass: nel gioco vero entra il ricevente designato dal grafo (es. Espathra → Chandelure), non il "migliore" generico — test passa
