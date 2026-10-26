@@ -46,10 +46,12 @@ AI_DOUBLE_BATTLE_TEST("VGC: Fake Out is not used after the first turn on the fie
 
 AI_DOUBLE_BATTLE_TEST("VGC: Simple Beam on a Mycelium Might partner lets Spore go first")
 {
+    // Avversari più lenti di Toedscruel ma che attaccano forte: addormentarne uno PRIMA che colpisca vale
+    // l'azione del compagno. Nessuna regola sulla specie: lo vede la simulazione.
     GIVEN {
         AI_FLAGS(VGC_AI_FLAGS);
-        PLAYER(SPECIES_WOBBUFFET) { Speed(60); }
-        PLAYER(SPECIES_WOBBUFFET) { Speed(60); }
+        PLAYER(SPECIES_GARCHOMP) { Speed(60); }
+        PLAYER(SPECIES_GARCHOMP) { Speed(60); }
         OPPONENT(SPECIES_WOBBUFFET) { Moves(MOVE_SIMPLE_BEAM, MOVE_SCRATCH); Speed(150); }
         OPPONENT(SPECIES_TOEDSCRUEL) { Ability(ABILITY_MYCELIUM_MIGHT); Moves(MOVE_SPORE, MOVE_EARTH_POWER); Speed(100); }
     } WHEN {
@@ -57,16 +59,29 @@ AI_DOUBLE_BATTLE_TEST("VGC: Simple Beam on a Mycelium Might partner lets Spore g
     }
 }
 
+AI_DOUBLE_BATTLE_TEST("VGC: Beat Up on a Justified partner before it attacks")
+{
+    // Beat Up colpisce Gallade una volta per Pokémon della squadra (qui 2): Justified lo porta a +2 e il suo
+    // Close Combat nello stesso turno manda KO. Nessuna regola sulle specie: lo vede la simulazione.
+    GIVEN {
+        AI_FLAGS(VGC_AI_FLAGS);
+        PLAYER(SPECIES_WOBBUFFET) { Speed(20); }
+        PLAYER(SPECIES_WOBBUFFET) { Speed(20); }
+        OPPONENT(SPECIES_WHIMSICOTT) { Moves(MOVE_BEAT_UP, MOVE_MOONBLAST); Speed(116); }
+        OPPONENT(SPECIES_GALLADE) { Ability(ABILITY_JUSTIFIED); Moves(MOVE_CLOSE_COMBAT); Speed(80); }
+    } WHEN {
+        TURN { EXPECT_MOVE(opponentLeft, MOVE_BEAT_UP, target: opponentRight); }
+    }
+}
+
 AI_DOUBLE_BATTLE_TEST("VGC: no Simple Beam on Mycelium Might when Spore would fail anyway (Good as Gold)")
 {
-    // Oggi la regola è scritta sulla specie (battle_ai_vgc.c, "Toedscruel") e non guarda chi c'è
-    // dall'altra parte: senza Mycelium Might, Spore rimbalza su Good as Gold.
-    KNOWN_FAILING;
+    // Senza Mycelium Might, Spore rimbalza su Good as Gold: togliere l'abilità al compagno è controproducente.
     GIVEN {
         AI_FLAGS(VGC_AI_FLAGS);
         PLAYER(SPECIES_GHOLDENGO) { Ability(ABILITY_GOOD_AS_GOLD); Speed(60); }
         PLAYER(SPECIES_GHOLDENGO) { Ability(ABILITY_GOOD_AS_GOLD); Speed(60); }
-        OPPONENT(SPECIES_WOBBUFFET) { Moves(MOVE_SIMPLE_BEAM, MOVE_SCRATCH); Speed(150); }
+        OPPONENT(SPECIES_WOBBUFFET) { Moves(MOVE_SIMPLE_BEAM, MOVE_SHADOW_BALL); Speed(150); }
         OPPONENT(SPECIES_TOEDSCRUEL) { Ability(ABILITY_MYCELIUM_MIGHT); Moves(MOVE_SPORE, MOVE_EARTH_POWER); Speed(100); }
     } WHEN {
         TURN { NOT_EXPECT_MOVE(opponentLeft, MOVE_SIMPLE_BEAM); }

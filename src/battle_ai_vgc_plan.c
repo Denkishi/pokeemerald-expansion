@@ -22,6 +22,7 @@
 #include "battle_ai_util.h"
 #include "battle_ai_vgc.h"
 #include "battle_ai_scout.h"
+#include "battle_ai_vgc_graph.h"
 #include "battle_main.h"
 #include "battle_util.h"
 #include "fpmath.h"
@@ -43,7 +44,7 @@
 #endif
 
 #define PLAN_MAX_OURS        7   // azioni candidate per ciascuno dei nostri Pokémon (6 dalle regole + cambio)
-#define PLAN_MAX_PAIRS       10  // coppie (nostra azione, azione del partner) simulate al primo turno
+#define PLAN_MAX_PAIRS       14  // coppie (nostra azione, azione del partner) simulate al primo turno
 #define PLAN_FOE_PER         2   // azioni per avversario (primo turno)
 #define PLAN_P2_OURS_PER     2   // azioni per nostro Pokémon al turno dopo
 #define PLAN_P2_FOE_PER      2   // azioni per avversario al turno dopo
@@ -437,24 +438,34 @@ static s32 DamageOf(const struct PlanState *st, const struct PlanAction *a, enum
 // ---------------------------------------------------------------------
 // Applicazione di un'azione
 // ---------------------------------------------------------------------
-static s32 ActionPriority(const struct PlanAction *a)
+// Priorità con l'abilità che il Pokémon ha ORA nella simulazione (può cambiare a metà turno, es. Simple Beam).
+static s32 ActionPriority(const struct PlanState *st, const struct PlanAction *a)
 {
     switch (a->kind)
     {
     case PLAN_ACT_SWITCH:  return 9;
     case PLAN_ACT_PROTECT: return 4;
     case PLAN_ACT_NONE:    return -8;
-    default:               return GetBattleMovePriority(a->user, gAiLogicData->abilities[a->user], a->move);
+    default:               return GetBattleMovePriority(a->user, st->m[a->user].ability, a->move);
     }
+}
+
+// Mycelium Might: le mosse di stato agiscono per ultime nella loro fascia di priorità.
+static bool32 MovesLastInBracket(const struct PlanState *st, const struct PlanAction *a)
+{
+    return a->kind == PLAN_ACT_MOVE && st->m[a->user].ability == ABILITY_MYCELIUM_MIGHT && IsBattleMoveStatus(a->move);
 }
 
 static bool32 MovesFirst(const struct PlanState *st, const struct PlanAction *a, const struct PlanAction *b)
 {
-    s32 pa = ActionPriority(a), pb = ActionPriority(b);
+    s32 pa = ActionPriority(st, a), pb = ActionPriority(st, b);
+    bool32 la = MovesLastInBracket(st, a), lb = MovesLastInBracket(st, b);
     u32 sa, sb;
 
     if (pa != pb)
         return pa > pb;
+    if (la != lb)
+        return lb;
     sa = EffSpeed(st, a->user);
     sb = EffSpeed(st, b->user);
     if (st->trickRoom)
@@ -575,6 +586,35 @@ static void ApplyAction(struct PlanState *st, const struct PlanAction *a)
     if (IsBattleMoveStatus(a->move))
     {
         struct PlanMon *tm = &st->m[a->target];
+        bool32 blocked = !tm->alive || (tm->protecting && !IsBattlerAlly(u, a->target));
+
+        // Cambi d'abilità: valgono subito, anche per chi deve ancora muovere in questo turno
+        // (es. Simple Beam sul compagno con Mycelium Might: la sua Spora non va più per ultima).
+        switch (effect)
+        {
+        case EFFECT_OVERWRITE_ABILITY:
+            if (!blocked)
+                tm->ability = GetMoveOverwriteAbility(a->move);
+            return;
+        case EFFECT_GASTRO_ACID:
+            if (!blocked)
+                tm->ability = ABILITY_NONE;
+            return;
+        case EFFECT_ENTRAINMENT:
+            if (!blocked)
+                tm->ability = um->ability;
+            return;
+        case EFFECT_SKILL_SWAP:
+            if (!blocked)
+            {
+                enum Ability tmp = tm->ability;
+                tm->ability = um->ability;
+                um->ability = tmp;
+            }
+            return;
+        default:
+            break;
+        }
         if (IsStatRaisingMove(a->move) && tt == TARGET_USER)
         {
             um->boost += 2;
@@ -582,12 +622,14 @@ static void ApplyAction(struct PlanState *st, const struct PlanAction *a)
         else if (GetMoveNonVolatileStatus(a->move) == MOVE_EFFECT_SLEEP && tm->alive && !tm->protecting && !tm->asleep)
         {
             bool32 ok = TRUE;
-            if (IsPowderMove(a->move) && (tm->t1 == TYPE_GRASS || tm->t2 == TYPE_GRASS || tm->ability == ABILITY_OVERCOAT
+            // Mycelium Might: le mosse di stato ignorano le abilità del bersaglio (non tipo e strumento).
+            enum Ability defAbility = (um->ability == ABILITY_MYCELIUM_MIGHT) ? ABILITY_NONE : tm->ability;
+            if (IsPowderMove(a->move) && (tm->t1 == TYPE_GRASS || tm->t2 == TYPE_GRASS || defAbility == ABILITY_OVERCOAT
                                         || tm->holdEffect == HOLD_EFFECT_SAFETY_GOGGLES))
                 ok = FALSE;
-            if (tm->ability == ABILITY_INSOMNIA || tm->ability == ABILITY_VITAL_SPIRIT || tm->ability == ABILITY_SWEET_VEIL
-             || tm->ability == ABILITY_GOOD_AS_GOLD || tm->ability == ABILITY_MAGIC_BOUNCE || tm->ability == ABILITY_PURIFYING_SALT
-             || tm->ability == ABILITY_COMATOSE)
+            if (defAbility == ABILITY_INSOMNIA || defAbility == ABILITY_VITAL_SPIRIT || defAbility == ABILITY_SWEET_VEIL
+             || defAbility == ABILITY_GOOD_AS_GOLD || defAbility == ABILITY_MAGIC_BOUNCE || defAbility == ABILITY_PURIFYING_SALT
+             || defAbility == ABILITY_COMATOSE)
                 ok = FALSE;
             if (ok)
             {
@@ -639,6 +681,9 @@ static void ApplyAction(struct PlanState *st, const struct PlanAction *a)
             if (tm->protecting || (spread && tm->wideGuard))
                 continue;
             dmg = DamageOf(st, a, t);
+            // Justified: ogni colpo di tipo Buio alza l'Attacco (Beat Up colpisce una volta per Pokémon della squadra).
+            if (tm->ability == ABILITY_JUSTIFIED && tm->alive && GetMoveType(a->move) == TYPE_DARK)
+                tm->boost += (effect == EFFECT_BEAT_UP) ? min(CountUsablePartyMons(u) + 2, 4) : 1;
             if (dmg <= 0)
                 continue;
             if (effect == EFFECT_FIRST_TURN_ONLY && st->firstTurn && IsBattlersFirstTurn(u) && tm->ability != ABILITY_INNER_FOCUS)
@@ -1064,6 +1109,12 @@ static u32 BuildOurFirstActions(enum BattlerId me, struct PlanAction *out, u32 c
                 continue;
             if (!CanTargetBattler(me, t, m))
                 continue;
+            // Sul compagno solo le mosse fatte per lui (Helping Hand & co.) o che gli cambiano l'abilità;
+            // le combo che lo colpiscono (Beat Up -> Justified) le aggiunge il grafo della squadra.
+            if (IsBattlerAlly(me, t) && GetMoveTarget(m) != TARGET_ALLY
+             && !(IsBattleMoveStatus(m) && (GetMoveEffect(m) == EFFECT_OVERWRITE_ABILITY || GetMoveEffect(m) == EFFECT_SKILL_SWAP
+                                          || GetMoveEffect(m) == EFFECT_GASTRO_ACID || GetMoveEffect(m) == EFFECT_ENTRAINMENT)))
+                continue;
             if (GetMoveTarget(m) != TARGET_SELECTED && GetMoveTarget(m) != TARGET_SMART)
                 for (k = 0; k < n; k++)
                     if (out[k].kind != PLAN_ACT_SWITCH && out[k].moveIndex == i)
@@ -1148,12 +1199,56 @@ static s32 PairSynergy(const struct PlanState *st, const struct PlanAction *x, c
     return 0;
 }
 
+// Azione rivolta al proprio compagno (combo: Simple Beam, Beat Up...).
+static bool32 IsComboAction(const struct PlanAction *a)
+{
+    return a->kind == PLAN_ACT_MOVE && a->target != a->user && IsBattlerAlly(a->user, a->target);
+}
+
+// Combo sul compagno trovate dal grafo della squadra (togliergli un'abilità penalizzante, attivargli
+// Justified & co.): entrano sempre tra le candidate, anche se le regole le valutano poco. Se convengono
+// lo decide la simulazione.
+static void AddComboCands(enum BattlerId b, enum BattlerId ally, struct PlanAction *list, u32 *n, s32 weight,
+                          const struct VgcTeamGraph *g)
+{
+    u32 myIdx = gBattlerPartyIndexes[b], allyIdx = gBattlerPartyIndexes[ally], i, k;
+    bool32 fix = g->abilityFixPartner[myIdx] == allyIdx, hit = g->hitPartner[myIdx] == allyIdx;
+
+    if (!fix && !hit)
+        return;
+    for (i = 0; i < MAX_MON_MOVES; i++)
+    {
+        enum Move move = gBattleMons[b].moves[i];
+        enum BattleMoveEffects eff;
+        bool32 combo, present = FALSE;
+
+        if (move == MOVE_NONE || move == MOVE_UNAVAILABLE || gBattleMons[b].pp[i] == 0)
+            continue;
+        eff = GetMoveEffect(move);
+        combo = (fix && (eff == EFFECT_OVERWRITE_ABILITY || eff == EFFECT_SKILL_SWAP || eff == EFFECT_GASTRO_ACID || eff == EFFECT_ENTRAINMENT))
+             || (hit && !IsBattleMoveStatus(move) && (eff == EFFECT_BEAT_UP || GetMovePower(move) <= 40));
+        if (!combo || !CanTargetBattler(b, ally, move))
+            continue;
+        for (k = 0; k < *n; k++)
+            if (list[k].kind == PLAN_ACT_MOVE && list[k].moveIndex == i && list[k].target == ally)
+                present = TRUE;
+        if (present)
+            continue;
+        if (*n >= PLAN_MAX_OURS)
+            *n = PLAN_MAX_OURS - 1; // lascia posto alla combo al posto dell'ultima candidata
+        AddCand(list, n, PLAN_MAX_OURS, PLAN_ACT_MOVE, i, -1, move, b, ally, weight);
+    }
+}
+
 // Coppie candidate per il primo turno: azioni nostre x azioni del partner (dalle regole), senza le coppie
 // impossibili, ordinate per stima rapida; la coppia scelta dalle regole è sempre tra quelle simulate.
 static u32 BuildPairs(enum BattlerId me, const struct PlanState *st)
 {
     struct PlanAction mine[PLAN_MAX_OURS], theirs[PLAN_MAX_OURS];
     s32 pre[PLAN_MAX_PAIRS];
+    s32 raw[PLAN_MAX_OURS][PLAN_MAX_OURS];
+    u8 tier[PLAN_MAX_OURS][PLAN_MAX_OURS];
+    u8 bestJ[PLAN_MAX_OURS], bestI[PLAN_MAX_OURS];
     enum BattlerId p = GetPartnerBattler(me);
     u32 nMine, nTheirs, i, j, k, n = 0;
 
@@ -1170,6 +1265,12 @@ static u32 BuildPairs(enum BattlerId me, const struct PlanState *st)
         return min(nMine, PLAN_MAX_PAIRS);
     }
     nTheirs = BuildOurFirstActions(p, theirs, sJob.origPMove, sJob.origPTarget);
+    {
+        struct VgcTeamGraph graph;
+        AI_VgcBuildTeamGraph(GetBattlerParty(me), &graph);
+        AddComboCands(me, p, mine, &nMine, nMine > 0 ? mine[0].weight : 0, &graph);
+        AddComboCands(p, me, theirs, &nTheirs, nTheirs > 0 ? theirs[0].weight : 0, &graph);
+    }
     if (nTheirs == 0)
     {
         struct PlanAction none = { PLAN_ACT_NONE, 0, -1, MOVE_NONE, p, p, 0 };
@@ -1184,19 +1285,48 @@ static u32 BuildPairs(enum BattlerId me, const struct PlanState *st)
         if (theirs[j].kind == PLAN_ACT_SWITCH)
             theirs[j].weight = theirs[0].weight - 20;
 
+    // Stima rapida di tutte le coppie legali, poi scelta a livelli: (1) la coppia delle regole, termine di
+    // paragone; (2) le coppie con una combo sul compagno; (3) per ogni azione, nostra o del partner, la sua
+    // coppia migliore (così nessuna mossa resta fuori solo perché le regole la valutano poco); (4) il resto.
+    for (i = 0; i < nMine; i++)
+        bestJ[i] = 0xFF;
+    for (j = 0; j < nTheirs; j++)
+        bestI[j] = 0xFF;
+    for (i = 0; i < nMine; i++)
+    {
+        for (j = 0; j < nTheirs; j++)
+        {
+            tier[i][j] = 0xFF; // 0xFF = illegale
+            if (IsPairIllegal(&mine[i], &theirs[j]))
+                continue;
+            raw[i][j] = mine[i].weight + theirs[j].weight + PairSynergy(st, &mine[i], &theirs[j]);
+            tier[i][j] = 0;
+            if (IsOrigAction(&mine[i], sJob.origMove, sJob.origTarget) && IsOrigAction(&theirs[j], sJob.origPMove, sJob.origPTarget))
+                tier[i][j] = 3;
+            else if (IsComboAction(&mine[i]) || IsComboAction(&theirs[j]))
+                tier[i][j] = 2;
+            if (bestJ[i] == 0xFF || raw[i][j] > raw[i][bestJ[i]])
+                bestJ[i] = j;
+            if (bestI[j] == 0xFF || raw[i][j] > raw[bestI[j]][j])
+                bestI[j] = i;
+        }
+    }
+    for (i = 0; i < nMine; i++)
+        if (bestJ[i] != 0xFF && tier[i][bestJ[i]] < 1)
+            tier[i][bestJ[i]] = 1;
+    for (j = 0; j < nTheirs; j++)
+        if (bestI[j] != 0xFF && tier[bestI[j]][j] < 1)
+            tier[bestI[j]][j] = 1;
+
     for (i = 0; i < nMine; i++)
     {
         for (j = 0; j < nTheirs; j++)
         {
             s32 score;
-            bool32 orig = IsOrigAction(&mine[i], sJob.origMove, sJob.origTarget)
-                       && IsOrigAction(&theirs[j], sJob.origPMove, sJob.origPTarget);
 
-            if (IsPairIllegal(&mine[i], &theirs[j]))
+            if (tier[i][j] == 0xFF)
                 continue;
-            score = mine[i].weight + theirs[j].weight + PairSynergy(st, &mine[i], &theirs[j]);
-            if (orig)
-                score = INT32_MAX; // la scelta delle regole si simula sempre (serve come termine di paragone)
+            score = tier[i][j] * 100000 + raw[i][j];
             // Inserimento ordinato nelle prime PLAN_MAX_PAIRS.
             for (k = n; k > 0 && pre[k - 1] < score; k--)
             {
@@ -1306,6 +1436,17 @@ static void FinishJob(void)
     // A pari valore resta la coppia delle regole.
     if (chosenIdx != PLAN_MAX_PAIRS && bestEv < chosenEv + PLAN_OVERRIDE_MARGIN)
         bestIdx = chosenIdx;
+#if TESTING
+    {
+        // Diagnostica nei test: valore di ogni coppia simulata (mossa/bersaglio nostra e del partner).
+        extern s32 Test_MgbaPrintf(const char *fmt, ...);
+        for (i = 0; i < sJob.nOurs; i++)
+            Test_MgbaPrintf("VGCPLAN b%d pair%d: k%d m%d t%d + k%d m%d t%d = %d%s", sJob.me, i,
+                            sJob.ours[i].kind, sJob.ours[i].move, sJob.ours[i].target,
+                            sJob.partners[i].kind, sJob.partners[i].move, sJob.partners[i].target,
+                            sJob.ev[i], i == bestIdx ? " <==" : (i == chosenIdx ? " (regole)" : ""));
+    }
+#endif
 
     sJob.resultKind = sJob.ours[bestIdx].kind;
     sJob.resultMove = sJob.ours[bestIdx].moveIndex;

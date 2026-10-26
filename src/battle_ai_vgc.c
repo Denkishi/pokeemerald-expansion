@@ -1618,19 +1618,18 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
         }
     }
 
-    // Simple Beam (Simone): sblocca Spore su Toedscruel (rimuove Mycelium Might), MAI su Machamp (toglierebbe Guts).
-    if (move == MOVE_SIMPLE_BEAM)
+    // Cambiare l'abilità del compagno (Simple Beam, Worry Seed, Skill Swap, Gastro Acid, Entrainment) ha senso
+    // solo se la sua abilità lo penalizza (Mycelium Might, Truant, Slow Start...): la combo la trova il grafo
+    // della squadra e se conviene lo decide la simulazione. Togliergli un'abilità utile (Guts...) è un errore.
+    if (targetingPartner && isStatus)
     {
-        if (targetingPartner && hasPartner)
+        enum BattleMoveEffects eff = GetMoveEffect(move);
+        if (eff == EFFECT_OVERWRITE_ABILITY || eff == EFFECT_SKILL_SWAP || eff == EFFECT_GASTRO_ACID || eff == EFFECT_ENTRAINMENT)
         {
-            if (gBattleMons[partner].species == SPECIES_TOEDSCRUEL && gAiLogicData->abilities[partner] == ABILITY_MYCELIUM_MIGHT)
-                ADJUST_SCORE(6);
-            else if (gBattleMons[partner].species == SPECIES_MACHAMP)
+            enum Ability ab = hasPartner ? gAiLogicData->abilities[partner] : ABILITY_NONE;
+            if (ab != ABILITY_MYCELIUM_MIGHT && ab != ABILITY_TRUANT && ab != ABILITY_SLOW_START
+             && ab != ABILITY_DEFEATIST && ab != ABILITY_KLUTZ && ab != ABILITY_STALL)
                 ADJUST_SCORE(-20);
-        }
-        else if (targetingPartner)
-        {
-            ADJUST_SCORE(-10);
         }
     }
 

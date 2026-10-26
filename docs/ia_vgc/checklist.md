@@ -16,11 +16,12 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
   - ⬜ velocità del giocatore in `gAiLogicData->speedStats` (codice base dell'expansion) → in M1 con il belief
 - ✅ Suite di test `test/battle/ai/ai_vgc_doubles.c` attiva. WSL compila soltanto; i test si eseguono su Windows con `tools/mgba/mgba-rom-test.exe`
 - ✅ Installate con msys2 `libepoxy-0.dll` e `libwinpthread-1.dll`: `mgba-rom-test.exe` gira su Windows (aggiungere `C:\msys64\mingw64\bin` al PATH)
-- ✅ **Risultati: 3 PASS, 1 KNOWN_FAILING (previsto), 0 FAIL**
+- ✅ **Risultati: 5 PASS, 0 FAIL, 0 KNOWN_FAILING**
   - ✅ Fake Out non usato dopo il primo turno
-  - ✅ Niente overkill: il più veloce manda KO, l'altro usa la mossa giusta sull'altro avversario (Ice Beam su Garchomp) — passa grazie alla ricerca congiunta (M4)
-  - ✅ Simple Beam sul compagno con Mycelium Might
-  - ✅ Niente Simple Beam contro Good as Gold — KNOWN_FAILING come previsto (regola hard-coded, si toglie in M5)
+  - ✅ Niente overkill: il più veloce manda KO, l'altro usa la mossa giusta sull'altro avversario (Ice Beam su Garchomp) — grazie alla ricerca congiunta (M4)
+  - ✅ Simple Beam sul compagno con Mycelium Might quando addormentare prima conviene — **deciso dalla simulazione, nessuna regola sulla specie**
+  - ✅ Niente Simple Beam contro Good as Gold: meglio attaccare (Shadow Ball + Earth Power)
+  - ✅ Beat Up sul compagno con Justified prima che attacchi — deciso dalla simulazione
 - ✅ Perdita di memoria nel messaggio "penso..." dell'avversario: due testi sovrapposti nella finestra dei messaggi lasciavano memoria allocata (48 byte ogni volta, si accumulano partita dopo partita: possibile causa di crash). Corretta, il test non la segnala più
 - ✅ Stallo del secondo slot (TIMEOUT nei test): uno stato rimasto dalla lotta precedente lo faceva aspettare per sempre. Ora il pianificatore si azzera a inizio turno
 - 🔧 Cache dei profili scout e degli attacchi imparabili (12 specie, EWRAM): niente più scansioni dei learnset a ogni simulazione
@@ -42,7 +43,10 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
 - ⬜ Cache danni reale (`AI_CalcDamage`) al posto della stima
 - ⬜ Stadi separati Atk/SpA/Def/SpD/Spe
 - ⬜ Intimidate, Mega, terreni, schermi, Sostituto, scottatura/paralisi, precisione
-- ⬜ Unburden, cambi d'abilità, Justified/Beat Up, Baton Pass, Parting Shot, U-turn
+- ✅ Cambi d'abilità a metà turno (Simple Beam, Worry Seed, Skill Swap, Gastro Acid, Entrainment)
+- ✅ Mycelium Might: mosse di stato per ultime nella fascia di priorità, ignorano le abilità del bersaglio
+- ✅ Justified: +1 Attacco per colpo Buio (Beat Up: un colpo per Pokémon della squadra)
+- ⬜ Unburden, Baton Pass, Parting Shot, U-turn
 - ⬜ Sostituzioni dopo un KO nel simulatore
 
 ## M3 — Valutazione della posizione
@@ -57,14 +61,19 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
 - 🔧 Filtro coppie illegali: due cambi sullo stesso Pokémon, Helping Hand con partner che non attacca, doppio Trick Room, doppio meteo
 - 🔧 Il pianificatore decide sempre (margine da 12 a 1 punto)
 - 🔧 Test overkill riscritto: nel motore un attacco su un bersaglio già KO passa sull'altro avversario, quindi l'overkill pesa solo se la mossa è inutile sul secondo (Thunderbolt su Garchomp → serve Ice Beam)
-- ⬜ Corsia protetta per mosse sul partner dal grafo (Beat Up, Simple Beam)
+- ✅ Corsia protetta: le combo sul compagno trovate dal grafo (Simple Beam, Beat Up...) sono sempre simulate
+- ✅ Scelta delle coppie da simulare (max 14) a livelli: coppia delle regole, coppie con combo, la coppia migliore di ogni singola azione, poi il resto (prima le mosse "giuste" restavano fuori)
+- ✅ Niente attacchi sul proprio compagno tra le candidate (salvo combo e mosse fatte per l'alleato come Helping Hand)
+- ✅ Diagnostica nei test: il valore di ogni coppia simulata compare nel log (`VGCPLAN ...`)
 - ⬜ Risposte del giocatore su scala unica (attacchi, supporto, Protect, cambio)
 - ⬜ Urgenza della kill, α dinamico
 
 ## M5 — Conoscenza della squadra generata in automatico
 - 🔧 Grafo della squadra in C (`src/battle_ai_vgc_graph.c`), calcolato a inizio lotta invece che con uno script a build time: stessi dati, accesso diretto a mosse/abilità/Mega del motore. Ruoli, coppie di lead, combo sul compagno (Beat Up→Justified, assorbimenti), rimozione abilità penalizzanti (Simple Beam→Mycelium Might), ricevente del Baton Pass e vincolo di panchina, meteo/Trick Room con chi li sfrutta — scritto, da collegare e testare
-- ⬜ Collegare il grafo a team preview e pianificatore
-- ⬜ Rimozione blocchi per allenatore (Savarotto, Patatina) e controlli `species ==`
+- ✅ Grafo collegato al pianificatore (combo sul compagno)
+- ✅ Tolta la regola su Toedscruel/Machamp (Simple Beam): ora regola generica "non togliere al compagno un'abilità utile" + simulazione
+- ⬜ Collegare il grafo al team preview (M7)
+- ⬜ Rimozione blocchi Savarotto (Espathra/Baton Pass: serve prima Baton Pass nel simulatore e il potenziale trasferibile, M2/M3) e Patatina, altri `species ==`
 
 ## M6 — Cambi, sostituzioni e Mega nel pianificatore
 - ⬜ Ricevente di Baton Pass / Parting Shot, doppio KO, freno ai cambi ripetuti
