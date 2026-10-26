@@ -127,6 +127,24 @@ AI_DOUBLE_BATTLE_TEST("VGC: after a KO the replacement that pairs best with the 
     }
 }
 
+AI_DOUBLE_BATTLE_TEST("VGC: at equal damage the accurate move is preferred to close a KO")
+{
+    // Entrambe le mosse mandano KO il bersaglio a 1 PS: quella al 100% batte quella all'80%.
+    // (Una mossa ad area al 90% che manda KO due bersagli, invece, vale di più: ~1,8 KO attesi.)
+    // DA INDAGARE: nel log VGCPLAN tutte le coppie hanno lo stesso valore, anche "Stone Edge sul bersaglio a PS
+    // pieni" contro "Scratch che manda KO": il danno fisico di Garchomp non sembra entrare nella simulazione.
+    KNOWN_FAILING;
+    GIVEN {
+        AI_FLAGS(VGC_AI_FLAGS);
+        PLAYER(SPECIES_WOBBUFFET) { HP(5); Speed(10); }
+        PLAYER(SPECIES_WOBBUFFET) { Speed(10); }
+        OPPONENT(SPECIES_GARCHOMP) { Moves(MOVE_STONE_EDGE, MOVE_SCRATCH); Speed(50); }
+        OPPONENT(SPECIES_WOBBUFFET) { Moves(MOVE_CELEBRATE); Speed(40); }
+    } WHEN {
+        TURN { NOT_EXPECT_MOVE(opponentLeft, MOVE_STONE_EDGE); }
+    }
+}
+
 AI_DOUBLE_BATTLE_TEST("VGC: Trick Room setter sets the room for its slow partner")
 {
     GIVEN {

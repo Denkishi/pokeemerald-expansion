@@ -50,7 +50,11 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
 - ✅ Speed Boost a fine turno
 - ✅ Baton Pass nella simulazione: entra il ricevente designato con tutti gli stadi
 - ✅ Intimidate all'entrata nella simulazione (con Clear Body, Inner Focus, Scrappy, Guard Dog, Defiant, Competitive, Clear Amulet); per il giocatore se la specie lo porta di solito
-- ⬜ Mega, terreni, schermi, Sostituto, scottatura/paralisi, precisione
+- ✅ Scottatura e paralisi (inflitte da Will-O-Wisp/Thunder Wave con le immunità; dimezzano attacchi fisici / Velocità)
+- ✅ Schermi (Reflect, Light Screen, Aurora Veil sotto neve) piazzati nella simulazione
+- ✅ Precisione come valore atteso sul danno utile (un KO all'80% vale l'80% del KO)
+- ❌ **Da indagare per primo**: nel test "accurate move" tutte le coppie simulate hanno lo stesso valore, anche quelle in cui Garchomp manda KO e quelle in cui non lo fa: il danno di quell'attaccante non entra nella simulazione. Possibile bug nella lettura della tabella dei danni (test marcato KNOWN_FAILING)
+- ⬜ Mega, terreni, Sostituto
 - ✅ Cambi d'abilità a metà turno (Simple Beam, Worry Seed, Skill Swap, Gastro Acid, Entrainment)
 - ✅ Mycelium Might: mosse di stato per ultime nella fascia di priorità, ignorano le abilità del bersaglio
 - ✅ Justified: +1 Attacco per colpo Buio (Beat Up: un colpo per Pokémon della squadra)

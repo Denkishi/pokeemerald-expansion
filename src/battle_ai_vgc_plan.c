@@ -120,6 +120,9 @@ struct PlanMon
     s8 partyIdx;        // -1 = il Pokémon in campo all'inizio (vale la tabella dei danni)
     u8 alive;
     u8 asleep;
+    u8 burned;          // scottato (dimezza gli attacchi fisici)
+    u8 burned0;         // già scottato all'inizio (compreso nella tabella dei danni)
+    u8 paralyzed;       // paralizzato (dimezza la Velocità)
     u8 sleepTurns;      // turni di sonno rimasti (si sveglia quando arriva a 0 provando a muovere)
     u8 protecting;
     u8 protectedLast;   // ha usato Protect il turno prima: un altro di fila fallisce
@@ -140,6 +143,8 @@ struct PlanState
     u8 trickRoom;       // turni rimasti (0 = non attivo)
     u8 tailwind[2];     // turni rimasti per lato (0 = non attivo)
     u8 weather;         // PW_*
+    u8 screens[2];      // per lato: bit 0 Reflect, bit 1 Light Screen (Aurora Veil = entrambi)
+    u8 screens0[2];     // schermi all'inizio (compresi nella tabella dei danni)
     u8 firstTurn;       // turno simulato = turno attuale (Fake Out vale)
 };
 
@@ -251,6 +256,8 @@ static void LoadFieldMon(struct PlanMon *pm, enum BattlerId b)
     pm->alive = IsBattlerAlive(b);
     pm->asleep = (gBattleMons[b].status1 & STATUS1_SLEEP) != 0;
     pm->sleepTurns = gBattleMons[b].status1 & STATUS1_SLEEP;
+    pm->burned = pm->burned0 = (gBattleMons[b].status1 & STATUS1_BURN) != 0;
+    pm->paralyzed = (gBattleMons[b].status1 & STATUS1_PARALYSIS) != 0;
     {
         enum Move last = gLastResultingMoves[b];
         pm->protectedLast = last != MOVE_NONE && last != MOVE_UNAVAILABLE
@@ -378,6 +385,8 @@ static void LoadPartyMon(struct PlanState *st, enum BattlerId b, u32 partyIdx)
     pm->alive = pm->hp > 0;
     pm->asleep = (GetMonData(mon, MON_DATA_STATUS) & STATUS1_SLEEP) != 0;
     pm->sleepTurns = GetMonData(mon, MON_DATA_STATUS) & STATUS1_SLEEP;
+    pm->burned = pm->burned0 = (GetMonData(mon, MON_DATA_STATUS) & STATUS1_BURN) != 0;
+    pm->paralyzed = (GetMonData(mon, MON_DATA_STATUS) & STATUS1_PARALYSIS) != 0;
     pm->protecting = pm->protectedLast = pm->wideGuard = pm->flinched = pm->redirect = pm->helping = 0;
     pm->berryUsed = FALSE;
     memset(pm->stage, 0, sizeof(pm->stage));
@@ -426,6 +435,16 @@ static void InitState(struct PlanState *st)
     st->tailwind[B_SIDE_PLAYER] = (gSideStatuses[B_SIDE_PLAYER] & SIDE_STATUS_TAILWIND) ? gSideTimers[B_SIDE_PLAYER].tailwindTimer : 0;
     st->tailwind[B_SIDE_OPPONENT] = (gSideStatuses[B_SIDE_OPPONENT] & SIDE_STATUS_TAILWIND) ? gSideTimers[B_SIDE_OPPONENT].tailwindTimer : 0;
     st->weather = CurrentWeather();
+    {
+        u32 side;
+        for (side = 0; side < NUM_BATTLE_SIDES; side++)
+        {
+            u32 ss = gSideStatuses[side];
+            st->screens[side] = ((ss & (SIDE_STATUS_REFLECT | SIDE_STATUS_AURORA_VEIL)) ? 1 : 0)
+                              | ((ss & (SIDE_STATUS_LIGHTSCREEN | SIDE_STATUS_AURORA_VEIL)) ? 2 : 0);
+            st->screens0[side] = st->screens[side];
+        }
+    }
     st->firstTurn = TRUE;
 }
 
@@ -455,6 +474,10 @@ static u32 EffSpeed(const struct PlanState *st, enum BattlerId b)
 {
     const struct PlanMon *pm = &st->m[b];
     u32 s = StageRatio(pm->speed, pm->stage0[PS_SPE], pm->stage[PS_SPE]);
+
+    // La velocità di partenza della tabella dell'IA include già la paralisi presente: si conta solo quella nuova.
+    if (pm->paralyzed && !(pm->partyIdx < 0 && (gBattleMons[b].status1 & STATUS1_PARALYSIS)))
+        s /= 2;
 
     if (st->tailwind[GetBattlerSide(b)])
         s *= 2;
@@ -517,6 +540,16 @@ static s32 EstimateDamage(const struct PlanState *st, const struct PlanMon *atk,
     dmg = dmg * WeatherFactor(st->weather, type) / 100;
     if (atk->holdEffect == HOLD_EFFECT_LIFE_ORB)
         dmg = dmg * 13 / 10;
+    if (physical && atk->burned0 && atk->ability != ABILITY_GUTS)
+        dmg /= 2;
+    {
+        u32 i, side = 0;
+        for (i = 0; i < gBattlersCount; i++)
+            if (&st->m[i] == def)
+                side = GetBattlerSide(i);
+        if (st->screens0[side] & (physical ? 1 : 2))
+            dmg = dmg * 2 / 3;
+    }
     if (IsSpreadMove(GetMoveTarget(move)))
         dmg = dmg * 3 / 4;
     return dmg * 92 / 100;
@@ -552,8 +585,21 @@ static s32 DamageOf(const struct PlanState *st, const struct PlanAction *a, enum
     {
         dmg = EstimateDamage(st, am, dm, a->move);
     }
+    {
+        // Scottatura e schermi comparsi durante la simulazione (quelli già presenti sono nella tabella o nella stima).
+        bool32 physical = GetMoveCategory(a->move) == DAMAGE_CATEGORY_PHYSICAL;
+        u32 side = GetBattlerSide(t), bit = physical ? 1 : 2;
+        if (physical && am->burned && !am->burned0 && am->ability != ABILITY_GUTS)
+            dmg /= 2;
+        if ((st->screens[side] & bit) && !(st->screens0[side] & bit) && !IsBattlerAlly(a->user, t))
+            dmg = dmg * 2 / 3;
+    }
     if (am->helping)
         dmg = dmg * 3 / 2;
+    // Precisione come valore atteso sul danno UTILE (al massimo i PS rimasti): un colpo all'80% che manda KO
+    // vale l'80% del KO, anche se farebbe il triplo del danno necessario.
+    if (GetMoveAccuracy(a->move) > 0 && GetMoveAccuracy(a->move) < 100)
+        dmg = min(dmg, st->m[t].hp) * GetMoveAccuracy(a->move) / 100;
     return dmg;
 }
 
@@ -711,6 +757,16 @@ static void ApplyAction(struct PlanState *st, const struct PlanAction *a)
         if (!IsOnPlayerSide(u))
             BatonPassInSim(st, u);
         return;
+    case EFFECT_REFLECT:
+        st->screens[GetBattlerSide(u)] |= 1;
+        return;
+    case EFFECT_LIGHT_SCREEN:
+        st->screens[GetBattlerSide(u)] |= 2;
+        return;
+    case EFFECT_AURORA_VEIL:
+        if (st->weather == PW_SNOW)
+            st->screens[GetBattlerSide(u)] |= 3;
+        return;
     case EFFECT_TRICK_ROOM:
         // Dura 5 turni compreso questo (NextTurn toglie il primo a fine turno).
         st->trickRoom = st->trickRoom ? 0 : 5;
@@ -786,6 +842,23 @@ static void ApplyAction(struct PlanState *st, const struct PlanAction *a)
                 um->stage[PS_SPA] = min(6, um->stage[PS_SPA] + ae->spAtk);
                 um->stage[PS_SPD] = min(6, um->stage[PS_SPD] + ae->spDef);
                 um->stage[PS_SPE] = min(6, um->stage[PS_SPE] + ae->speed);
+            }
+        }
+        else if ((GetMoveNonVolatileStatus(a->move) == MOVE_EFFECT_BURN || GetMoveNonVolatileStatus(a->move) == MOVE_EFFECT_PARALYSIS)
+              && tm->alive && !tm->protecting && !tm->asleep && !tm->burned && !tm->paralyzed)
+        {
+            // Will-O-Wisp / Thunder Wave & co.: immunità di tipo (Fuoco alla scottatura, Elettro alla paralisi,
+            // e il tipo della mossa: Thunder Wave non tocca i Terra).
+            bool32 burn = GetMoveNonVolatileStatus(a->move) == MOVE_EFFECT_BURN;
+            enum Type immune = burn ? TYPE_FIRE : TYPE_ELECTRIC;
+            if (tm->t1 != immune && tm->t2 != immune && TypeEff(GetMoveType(a->move), tm) != UQ_4_12(0.0)
+             && tm->ability != ABILITY_GOOD_AS_GOLD && tm->ability != ABILITY_MAGIC_BOUNCE && tm->ability != ABILITY_PURIFYING_SALT
+             && (burn ? tm->ability != ABILITY_WATER_VEIL : tm->ability != ABILITY_LIMBER))
+            {
+                if (burn)
+                    tm->burned = TRUE;
+                else
+                    tm->paralyzed = TRUE;
             }
         }
         else if (GetMoveNonVolatileStatus(a->move) == MOVE_EFFECT_SLEEP && tm->alive && !tm->protecting && !tm->asleep)
@@ -932,6 +1005,11 @@ static s32 Evaluate(const struct PlanState *st)
         v += side * (pm->hp * 100 / max(pm->maxHp, 1) + 40);
         if (pm->asleep)
             v -= side * 60;
+        // Stato: la scottatura pesa sugli attaccanti fisici, la paralisi su tutti (Velocità dimezzata).
+        if (pm->burned && pm->atk > pm->spa && pm->ability != ABILITY_GUTS)
+            v -= side * 35;
+        if (pm->paralyzed)
+            v -= side * 20;
         // Stadi: valgono se servono a qualcosa (chi attacca, o chi li passa con Baton Pass a qualcuno in panchina).
         if (pm->canAttack)
         {
@@ -1070,15 +1148,20 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
             else if (eff == EFFECT_WEATHER) w = 40;
             else if (eff == EFFECT_PROTECT && GetMoveProtectMethod(m) == PROTECT_WIDE_GUARD) w = 25;
             else if (GetMoveNonVolatileStatus(m) == MOVE_EFFECT_SLEEP) w = 60;
+            else if (GetMoveNonVolatileStatus(m) == MOVE_EFFECT_BURN || GetMoveNonVolatileStatus(m) == MOVE_EFFECT_PARALYSIS) w = 40;
+            else if ((eff == EFFECT_REFLECT && !(st->screens[GetBattlerSide(b)] & 1))
+                  || (eff == EFFECT_LIGHT_SCREEN && !(st->screens[GetBattlerSide(b)] & 2))
+                  || (eff == EFFECT_AURORA_VEIL && st->weather == PW_SNOW && st->screens[GetBattlerSide(b)] != 3)) w = 40;
             else if (eff == EFFECT_BATON_PASS && isOurs && CountUsablePartyMons(b) > 0
                   && (bm->stage[PS_ATK] > 0 || bm->stage[PS_SPA] > 0 || bm->stage[PS_SPE] > 0)) w = 60;
             else if (IsStatRaisingMove(m) && GetMoveTarget(m) == TARGET_USER) w = 35;
             if (w == 0)
                 continue;
-            if (GetMoveNonVolatileStatus(m) == MOVE_EFFECT_SLEEP)
+            if (GetMoveNonVolatileStatus(m) == MOVE_EFFECT_SLEEP || GetMoveNonVolatileStatus(m) == MOVE_EFFECT_BURN
+             || GetMoveNonVolatileStatus(m) == MOVE_EFFECT_PARALYSIS)
             {
                 for (k = 0; k < 2; k++)
-                    if (st->m[targets[k]].alive && !st->m[targets[k]].asleep)
+                    if (st->m[targets[k]].alive && !st->m[targets[k]].asleep && !st->m[targets[k]].burned && !st->m[targets[k]].paralyzed)
                         AddCand(cand, &n, PLAN_CAND_MAX, PLAN_ACT_MOVE, idx, -1, m, b, targets[k], w);
             }
             else
