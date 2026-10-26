@@ -41,6 +41,8 @@ enum BattlerId AI_VgcPlanBattler(void);
 bool32 AI_VgcPlanIsBusy(enum BattlerId battler);
 // A inizio turno: azzera lavori e decisioni rimasti dal turno (o dalla lotta) precedente.
 void AI_VgcPlanResetTurn(void);
+// Chi entra quando `battler` usa Baton Pass: il ricevente designato dal grafo della squadra (PARTY_SIZE = nessuno).
+u32 AI_VgcBatonRecipient(enum BattlerId battler);
 bool32 AI_VgcPlanIsSetter(u16 trainerId, u16 species);
 bool32 AI_VgcPlanIsBack(u16 trainerId, u16 species);
 s32 AI_VgcPlanLeadBonus(u16 trainerId, u16 a, u16 b, bool32 trViable, bool32 twViable);

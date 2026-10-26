@@ -656,6 +656,15 @@ static void OpponentHandleChoosePokemon(enum BattlerId battler)
             SetBattlerAiData(GetBattlerAtPosition(B_POSITION_PLAYER_RIGHT), gAiLogicData);
 
         chosenMonId = GetMostSuitableMonToSwitchInto(battler, switchType);
+        // IA VGC: con Baton Pass entra il ricevente designato (quello per cui i boost sono stati accumulati),
+        // non il "migliore" generico.
+        if ((gAiThinkingStruct->aiFlags[battler] & AI_FLAG_VGC_DOUBLES) && gBattlerAttacker == battler
+         && GetMoveEffect(gCurrentMove) == EFFECT_BATON_PASS)
+        {
+            u32 recipient = AI_VgcBatonRecipient(battler);
+            if (recipient < PARTY_SIZE)
+                chosenMonId = recipient;
+        }
         if (chosenMonId == PARTY_SIZE) // Advanced logic failed so we pick the next available battler
         {
             enum BattlerId battler1, battler2;

@@ -16,7 +16,8 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
   - ⬜ velocità del giocatore in `gAiLogicData->speedStats` (codice base dell'expansion) → in M1 con il belief
 - ✅ Suite di test `test/battle/ai/ai_vgc_doubles.c` attiva. WSL compila soltanto; i test si eseguono su Windows con `tools/mgba/mgba-rom-test.exe`
 - ✅ Installate con msys2 `libepoxy-0.dll` e `libwinpthread-1.dll`: `mgba-rom-test.exe` gira su Windows (aggiungere `C:\msys64\mingw64\bin` al PATH)
-- ✅ **Risultati: 5 PASS, 0 FAIL, 0 KNOWN_FAILING**
+- ✅ **Risultati: 6 PASS, 0 FAIL, 0 KNOWN_FAILING**
+  - ✅ Baton Pass fa entrare lo sweeper designato (Chandelure), non un Pokémon qualsiasi
   - ✅ Fake Out non usato dopo il primo turno
   - ✅ Niente overkill: il più veloce manda KO, l'altro usa la mossa giusta sull'altro avversario (Ice Beam su Garchomp) — grazie alla ricerca congiunta (M4)
   - ✅ Simple Beam sul compagno con Mycelium Might quando addormentare prima conviene — **deciso dalla simulazione, nessuna regola sulla specie**
@@ -41,19 +42,22 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
 - 🔧 Trick Room (5 turni) e Tailwind (4 turni) ora scadono; turni rimasti letti dal gioco
 - 🔧 Sonno con contatore: ci si sveglia (prima si dormiva per sempre)
 - ⬜ Cache danni reale (`AI_CalcDamage`) al posto della stima
-- ⬜ Stadi separati Atk/SpA/Def/SpD/Spe
+- ✅ Stadi separati Atk/Def/SpA/SpD/Spe, letti dal gioco a inizio turno; i danni della tabella dell'IA si riscalano per gli stadi cambiati nella simulazione; le mosse di potenziamento applicano gli stadi veri (Calm Mind +1 SpA/+1 SpD, Dragon Dance +1 Atk/+1 Spe...) invece di un "+2" generico
+- ✅ Speed Boost a fine turno
+- ✅ Baton Pass nella simulazione: entra il ricevente designato con tutti gli stadi
 - ⬜ Intimidate, Mega, terreni, schermi, Sostituto, scottatura/paralisi, precisione
 - ✅ Cambi d'abilità a metà turno (Simple Beam, Worry Seed, Skill Swap, Gastro Acid, Entrainment)
 - ✅ Mycelium Might: mosse di stato per ultime nella fascia di priorità, ignorano le abilità del bersaglio
 - ✅ Justified: +1 Attacco per colpo Buio (Beat Up: un colpo per Pokémon della squadra)
-- ⬜ Unburden, Baton Pass, Parting Shot, U-turn
+- ⬜ Unburden, Parting Shot, U-turn, Sostituto passato con Baton Pass
 - ⬜ Sostituzioni dopo un KO nel simulatore
 
 ## M3 — Valutazione della posizione
 - ⬜ Materiale con panchina, HP pesati per ruolo
 - ⬜ Velocità del turno dopo con turni rimasti di Tailwind/TR
 - ⬜ Minacce credute per avversari senza mosse viste
-- ⬜ Risorse (Fake Out, Sash, Mega), potenziale trasferibile (Baton Pass)
+- ✅ Stadi valutati solo se servono: chi attacca (stadio offensivo giusto per fisico/speciale), o chi ha Baton Pass e qualcuno in panchina (potenziale trasferibile); Velocità e difese con peso minore
+- ⬜ Risorse (Fake Out, Sash, Mega)
 
 ## M4 — Ricerca congiunta dei due slot
 - 🔧 Un solo calcolo per lato e per turno: il primo slot pianifica la **coppia**, il secondo aspetta e applica la sua metà già decisa (prima il secondo slot non pianificava mai)
@@ -76,7 +80,8 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
 - ⬜ Rimozione blocchi Savarotto (Espathra/Baton Pass: serve prima Baton Pass nel simulatore e il potenziale trasferibile, M2/M3) e Patatina, altri `species ==`
 
 ## M6 — Cambi, sostituzioni e Mega nel pianificatore
-- ⬜ Ricevente di Baton Pass / Parting Shot, doppio KO, freno ai cambi ripetuti
+- ✅ Baton Pass: nel gioco vero entra il ricevente designato dal grafo (es. Espathra → Chandelure), non il "migliore" generico — test passa
+- ⬜ Parting Shot / U-turn, doppio KO, freno ai cambi ripetuti
 - ⬜ Bug Stealth Rock calcolato su chi esce
 - ⬜ Mega con/senza come candidata
 

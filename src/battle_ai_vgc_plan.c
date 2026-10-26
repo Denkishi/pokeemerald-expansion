@@ -79,6 +79,34 @@ struct PlanAction
     s32 weight;
 };
 
+enum PlanStage
+{
+    PS_ATK,
+    PS_DEF,
+    PS_SPA,
+    PS_SPD,
+    PS_SPE,
+    PS_COUNT,
+};
+
+// Valore di una statistica allo stadio `s` (v = valore a stadio 0).
+static u32 ApplyStage(u32 v, s32 s)
+{
+    s = max(-6, min(6, s));
+    return (s >= 0) ? v * (2 + s) / 2 : v * 2 / (2 - s);
+}
+
+// Da un valore già allo stadio `from` allo stesso valore allo stadio `to`.
+static u32 StageRatio(u32 v, s32 from, s32 to)
+{
+    from = max(-6, min(6, from));
+    to = max(-6, min(6, to));
+    if (from == to)
+        return v;
+    v = (from >= 0) ? v * 2 / (2 + from) : v * (2 - from) / 2;
+    return ApplyStage(v, to);
+}
+
 struct PlanMon
 {
     s32 hp;
@@ -100,8 +128,10 @@ struct PlanMon
     u8 redirect;
     u8 helping;
     u8 berryUsed;
-    s8 speedStage;
-    s8 boost;
+    s8 stage[PS_COUNT];     // stadi attuali nella simulazione (-6..+6)
+    s8 stage0[PS_COUNT];    // stadi all'inizio (già compresi in velocità e danni della tabella dell'IA)
+    u8 canAttack:1;         // ha mosse d'attacco (i boost offensivi servono a qualcosa)
+    u8 canPass:1;           // ha Baton Pass (i boost valgono per chi li riceve)
 };
 
 struct PlanState
@@ -125,6 +155,7 @@ struct PlanJob
     // Coppia i: ours[i] è la nostra azione, partners[i] quella del partner (decise insieme).
     struct PlanAction ours[PLAN_MAX_PAIRS], partners[PLAN_MAX_PAIRS], foeA[PLAN_FOE_PER], foeB[PLAN_FOE_PER];
     u8 nOurs, nA, nB;
+    struct VgcTeamGraph graph;  // conoscenza della nostra squadra (combo, ricevente del Baton Pass)
     u8 origPMove;
     enum BattlerId origPTarget;
     struct PlanState base;
@@ -226,6 +257,28 @@ static void LoadFieldMon(struct PlanMon *pm, enum BattlerId b)
                          && gBattleMoveEffects[GetMoveEffect(last)].usesProtectCounter
                          && gBattleMons[b].volatiles.consecutiveMoveUses > 0;
     }
+    // Stadi attuali (visibili a entrambi i giocatori).
+    pm->stage[PS_ATK] = gBattleMons[b].statStages[STAT_ATK] - DEFAULT_STAT_STAGE;
+    pm->stage[PS_DEF] = gBattleMons[b].statStages[STAT_DEF] - DEFAULT_STAT_STAGE;
+    pm->stage[PS_SPA] = gBattleMons[b].statStages[STAT_SPATK] - DEFAULT_STAT_STAGE;
+    pm->stage[PS_SPD] = gBattleMons[b].statStages[STAT_SPDEF] - DEFAULT_STAT_STAGE;
+    pm->stage[PS_SPE] = gBattleMons[b].statStages[STAT_SPEED] - DEFAULT_STAT_STAGE;
+    memcpy(pm->stage0, pm->stage, sizeof(pm->stage));
+    pm->canAttack = TRUE;
+    pm->canPass = FALSE;
+    if (!IsOnPlayerSide(b))
+    {
+        u32 i;
+        pm->canAttack = FALSE;
+        for (i = 0; i < MAX_MON_MOVES; i++)
+        {
+            enum Move m = gBattleMons[b].moves[i];
+            if (m != MOVE_NONE && m != MOVE_UNAVAILABLE && !IsBattleMoveStatus(m))
+                pm->canAttack = TRUE;
+            if (m != MOVE_NONE && m != MOVE_UNAVAILABLE && GetMoveEffect(m) == EFFECT_BATON_PASS)
+                pm->canPass = TRUE;
+        }
+    }
 }
 
 static void LoadPartyMon(struct PlanState *st, enum BattlerId b, u32 partyIdx)
@@ -293,7 +346,23 @@ static void LoadPartyMon(struct PlanState *st, enum BattlerId b, u32 partyIdx)
     pm->sleepTurns = GetMonData(mon, MON_DATA_STATUS) & STATUS1_SLEEP;
     pm->protecting = pm->protectedLast = pm->wideGuard = pm->flinched = pm->redirect = pm->helping = 0;
     pm->berryUsed = FALSE;
-    pm->speedStage = pm->boost = 0;
+    memset(pm->stage, 0, sizeof(pm->stage));
+    memset(pm->stage0, 0, sizeof(pm->stage0));
+    pm->canAttack = TRUE;
+    pm->canPass = FALSE;
+    if (!IsOnPlayerSide(b))
+    {
+        u32 i;
+        pm->canAttack = FALSE;
+        for (i = 0; i < MAX_MON_MOVES; i++)
+        {
+            enum Move m = GetMonData(mon, MON_DATA_MOVE1 + i);
+            if (m != MOVE_NONE && !IsBattleMoveStatus(m))
+                pm->canAttack = TRUE;
+            if (m != MOVE_NONE && GetMoveEffect(m) == EFFECT_BATON_PASS)
+                pm->canPass = TRUE;
+        }
+    }
     // Meteo all'entrata (abilità).
     w = WeatherFromAbility(pm->ability);
     if (w != PW_NONE)
@@ -321,6 +390,9 @@ static void NextTurn(struct PlanState *st)
     enum BattlerId b;
     for (b = 0; b < gBattlersCount; b++)
     {
+        // Speed Boost: +1 Velocità a fine turno.
+        if (st->m[b].alive && st->m[b].ability == ABILITY_SPEED_BOOST)
+            st->m[b].stage[PS_SPE] = min(6, st->m[b].stage[PS_SPE] + 1);
         st->m[b].protectedLast = st->m[b].protecting;
         st->m[b].protecting = st->m[b].wideGuard = st->m[b].flinched = st->m[b].redirect = st->m[b].helping = 0;
     }
@@ -336,13 +408,8 @@ static void NextTurn(struct PlanState *st)
 static u32 EffSpeed(const struct PlanState *st, enum BattlerId b)
 {
     const struct PlanMon *pm = &st->m[b];
-    u32 s = pm->speed;
-    s32 stage = pm->speedStage;
+    u32 s = StageRatio(pm->speed, pm->stage0[PS_SPE], pm->stage[PS_SPE]);
 
-    if (stage < 0)
-        s = s * 2 / (2 - stage);
-    else if (stage > 0)
-        s = s * (2 + stage) / 2;
     if (st->tailwind[GetBattlerSide(b)])
         s *= 2;
     if ((st->weather == PW_RAIN && pm->ability == ABILITY_SWIFT_SWIM) || (st->weather == PW_SUN && pm->ability == ABILITY_CHLOROPHYLL)
@@ -383,8 +450,8 @@ static s32 EstimateDamage(const struct PlanState *st, const struct PlanMon *atk,
     u32 power = GetMovePower(move);
     enum Type type = GetMoveType(move);
     bool32 physical = GetMoveCategory(move) == DAMAGE_CATEGORY_PHYSICAL;
-    u32 a = physical ? atk->atk : atk->spa;
-    u32 d = physical ? def->def : def->spd;
+    u32 a = physical ? ApplyStage(atk->atk, atk->stage[PS_ATK]) : ApplyStage(atk->spa, atk->stage[PS_SPA]);
+    u32 d = physical ? ApplyStage(def->def, def->stage[PS_DEF]) : ApplyStage(def->spd, def->stage[PS_SPD]);
     u32 dmg;
 
     if (power == 0 || IsBattleMoveStatus(move))
@@ -423,6 +490,17 @@ static s32 DamageOf(const struct PlanState *st, const struct PlanAction *a, enum
         // La tabella include il meteo attuale: se nella simulazione è cambiato, si riscala.
         if (st->weather != now)
             dmg = dmg * WeatherFactor(st->weather, GetMoveType(a->move)) / WeatherFactor(now, GetMoveType(a->move));
+        // La tabella include anche gli stadi attuali: si riscala per quelli cambiati nella simulazione.
+        if (GetMoveCategory(a->move) == DAMAGE_CATEGORY_PHYSICAL)
+        {
+            dmg = StageRatio(dmg, am->stage0[PS_ATK], am->stage[PS_ATK]);
+            dmg = StageRatio(dmg, -dm->stage0[PS_DEF], -dm->stage[PS_DEF]);
+        }
+        else
+        {
+            dmg = StageRatio(dmg, am->stage0[PS_SPA], am->stage[PS_SPA]);
+            dmg = StageRatio(dmg, -dm->stage0[PS_SPD], -dm->stage[PS_SPD]);
+        }
     }
     else
     {
@@ -430,14 +508,43 @@ static s32 DamageOf(const struct PlanState *st, const struct PlanAction *a, enum
     }
     if (am->helping)
         dmg = dmg * 3 / 2;
-    if (am->boost > 0)
-        dmg = dmg * (2 + am->boost) / 2;
     return dmg;
 }
 
 // ---------------------------------------------------------------------
 // Applicazione di un'azione
 // ---------------------------------------------------------------------
+static bool32 CanBatonPassTo(struct Pokemon *party, u32 idx, u32 myIdx, u32 partnerIdx)
+{
+    return idx < PARTY_SIZE && idx != myIdx && idx != partnerIdx
+        && GetMonData(&party[idx], MON_DATA_SPECIES) != SPECIES_NONE && !GetMonData(&party[idx], MON_DATA_IS_EGG)
+        && GetMonData(&party[idx], MON_DATA_HP) > 0;
+}
+
+// Baton Pass nella simulazione: entra il ricevente designato dal grafo della squadra (o il primo libero)
+// e si porta dietro gli stadi.
+static void BatonPassInSim(struct PlanState *st, enum BattlerId u)
+{
+    struct Pokemon *party = GetBattlerParty(u);
+    enum BattlerId p = GetPartnerBattler(u);
+    u32 myIdx = (st->m[u].partyIdx >= 0) ? (u32)st->m[u].partyIdx : gBattlerPartyIndexes[u];
+    u32 pIdx = (st->m[p].partyIdx >= 0) ? (u32)st->m[p].partyIdx : gBattlerPartyIndexes[p];
+    u32 idx = (myIdx < PARTY_SIZE) ? sJob.graph.batonRecipient[myIdx] : VGC_GRAPH_NONE;
+    s8 stages[PS_COUNT];
+
+    if (!CanBatonPassTo(party, idx, myIdx, pIdx))
+    {
+        for (idx = 0; idx < PARTY_SIZE; idx++)
+            if (CanBatonPassTo(party, idx, myIdx, pIdx))
+                break;
+        if (idx == PARTY_SIZE)
+            return;
+    }
+    memcpy(stages, st->m[u].stage, sizeof(stages));
+    LoadPartyMon(st, u, idx);
+    memcpy(st->m[u].stage, stages, sizeof(stages));
+}
+
 // Priorità con l'abilità che il Pokémon ha ORA nella simulazione (può cambiare a metà turno, es. Simple Beam).
 static s32 ActionPriority(const struct PlanState *st, const struct PlanAction *a)
 {
@@ -554,6 +661,10 @@ static void ApplyAction(struct PlanState *st, const struct PlanAction *a)
     case EFFECT_HELPING_HAND:
         st->m[GetPartnerBattler(u)].helping = TRUE;
         return;
+    case EFFECT_BATON_PASS:
+        if (!IsOnPlayerSide(u))
+            BatonPassInSim(st, u);
+        return;
     case EFFECT_TRICK_ROOM:
         // Dura 5 turni compreso questo (NextTurn toglie il primo a fine turno).
         st->trickRoom = st->trickRoom ? 0 : 5;
@@ -574,7 +685,7 @@ static void ApplyAction(struct PlanState *st, const struct PlanAction *a)
         }
         return;
     case EFFECT_BELLY_DRUM:
-        um->boost += 6;
+        um->stage[PS_ATK] = 6;
         um->hp -= um->maxHp / 2;
         if (um->hp <= 0)
             um->hp = 1;
@@ -617,7 +728,19 @@ static void ApplyAction(struct PlanState *st, const struct PlanAction *a)
         }
         if (IsStatRaisingMove(a->move) && tt == TARGET_USER)
         {
-            um->boost += 2;
+            // Stadi veri della mossa (Calm Mind +1 SpA/+1 SpD, Dragon Dance +1 Atk/+1 Spe, Shell Smash...).
+            u32 e, ne = GetMoveAdditionalEffectCount(a->move);
+            for (e = 0; e < ne; e++)
+            {
+                const struct AdditionalEffect *ae = GetMoveAdditionalEffectById(a->move, e);
+                if (ae->moveEffect != STAT_CHANGE_EFFECT_PLUS)
+                    continue;
+                um->stage[PS_ATK] = min(6, um->stage[PS_ATK] + ae->attack);
+                um->stage[PS_DEF] = min(6, um->stage[PS_DEF] + ae->defense);
+                um->stage[PS_SPA] = min(6, um->stage[PS_SPA] + ae->spAtk);
+                um->stage[PS_SPD] = min(6, um->stage[PS_SPD] + ae->spDef);
+                um->stage[PS_SPE] = min(6, um->stage[PS_SPE] + ae->speed);
+            }
         }
         else if (GetMoveNonVolatileStatus(a->move) == MOVE_EFFECT_SLEEP && tm->alive && !tm->protecting && !tm->asleep)
         {
@@ -683,13 +806,13 @@ static void ApplyAction(struct PlanState *st, const struct PlanAction *a)
             dmg = DamageOf(st, a, t);
             // Justified: ogni colpo di tipo Buio alza l'Attacco (Beat Up colpisce una volta per Pokémon della squadra).
             if (tm->ability == ABILITY_JUSTIFIED && tm->alive && GetMoveType(a->move) == TYPE_DARK)
-                tm->boost += (effect == EFFECT_BEAT_UP) ? min(CountUsablePartyMons(u) + 2, 4) : 1;
+                tm->stage[PS_ATK] = min(6, tm->stage[PS_ATK] + ((effect == EFFECT_BEAT_UP) ? min(CountUsablePartyMons(u) + 2, 4) : 1));
             if (dmg <= 0)
                 continue;
             if (effect == EFFECT_FIRST_TURN_ONLY && st->firstTurn && IsBattlersFirstTurn(u) && tm->ability != ABILITY_INNER_FOCUS)
                 tm->flinched = TRUE;
             if (a->move == MOVE_ICY_WIND || a->move == MOVE_ELECTROWEB || a->move == MOVE_BULLDOZE)
-                tm->speedStage--;
+                tm->stage[PS_SPE] = max(-6, tm->stage[PS_SPE] - 1);
             TakeDamage(tm, dmg);
         }
         if (effect == EFFECT_FINAL_GAMBIT)
@@ -757,8 +880,14 @@ static s32 Evaluate(const struct PlanState *st)
         v += side * (pm->hp * 100 / max(pm->maxHp, 1) + 40);
         if (pm->asleep)
             v -= side * 60;
-        if (pm->boost > 0)
-            v += side * 25 * min(pm->boost, 4);
+        // Stadi: valgono se servono a qualcosa (chi attacca, o chi li passa con Baton Pass a qualcuno in panchina).
+        if (pm->canAttack || (pm->canPass && CountUsablePartyMons(b) > 0))
+        {
+            s32 off = pm->canAttack ? ((pm->atk >= pm->spa) ? pm->stage[PS_ATK] : pm->stage[PS_SPA])
+                                    : max(pm->stage[PS_ATK], pm->stage[PS_SPA]);
+            s32 dfn = (pm->stage[PS_DEF] + pm->stage[PS_SPD]) / 2;
+            v += side * (20 * max(-4, min(4, off)) + 12 * max(-4, min(4, pm->stage[PS_SPE])) + 6 * max(-4, min(4, dfn)));
+        }
     }
     for (b = 0; b < gBattlersCount; b++)
     {
@@ -882,6 +1011,8 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
             else if (eff == EFFECT_WEATHER) w = 40;
             else if (eff == EFFECT_PROTECT && GetMoveProtectMethod(m) == PROTECT_WIDE_GUARD) w = 25;
             else if (GetMoveNonVolatileStatus(m) == MOVE_EFFECT_SLEEP) w = 60;
+            else if (eff == EFFECT_BATON_PASS && isOurs && CountUsablePartyMons(b) > 0
+                  && (bm->stage[PS_ATK] > 0 || bm->stage[PS_SPA] > 0 || bm->stage[PS_SPE] > 0)) w = 60;
             else if (IsStatRaisingMove(m) && GetMoveTarget(m) == TARGET_USER) w = 35;
             if (w == 0)
                 continue;
@@ -1265,12 +1396,8 @@ static u32 BuildPairs(enum BattlerId me, const struct PlanState *st)
         return min(nMine, PLAN_MAX_PAIRS);
     }
     nTheirs = BuildOurFirstActions(p, theirs, sJob.origPMove, sJob.origPTarget);
-    {
-        struct VgcTeamGraph graph;
-        AI_VgcBuildTeamGraph(GetBattlerParty(me), &graph);
-        AddComboCands(me, p, mine, &nMine, nMine > 0 ? mine[0].weight : 0, &graph);
-        AddComboCands(p, me, theirs, &nTheirs, nTheirs > 0 ? theirs[0].weight : 0, &graph);
-    }
+    AddComboCands(me, p, mine, &nMine, nMine > 0 ? mine[0].weight : 0, &sJob.graph);
+    AddComboCands(p, me, theirs, &nTheirs, nTheirs > 0 ? theirs[0].weight : 0, &sJob.graph);
     if (nTheirs == 0)
     {
         struct PlanAction none = { PLAN_ACT_NONE, 0, -1, MOVE_NONE, p, p, 0 };
@@ -1478,6 +1605,23 @@ enum BattlerId AI_VgcPlanBattler(void)
     return sJob.me;
 }
 
+// Chi deve entrare quando `battler` usa Baton Pass (PARTY_SIZE = nessuno di adatto).
+u32 AI_VgcBatonRecipient(enum BattlerId battler)
+{
+    struct VgcTeamGraph graph;
+    struct Pokemon *party = GetBattlerParty(battler);
+    enum BattlerId p = GetPartnerBattler(battler);
+    u32 myIdx = gBattlerPartyIndexes[battler];
+    u32 pIdx = IsBattlerAlive(p) ? gBattlerPartyIndexes[p] : PARTY_SIZE;
+    u32 idx;
+
+    AI_VgcBuildTeamGraph(party, &graph);
+    idx = graph.batonRecipient[myIdx];
+    if (idx == gBattleStruct->AI_monToSwitchIntoId[p] || !CanBatonPassTo(party, idx, myIdx, pIdx))
+        return PARTY_SIZE;
+    return idx;
+}
+
 // Inizio turno (prima della scelta delle azioni): niente lavori o decisioni rimasti dal turno o dalla lotta prima.
 void AI_VgcPlanResetTurn(void)
 {
@@ -1523,6 +1667,7 @@ bool32 AI_VgcPlanBegin(enum BattlerId me)
         sJob.origPMove = gAiBattleData->chosenMoveIndex[p];
         sJob.origPTarget = gAiBattleData->chosenTarget[p];
     }
+    AI_VgcBuildTeamGraph(GetBattlerParty(me), &sJob.graph);
     InitState(&sJob.base);
     sJob.nOurs = BuildPairs(me, &sJob.base);
     if (sJob.nOurs < 2)

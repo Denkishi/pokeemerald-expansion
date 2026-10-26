@@ -74,6 +74,23 @@ AI_DOUBLE_BATTLE_TEST("VGC: Beat Up on a Justified partner before it attacks")
     }
 }
 
+AI_DOUBLE_BATTLE_TEST("VGC: Baton Pass sends in the designated sweeper, not the generic best switch-in")
+{
+    // Il grafo della squadra lega il Baton Passer (Speed Boost, niente attacchi) al miglior attaccante speciale
+    // in panchina: è lui che deve entrare a raccogliere i boost.
+    GIVEN {
+        AI_FLAGS(VGC_AI_FLAGS);
+        PLAYER(SPECIES_WOBBUFFET) { Speed(20); }
+        PLAYER(SPECIES_WOBBUFFET) { Speed(20); }
+        OPPONENT(SPECIES_ESPATHRA) { Ability(ABILITY_SPEED_BOOST); Moves(MOVE_BATON_PASS); Speed(105); }
+        OPPONENT(SPECIES_WOBBUFFET) { Moves(MOVE_SCRATCH); Speed(30); }
+        OPPONENT(SPECIES_WOBBUFFET) { Moves(MOVE_SCRATCH); Speed(30); }
+        OPPONENT(SPECIES_CHANDELURE) { Moves(MOVE_SHADOW_BALL, MOVE_HEAT_WAVE, MOVE_ENERGY_BALL); Speed(80); }
+    } WHEN {
+        TURN { EXPECT_MOVE(opponentLeft, MOVE_BATON_PASS); EXPECT_SEND_OUT(opponentLeft, 3); }
+    }
+}
+
 AI_DOUBLE_BATTLE_TEST("VGC: no Simple Beam on Mycelium Might when Spore would fail anyway (Good as Gold)")
 {
     // Senza Mycelium Might, Spore rimbalza su Good as Gold: togliere l'abilità al compagno è controproducente.
