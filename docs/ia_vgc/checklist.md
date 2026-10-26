@@ -127,6 +127,14 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
   - ogni misplay confermato diventa un test della suite
   - report per ognuna delle 144 coppie: esito, errori per categoria, log leggibile turno per turno; i casi dubbi segnalati a parte per la revisione
 
+- 🟨 **Harness di self-play costruito (branch `ia-vgc-selfplay`, in pausa)** — guida `docs/ia_vgc/training.md`:
+  - ✅ ROM: test `test/vgc_selfplay/vgc_selfplay.c` con runner proprio; allenatori VGC estratti da `trainers.party` a ogni build; team preview IA per entrambi i lati; Lv50 (`ScalePartiesToBattleLevel` prima della preview, verificato liv50 in lotta); seme fisso; modalità lead fisse e posizioni preparate; log `VSP ...`
+  - ✅ Informazione chiusa in IA contro IA: `src/battle_ai_perspective.c` (dati IA per lato, `IsAiBattlerAware` per prospettiva), pianificatore/regole relativi al lato di chi pensa, lato G con la logica dell'IA avversaria (pianificatore compreso); test di invarianza `test/battle/ai/ai_vgc_perspective.c` (scritto, NON ancora eseguito)
+  - ✅ Controllore dei misplay nel ROM (categorie in training.md), sulle stime del lato che agisce
+  - ✅ Orchestratore `tools/vgc_training/` (start/pause/resume/stop/status/report, .bat, stato persistente, parallelismo)
+  - ⬜ **Prima partita completa**: ENZO-SIMONE seme 1 arriva al turno 1 a Lv50 con pianificatore su entrambi i lati, poi l'output si perde (stdout di mgba bufferizzato, processo fermato a mano). Da capire se è un blocco o solo lentezza
+  - ⬜ 144 scontri, report, eseguire il test di invarianza e i test VGC esistenti, ricompilare il ROM normale
+
 ## M9 — Allenamento automatico (dopo M4)
 - ⬜ ROM di allenamento (senza animazioni), IA su entrambi i lati
 - ⬜ Benchmark: partite/ora con 1 e con ~28 istanze mGBA

@@ -309,6 +309,9 @@ void TryReceiveLinkBattleData(void);
 void PrepareBufferDataTransferLink(enum BattlerId battler, u32 bufferId, u16 size, u8 *data);
 void UpdateFriendshipFromXItem(enum BattlerId battler);
 bool32 IsAiVsAiBattle(void);
+#if TESTING
+extern bool8 gTestAiVsAiBattle; // harness di self-play VGC
+#endif
 bool32 BattlerIsPlayer(enum BattlerId battlerId);
 bool32 BattlerIsPartner(enum BattlerId battlerId);
 bool32 BattlerIsOpponent(enum BattlerId battlerId);
@@ -436,6 +439,9 @@ void RecordedPartnerBufferExecCompleted(enum BattlerId battler);
 void SetControllerToOpponent(enum BattlerId battler);
 void OpponentBufferExecCompleted(enum BattlerId battler);
 void OpponentHandleTrainerSlide(enum BattlerId battler);
+// IA contro IA: scelte del lato del giocatore con la logica dell'IA avversaria (pianificatore VGC compreso).
+void OpponentAi_HandleChooseAction(enum BattlerId battler);
+void OpponentAi_HandleChoosePokemon(enum BattlerId battler);
 
 // player partner controller
 void Controller_PlayerPartnerShowIntroHealthbox(enum BattlerId battler); // Also used by the link partner.

@@ -67,3 +67,7 @@ tools/aif2pcm/aif2pcm
 __pycache__
 .map_version
 vincenzo_features.patch
+
+# Harness di self-play VGC: allenatori generati da src/data/trainers.party
+test/vgc_selfplay/vgc_trainers.party
+test/vgc_selfplay/vgc_trainers.h

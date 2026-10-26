@@ -43,6 +43,11 @@
 #include "constants/opponents.h"
 #include "constants/species.h"
 #include "data/vgc_gameplans.h"
+#include "battle_ai_perspective.h"
+
+// IA contro IA (B_FLAG_AI_VS_AI_BATTLE): il "giocatore" di questo file è il lato avversario di chi sta
+// pensando (battle_ai_perspective.h). Fuori da IA contro IA è identico a IsOnPlayerSide.
+#define IsOnPlayerSide(battler) AI_IsFoeOfPerspective(battler)
 
 // ---------------------------------------------------------------------
 // Piano di squadra (src/data/vgc_gameplans.h)
@@ -197,7 +202,7 @@ static s32 PlanMoveBonus(const struct VgcGameplan *plan, enum BattlerId battlerA
 // La modalità del piano è attiva in campo adesso (per decidere i cambi verso la win condition).
 bool32 AI_VgcPlanModeActive(enum BattlerId battler)
 {
-    const struct VgcGameplan *plan = AI_VgcGetPlan(TRAINER_BATTLE_PARAM.opponentA);
+    const struct VgcGameplan *plan = AI_VgcGetPlan(AI_TrainerIdOfBattler(battler));
     u8 modes[2];
     u32 i;
 
@@ -580,16 +585,17 @@ struct VgcBehaviour
     u8 switchesWhenLosing;      // ...e lui ha cambiato
 };
 
-static EWRAM_DATA struct VgcBehaviour sVgcMem[PARTY_SIZE] = {0};
+static EWRAM_DATA struct VgcBehaviour sVgcMem[PARTY_SIZE * NUM_BATTLE_SIDES] = {0}; // (IA contro IA: si osservano entrambi i lati)
 static EWRAM_DATA u8 sVgcMemCount = 0;
 static EWRAM_DATA u8 sVgcThreatened = 0;        // bitmask battler del giocatore sotto KO questo turno
 static EWRAM_DATA u8 sVgcLosing = 0;            // bitmask battler del giocatore che perdono il matchup
 static EWRAM_DATA u8 sVgcProtectedLastTurn = 0; // bitmask battler che hanno usato Protect al turno scorso
 static EWRAM_DATA u8 sVgcProtectedThisTurn = 0;
-static EWRAM_DATA u8 sVgcReadRoll = 0;          // 0..99, tirato una volta a turno: quanto fidarsi della lettura
+static EWRAM_DATA u8 sVgcReadRoll[NUM_BATTLE_SIDES] = {0}; // 0..99, tirato una volta a turno (per lato che legge): quanto fidarsi della lettura
 static EWRAM_DATA enum Move sVgcPlayerLastMove[MAX_BATTLERS_COUNT] = {0}; // ultima mossa di ogni Pokémon del giocatore (blocco Choice)
 static EWRAM_DATA u8 sVgcInferredScarf = 0;             // bitmask: Stolascelta dedotta dalla velocità
-static EWRAM_DATA struct VgcTeamGraph sVgcTeamGraph = {0}; // conoscenza della squadra dell'IA (ricalcolata a ogni turno)
+static EWRAM_DATA struct VgcTeamGraph sVgcTeamGraphBySide[NUM_BATTLE_SIDES] = {0}; // conoscenza della squadra dell'IA (ricalcolata a ogni turno; per lato in IA contro IA)
+#define sVgcTeamGraph sVgcTeamGraphBySide[AI_GetPerspectiveSide()]
 
 // Ruoli (dal grafo della squadra) di un Pokémon dell'IA in campo; 0 per il giocatore.
 static u32 VgcRoles(enum BattlerId battler)
@@ -614,13 +620,14 @@ static struct VgcBehaviour *VgcFindOrAddBehaviour(enum BattlerId battler)
 
     if (gBattleMons[battler].species == SPECIES_NONE)
         return NULL;
-    personality = GetMonData(GetBattlerMon(battler), MON_DATA_PERSONALITY);
+    // Il lato nella chiave: nei mirror IA contro IA le due squadre hanno le stesse personalità.
+    personality = GetMonData(GetBattlerMon(battler), MON_DATA_PERSONALITY) ^ ((u32)GetBattlerSide(battler) << 31);
     for (i = 0; i < sVgcMemCount; i++)
     {
         if (sVgcMem[i].personality == personality)
             return &sVgcMem[i];
     }
-    if (sVgcMemCount >= PARTY_SIZE)
+    if (sVgcMemCount >= ARRAY_COUNT(sVgcMem))
         return NULL;
     memset(&sVgcMem[sVgcMemCount], 0, sizeof(struct VgcBehaviour));
     sVgcMem[sVgcMemCount].personality = personality;
@@ -661,11 +668,22 @@ void AI_VgcTurnStart(void)
     AI_VgcPlanResetTurn();
     if (!IsDoubleBattle() || !(gBattleTypeFlags & BATTLE_TYPE_TRAINER))
         return;
-    AI_VgcBuildTeamGraph(GetBattlerParty(GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT)), &sVgcTeamGraph);
-    sVgcProtectedLastTurn = sVgcProtectedThisTurn;
-    sVgcProtectedThisTurn = 0;
-    sVgcThreatened = sVgcLosing = 0;
-    sVgcReadRoll = Random() % 100;
+    // IA contro IA: si chiama una volta per lato (prospettiva), e ogni lato aggiorna solo la lettura dei
+    // propri avversari. Fuori da IA contro IA foeMask copre tutto il lato del giocatore, come prima.
+    {
+        u8 foeMask = 0;
+        for (b = 0; b < gBattlersCount; b++)
+        {
+            if (IsOnPlayerSide(b))
+                foeMask |= 1u << b;
+        }
+        AI_VgcBuildTeamGraph(GetBattlerParty(GetBattlerAtPosition(AI_GetPerspectiveSide())), &sVgcTeamGraph);
+        sVgcProtectedLastTurn = (sVgcProtectedLastTurn & ~foeMask) | (sVgcProtectedThisTurn & foeMask);
+        sVgcProtectedThisTurn &= ~foeMask;
+        sVgcThreatened &= ~foeMask;
+        sVgcLosing &= ~foeMask;
+    }
+    sVgcReadRoll[AI_GetPerspectiveSide()] = Random() % 100;
     for (b = 0; b < gBattlersCount; b++)
     {
         struct VgcBehaviour *mem;
@@ -721,7 +739,7 @@ static void VgcInferChoiceScarf(enum BattlerId battler, enum Move move)
         {
             sVgcInferredScarf |= 1u << battler;
             gBattleHistory->itemEffects[battler] = HOLD_EFFECT_CHOICE_SCARF;
-            gAiPartyData->mons[B_TRAINER_PLAYER][gBattlerPartyIndexes[battler]].heldEffect = HOLD_EFFECT_CHOICE_SCARF;
+            gAiPartyData->mons[GetBattlerSide(battler)][gBattlerPartyIndexes[battler]].heldEffect = HOLD_EFFECT_CHOICE_SCARF;
             return;
         }
     }
@@ -740,7 +758,7 @@ void AI_VgcNotePlayerMove(enum BattlerId battler, enum Move move)
     {
         sVgcInferredScarf &= ~(1u << battler);
         gBattleHistory->itemEffects[battler] = HOLD_EFFECT_NONE;
-        gAiPartyData->mons[B_TRAINER_PLAYER][gBattlerPartyIndexes[battler]].heldEffect = HOLD_EFFECT_NONE;
+        gAiPartyData->mons[GetBattlerSide(battler)][gBattlerPartyIndexes[battler]].heldEffect = HOLD_EFFECT_NONE;
     }
     VgcInferChoiceScarf(battler, move);
     sVgcPlayerLastMove[battler] = move;
@@ -841,7 +859,7 @@ static u32 VgcSwitchChance(enum BattlerId foe)
 // a sfruttare un'IA che reagisce sempre allo stesso modo.
 static bool32 VgcTrustRead(u32 chance)
 {
-    return chance >= 50 && sVgcReadRoll < 70;
+    return chance >= 50 && sVgcReadRoll[AI_GetPerspectiveSide()] < 70;
 }
 
 static s32 VgcMaterialEdge(enum BattlerId battlerAtk);
@@ -923,8 +941,8 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
 
     // ---------------- 0. Piano di squadra ----------------
     {
-        const struct VgcGameplan *plan = AI_VgcGetPlan(TRAINER_BATTLE_PARAM.opponentA);
-        u16 trainerId = TRAINER_BATTLE_PARAM.opponentA;
+        const struct VgcGameplan *plan = AI_VgcGetPlan(AI_TrainerIdOfBattler(battlerAtk));
+        u16 trainerId = AI_TrainerIdOfBattler(battlerAtk);
         bool32 iAmWinCon = AI_VgcPlanIsWinCon(trainerId, gBattleMons[battlerAtk].species);
         bool32 partnerIsWinCon = hasPartner && AI_VgcPlanIsWinCon(trainerId, gBattleMons[partner].species);
         bool32 doomed = threatened && !PartnerIsRedirecting(battlerAtk)
@@ -1625,7 +1643,7 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
 // (meglio megaevolvere ora che perdere il Pokémon senza averla usata).
 bool32 AI_VgcShouldHoldMega(enum BattlerId battler)
 {
-    u16 designate = TeamPreview_GetMegaDesignateSpecies();
+    u16 designate = AI_GetMegaDesignateForBattler(battler); // (IA contro IA: quella del lato di `battler`)
     enum BattlerId partner = GetPartnerBattler(battler);
     enum BattlerId foeL = GetBattlerLeftFoe(battler), foeR = GetBattlerRightFoe(battler);
     struct Pokemon *party;

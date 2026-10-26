@@ -14,6 +14,7 @@
 #include "party_menu.h"
 #include "random.h"
 #include "test/battle.h"
+#include "test/vgc_selfplay.h"
 #include "trainer_pools.h"
 #include "window.h"
 #include "constants/characters.h"
@@ -57,6 +58,8 @@ static inline bool32 RngSeedNotDefault(const rng_value_t *seed)
 const struct Trainer gTrainers[DIFFICULTY_COUNT][TRAINERS_COUNT] =
 {
     #include "battle/trainer_control.h"
+    // Harness di self-play VGC (test/vgc_selfplay): i veri allenatori VGC, generati da src/data/trainers.party.
+    #include "vgc_selfplay/vgc_trainers.h"
 };
 
 const struct Trainer gBattlePartners[DIFFICULTY_COUNT][PARTNER_COUNT] =
@@ -875,6 +878,8 @@ static s32 TryAbilityPopUp(s32 i, s32 n, enum BattlerId battlerId, enum Ability 
 
 void TestRunner_Battle_RecordAbilityPopUp(enum BattlerId battlerId, enum Ability ability)
 {
+    // Harness di self-play VGC: questi agganci servono solo a lui (niente attese di un test di lotta).
+    if (VgcSelfPlay_IsActive()) { VgcSelfPlay_OnAbilityPopUp(battlerId, ability); return; }
     s32 queuedEvent;
     s32 match;
     struct QueuedEvent *event;
@@ -950,6 +955,8 @@ static s32 TryItemPopUp(s32 i, s32 n, enum BattlerId battlerId, enum Item item)
 
 void TestRunner_Battle_RecordItemPopUp(enum BattlerId battlerId, enum Item item)
 {
+    // Harness di self-play VGC: questi agganci servono solo a lui (niente attese di un test di lotta).
+    if (VgcSelfPlay_IsActive()) { return; }
     s32 queuedEvent;
     s32 match;
     struct QueuedEvent *event;
@@ -1035,6 +1042,8 @@ static const char *const sAnimTypeNames[] =
 
 void TestRunner_Battle_RecordAnimation(u32 animType, u32 animId)
 {
+    // Harness di self-play VGC: questi agganci servono solo a lui (niente attese di un test di lotta).
+    if (VgcSelfPlay_IsActive()) { return; }
     s32 queuedEvent;
     s32 match;
     struct QueuedEvent *event;
@@ -1167,6 +1176,8 @@ static s32 TryHP(s32 i, s32 n, enum BattlerId battlerId, u32 oldHP, u32 newHP)
 
 void TestRunner_Battle_RecordHP(enum BattlerId battlerId, u32 oldHP, u32 newHP)
 {
+    // Harness di self-play VGC: questi agganci servono solo a lui (niente attese di un test di lotta).
+    if (VgcSelfPlay_IsActive()) { VgcSelfPlay_OnHP(battlerId, oldHP, newHP); return; }
     s32 queuedEvent;
     s32 match;
     struct QueuedEvent *event;
@@ -1270,6 +1281,8 @@ static const char *const sBoolNames[] = { [FALSE] = "FALSE", [TRUE] = "TRUE" };
 
 void TestRunner_Battle_RecordSubHit(enum BattlerId battlerId, u32 damage, bool32 broke)
 {
+    // Harness di self-play VGC: questi agganci servono solo a lui (niente attese di un test di lotta).
+    if (VgcSelfPlay_IsActive()) { return; }
     s32 queuedEvent;
     s32 match;
     struct QueuedEvent *event;
@@ -1365,6 +1378,8 @@ static u32 CountAiExpectMoves(struct ExpectedAIAction *expectedAction, enum Batt
 
 void TestRunner_Battle_CheckChosenMove(enum BattlerId battlerId, enum Move moveId, u32 target, enum Gimmick gimmick)
 {
+    // Harness di self-play VGC: questi agganci servono solo a lui (niente attese di un test di lotta).
+    if (VgcSelfPlay_IsActive()) { VgcSelfPlay_OnChosenMove(battlerId, moveId, target, gimmick); return; }
     const char *filename = gTestRunnerState.test->filename;
     u32 id = DATA.trial.aiActionsPlayed[battlerId];
     struct ExpectedAIAction *expectedAction = &DATA.expectedAiActions[battlerId][id];
@@ -1442,6 +1457,8 @@ void TestRunner_Battle_CheckChosenMove(enum BattlerId battlerId, enum Move moveI
 
 void TestRunner_Battle_CheckSwitch(enum BattlerId battlerId, u32 partyIndex)
 {
+    // Harness di self-play VGC: questi agganci servono solo a lui (niente attese di un test di lotta).
+    if (VgcSelfPlay_IsActive()) { VgcSelfPlay_OnSwitch(battlerId, partyIndex); return; }
     const char *filename = gTestRunnerState.test->filename;
     u32 id = DATA.trial.aiActionsPlayed[battlerId];
     struct ExpectedAIAction *expectedAction = &DATA.expectedAiActions[battlerId][id];
@@ -1581,6 +1598,8 @@ static void ClearAiLog(enum BattlerId battlerId)
 
 void TestRunner_Battle_CheckAiMoveScores(enum BattlerId battlerId)
 {
+    // Harness di self-play VGC: questi agganci servono solo a lui (niente attese di un test di lotta).
+    if (VgcSelfPlay_IsActive()) { return; }
     s32 i;
     struct ExpectedAIAction *aiAction;
     const char *filename = gTestRunnerState.test->filename;
@@ -1688,6 +1707,8 @@ static s32 TryExp(s32 i, s32 n, enum BattlerId battlerId, u32 oldExp, u32 newExp
 
 void TestRunner_Battle_RecordExp(enum BattlerId battlerId, u32 oldExp, u32 newExp)
 {
+    // Harness di self-play VGC: questi agganci servono solo a lui (niente attese di un test di lotta).
+    if (VgcSelfPlay_IsActive()) { return; }
     s32 queuedEvent;
     s32 match;
     struct QueuedEvent *event;
@@ -1800,6 +1821,8 @@ static s32 TryMessage(s32 i, s32 n, const u8 *string)
 
 void TestRunner_Battle_RecordMessage(const u8 *string)
 {
+    // Harness di self-play VGC: questi agganci servono solo a lui (niente attese di un test di lotta).
+    if (VgcSelfPlay_IsActive()) { VgcSelfPlay_OnMessage(string); return; }
     s32 queuedEvent;
     s32 match;
     struct QueuedEvent *event;
@@ -1920,6 +1943,8 @@ static s32 TryStatus(s32 i, s32 n, enum BattlerId battlerId, u32 status1)
 
 void TestRunner_Battle_RecordStatus1(enum BattlerId battlerId, u32 status1)
 {
+    // Harness di self-play VGC: questi agganci servono solo a lui (niente attese di un test di lotta).
+    if (VgcSelfPlay_IsActive()) { return; }
     s32 queuedEvent;
     s32 match;
     struct QueuedEvent *event;
@@ -2007,6 +2032,8 @@ static s32 TryCatchChance(s32 i, s32 n, u32 catchChance)
 
 void TestRunner_Battle_RecordCatchChance(u32 catchChance)
 {
+    // Harness di self-play VGC: questi agganci servono solo a lui (niente attese di un test di lotta).
+    if (VgcSelfPlay_IsActive()) { return; }
     s32 queuedEvent;
     s32 match;
     struct QueuedEvent *event;
@@ -2093,6 +2120,8 @@ static void TearDownBattle(void)
 
 void TestRunner_Battle_AfterLastTurn(void)
 {
+    // Harness di self-play VGC: questi agganci servono solo a lui (niente attese di un test di lotta).
+    if (VgcSelfPlay_IsActive()) { VgcSelfPlay_OnBattleEnd(); return; }
     const struct BattleTest *test = GetBattleTest();
 
     if (DATA.turns - 1 != DATA.trial.lastActionTurn)
@@ -2816,6 +2845,8 @@ static void PushBattlerAction(u32 sourceLine, enum BattlerId battlerId, u32 acti
 
 void TestRunner_Battle_CheckBattleRecordActionType(enum BattlerId battlerId, u32 recordIndex, u32 actionType)
 {
+    // Harness di self-play VGC: questi agganci servono solo a lui (niente attese di un test di lotta).
+    if (VgcSelfPlay_IsActive()) { return; }
     // An illegal move choice will cause the battle to request a new
     // move slot and target. This detects the move slot.
     if (actionType == RECORDED_MOVE_SLOT
@@ -3942,6 +3973,8 @@ static s32 TryEffectivenessSound(s32 i, s32 n, u32 battlerId, u32 soundId)
 
 void TestRunner_Battle_RecordEffectivenessSound(u32 battlerId, u32 soundId)
 {
+    // Harness di self-play VGC: questi agganci servono solo a lui (niente attese di un test di lotta).
+    if (VgcSelfPlay_IsActive()) { return; }
     s32 queuedEvent;
     s32 match;
     struct QueuedEvent *event;
@@ -4102,4 +4135,11 @@ void AssumeMoveEffectStatChange_(u32 sourceLine, u32 moveId, struct StatChangeAs
     }
 
     ASSUME(hasEffect == TRUE);
+}
+
+void TestRunner_Battle_BeforeTurnSelection(void)
+{
+    // Harness di self-play VGC: intestazione del turno, posizione preparata, limite di turni.
+    if (VgcSelfPlay_IsActive())
+        VgcSelfPlay_OnTurnStart();
 }

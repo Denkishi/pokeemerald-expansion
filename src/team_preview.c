@@ -1726,6 +1726,17 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                     score += sSeries.history[g].aiWon ? 30 : -70;
             }
         }
+#if TESTING
+        {
+            // Diagnostica (harness di self-play VGC): punteggio di ogni gruppo di 4, maschera sugli slot originali.
+            extern s32 Test_MgbaPrintf(const char *fmt, ...);
+            u32 slotMask = 0;
+            for (i = 0; i < nEnemy; i++)
+                if (mask & (1u << i))
+                    slotMask |= 1u << enemySlots[i];
+            Test_MgbaPrintf("VGCTP gruppo %d %d", slotMask, score);
+        }
+#endif
         if (score > bestScore)
         {
             bestScore = score;
@@ -1898,6 +1909,13 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                             s += sSeries.history[g].aiWon ? 40 : -150;
                     }
                 }
+#if TESTING
+                {
+                    // Diagnostica (harness di self-play VGC): valore di ogni coppia di lead (slot originali), caso peggiore.
+                    extern s32 Test_MgbaPrintf(const char *fmt, ...);
+                    Test_MgbaPrintf("VGCTP lead %d %d %d %d", enemySlots[ea], leadCount == 2 ? enemySlots[eb] : 255, s, worst);
+                }
+#endif
                 // Le 3 lead migliori (per la scelta mista).
                 {
                     u32 c;

@@ -12,6 +12,7 @@
 #include "test_runner.h"
 #include "test/test.h"
 #include "test/battle.h"
+#include "battle_controllers.h"
 
 #define TIMEOUT_SECONDS 60
 
@@ -571,6 +572,7 @@ static void ResetGlobalVariables(void)
 {
     ReinitCallbacks();
     gBattleTypeFlags = 0;
+    gTestAiVsAiBattle = FALSE; // IA contro IA (test e self-play VGC) solo per il test che la chiede
 }
 
 static void FunctionTest_SetUp(void *data)

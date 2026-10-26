@@ -3720,6 +3720,8 @@ static void TryDoEventsBeforeFirstTurn(void)
         BattlePutTextOnWindow(gText_EmptyString3, B_WIN_MSG);
         AssignUsableGimmicks();
         SetShellSideArmCategory();
+        if (gTestRunnerEnabled)
+            TestRunner_Battle_BeforeTurnSelection();
         SetAiLogicDataForTurn(gAiLogicData); // get assumed abilities, hold effects, etc of all battlers
         gBattleMainFunc = HandleTurnActionSelectionState;
         ResetSentPokesToOpponentValue();
@@ -3834,6 +3836,8 @@ bool32 EndTurnEvents(void) // Called from Battle Script
     BattlePutTextOnWindow(gText_EmptyString3, B_WIN_MSG);
     AssignUsableGimmicks();
     SetShellSideArmCategory();
+    if (gTestRunnerEnabled)
+        TestRunner_Battle_BeforeTurnSelection();
     SetAiLogicDataForTurn(gAiLogicData); // get assumed abilities, hold effects, etc of all battlers
     SetBattleCallback(HandleTurnActionSelectionState);
 
