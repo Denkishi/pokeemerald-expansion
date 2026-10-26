@@ -118,6 +118,12 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
   ogni scontro deve finire senza crash né blocchi, senza errori evidenti (mosse fallite su immunità note, Protect consecutivi, Fake Out dopo il turno 1, cambi a ripetizione…), con log delle decisioni per rivedere le partite
 - ⬜ Infrastruttura: l'expansion ha già la modalità **IA contro IA** (`B_FLAG_AI_VS_AI_BATTLE`, `IsAiVsAiBattle()` in `src/battle_controllers.c`: il lato del giocatore lo comanda l'IA). Piano: ROM dedicata che per ogni coppia (X, Y) carica la squadra X come "giocatore", avvia la lotta contro l'allenatore Y con il flag attivo, registra esito/turni/decisioni nel log mGBA; script su Windows che lancia le 144 partite in parallelo con `mgba-rom-test.exe` (base anche per M9)
 - ⬜ Per ogni allenatore: test sulle giocate chiave della sua linea di gioco (lead, combo, cambi)
+- ⬜ **Partite controllate, non casuali** (richiesta del 26/10):
+  - lead fissate (lead del piano di X contro le 2-3 lead più probabili di Y), seed fissi per rigiocare ogni partita identica
+  - posizioni preparate (es. turno 3, Tailwind avversario all'ultimo turno, Espathra a +2) per mettere alla prova singole decisioni
+  - **controllore dei misplay** a ogni turno: mossa su immune o su bersaglio già KO, KO garantito non preso, attacco sul compagno senza combo, Protect consecutivo, Fake Out dopo il turno 1, cambio su chi va KO all'entrata, cambi a ripetizione, turni di Tailwind/Trick Room sprecati, setup con KO in arrivo, win condition persa evitabilmente; ogni errore con turno, stato del campo e alternative valutate (`VGCPLAN`)
+  - ogni misplay confermato diventa un test della suite
+  - report per ognuna delle 144 coppie: esito, errori per categoria, log leggibile turno per turno; i casi dubbi segnalati a parte per la revisione
 
 ## M9 — Allenamento automatico (dopo M4)
 - ⬜ ROM di allenamento (senza animazioni), IA su entrambi i lati
