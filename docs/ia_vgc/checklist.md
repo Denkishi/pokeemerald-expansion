@@ -16,7 +16,7 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
   - ⬜ velocità del giocatore in `gAiLogicData->speedStats` (codice base dell'expansion) → in M1 con il belief
 - ✅ Suite di test `test/battle/ai/ai_vgc_doubles.c` attiva. WSL compila soltanto; i test si eseguono su Windows con `tools/mgba/mgba-rom-test.exe`
 - ✅ Installate con msys2 `libepoxy-0.dll` e `libwinpthread-1.dll`: `mgba-rom-test.exe` gira su Windows (aggiungere `C:\msys64\mingw64\bin` al PATH)
-- ✅ **Risultati: 9 PASS, 0 FAIL, 0 KNOWN_FAILING**
+- ✅ **Risultati: 11 PASS, 0 FAIL, 0 KNOWN_FAILING** (+1 test team preview)
   - ✅ Dopo un KO entra il compagno giusto (Gallade accanto a Whimsicott)
 - ℹ️ Controllo regressioni: `test/battle/ai/ai_doubles.c` dell'expansion ha 14 test che falliscono, **identici su `master`** (prima del lavoro sull'IA VGC): non li ho introdotti io, vengono dalle modifiche precedenti del fork
   - ✅ Fake Out al turno 1 per coprire un compagno Baton Passer
@@ -52,9 +52,9 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
 - ✅ Intimidate all'entrata nella simulazione (con Clear Body, Inner Focus, Scrappy, Guard Dog, Defiant, Competitive, Clear Amulet); per il giocatore se la specie lo porta di solito
 - ✅ Scottatura e paralisi (inflitte da Will-O-Wisp/Thunder Wave con le immunità; dimezzano attacchi fisici / Velocità)
 - ✅ Schermi (Reflect, Light Screen, Aurora Veil sotto neve) piazzati nella simulazione
-- ✅ Precisione come valore atteso sul danno utile (un KO all'80% vale l'80% del KO)
+- ✅ Precisione con ramo "mancato": la simulazione applica il colpo pieno (un KO resta un KO) e per ogni azione imprecisa del turno 1 si rigioca il turno col colpo mancato, togliendo (1 - precisione) x differenza. Prima `danno x precisione` trasformava un KO all'80% in "mai KO" e una mossa ad area al 90% che manda KO due bersagli in nessun KO. Precisione dalla tabella dell'IA (Compound Eyes, No Guard...). Test: Rock Slide 90% su due bersagli > Scratch sicuro; Scratch > Stone Edge a pari KO
 - ✅ **Bug trovato e corretto**: se un avversario non aveva attacchi plausibili noti, la simulazione dava per **certo** il suo Protect e qualunque nostro attacco sembrava inutile (tutte le coppie con lo stesso valore). Ora resta sempre l'alternativa "non si protegge" con la probabilità complementare
-- ❌ **Da indagare per primo**: nel test "accurate move" lo Scratch di Garchomp sul bersaglio a 5 PS non risulta KO nella simulazione (valore da danno parziale). Possibile problema nella tabella dei danni o nella stima dei PS (test KNOWN_FAILING)
+- ✅ **Causa trovata** (test "accurate move", Scratch che non mandava KO il bersaglio a 5 PS): non era il simulatore. `ScalePartiesToBattleLevel` (tutte le lotte a Lv50) ricalcolava le statistiche e curava i PS anche nei test: `HP(5)` diventava 250 PS e `Speed(10)` veniva ignorato. Ora nei test valgono PS e statistiche scritti dal test (nel gioco resta tutto a Lv50). Diagnostica `VGCDMG`/`VGCFOE` nel log dei test
 - ⬜ Mega, terreni, Sostituto
 - ✅ Cambi d'abilità a metà turno (Simple Beam, Worry Seed, Skill Swap, Gastro Acid, Entrainment)
 - ✅ Mycelium Might: mosse di stato per ultime nella fascia di priorità, ignorano le abilità del bersaglio

@@ -169,6 +169,7 @@ struct PlanJob
     s32 sum, wsum, worst;
     s32 ev[PLAN_MAX_PAIRS];
     struct PlanState s1;
+    s32 missPen;        // quanto si perde, in media, per le azioni del turno 1 che possono mancare
     // livello 2 (turno dopo)
     struct PlanState la;
     struct PlanAction mine[PLAN_P2_OURS_PER], pa[PLAN_P2_OURS_PER], fa[PLAN_P2_FOE_PER], fb[PLAN_P2_FOE_PER];
@@ -596,11 +597,35 @@ static s32 DamageOf(const struct PlanState *st, const struct PlanAction *a, enum
     }
     if (am->helping)
         dmg = dmg * 3 / 2;
-    // Precisione come valore atteso sul danno UTILE (al massimo i PS rimasti): un colpo all'80% che manda KO
-    // vale l'80% del KO, anche se farebbe il triplo del danno necessario.
-    if (GetMoveAccuracy(a->move) > 0 && GetMoveAccuracy(a->move) < 100)
-        dmg = min(dmg, st->m[t].hp) * GetMoveAccuracy(a->move) / 100;
+    // Niente precisione qui: il danno è quello di un colpo andato a segno. La probabilità di mancare la
+    // conta il pianificatore a parte (ramo "mancato", vedi ActionAccuracy e MissPenalty).
     return dmg;
+}
+
+// Battler la cui azione manca il bersaglio nella simulazione in corso (ramo "mancato"), più 1; 0 = nessuno.
+static EWRAM_DATA u8 sMissBattler = 0;
+
+// Precisione (0..100) dell'azione `a` sul suo bersaglio: dalla tabella dell'IA quando c'è (comprende
+// Compound Eyes, No Guard, meteo...), altrimenti quella della mossa. 100 = non può mancare.
+static u32 ActionAccuracy(const struct PlanState *st, const struct PlanAction *a)
+{
+    u32 acc;
+    enum MoveTarget tt;
+
+    if (a->kind != PLAN_ACT_MOVE)
+        return 100;
+    tt = GetMoveTarget(a->move);
+    if (tt == TARGET_USER || tt == TARGET_ALLY || tt == TARGET_USER_AND_ALLY || tt == TARGET_FIELD
+     || tt == TARGET_OPPONENTS_FIELD || tt == TARGET_USER_OR_ALLY || tt == TARGET_ALL_BATTLERS || IsBattlerAlly(a->user, a->target))
+        return 100;
+    if (a->moveIndex < MAX_MON_MOVES && st->m[a->user].partyIdx < 0 && st->m[a->target].partyIdx < 0)
+    {
+        acc = gAiLogicData->moveAccuracy[a->user][a->target][a->moveIndex];
+        if (acc != 0)
+            return min(acc, 100);
+    }
+    acc = GetMoveAccuracy(a->move);
+    return (acc == 0 || acc > 100) ? 100 : acc;
 }
 
 // ---------------------------------------------------------------------
@@ -736,6 +761,9 @@ static void ApplyAction(struct PlanState *st, const struct PlanAction *a)
 
     effect = GetMoveEffect(a->move);
     tt = GetMoveTarget(a->move);
+    // Ramo "mancato": l'azione verso gli avversari non ha effetto (le mosse su sé stessi o sul compagno non mancano).
+    if (u + 1 == sMissBattler && ActionAccuracy(st, a) < 100)
+        return;
     // Fake Out e simili falliscono del tutto dopo il primo turno in campo (niente danno).
     if (effect == EFFECT_FIRST_TURN_ONLY && !(st->firstTurn && IsBattlersFirstTurn(u)))
         return;
@@ -1081,7 +1109,7 @@ static s32 AttackWeight(const struct PlanState *st, const struct PlanAction *a, 
         w += 80;
     if (GetMoveEffect(a->move) == EFFECT_FIRST_TURN_ONLY && st->firstTurn && IsBattlersFirstTurn(a->user))
         w += 60;
-    return w;
+    return w * (s32)ActionAccuracy(st, a) / 100;
 }
 
 // Azioni plausibili di un battler nello stato `st`. isOurs: le nostre mosse sono tutte note.
@@ -1637,6 +1665,42 @@ static u32 BuildPairs(enum BattlerId me, const struct PlanState *st)
 // ---------------------------------------------------------------------
 // Lavoro a pezzi
 // ---------------------------------------------------------------------
+
+// Precisione: la simulazione applica il colpo pieno (un KO resta un KO). Per ogni azione del turno che può
+// mancare si rigioca il turno con quel colpo mancato e si toglie dal valore la perdita attesa:
+// (1 - precisione) x (valore col colpo - valore senza). Un KO all'80% vale l'80% del KO; una mossa ad area
+// al 90% che manda KO due bersagli vale ~1,8 KO; due mosse che fanno lo stesso KO preferiscono la più precisa.
+// La differenza si misura sul turno 1 e si assume uguale sul resto della linea (costo: un turno simulato in
+// più per azione imprecisa, non un albero intero). Ritorna il numero di simulazioni fatte.
+static u32 MissPenalty(const struct PlanState *base, const struct PlanState *hit, const struct PlanAction *const *acts4, s32 *pen)
+{
+    u32 k, sims = 0;
+    s32 eHit = 0;
+
+    *pen = 0;
+    for (k = 0; k < 4; k++)
+    {
+        u32 acc = ActionAccuracy(base, acts4[k]);
+        const struct PlanAction *acts[4];
+        struct PlanState sm;
+        s32 eMiss;
+
+        if (acc >= 100)
+            continue;
+        if (sims == 0)
+            eHit = Evaluate(hit);
+        memcpy(acts, acts4, sizeof(acts));
+        sm = *base;
+        sMissBattler = acts4[k]->user + 1;
+        RunTurn(&sm, acts, 4);
+        sMissBattler = 0;
+        eMiss = Evaluate(&sm);
+        // Per il giocatore, un suo colpo mancato è un guadagno per noi: il segno viene da Evaluate.
+        *pen += (s32)(100 - acc) * (eHit - eMiss) / 100;
+        sims++;
+    }
+    return sims;
+}
 static void Accumulate(s32 v, s32 w)
 {
     sJob.sum += v * w;
@@ -1729,6 +1793,20 @@ static void FinishJob(void)
                             sJob.ours[i].kind, sJob.ours[i].move, sJob.ours[i].target,
                             sJob.partners[i].kind, sJob.partners[i].move, sJob.partners[i].target,
                             sJob.ev[i], i == bestIdx ? " <==" : (i == chosenIdx ? " (regole)" : ""));
+        for (i = 0; i < sJob.nOurs; i++)
+        {
+            const struct PlanAction *a = &sJob.ours[i];
+            if (a->kind != PLAN_ACT_MOVE)
+                continue;
+            Test_MgbaPrintf("VGCDMG pair%d: m%d idx%d t%d dmg=%d hp=%d eff=%d median=%d", i, a->move, a->moveIndex, a->target,
+                            DamageOf(&sJob.base, a, a->target), sJob.base.m[a->target].hp,
+                            a->moveIndex < MAX_MON_MOVES ? gAiLogicData->effectiveness[a->user][a->target][a->moveIndex] : -1,
+                            a->moveIndex < MAX_MON_MOVES ? gAiLogicData->simulatedDmg[a->user][a->target][a->moveIndex].median : -1);
+        }
+        for (i = 0; i < sJob.nA; i++)
+            Test_MgbaPrintf("VGCFOE A%d: k%d m%d t%d w%d", i, sJob.foeA[i].kind, sJob.foeA[i].move, sJob.foeA[i].target, sJob.foeA[i].weight);
+        for (i = 0; i < sJob.nB; i++)
+            Test_MgbaPrintf("VGCFOE B%d: k%d m%d t%d w%d", i, sJob.foeB[i].kind, sJob.foeB[i].move, sJob.foeB[i].target, sJob.foeB[i].weight);
     }
 #endif
 
@@ -1906,16 +1984,18 @@ bool32 AI_VgcPlanStep(void)
         if (sJob.phase == 0)
         {
             const struct PlanAction *acts[4] = { &sJob.ours[sJob.i], &sJob.partners[sJob.i], &sJob.foeA[sJob.a], &sJob.foeB[sJob.b] };
+            const struct PlanAction *acts4[4] = { &sJob.ours[sJob.i], &sJob.partners[sJob.i], &sJob.foeA[sJob.a], &sJob.foeB[sJob.b] };
             sJob.s1 = sJob.base;
             RunTurn(&sJob.s1, acts, 4);
             budget--;
+            budget -= MissPenalty(&sJob.base, &sJob.s1, acts4, &sJob.missPen);
             if (CUSTOM_VGC_PLAN_DEPTH >= 2)
             {
                 StartLookAhead();
             }
             else
             {
-                Accumulate(Evaluate(&sJob.s1), PairWeight(&sJob.foeA[sJob.a], &sJob.foeB[sJob.b]));
+                Accumulate(Evaluate(&sJob.s1) - sJob.missPen, PairWeight(&sJob.foeA[sJob.a], &sJob.foeB[sJob.b]));
                 if (AdvanceLevel1())
                     FinishJob();
             }
@@ -1959,12 +2039,12 @@ bool32 AI_VgcPlanStep(void)
                         sJob.i2++;
                         if (sJob.i2 >= sJob.nM)
                         {
-                            s32 v1 = (Evaluate(&sJob.s1) + sJob.laBest) / 2;
+                            s32 v1 = (Evaluate(&sJob.s1) + sJob.laBest) / 2 - sJob.missPen;
 #if TESTING
                             {
                                 extern s32 Test_MgbaPrintf(const char *fmt, ...);
-                                Test_MgbaPrintf("VGCLEAF pair%d foes(%d,%d): turno1=%d turno2=%d", sJob.i, sJob.a, sJob.b,
-                                                Evaluate(&sJob.s1), sJob.laBest);
+                                Test_MgbaPrintf("VGCLEAF pair%d foes(%d,%d): turno1=%d turno2=%d mancati=-%d", sJob.i, sJob.a, sJob.b,
+                                                Evaluate(&sJob.s1), sJob.laBest, sJob.missPen);
                             }
 #endif
                             Accumulate(v1, PairWeight(&sJob.foeA[sJob.a], &sJob.foeB[sJob.b]));

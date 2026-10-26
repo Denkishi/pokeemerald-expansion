@@ -129,10 +129,9 @@ AI_DOUBLE_BATTLE_TEST("VGC: after a KO the replacement that pairs best with the 
 
 AI_DOUBLE_BATTLE_TEST("VGC: at equal damage the accurate move is preferred to close a KO")
 {
-    // Entrambe le mosse mandano KO il bersaglio a 1 PS: quella al 100% batte quella all'80%.
-    // (Una mossa ad area al 90% che manda KO due bersagli, invece, vale di più: ~1,8 KO attesi.)
-    // DA INDAGARE: nel log VGCLEAF lo Scratch sul bersaglio a 5 PS non risulta KO (valore come un danno parziale).
-    KNOWN_FAILING;
+    // Entrambe le mosse mandano KO il bersaglio a 5 PS: quella al 100% batte quella all'80% (il ramo
+    // "mancato" di Stone Edge costa il 20% del KO). Prima il test falliva perché la lotta portava tutti a Lv50
+    // curando i PS: il bersaglio aveva 250 PS, non 5 (ora nei test valgono PS e statistiche del test).
     GIVEN {
         AI_FLAGS(VGC_AI_FLAGS);
         PLAYER(SPECIES_WOBBUFFET) { HP(5); Speed(10); }
@@ -141,6 +140,21 @@ AI_DOUBLE_BATTLE_TEST("VGC: at equal damage the accurate move is preferred to cl
         OPPONENT(SPECIES_WOBBUFFET) { Moves(MOVE_CELEBRATE); Speed(40); }
     } WHEN {
         TURN { NOT_EXPECT_MOVE(opponentLeft, MOVE_STONE_EDGE); }
+    }
+}
+
+AI_DOUBLE_BATTLE_TEST("VGC: a 90% spread move that KOs both foes beats a sure single KO")
+{
+    // Rock Slide (90%, ad area) manda KO entrambi i bersagli a 5 PS: ~1,8 KO attesi contro 1 KO sicuro di Scratch.
+    // Con la vecchia precisione "danno atteso" (5 PS x 90% = 4) non mandava KO nessuno.
+    GIVEN {
+        AI_FLAGS(VGC_AI_FLAGS);
+        PLAYER(SPECIES_WOBBUFFET) { HP(5); Speed(10); }
+        PLAYER(SPECIES_WOBBUFFET) { HP(5); Speed(10); }
+        OPPONENT(SPECIES_GARCHOMP) { Moves(MOVE_ROCK_SLIDE, MOVE_SCRATCH); Speed(50); }
+        OPPONENT(SPECIES_WOBBUFFET) { Moves(MOVE_CELEBRATE); Speed(40); }
+    } WHEN {
+        TURN { EXPECT_MOVE(opponentLeft, MOVE_ROCK_SLIDE); }
     }
 }
 

@@ -635,7 +635,10 @@ static void CB2_InitBattleInternal(void)
     BattleInfo_ResetBattle();
     ResetBattlerIdleBreath();
 
-    ScalePartiesToBattleLevel();
+    // Nei test valgono livello, PS e statistiche scritti dal test (HP(5), Speed(10)...): portare tutto a Lv50
+    // ricalcolerebbe le statistiche e curerebbe i PS, e i test proverebbero un'altra posizione.
+    if (!TESTING)
+        ScalePartiesToBattleLevel();
 
     for (i = 0; i < PARTY_SIZE; i++)
     {
