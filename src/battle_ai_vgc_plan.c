@@ -281,6 +281,40 @@ static void LoadFieldMon(struct PlanMon *pm, enum BattlerId b)
     }
 }
 
+// Intimidate di `b` sugli avversari in campo, con le abilità che lo bloccano o lo ritorcono.
+static void IntimidateFoes(struct PlanState *st, enum BattlerId b)
+{
+    enum BattlerId foes[2] = { GetBattlerLeftFoe(b), GetBattlerRightFoe(b) };
+    u32 i;
+
+    for (i = 0; i < 2; i++)
+    {
+        struct PlanMon *fm = &st->m[foes[i]];
+        if (!fm->alive || fm->species == SPECIES_NONE)
+            continue;
+        switch (fm->ability)
+        {
+        case ABILITY_CLEAR_BODY: case ABILITY_WHITE_SMOKE: case ABILITY_FULL_METAL_BODY: case ABILITY_HYPER_CUTTER:
+        case ABILITY_INNER_FOCUS: case ABILITY_OWN_TEMPO: case ABILITY_OBLIVIOUS: case ABILITY_SCRAPPY:
+            break;
+        case ABILITY_GUARD_DOG:
+            fm->stage[PS_ATK] = min(6, fm->stage[PS_ATK] + 1);
+            break;
+        case ABILITY_DEFIANT:
+            fm->stage[PS_ATK] = min(6, fm->stage[PS_ATK] + 1); // -1 e poi +2
+            break;
+        case ABILITY_COMPETITIVE:
+            fm->stage[PS_ATK] = max(-6, fm->stage[PS_ATK] - 1);
+            fm->stage[PS_SPA] = min(6, fm->stage[PS_SPA] + 2);
+            break;
+        default:
+            if (fm->holdEffect != HOLD_EFFECT_CLEAR_AMULET)
+                fm->stage[PS_ATK] = max(-6, fm->stage[PS_ATK] - 1);
+            break;
+        }
+    }
+}
+
 static void LoadPartyMon(struct PlanState *st, enum BattlerId b, u32 partyIdx)
 {
     struct PlanMon *pm = &st->m[b];
@@ -367,6 +401,18 @@ static void LoadPartyMon(struct PlanState *st, enum BattlerId b, u32 partyIdx)
     w = WeatherFromAbility(pm->ability);
     if (w != PW_NONE)
         st->weather = w;
+    // Intimidate all'entrata (per il giocatore: se la specie lo porta di solito).
+    {
+        bool32 intimidate = pm->ability == ABILITY_INTIMIDATE;
+        if (!intimidate && IsOnPlayerSide(b) && pm->ability == ABILITY_NONE)
+        {
+            struct ScoutProfile prof;
+            Scout_GetSpeciesProfile(species, &prof);
+            intimidate = prof.intimidateP >= 50;
+        }
+        if (intimidate)
+            IntimidateFoes(st, b);
+    }
 }
 
 static void InitState(struct PlanState *st)
@@ -834,17 +880,23 @@ static bool32 CanKoNextTurn(const struct PlanState *st, enum BattlerId atk, enum
     if (am->partyIdx < 0 && dm->partyIdx < 0)
     {
         enum Move *moves = GetMovesArray(atk);
+        u32 seen = 0;
         for (i = 0; i < MAX_MON_MOVES; i++)
         {
             struct PlanAction tmp = { PLAN_ACT_MOVE, (u8)i, -1, moves[i], atk, def, 0 };
-            if (moves[i] == MOVE_NONE || moves[i] == MOVE_UNAVAILABLE || IsBattleMoveStatus(moves[i]))
+            if (moves[i] == MOVE_NONE || moves[i] == MOVE_UNAVAILABLE)
+                continue;
+            seen++;
+            if (IsBattleMoveStatus(moves[i]))
                 continue;
             if (DamageOf(st, &tmp, def) >= dm->hp)
                 return TRUE;
         }
-        return FALSE;
+        // Un avversario con mosse ancora non viste non è innocuo: minaccia con le sue STAB probabili
+        // (come pensa un giocatore: "quel Garchomp ha sicuramente un attacco Terra").
+        if (!IsOnPlayerSide(atk) || seen >= MAX_MON_MOVES)
+            return FALSE;
     }
-    else
     {
         enum Move cand[16];
         u32 n = Scout_CollectLearnableAttacks(am->species, cand, ARRAY_COUNT(cand));
