@@ -226,6 +226,7 @@ struct PlanJob
     const struct VgcEvalWeights *w; // pesi della valutazione del lato di chi pensa
     u8 winconParty;     // bit per indice di squadra: le win condition del piano del nostro allenatore
     u8 repaired;        // seconda passata delle coppie già fatta
+    s16 sleepW[MAX_BATTLERS_COUNT];   // valore del sonno di chi è in campo a inizio lavoro: cresce con la sua minaccia
     u32 speedAlt[MAX_BATTLERS_COUNT]; // Velocità alternativa (in campo) dei Pokémon del giocatore la cui stima è incerta, 0 = nessuna
     u8 alpha;           // peso (decimi) della media contro il caso peggiore: dinamico, più rischio quando si è sotto
     struct PlanState s1;
@@ -1715,6 +1716,87 @@ static bool32 FakeOutReady(const struct PlanState *st, enum BattlerId b)
 // Valore della posizione dal nostro punto di vista (positivo = meglio per noi). Pesi in include/config/custom.h
 // (CUSTOM_VGC_EVAL_*). Tutto è simmetrico: ciò che vale per un nostro Pokémon vale con il segno opposto per uno
 // del giocatore.
+// Minaccia di un Pokémon sul lato opposto (0..150): il danno migliore che fa a uno dei bersagli vivi, in % dei PS
+// che gli restano (fino a 100), più 25 per ogni bersaglio che può mandare KO. La forma Mega in campo entra nelle
+// statistiche della stima. (Provata anche la somma sui bersagli + 25 alla Mega con scala /60: rompe due test di
+// squadra, Carletto/Ludicolo e Tony/Charizard.) Mosse: le sue se nostro, quelle viste
+// + le probabili (belief) o le STAB plausibili della specie se del giocatore: mai i dati nascosti. Stadi, forma Mega,
+// meteo e strumenti noti entrano nella stima del danno.
+static s32 ThreatPct(const struct PlanState *st, enum BattlerId atk)
+{
+    const struct PlanMon *am = &st->m[atk];
+    enum BattlerId def;
+    s32 best = 0, kos = 0;
+
+    if (!am->alive || am->species == SPECIES_NONE)
+        return 0;
+    for (def = 0; def < gBattlersCount; def++)
+    {
+        const struct PlanMon *dm = &st->m[def];
+        enum Move cand[16];
+        u32 n = 0, i, seen = 0;
+        s32 pct = 0;
+
+        if (IsBattlerAlly(atk, def) || !dm->alive || dm->species == SPECIES_NONE || dm->hp == 0)
+            continue;
+        if (am->partyIdx < 0)
+        {
+            enum Move *moves = GetMovesArray(atk);
+            for (i = 0; i < MAX_MON_MOVES; i++)
+                if (moves[i] != MOVE_NONE && moves[i] != MOVE_UNAVAILABLE)
+                {
+                    seen++;
+                    if (!IsBattleMoveStatus(moves[i]) && n < ARRAY_COUNT(cand))
+                        cand[n++] = moves[i];
+                }
+        }
+        if (IsOnPlayerSide(atk) && seen < MAX_MON_MOVES)
+        {
+            if (am->partyIdx < 0 && sJob.nLikely[atk] > 0)
+            {
+                for (i = 0; i < sJob.nLikely[atk] && n < ARRAY_COUNT(cand); i++)
+                    cand[n++] = sJob.likelyMove[atk][i];
+            }
+            else
+            {
+                enum Move learn[16];
+                u32 nl = Scout_CollectLearnableAttacks(am->species, learn, ARRAY_COUNT(learn));
+                for (i = 0; i < nl && n < ARRAY_COUNT(cand); i++)
+                    if ((GetMoveType(learn[i]) == am->t1 || GetMoveType(learn[i]) == am->t2) && !IsUnreliableGuess(learn[i]))
+                        cand[n++] = learn[i];
+            }
+        }
+        for (i = 0; i < n; i++)
+        {
+            u32 acc = GetMoveAccuracy(cand[i]);
+            s32 d;
+            if (AbilityBlocksMove(am, dm, cand[i], FALSE))
+                continue;
+            d = EstimateDamage(st, am, dm, cand[i]) * 100 / dm->hp;
+            if (d > 100)
+                d = 100;
+            d = d * (s32)((acc == 0 || acc > 100) ? 100 : acc) / 100;
+            pct = max(pct, d);
+        }
+        best = max(best, pct);
+        if (pct >= 100)
+            kos++;
+    }
+    return best + 25 * kos;
+}
+
+// Valore del sonno di un Pokémon nella posizione: quanto pesa togliere di mezzo LUI. Minaccia calcolata a inizio
+// lavoro (sJob.sleepW) e boost offensivi presi nella simulazione; chi entra durante la simulazione vale la base.
+static s32 SleepValue(const struct PlanState *st, enum BattlerId b)
+{
+    const struct PlanMon *pm = &st->m[b];
+    s32 w = (pm->partyIdx < 0 && sJob.sleepW[b] > 0) ? sJob.sleepW[b] : CUSTOM_VGC_EVAL_SLEEP;
+    s32 off = max(pm->stage[PS_ATK], pm->stage[PS_SPA]);
+    if (off > 0)
+        w = w * (100 + 25 * min(off, 4)) / 100;
+    return w;
+}
+
 PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st);
 // Profilo (solo test): righe di schermo passate dentro la funzione, sommate (VGCPROF).
 static s32 Evaluate(const struct PlanState *st)
@@ -1764,8 +1846,9 @@ PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st)
             count[GetBattlerSide(b)]++;
             v += side * ((pm->hp + pm->subHp / 2) * 100 / max(pm->maxHp, 1) + VW(alive)) * roleW / 100;
         }
+        // Il sonno vale quanto la minaccia di chi dorme (Tyranitar Mega addormentato vale più di Dugtrio).
         if (pm->asleep)
-            v -= side * CUSTOM_VGC_EVAL_SLEEP;
+            v -= side * SleepValue(st, b);
         // Stato: la scottatura pesa sugli attaccanti fisici, la paralisi su tutti (Velocità dimezzata).
         if (pm->burned && pm->atk > pm->spa && pm->ability != ABILITY_GUTS)
             v -= side * CUSTOM_VGC_EVAL_BURN;
@@ -2045,7 +2128,8 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
             {
                 for (k = 0; k < 2; k++)
                     if (st->m[targets[k]].alive && !st->m[targets[k]].asleep && !st->m[targets[k]].burned && !st->m[targets[k]].paralyzed)
-                        AddCand(cand, &n, PLAN_CAND_MAX, PLAN_ACT_MOVE, idx, -1, m, b, targets[k], w);
+                        AddCand(cand, &n, PLAN_CAND_MAX, PLAN_ACT_MOVE, idx, -1, m, b, targets[k],
+                                (GetMoveNonVolatileStatus(m) == MOVE_EFFECT_SLEEP) ? w * SleepValue(st, targets[k]) / CUSTOM_VGC_EVAL_SLEEP : w);
             }
             else
             {
@@ -2444,6 +2528,10 @@ static u32 BuildOurFirstActions(enum BattlerId me, struct PlanAction *out, u32 c
                                               || GetMoveEffect(m) == EFFECT_GASTRO_ACID || GetMoveEffect(m) == EFFECT_ENTRAINMENT
                                               || GetMoveEffect(m) == EFFECT_HELPING_HAND)))
                     continue;
+                // Un attacco sul compagno passa solo se è una combo vera (gli attiva l'abilità costandogli poco):
+                // nemmeno la mossa delle regole lo porta dentro (Fake Out di Incineroar sul proprio Chandelure).
+                if (IsBattlerAlly(me, t) && !IsBattleMoveStatus(m) && !AI_VgcIsPartnerHitCombo(m, me, t))
+                    continue;
                 w = gAiBattleData->finalScore[me][t][i];
                 AddCand(out, &n, PLAN_ALL_OURS - 2, kind, i, -1, m, me, t, w);
             }
@@ -2646,7 +2734,7 @@ static void AddComboCands(enum BattlerId b, enum BattlerId ally, struct PlanActi
             continue;
         eff = GetMoveEffect(move);
         combo = (fix && (eff == EFFECT_OVERWRITE_ABILITY || eff == EFFECT_SKILL_SWAP || eff == EFFECT_GASTRO_ACID || eff == EFFECT_ENTRAINMENT))
-             || (hit && !IsBattleMoveStatus(move) && (eff == EFFECT_BEAT_UP || GetMovePower(move) <= 40));
+             || (hit && AI_VgcIsPartnerHitCombo(move, b, ally));
         if (!combo || !CanTargetBattler(b, ally, move))
             continue;
         for (k = 0; k < *n; k++)
@@ -3396,6 +3484,15 @@ bool32 AI_VgcPlanBegin(enum BattlerId me)
         }
     }
     InitState(&sJob.base);
+    // Valore del sonno di ognuno in campo: base CUSTOM_VGC_EVAL_SLEEP scalata dalla minaccia (25 + 0..150)%.
+    {
+        enum BattlerId q;
+        for (q = 0; q < MAX_BATTLERS_COUNT; q++)
+            sJob.sleepW[q] = 0;
+        for (q = 0; q < gBattlersCount; q++)
+            if (sJob.base.m[q].alive)
+                sJob.sleepW[q] = CUSTOM_VGC_EVAL_SLEEP * (25 + ThreatPct(&sJob.base, q)) / 100;
+    }
     // Velocità incerta (onesta: solo l'intervallo pubblico della specie o quello del belief, mai la vera): se la
     // stima di un avversario e una Velocità plausibile dall'altra parte dell'intervallo danno ordini diversi con
     // uno dei nostri, il turno 1 si gioca anche con l'ordine rovesciato (ramo pesato in MissPenalty).

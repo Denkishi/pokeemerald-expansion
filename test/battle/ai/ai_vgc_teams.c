@@ -376,12 +376,12 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Tony - Slither Wing does not use Close Combat 
 {
     // Gengar è immune al Lotta, Rillaboom lo prende neutro; Flare Blitz (al sole della Mega Y) è 2x su
     // Rillaboom e High Horsepower 2x su Gengar. Close Combat è sempre la scelta peggiore.
+    // Il giocatore porta solo i due in campo: un KO (Heat Wave al sole su Rillaboom) non chiede un cambio non
+    // previsto dal TURN.
     GIVEN {
         AI_FLAGS(VGC_TRAINER_AI_FLAGS);
         PLAYER(SPECIES_GENGAR) { ENZO_GENGAR; }
         PLAYER(SPECIES_RILLABOOM) { ENZO_RILLABOOM; }
-        PLAYER(SPECIES_SMEARGLE) { ENZO_SMEARGLE; }
-        PLAYER(SPECIES_AERODACTYL) { ENZO_AERODACTYL; }
         OPPONENT(SPECIES_SLITHER_WING) { TONY_SLITHER_WING; }
         OPPONENT(SPECIES_CHARIZARD) { TONY_CHARIZARD; }
         OPPONENT(SPECIES_ROARING_MOON) { TONY_ROARING_MOON; }

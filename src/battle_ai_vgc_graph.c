@@ -175,6 +175,27 @@ static bool32 CanTriggerPartner(const struct MonFacts *atk, const struct MonFact
     return FALSE;
 }
 
+// Questo attacco sul compagno in campo è una combo vera (gli attiva l'abilità o lo strumento costandogli poco)?
+// Stessa regola del grafo, ma sulla mossa precisa: Fake Out (tipo Normale, 40) accanto a un Flash Fire non attiva
+// niente e il tentennamento sul compagno è solo un danno. Le mosse a primo turno (Fake Out & co.) non lo sono mai.
+bool32 AI_VgcIsPartnerHitCombo(enum Move move, enum BattlerId battlerAtk, enum BattlerId partner)
+{
+    struct MonFacts def = {0};
+    enum Type type;
+    bool32 absorb;
+
+    if (move == MOVE_NONE || IsBattleMoveStatus(move) || GetMoveEffect(move) == EFFECT_FIRST_TURN_ONLY
+     || partner == battlerAtk || !IsBattlerAlive(partner))
+        return FALSE;
+    def.species = def.effSpecies = gBattleMons[partner].species;
+    def.ability = gBattleMons[partner].ability;
+    def.holdEffect = GetBattlerHoldEffect(partner);
+    type = (GetMoveEffect(move) == EFFECT_BEAT_UP) ? TYPE_DARK : GetMoveType(move);
+    if (!HitTriggersPartner(&def, type, GetMoveCategory(move) == DAMAGE_CATEGORY_PHYSICAL, &absorb))
+        return FALSE;
+    return absorb || GetMoveEffect(move) == EFFECT_BEAT_UP || GetMovePower(move) <= 40;
+}
+
 static bool32 CanChangePartnerAbility(const struct MonFacts *f)
 {
     u32 m;

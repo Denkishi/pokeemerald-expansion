@@ -39,5 +39,6 @@ struct VgcTeamGraph
 };
 
 void AI_VgcBuildTeamGraph(struct Pokemon *party, struct VgcTeamGraph *graph);
+bool32 AI_VgcIsPartnerHitCombo(enum Move move, enum BattlerId battlerAtk, enum BattlerId partner);
 
 #endif // GUARD_BATTLE_AI_VGC_GRAPH_H

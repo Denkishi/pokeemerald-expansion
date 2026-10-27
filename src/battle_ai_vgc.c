@@ -964,6 +964,25 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
         if (isStatus && !targetingPartner && IsBattlerAlive(battlerDef) && GetMoveNonVolatileStatus(move) == MOVE_EFFECT_SLEEP
          && BattlerHasVgcSetupMove(battlerDef) && !defSwitchLikely)
             ADJUST_SCORE(1);
+        // Sonno e paralisi valgono quanto la minaccia del bersaglio: chi può mandare KO uno dei nostri, chi è Mega,
+        // chi ha boost offensivi. Senza, a pari regole Spora finiva sul bersaglio meno pericoloso (Dugtrio accanto a
+        // un Tyranitar Mega). Solo dati leciti: KO stimati dall'IA, forma in campo, stadi visibili.
+        if (isStatus && !targetingPartner && IsBattlerAlive(battlerDef) && gBattleMons[battlerDef].status1 == STATUS1_NONE
+         && (GetMoveNonVolatileStatus(move) == MOVE_EFFECT_SLEEP || GetMoveNonVolatileStatus(move) == MOVE_EFFECT_PARALYSIS))
+        {
+            s32 threat = 0;
+            if (CanTargetFaintAi(battlerDef, battlerAtk))
+                threat += 2;
+            if (hasPartner && CanTargetFaintAi(battlerDef, partner))
+                threat += 2;
+            if (IsBattlerMegaEvolved(battlerDef))
+                threat += 1;
+            if (gBattleMons[battlerDef].statStages[STAT_ATK] > DEFAULT_STAT_STAGE
+             || gBattleMons[battlerDef].statStages[STAT_SPATK] > DEFAULT_STAT_STAGE)
+                threat += 1;
+            if (threat > 0)
+                ADJUST_SCORE(min(threat, 4));
+        }
         // Ipnosi / Spora sotto Gravity: accuratezza al 100%, valore enorme (Enzo Gravity Hypnosis).
         if (isStatus && !targetingPartner && IsBattlerAlive(battlerDef) && GetMoveNonVolatileStatus(move) == MOVE_EFFECT_SLEEP
          && (gFieldStatuses & STATUS_FIELD_GRAVITY) && gBattleMons[battlerDef].status1 == STATUS1_NONE && !defSwitchLikely)
@@ -1035,9 +1054,16 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
                 ADJUST_SCORE(8);
 
             // Colpire il compagno per attivargli l'abilità (Beat Up -> Justified...): combo trovata dal grafo.
-            if (targetingPartner && !isStatus && hasPartner
-             && sVgcTeamGraph.hitPartner[gBattlerPartyIndexes[battlerAtk]] == gBattlerPartyIndexes[partner])
-                ADJUST_SCORE(12);
+            // Solo con la mossa che lo attiva davvero: un altro attacco sul compagno (Fake Out accanto a un Flash
+            // Fire) non è una combo e si scarta.
+            if (targetingPartner && !isStatus && hasPartner)
+            {
+                if (sVgcTeamGraph.hitPartner[gBattlerPartyIndexes[battlerAtk]] == gBattlerPartyIndexes[partner]
+                 && AI_VgcIsPartnerHitCombo(move, battlerAtk, partner))
+                    ADJUST_SCORE(12);
+                else if (!AI_VgcIsPartnerHitCombo(move, battlerAtk, partner))
+                    ADJUST_SCORE(-20);
+            }
 
             // Tailwind per un compagno attaccante non lento.
             if (effect == EFFECT_TAILWIND && !twActive && !targetingPartner && (myRoles & VGC_ROLE_TAILWIND)
