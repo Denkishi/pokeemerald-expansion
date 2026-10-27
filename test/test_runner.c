@@ -820,9 +820,31 @@ static void MgbaExit_(u8 exitCode)
     asm("swi 0x3" :: "r" (_exitCode));
 }
 
+// Self-play VGC in modalità silenziosa (allenamento M9): niente righe di diagnostica dell'IA (VGC...) né di cronaca
+// della lotta (VSP MSG/PS/MON/CAMPO/ABILITA); restano esiti, scelte e misplay.
+bool8 gTestMgbaQuiet = FALSE;
+
+static bool32 QuietSkip(const char *fmt)
+{
+    while (*fmt == ' ')
+        fmt++;
+    if (fmt[0] != 'V')
+        return FALSE;
+    if (fmt[1] == 'G' && fmt[2] == 'C')
+        return TRUE;
+    if (fmt[1] != 'S' || fmt[2] != 'P' || fmt[3] != ' ')
+        return FALSE;
+    fmt += 4;
+    return (fmt[0] == 'M' && fmt[1] == 'S' && fmt[2] == 'G') || (fmt[0] == 'P' && fmt[1] == 'S' && fmt[2] == ' ')
+        || (fmt[0] == 'M' && fmt[1] == 'O' && fmt[2] == 'N') || (fmt[0] == 'C' && fmt[1] == 'A' && fmt[2] == 'M')
+        || (fmt[0] == 'A' && fmt[1] == 'B' && fmt[2] == 'I');
+}
+
 s32 Test_MgbaPrintf(const char *fmt, ...)
 {
     va_list va;
+    if (gTestMgbaQuiet && QuietSkip(fmt))
+        return 0;
     va_start(va, fmt);
     return MgbaVPrintf_(fmt, va);
 }
