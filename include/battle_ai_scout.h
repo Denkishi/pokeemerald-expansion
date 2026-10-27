@@ -291,6 +291,8 @@ struct ScoutTeamContext
 // gScoutContextPreviewOff = la team preview in corso non lo usa. Fuori dal self-play restano a 0.
 extern u8 gScoutContextOffMask;
 extern bool8 gScoutContextPreviewOff;
+// Peso (%) delle risposte al piano avversario e delle minacce senza risposta in team preview (taratura nel self-play).
+extern u8 gScoutContextAnswerPct;
 
 // Pura (solo ROM): contesto delle specie date.
 void Scout_ComputeTeamContext(const u16 *species, u32 n, struct ScoutTeamContext *out);

@@ -1036,7 +1036,7 @@ static s32 ContextAnswerScore(struct Pokemon *enemy, const u32 *slots, u32 n, u3
         u32 ans = spread + taunt + 2 * haze;
         s += (s32)ctx->redirectP * (s32)min(ans, 3u) * 40 / 100;
     }
-    return s;
+    return s * (s32)gScoutContextAnswerPct / 100;
 }
 
 // Coerenza del gruppo di 4: dipendenze e conflitti ricavati dalle proprietà.
@@ -1164,6 +1164,25 @@ static bool32 PairIs(u16 a, u16 b, u16 x, u16 y)
 #define PRED_LEADS 6
 
 static EWRAM_DATA u16 sMegaDesignate = SPECIES_NONE; // chi megaevolve in questa gara (deciso in preview)
+
+// Minacce esplicite (contesto della squadra): per ogni nostro Pokémon portato, quanto lo minacciano (0..100) gli
+// avversari con i set del contesto, pesati per quanto è probabile che partano in lead. Due squadre (IA contro IA).
+static EWRAM_DATA u16 sThreatSpecies[2][PARTY_SIZE] = {0};
+static EWRAM_DATA u8 sThreatVal[2][PARTY_SIZE] = {0};
+static EWRAM_DATA u8 sThreatNext = 0;
+
+u32 TeamPreview_ThreatPrior(u16 species)
+{
+    u32 k, i, e;
+    for (k = 0; k < 2; k++)
+    {
+        e = (sThreatNext + 1 + k) % 2; // prima la più recente
+        for (i = 0; i < PARTY_SIZE; i++)
+            if (species != SPECIES_NONE && sThreatSpecies[e][i] == species)
+                return sThreatVal[e][i];
+    }
+    return 0;
+}
 
 u16 TeamPreview_GetMegaDesignateSpecies(void)
 {
@@ -1565,6 +1584,7 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
     struct ScoutProfile enProf[PARTY_SIZE], plProf[PARTY_SIZE];
     u32 predJ[PRED_LEADS], predK[PRED_LEADS], nPred = 0;
     s32 predW[PRED_LEADS];
+    u32 mainThreat[2], nMain = 0;
     bool32 planTrViable = FALSE, planTwViable = FALSE;
     u16 trainerId = TRAINER_BATTLE_PARAM.opponentA;
     const struct ScoutTeamContext *ctx;
@@ -1704,6 +1724,25 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
             predW[p] = predS[p] - predS[nPred - 1] + 20;
     }
 
+    // Minacce principali (contesto): i due Pokémon del giocatore che pesano di più (duelli persi con i set della sua
+    // squadra, pezzi chiave del suo piano). Un gruppo senza nessuna risposta a una di loro paga.
+    if (ctx != NULL)
+    {
+        for (j = 0; j < nPlayer; j++)
+        {
+            if (nMain < 2)
+                mainThreat[nMain++] = j;
+            else if (weight[j] > weight[mainThreat[1]])
+                mainThreat[1] = j;
+            if (nMain == 2 && weight[mainThreat[1]] > weight[mainThreat[0]])
+            {
+                u32 tmp = mainThreat[0];
+                mainThreat[0] = mainThreat[1];
+                mainThreat[1] = tmp;
+            }
+        }
+    }
+
     // 1) Miglior gruppo: ogni nemico del giocatore deve avere una risposta.
     for (mask = 1; mask < (1u << nEnemy); mask++)
     {
@@ -1812,6 +1851,16 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
         // Risposte al piano di gioco dell'avversario letto dalla sua squadra (contesto): Trick Room, Tailwind, meteo...
         if (isDouble)
             score += ContextAnswerScore(enemy, enemySlots, nEnemy, mask, ctx);
+        // Minacce principali senza nessuna risposta nel gruppo.
+        for (t = 0; t < nMain; t++)
+        {
+            s32 best = INT16_MIN;
+            for (i = 0; i < nEnemy; i++)
+                if (mask & (1u << i))
+                    best = max(best, (s32)sMatch[i][mainThreat[t]]);
+            if (best <= 0)
+                score -= (120 - best) * (s32)gScoutContextAnswerPct / 100;
+        }
 
         // Dipendenze e conflitti del gruppo ricavati dalle proprietà (grafo della squadra): Baton Passer col suo
         // ricevente, Truant col Gas Reagente, Commander con Dondozo, meteo contro attaccanti, Trick Room contro
@@ -1866,6 +1915,35 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
     for (i = 0; i < nEnemy; i++)
         if (bestMask & (1u << i))
             chosen[nChosen++] = i;
+
+    // Minacce esplicite sui nostri portati (prior del pianificatore al turno 1): duello perso contro un Pokémon del
+    // giocatore, pesato di più se quel Pokémon è in una delle sue lead probabili.
+    {
+        u32 e = sThreatNext, p, c;
+        s32 wsum = 0;
+        sThreatNext = (sThreatNext + 1) % 2;
+        memset(sThreatSpecies[e], 0, sizeof(sThreatSpecies[e]));
+        memset(sThreatVal[e], 0, sizeof(sThreatVal[e]));
+        for (p = 0; p < nPred; p++)
+            wsum += predW[p];
+        for (c = 0; c < nChosen && ctx != NULL; c++)
+        {
+            s32 thr = 0;
+            for (j = 0; j < nPlayer; j++)
+            {
+                s32 v = -sMatch[chosen[c]][j], lw = 0;
+                if (v <= 0)
+                    continue;
+                for (p = 0; p < nPred; p++)
+                    if (predJ[p] == j || predK[p] == j)
+                        lw += predW[p];
+                v = v * (50 + 50 * lw / max(wsum, 1)) / 100;
+                thr = max(thr, v);
+            }
+            sThreatSpecies[e][c] = GetMonData(&enemy[enemySlots[chosen[c]]], MON_DATA_SPECIES);
+            sThreatVal[e][c] = min(thr, 100);
+        }
+    }
 
     // 2) Lead (1 in singola, 2 in doppia).
     {

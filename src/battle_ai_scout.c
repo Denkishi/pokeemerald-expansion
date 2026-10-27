@@ -2044,6 +2044,7 @@ void Scout_BeliefImport(u32 partySlot, const struct ScoutBeliefSnapshot *in)
 
 EWRAM_DATA u8 gScoutContextOffMask = 0;
 EWRAM_DATA bool8 gScoutContextPreviewOff = FALSE;
+EWRAM_DATA u8 gScoutContextAnswerPct = 100;
 static EWRAM_DATA struct ScoutTeamContext sTeamCtx[2] = {0};
 static EWRAM_DATA u8 sTeamCtxNext = 0;
 static EWRAM_DATA s8 sTeamCtxSide[NUM_BATTLE_SIDES] = {0}; // indice+1 del contesto per lato (0 = da cercare)

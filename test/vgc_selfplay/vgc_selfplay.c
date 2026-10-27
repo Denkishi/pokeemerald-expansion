@@ -595,6 +595,7 @@ static void VgcSelfPlay_Run(void *data)
     gVgcTraining.exploreEps[B_SIDE_OPPONENT] = sVsp.args.explorePct[1];
     gTestMgbaQuiet = sVsp.args.quiet != 0;
     gScoutContextOffMask = sVsp.args.contextOff & 3; // verifica del contesto della squadra: lato spento
+    gScoutContextAnswerPct = sVsp.args.contextAnswerPct ? sVsp.args.contextAnswerPct : 100;
     AI_VgcBookReset();
 
     Test_MgbaPrintf("VSP INIZIO giocatore=%d:%S avversario=%d:%S seme=%d modo=%d maxturni=%d",

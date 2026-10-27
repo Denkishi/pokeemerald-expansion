@@ -58,7 +58,7 @@ TEST_FILE = 'test/vgc_selfplay/vgc_selfplay.c'
 
 # Layout di struct VgcSelfPlayArgs (include/test/vgc_selfplay.h): tenere in sincronia.
 MAGIC = b'VGCSELFPLAYARG1\x00'
-ARGS_LAYOUT = '<16sBBBBI4B4BB2BB4B20bB7BBBBBBB2x'
+ARGS_LAYOUT = '<16sBBBBI4B4BB2BB4B20bB7BBBBBBBB1x'
 ARGS_SIZE = struct.calcsize(ARGS_LAYOUT)
 assert ARGS_SIZE == 76
 MODE_LIST, MODE_PREVIEW, MODE_FIXED = 0, 1, 2
@@ -204,7 +204,7 @@ def find_args_offset(rom_bytes):
 
 
 def pack_args(mode, player, enemy, seed, max_turns=0, player_order=None, enemy_order=None, scenario=None, verbose=0, weights=None,
-              weight_side=0, book_off=0, explore=None, quiet=0, context_off=0):
+              weight_side=0, book_off=0, explore=None, quiet=0, context_off=0, answer_pct=0):
     po = list(player_order or [0xFF] * 4)
     eo = list(enemy_order or [0xFF] * 4)
     sc = scenario or {}
@@ -220,7 +220,7 @@ def pack_args(mode, player, enemy, seed, max_turns=0, player_order=None, enemy_o
     return struct.pack(ARGS_LAYOUT, MAGIC, mode, player, enemy, max_turns & 0xFF, seed & 0xFFFFFFFF,
                        *po, *eo, sc.get('turno', 0), tw[0], tw[1], sc.get('trickroom', 0), *hp, *flat, verbose, *reserved,
                        1 if weight_side else 0, int(book_off) & 3, int(ex[0]) & 0xFF, int(ex[1]) & 0xFF, 1 if quiet else 0,
-                       int(context_off) & 3)
+                       int(context_off) & 3, int(answer_pct) & 0xFF)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -264,6 +264,8 @@ def game_id(job):
         base += f"_b{job['libro_off']}"
     if job.get('contesto_off'):
         base += f"_c{job['contesto_off']}"
+    if job.get('risposta_pct'):
+        base += f"_r{job['risposta_pct']}"
     if any(job.get('esplora') or []):
         base += '_x' + '-'.join(str(int(x)) for x in job['esplora'])
     if job.get('tag'):
@@ -291,7 +293,8 @@ def start_game(job, rom_bytes, args_offset, slot='uno'):
     packed = pack_args(job.get('mode', MODE_PREVIEW), job['p'], job['e'], job['seed'], job.get('max_turns', 0),
                        job.get('player_order'), job.get('enemy_order'), job.get('scenario'), job.get('verbose', 0),
                        job.get('pesi'), job.get('lato_pesi', 0), job.get('libro_off', 0), job.get('esplora'),
-                       job.get('silenzio', 0), job.get('contesto_off', 0))
+                       job.get('silenzio', 0), job.get('contesto_off', 0),
+                       job.get('risposta_pct', 0))
     rom_path = slot_rom(slot, rom_bytes)
 
     def patch():
@@ -1065,7 +1068,8 @@ def exp_next(x, n):
         if x.get('risultato'):
             return None
         return 'contesto', mirrored_jobs(n, x['scontri'], x['semi'], x['seme_base'], 'contesto', context=True,
-                                         data_dir=x.get('cartella'))
+                                         data_dir=x.get('cartella'),
+                                         extra={'risposta_pct': x['risposta_pct']} if x.get('risposta_pct') else None)
     if tipo == 'verifica_libro':
         if x.get('risultato'):
             return None
@@ -1270,7 +1274,7 @@ def cmd_verifica_contesto(args):
     """Contesto della squadra avversaria (team preview) acceso per un lato e spento per l'altro, a specchio."""
     return exp_resume_or_new('verifica_contesto', args, lambda: {
         'tipo': 'verifica_contesto', 'semi': args.seeds, 'seme_base': args.seed_base, 'scontri': args.matchups,
-        'parallelo': args.parallel, 'cartella': 'verifica_contesto'})
+        'parallelo': args.parallel, 'cartella': 'verifica_contesto', 'risposta_pct': args.answer_pct})
 
 
 def cmd_libro(args):
@@ -1494,6 +1498,7 @@ def main():
     vc.add_argument('--seed-base', type=int, default=1)
     vc.add_argument('--matchups', default='all')
     vc.add_argument('--parallel', type=int, default=DEFAULT_PARALLEL)
+    vc.add_argument('--answer-pct', type=int, default=0, help='peso %% delle risposte al piano avversario (0 = 100)')
     vc.add_argument('--new', action='store_true')
     lb = sub.add_parser('libro')
     lb.add_argument('--dirs', default='esplorazione')

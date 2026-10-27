@@ -34,5 +34,8 @@ void TeamPreview_SetFormatFromScript(void);
 void TeamPreview_SeriesNoteFaint(enum BattlerId fainted);
 // Specie che deve megaevolvere in questa gara (decisa in preview in base al matchup), SPECIES_NONE = libero.
 u16 TeamPreview_GetMegaDesignateSpecies(void);
+// Minaccia (0..100) sul nostro Pokémon `species` calcolata in team preview dagli avversari probabili in lead con i set
+// del contesto della loro squadra; 0 se non calcolata. Prior del pianificatore al turno 1 (Protect del minacciato).
+u32 TeamPreview_ThreatPrior(u16 species);
 
 #endif // GUARD_TEAM_PREVIEW_H

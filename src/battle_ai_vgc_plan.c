@@ -23,6 +23,7 @@
 #include "battle_ai_vgc.h"
 #include "battle_ai_vgc_book.h"
 #include "battle_ai_scout.h"
+#include "team_preview.h"
 #include "battle_ai_vgc_graph.h"
 #include "battle_gimmick.h"
 #include "battle_main.h"
@@ -2160,7 +2161,7 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
     {
         if (hasProtect && !bm->protectedLast)
         {
-            s32 w = 20;
+            s32 w = 20 + (st->firstTurn ? (s32)TeamPreview_ThreatPrior(bm->species) / 4 : 0); // minaccia vista in team preview
             for (k = 0; k < 2; k++)
                 if (st->m[targets[k]].alive)
                     w += 50 * (s32)CanKoNextTurn(st, targets[k], b) / 100;
