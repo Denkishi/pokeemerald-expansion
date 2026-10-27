@@ -34,6 +34,11 @@ Tailwind. Discutibile più che sbagliato: da rivedere con il modello del giocato
 
 Poi tornati PASS anche **Sableye** (Fake Out/Taunt) e **Ceruledge** (Shadow Sneak su Gengar) con il partner a 3 azioni al turno 2 e le cache. Stato: **47 PASS, 18 KNOWN_FAILING, 0 FAIL**.
 
+Con la Mega nel simulatore (Charizard Y di Tony: sole e Heat Wave già al turno 1): tornati PASS **Ludicolo**
+(Fake Out) e **Slither Wing**; diventati KNOWN_FAILING **Arcanine** (preferisce Extreme Speed + Thunderbolt per
+mandare KO la Mega Charizard prima che colpisca, invece di finire Roaring Moon a 30 PS) e di nuovo **Sableye**
+(cambia anche col costo del cambio a 100). Stato: **49 PASS, 17 KNOWN_FAILING, 0 FAIL**.
+
 Era KNOWN_FAILING: **Sableye** (Tony) cambia con Slither Wing invece di Fake Out / Taunt. Diagnosi: Great Tusk con
 Booster Energy (attivazione visibile) manda KO Sableye con Headlong Rush; il pianificatore preferisce far entrare
 Slither Wing e mandare KO Porygon2 al turno dopo con Close Combat. Discutibile ma non la giocata attesa.

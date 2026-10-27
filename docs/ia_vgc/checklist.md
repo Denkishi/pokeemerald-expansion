@@ -18,7 +18,7 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
   - 🔧 velocità del giocatore in `gAiLogicData->speedStats`: ora stimata dal belief (M1, branch `ia-vgc-meta`)
 - ✅ Suite di test `test/battle/ai/ai_vgc_doubles.c` attiva. WSL compila soltanto; i test si eseguono su Windows con `tools/mgba/mgba-rom-test.exe`
 - ✅ Installate con msys2 `libepoxy-0.dll` e `libwinpthread-1.dll`: `mgba-rom-test.exe` gira su Windows (aggiungere `C:\msys64\mingw64\bin` al PATH)
-- ✅ **Risultati (tutti i test VGC: doppi, team preview, scout/belief, squadre vere): 47 PASS, 0 FAIL, 18 KNOWN_FAILING** — i KNOWN_FAILING sono tutti in `ai_vgc_teams.c`, elencati e spiegati in [scenari.md](scenari.md)
+- ✅ **Risultati (tutti i test VGC: doppi, team preview, scout/belief, squadre vere): 49 PASS, 0 FAIL, 17 KNOWN_FAILING** — i KNOWN_FAILING sono tutti in `ai_vgc_teams.c`, elencati e spiegati in [scenari.md](scenari.md)
   - ✅ Dopo un KO entra il compagno giusto (Gallade accanto a Whimsicott)
 - ℹ️ Controllo regressioni: `test/battle/ai/ai_doubles.c` dell'expansion ha 14 test che falliscono, **identici su `master`** (prima del lavoro sull'IA VGC): non li ho introdotti io, vengono dalle modifiche precedenti del fork
   - ✅ Fake Out al turno 1 per coprire un compagno Baton Passer
@@ -75,7 +75,9 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
 - ✅ **Bug trovato e corretto**: se un avversario non aveva attacchi plausibili noti, la simulazione dava per **certo** il suo Protect e qualunque nostro attacco sembrava inutile (tutte le coppie con lo stesso valore). Ora resta sempre l'alternativa "non si protegge" con la probabilità complementare
 - ✅ **Causa trovata** (test "accurate move", Scratch che non mandava KO il bersaglio a 5 PS): non era il simulatore. `ScalePartiesToBattleLevel` (tutte le lotte a Lv50) ricalcolava le statistiche e curava i PS anche nei test: `HP(5)` diventava 250 PS e `Speed(10)` veniva ignorato. Ora anche i test sono a Lv50 come il gioco, ma i valori scritti dal test sopravvivono al ricalcolo: statistiche impostate (Speed(), Attack(), MaxHP()...) e PS non pieni (HP(5)). Solo nei test (`#if TESTING` in `ScalePartiesToBattleLevel`); nel gioco non cambia nulla. Diagnostica `VGCDMG`/`VGCFOE` nel log dei test
 - ✅ Mosse ad area sul compagno (Earthquake, Surf, Discharge: TARGET_FOES_AND_ALLY) con Protect, Wide Guard e immunità d'abilità (Levitate, Flash Fire, Water/Volt Absorb, Lightning Rod, Storm Drain, Sap Sipper, Telepathy...; Mold Breaker le ignora). Test con il set vero del Rotom-Mow di Simone
-- ⬜ Mega, terreni, Sostituto
+- ✅ Mega nel simulatore: chi megaevolve in questo turno (noi se possiamo; il giocatore se la specie la usa ≥80% nel belief e non l'ha usata) prende statistiche, tipi e abilità della Mega a inizio turno (meteo della Mega già attivo: Charizard Y + Solar Beam). Per i danni di una Mega si usa la stima, non la tabella della forma base. Test: Solar Beam al turno della Mega Y
+- ✅ Stima dei danni con le abilità e gli strumenti più comuni: Technician, Huge/Pure Power, Hustle, Solar Power, Adaptability, Transistor, Dragon's Maw, Steelworker, Water Bubble, Choice Band/Specs; in difesa Thick Fat, Heatproof, Ice Scales, Fur Coat, Filter/Solid Rock/Prism Armor, Purifying Salt
+- ⬜ Terreni, Sostituto
 - ✅ Cambi d'abilità a metà turno (Simple Beam, Worry Seed, Skill Swap, Gastro Acid, Entrainment)
 - ✅ Mycelium Might: mosse di stato per ultime nella fascia di priorità, ignorano le abilità del bersaglio
 - ✅ Justified: +1 Attacco per colpo Buio (Beat Up: un colpo per Pokémon della squadra)

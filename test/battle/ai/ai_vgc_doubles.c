@@ -240,3 +240,18 @@ AI_DOUBLE_BATTLE_TEST("VGC: real team (Savarotto) - Calm Mind now is worth more 
         EXPECT_GT(AI_VgcPlanTestValue(GetBattlerAtPosition(B_POSITION_OPPONENT_RIGHT), MOVE_CALM_MIND), AI_VgcPlanTestValue(GetBattlerAtPosition(B_POSITION_OPPONENT_RIGHT), MOVE_BATON_PASS));
     }
 }
+
+AI_DOUBLE_BATTLE_TEST("VGC: Mega Charizard Y's sun makes Solar Beam hit on the turn it Mega Evolves")
+{
+    // La Mega avviene a inizio turno: Drought porta il sole prima delle mosse e Solar Beam non deve caricare.
+    // Senza la Mega nel simulatore Solar Beam sembrava un turno perso e vinceva Flamethrower (inutile sui Swampert).
+    GIVEN {
+        AI_FLAGS(VGC_AI_FLAGS);
+        PLAYER(SPECIES_SWAMPERT) { Speed(60); }
+        PLAYER(SPECIES_SWAMPERT) { Speed(60); }
+        OPPONENT(SPECIES_CHARIZARD) { Item(ITEM_CHARIZARDITE_Y); Moves(MOVE_SOLAR_BEAM, MOVE_FLAMETHROWER); Speed(100); }
+        OPPONENT(SPECIES_WOBBUFFET) { Moves(MOVE_CELEBRATE); Speed(40); }
+    } WHEN {
+        TURN { EXPECT_MOVE(opponentLeft, MOVE_SOLAR_BEAM); }
+    }
+}

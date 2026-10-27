@@ -23,6 +23,7 @@
 #include "battle_ai_vgc.h"
 #include "battle_ai_scout.h"
 #include "battle_ai_vgc_graph.h"
+#include "battle_gimmick.h"
 #include "battle_main.h"
 #include "battle_util.h"
 #include "fpmath.h"
@@ -139,6 +140,8 @@ struct PlanMon
     u8 berryUsed;
     u8 damaged;         // colpito in questo turno (Focus Punch fallisce)
     u8 taunted;         // turni di Taunt rimasti (mosse di stato bloccate)
+    u8 megaPct[4];      // Mega a inizio turno: statistiche Mega / forma base in % (Atk, Def, SpA, SpD)
+    u8 megaNow;         // megaevolve in questo turno simulato: la tabella dei danni (forma base) non vale più
     s8 stage[PS_COUNT];     // stadi attuali nella simulazione (-6..+6)
     s8 stage0[PS_COUNT];    // stadi all'inizio (già compresi in velocità e danni della tabella dell'IA)
     u8 canAttack:1;         // ha mosse d'attacco (i boost offensivi servono a qualcosa)
@@ -162,7 +165,7 @@ struct PlanState
 
 struct PlanEstCache
 {
-    u32 k1, k2;     // chiave (k1 = 0 = vuota)
+    u32 k1, k2, k3; // chiave (k1 = 0 = vuota)
     s32 val;
 };
 
@@ -483,6 +486,8 @@ static void LoadPartyMon(struct PlanState *st, enum BattlerId b, u32 partyIdx)
             pm->speed = pm->speed * 3 / 2;
     }
     pm->partyIdx = partyIdx;
+    pm->megaPct[0] = pm->megaPct[1] = pm->megaPct[2] = pm->megaPct[3] = 100;
+    pm->megaNow = FALSE;
     pm->alive = pm->hp > 0;
     pm->asleep = (GetMonData(mon, MON_DATA_STATUS) & STATUS1_SLEEP) != 0;
     pm->sleepTurns = GetMonData(mon, MON_DATA_STATUS) & STATUS1_SLEEP;
@@ -525,6 +530,65 @@ static void LoadPartyMon(struct PlanState *st, enum BattlerId b, u32 partyIdx)
     }
 }
 
+// Mega Evoluzione a inizio turno (prima delle mosse, Velocità della Mega già in questo turno): statistiche scalate
+// sulle statistiche base della Mega, tipi e abilità della Mega. La tabella dei danni dell'IA è calcolata sulla forma
+// base: DamageOf la riscala con megaPct.
+static void ApplyMegaForm(struct PlanMon *pm, u16 megaSpecies, enum Ability megaAbility)
+{
+    const struct SpeciesInfo *bi = &gSpeciesInfo[pm->species], *mi = &gSpeciesInfo[megaSpecies];
+
+    pm->megaPct[0] = mi->baseAttack * 100 / max(bi->baseAttack, 1);
+    pm->megaPct[1] = mi->baseDefense * 100 / max(bi->baseDefense, 1);
+    pm->megaPct[2] = mi->baseSpAttack * 100 / max(bi->baseSpAttack, 1);
+    pm->megaPct[3] = mi->baseSpDefense * 100 / max(bi->baseSpDefense, 1);
+    pm->atk = pm->atk * pm->megaPct[0] / 100;
+    pm->def = pm->def * pm->megaPct[1] / 100;
+    pm->spa = pm->spa * pm->megaPct[2] / 100;
+    pm->spd = pm->spd * pm->megaPct[3] / 100;
+    pm->speed = pm->speed * mi->baseSpeed / max(bi->baseSpeed, 1);
+    pm->t1 = mi->types[0];
+    pm->t2 = mi->types[1];
+    pm->ability = megaAbility;
+    pm->species = megaSpecies;
+    pm->megaNow = TRUE;
+}
+
+// Chi megaevolve in questo turno: noi se possiamo (l'IA del motore la usa appena può), il giocatore se la sua
+// specie di solito la usa (belief: statistiche d'uso) e non l'ha ancora usata.
+static void LoadMega(struct PlanState *st, enum BattlerId b)
+{
+    struct PlanMon *pm = &st->m[b];
+    u16 mega = SPECIES_NONE;
+    enum Ability ab = ABILITY_NONE;
+
+    pm->megaPct[0] = pm->megaPct[1] = pm->megaPct[2] = pm->megaPct[3] = 100;
+    if (!pm->alive || gSpeciesInfo[pm->species].isMegaEvolution || HasTrainerUsedGimmick(b, GIMMICK_MEGA))
+        return;
+    if (!IsOnPlayerSide(b))
+    {
+        if (!CanActivateGimmick(b, GIMMICK_MEGA))
+            return;
+        mega = GetBattleFormChangeTargetSpecies(b, FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM, pm->ability);
+        if (mega == SPECIES_NONE || mega == pm->species)
+            mega = GetBattleFormChangeTargetSpecies(b, FORM_CHANGE_BATTLE_MEGA_EVOLUTION_MOVE, pm->ability);
+        if (mega == SPECIES_NONE || mega == pm->species)
+            return;
+        ab = gSpeciesInfo[mega].abilities[0];
+    }
+    else
+    {
+        struct ScoutMegaChance mc[2];
+        // Soglia alta: una Mega creduta e non avvenuta cambia molto la posizione (una sola per squadra).
+        if (Scout_GetMegaForms(pm->species, mc, 2) == 0 || mc[0].p < 80 || pm->holdEffect != HOLD_EFFECT_NONE)
+            return;
+        mega = mc[0].species;
+        ab = mc[0].ability ? mc[0].ability : gSpeciesInfo[mega].abilities[0];
+    }
+    ApplyMegaForm(pm, mega, ab);
+    if (WeatherFromAbility(ab) != PW_NONE)
+        st->weather = WeatherFromAbility(ab);
+}
+
 static void InitState(struct PlanState *st)
 {
     enum BattlerId b;
@@ -547,6 +611,9 @@ static void InitState(struct PlanState *st)
         }
     }
     st->firstTurn = TRUE;
+    // Le Mega dopo il meteo di partenza: il meteo dell'abilità della Mega (Charizard Y) vale già in questo turno.
+    for (b = 0; b < gBattlersCount; b++)
+        LoadMega(st, b);
 }
 
 // Fine turno simulato: scadono Trick Room e Tailwind (come in battle_end_turn.c), Protect diventa
@@ -618,16 +685,18 @@ static s32 EstimateDamage(const struct PlanState *st, const struct PlanMon *atk,
            | ((st->weather & 7u) << 26) | ((u32)atk->burned0 << 29);
     u32 k2 = (((u32)(atk->stage[PS_ATK] + 6) & 15)) | (((u32)(atk->stage[PS_SPA] + 6) & 15) << 4) | (((u32)(def->stage[PS_DEF] + 6) & 15) << 8)
            | (((u32)(def->stage[PS_SPD] + 6) & 15) << 12) | (((u32)def->holdEffect & 0xFF) << 16) | (((u32)atk->holdEffect & 0xFF) << 24);
-    struct PlanEstCache *e = &sJob.estCache[(k1 * 2654435761u ^ k2 * 40503u) % PLAN_EST_CACHE];
+    u32 k3 = ((u32)atk->ability & 0xFFFF) | ((u32)def->ability << 16);
+    struct PlanEstCache *e = &sJob.estCache[(k1 * 2654435761u ^ k2 * 40503u ^ k3 * 97u) % PLAN_EST_CACHE];
     s32 r;
 #if TESTING
     u32 t0 = REG_VCOUNT;
 #endif
-    if (e->k1 == k1 && e->k2 == k2)
+    if (e->k1 == k1 && e->k2 == k2 && e->k3 == k3)
         return e->val;
     r = EstimateDamageImpl(st, atk, def, move);
     e->k1 = k1;
     e->k2 = k2;
+    e->k3 = k3;
     e->val = r;
 #if TESTING
     sProf[4] += (REG_VCOUNT + 228 - t0) % 228;
@@ -655,10 +724,39 @@ static s32 EstimateDamageImpl(const struct PlanState *st, const struct PlanMon *
         d = d * 3 / 2;
     if (d == 0)
         d = 1;
+    // Abilità e strumenti che cambiano attacco/potenza (i più comuni in VGC).
+    if (atk->ability == ABILITY_TECHNICIAN && power <= 60)
+        power = power * 3 / 2;
+    if (physical && (atk->ability == ABILITY_HUGE_POWER || atk->ability == ABILITY_PURE_POWER))
+        a *= 2;
+    if (physical && atk->ability == ABILITY_HUSTLE)
+        a = a * 3 / 2;
+    if (!physical && atk->ability == ABILITY_SOLAR_POWER && st->weather == PW_SUN)
+        a = a * 3 / 2;
+    if ((physical && atk->holdEffect == HOLD_EFFECT_CHOICE_BAND) || (!physical && atk->holdEffect == HOLD_EFFECT_CHOICE_SPECS))
+        a = a * 3 / 2;
+    if ((atk->ability == ABILITY_TRANSISTOR && type == TYPE_ELECTRIC) || (atk->ability == ABILITY_DRAGONS_MAW && type == TYPE_DRAGON)
+     || (atk->ability == ABILITY_STEELWORKER && type == TYPE_STEEL))
+        a = a * 3 / 2;
+    if (atk->ability == ABILITY_WATER_BUBBLE && type == TYPE_WATER)
+        a *= 2;
+    if (!physical && def->ability == ABILITY_ICE_SCALES)
+        d *= 2;
+    if (physical && def->ability == ABILITY_FUR_COAT)
+        d *= 2;
     dmg = ((2 * 50 / 5 + 2) * power * a / d) / 50 + 2;
     if (type == atk->t1 || type == atk->t2)
-        dmg = dmg * 3 / 2;
-    dmg = uq4_12_multiply_by_int_half_down(TypeEff(type, def), dmg);
+        dmg = (atk->ability == ABILITY_ADAPTABILITY) ? dmg * 2 : dmg * 3 / 2;
+    {
+        uq4_12_t eff = TypeEff(type, def);
+        dmg = uq4_12_multiply_by_int_half_down(eff, dmg);
+        if (eff > UQ_4_12(1.0) && (def->ability == ABILITY_FILTER || def->ability == ABILITY_SOLID_ROCK || def->ability == ABILITY_PRISM_ARMOR))
+            dmg = dmg * 3 / 4;
+    }
+    if ((def->ability == ABILITY_THICK_FAT && (type == TYPE_FIRE || type == TYPE_ICE))
+     || ((def->ability == ABILITY_HEATPROOF || def->ability == ABILITY_WATER_BUBBLE) && type == TYPE_FIRE)
+     || (def->ability == ABILITY_PURIFYING_SALT && type == TYPE_GHOST))
+        dmg /= 2;
     dmg = dmg * WeatherFactor(st->weather, type) / 100;
     if (atk->holdEffect == HOLD_EFFECT_LIFE_ORB)
         dmg = dmg * 13 / 10;
@@ -721,7 +819,7 @@ static s32 DamageOf(const struct PlanState *st, const struct PlanAction *a, enum
     PLAN_COUNT(sCntDmg);
     if (AbilityBlocksMove(am, dm, a->move, IsBattlerAlly(a->user, t)))
         return 0;
-    if (a->moveIndex != 0xFF && am->partyIdx < 0 && dm->partyIdx < 0)
+    if (a->moveIndex != 0xFF && am->partyIdx < 0 && dm->partyIdx < 0 && !am->megaNow && !dm->megaNow)
     {
         u8 now = CurrentWeather();
         if (gAiLogicData->effectiveness[a->user][t][a->moveIndex] == UQ_4_12(0.0))
