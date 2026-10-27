@@ -57,6 +57,8 @@
 #define PLAN_MAX_OURS        7   // azioni per ciascuno dei nostri Pokémon che entrano nelle coppie (le migliori a 1 turno)
 #define PLAN_ALL_OURS        15  // tutte le azioni legali di un nostro Pokémon (4 mosse x 3 bersagli + cambi)
 #define PLAN_MAX_PAIRS       10  // coppie (nostra azione, azione del partner) simulate per intero (albero a 3 turni)
+#define PLAN_EXTRA_PAIRS     4   // coppie aggiunte a fine albero: azioni di velocità/setup accanto al compagno della coppia migliore
+#define PLAN_ALL_PAIRS       (PLAN_MAX_PAIRS + PLAN_EXTRA_PAIRS)
 #define PLAN_FOE_PER         2   // azioni per avversario (primo turno)
 #define PLAN_FOE_CAND        5   // azioni plausibili per avversario valutate dal modello del giocatore (livello 1)
 #define PLAN_P2_OURS_PER     4   // azioni per chi pianifica al turno dopo (una corsia è per setup/Protect/velocità)
@@ -169,6 +171,8 @@ struct PlanState
     u8 terrain;         // B_TERRAIN_* attuale nella simulazione
     u8 terrain0;        // terreno all'inizio (compreso nella tabella dei danni)
     u8 terrainTurns;    // turni rimasti (0 = senza scadenza nota)
+    u8 replMask[2];     // per lato: indici di squadra già entrati come sostituti dopo un KO (o caduti) nella simulazione
+    u8 benchUsed[2];    // per lato: Pokémon della panchina entrati dopo un KO (il materiale non li conta due volte)
 };
 
 #define PLAN_KO_CACHE 64
@@ -197,7 +201,7 @@ struct PlanJob
     u8 origMove;
     enum BattlerId origTarget;
     // Coppia i: ours[i] è la nostra azione, partners[i] quella del partner (decise insieme).
-    struct PlanAction ours[PLAN_MAX_PAIRS], partners[PLAN_MAX_PAIRS], foeA[PLAN_FOE_PER], foeB[PLAN_FOE_PER];
+    struct PlanAction ours[PLAN_ALL_PAIRS], partners[PLAN_ALL_PAIRS], foeA[PLAN_FOE_PER], foeB[PLAN_FOE_PER];
     u8 nOurs, nA, nB;
     struct VgcTeamGraph graph;  // conoscenza della nostra squadra (combo, ricevente del Baton Pass)
     s8 bench[NUM_BATTLE_SIDES]; // Pokémon utilizzabili in panchina per lato all'inizio (non cambia con i cambi simulati)
@@ -217,10 +221,11 @@ struct PlanJob
     // livello 1
     u8 i, a, b, phase;
     s32 sum, wsum, worst;
-    s32 ev[PLAN_MAX_PAIRS];
+    s32 ev[PLAN_ALL_PAIRS];
     s32 bestSoFar;      // miglior valore di coppia già finito (potatura)
     const struct VgcEvalWeights *w; // pesi della valutazione del lato di chi pensa
     u8 winconParty;     // bit per indice di squadra: le win condition del piano del nostro allenatore
+    u8 repaired;        // seconda passata delle coppie già fatta
     u8 alpha;           // peso (decimi) della media contro il caso peggiore: dinamico, più rischio quando si è sotto
     struct PlanState s1;
     s32 missPen;        // quanto si perde, in media, per le azioni del turno 1 che possono mancare
@@ -325,9 +330,9 @@ static EWRAM_DATA struct PlanPartnerDecision sPartnerDecisionBySide[NUM_BATTLE_S
 struct PlanTestLog
 {
     u8 n;
-    enum BattlerId user[PLAN_MAX_PAIRS], puser[PLAN_MAX_PAIRS];
-    enum Move move[PLAN_MAX_PAIRS], pmove[PLAN_MAX_PAIRS];
-    s32 ev[PLAN_MAX_PAIRS];
+    enum BattlerId user[PLAN_ALL_PAIRS], puser[PLAN_ALL_PAIRS];
+    enum Move move[PLAN_ALL_PAIRS], pmove[PLAN_ALL_PAIRS];
+    s32 ev[PLAN_ALL_PAIRS];
 };
 static EWRAM_DATA struct PlanTestLog sTestLog = {0};
 // Contatori di chiamate per la misura del costo (VGCCPU).
@@ -716,6 +721,55 @@ static void InitState(struct PlanState *st)
 
 // Fine turno simulato: scadono Trick Room e Tailwind (come in battle_end_turn.c), Protect diventa
 // "usato il turno prima".
+static bool32 CanBatonPassTo(struct Pokemon *party, u32 idx, u32 myIdx, u32 partnerIdx);
+static void LoadPartyMon(struct PlanState *st, enum BattlerId b, u32 partyIdx);
+
+// Sostituzioni dopo un KO, a fine turno come nel gioco: nel posto vuoto entra un Pokémon della panchina (per noi
+// quello suggerito dal motore se libero; per il giocatore uno già visto in lotta se c'è, con le statistiche stimate).
+// Senza, il turno dopo si giocava in inferiorità numerica e una linea che perde un Pokémon sembrava persa del tutto.
+static void ReplaceFaintedInSim(struct PlanState *st)
+{
+    enum BattlerId b;
+    for (b = 0; b < gBattlersCount; b++)
+    {
+        struct PlanMon *pm = &st->m[b];
+        u32 side = GetBattlerSide(b), myIdx, pIdx, idx, best = PARTY_SIZE;
+        enum BattlerId p = GetPartnerBattler(b);
+        struct Pokemon *party;
+
+        if (pm->alive || pm->species == SPECIES_NONE || st->benchUsed[side] >= (u32)max(sJob.bench[side], 0))
+            continue;
+        party = GetBattlerParty(b);
+        myIdx = (pm->partyIdx >= 0) ? (u32)pm->partyIdx : gBattlerPartyIndexes[b];
+        pIdx = (st->m[p].partyIdx >= 0) ? (u32)st->m[p].partyIdx : gBattlerPartyIndexes[p];
+        if (myIdx < PARTY_SIZE)
+            st->replMask[side] |= 1u << myIdx;
+        for (idx = 0; idx < PARTY_SIZE; idx++)
+        {
+            if ((st->replMask[side] & (1u << idx)) || !CanBatonPassTo(party, idx, myIdx, pIdx)
+             || (b != p && IsBattlerAlive(p) && gBattlerPartyIndexes[p] == idx))
+                continue;
+            if (best == PARTY_SIZE)
+                best = idx;
+            if (!IsOnPlayerSide(b) && idx == gAiLogicData->mostSuitableMonId[b])
+            {
+                best = idx;
+                break;
+            }
+            if (IsOnPlayerSide(b) && GetMonData(&party[idx], MON_DATA_HP) < GetMonData(&party[idx], MON_DATA_MAX_HP))
+            {
+                best = idx; // già sceso in campo: lo si conosce
+                break;
+            }
+        }
+        if (best == PARTY_SIZE)
+            continue;
+        LoadPartyMon(st, b, best);
+        st->replMask[side] |= 1u << best;
+        st->benchUsed[side]++;
+    }
+}
+
 static void NextTurn(struct PlanState *st)
 {
     enum BattlerId b;
@@ -726,6 +780,8 @@ static void NextTurn(struct PlanState *st)
             st->m[b].taunted--;
         st->m[b].protecting = st->m[b].wideGuard = st->m[b].flinched = st->m[b].redirect = st->m[b].helping = st->m[b].damaged = 0;
     }
+    if (CUSTOM_VGC_PLAN_REPLACE_KO)
+        ReplaceFaintedInSim(st);
     if (st->trickRoom > 0)
         st->trickRoom--;
     if (st->tailwind[B_SIDE_PLAYER] > 0)
@@ -1750,8 +1806,8 @@ PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st)
     {
         // Lato di chi pensa (in IA contro IA può essere anche quello del giocatore).
         u32 ourSide = GetBattlerSide(sJob.me), theirSide = ourSide ^ BIT_SIDE;
-        s32 ours = count[ourSide] + sJob.bench[ourSide];
-        s32 theirs = count[theirSide] + sJob.bench[theirSide];
+        s32 ours = count[ourSide] + sJob.bench[ourSide] - st->benchUsed[ourSide];
+        s32 theirs = count[theirSide] + sJob.bench[theirSide] - st->benchUsed[theirSide];
         v += VW(material) * 2 * (ours - theirs) / max(ours + theirs, 1);
         if (ours == 0 && theirs > 0)
             v -= VW(ko) * 4;
@@ -1776,15 +1832,52 @@ PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st)
             }
             // Ordine nei prossimi CUSTOM_VGC_EVAL_SPEED_TURNS turni, con i turni rimasti di Trick Room e Tailwind:
             // un Trick Room appena messo vale per i turni in cui dura, non solo per il prossimo.
+            // Risorsa rimasta: nei turni in cui il controllo della velocità ROVESCIA l'ordine naturale, l'ordine vale
+            // quanto la corsa ai KO tra i due (chi va prima e manda KO evita il colpo dell'altro). Senza, Tailwind,
+            // Trick Room & co. rendevano solo nei 2-3 turni simulati e perdevano 150-350 punti contro un attacco.
             {
                 u32 t, sb = spdRaw[b], so = spdRaw[o];
+                bool32 natural = sb > so;
+                s32 race = -1;
                 for (t = 1; t <= CUSTOM_VGC_EVAL_SPEED_TURNS; t++)
                 {
                     u32 xb = (st->tailwind[GetBattlerSide(b)] > t) ? sb * 2 : sb;
                     u32 xo = (st->tailwind[GetBattlerSide(o)] > t) ? so * 2 : so;
                     bool32 ourFirst = (st->trickRoom > t) ? xb <= xo : xb > xo;
                     v += ourFirst ? VW(speedPair) : -VW(speedPair);
+                    if (ourFirst != natural)
+                    {
+                        if (race < 0)
+                            race = (s32)CanKoNextTurn(st, b, o) + (s32)CanKoNextTurn(st, o, b); // 0..200
+                        // fino a 3 volte il peso della coppia per turno, quando entrambi si mandano KO
+                        v += (ourFirst ? 1 : -1) * VW(speedPair) * (50 + race) / 100 * 3 / 2;
+                    }
                 }
+            }
+        }
+    }
+    // Schermi messi nella simulazione: valgono anche nei turni dopo l'orizzonte (5 turni in tutto; i 2-3 simulati
+    // li vedono solo in parte). Per ogni schermo nuovo, per ogni avversario vivo che attacca con quella categoria,
+    // un terzo del danno evitato nei turni rimasti, stimato come una coppia di velocità per turno.
+    {
+        u32 side;
+        for (side = 0; side < NUM_BATTLE_SIDES; side++)
+        {
+            u32 fresh = st->screens[side] & ~st->screens0[side], foes = 0;
+            if (fresh == 0)
+                continue;
+            for (o = 0; o < gBattlersCount; o++)
+                if (GetBattlerSide(o) != side && st->m[o].alive && st->m[o].species != SPECIES_NONE)
+                {
+                    bool32 phys = st->m[o].atk >= st->m[o].spa;
+                    if ((phys && (fresh & 1)) || (!phys && (fresh & 2)))
+                        foes++;
+                }
+            // 3 turni oltre l'orizzonte
+            {
+                s32 val = (s32)foes * VW(speedPair) * 3;
+                bool32 oursSide = (side == GetBattlerSide(sJob.me));
+                v += oursSide ? val : -val;
             }
         }
     }
@@ -1845,6 +1938,7 @@ static bool32 IsUtilityAction(const struct PlanAction *a)
         return FALSE;
     eff = GetMoveEffect(a->move);
     return eff == EFFECT_TRICK_ROOM || eff == EFFECT_TAILWIND || eff == EFFECT_BATON_PASS || eff == EFFECT_FOLLOW_ME
+        || eff == EFFECT_REFLECT || eff == EFFECT_LIGHT_SCREEN || eff == EFFECT_AURORA_VEIL
         || (IsStatRaisingMove(a->move) && GetMoveTarget(a->move) == TARGET_USER);
 }
 
@@ -2626,6 +2720,24 @@ static u32 BuildPairs(enum BattlerId me, const struct PlanState *st)
     for (j = 0; j < nTheirs; j++)
         if (bestI[j] != 0xFF && theirs[j].kind != PLAN_ACT_PROTECT && IsUtilityAction(&theirs[j]) && tier[bestI[j]][j] < 2)
             tier[bestI[j]][j] = 2;
+    // ...e anche accanto alla migliore azione del compagno secondo la simulazione a 1 turno (il peso delle
+    // candidate): la stima rapida sceglieva il compagno sbagliato (Tailwind + Fake Out sul bersaglio peggiore,
+    // 500 punti sotto Rock Slide + Fake Out sul bersaglio giusto) e la mossa di velocità perdeva per questo.
+    {
+        u32 topI = 0, topJ = 0;
+        for (i = 1; i < nMine; i++)
+            if (mine[i].weight > mine[topI].weight)
+                topI = i;
+        for (j = 1; j < nTheirs; j++)
+            if (theirs[j].weight > theirs[topJ].weight)
+                topJ = j;
+        for (i = 0; i < nMine; i++)
+            if (mine[i].kind != PLAN_ACT_PROTECT && IsUtilityAction(&mine[i]) && tier[i][topJ] != 0xFF && tier[i][topJ] < 2)
+                tier[i][topJ] = 2;
+        for (j = 0; j < nTheirs; j++)
+            if (theirs[j].kind != PLAN_ACT_PROTECT && IsUtilityAction(&theirs[j]) && tier[topI][j] != 0xFF && tier[topI][j] < 2)
+                tier[topI][j] = 2;
+    }
 
     for (i = 0; i < nMine; i++)
     {
@@ -2786,6 +2898,52 @@ static bool32 AdvanceLevel1(void)
     return FALSE;
 }
 
+// Seconda passata: le azioni di velocità/setup/schermi (nostre o del compagno) si simulano anche accanto
+// all'azione dell'altro nella coppia migliore trovata. La scelta delle coppie a priori usa stime a 1 turno e
+// metteva Tailwind accanto al Fake Out sul bersaglio sbagliato (500 punti sotto quello giusto).
+static bool32 PairPresent(const struct PlanAction *x, const struct PlanAction *y)
+{
+    u32 k;
+    for (k = 0; k < sJob.nOurs; k++)
+        if (memcmp(&sJob.ours[k], x, sizeof(*x)) == 0 && memcmp(&sJob.partners[k], y, sizeof(*y)) == 0)
+            return TRUE;
+    return FALSE;
+}
+
+static bool32 AddRepairPairs(void)
+{
+    u32 k, best = 0, n0 = sJob.nOurs;
+    if (!CUSTOM_VGC_PLAN_REPAIR_PAIRS || sJob.repaired || n0 == 0)
+        return FALSE;
+    sJob.repaired = TRUE;
+    for (k = 1; k < n0; k++)
+        if (sJob.ev[k] > sJob.ev[best])
+            best = k;
+    for (k = 0; k < n0 && sJob.nOurs < PLAN_ALL_PAIRS; k++)
+    {
+        const struct PlanAction *u = &sJob.ours[k], *pu = &sJob.partners[k];
+        if (u->kind != PLAN_ACT_PROTECT && IsUtilityAction(u) && !IsPairIllegal(u, &sJob.partners[best])
+         && !PairPresent(u, &sJob.partners[best]))
+        {
+            sJob.ours[sJob.nOurs] = *u;
+            sJob.partners[sJob.nOurs] = sJob.partners[best];
+            sJob.nOurs++;
+        }
+        if (sJob.nOurs < PLAN_ALL_PAIRS && pu->kind != PLAN_ACT_PROTECT && pu->kind != PLAN_ACT_NONE && IsUtilityAction(pu)
+         && !IsPairIllegal(&sJob.ours[best], pu) && !PairPresent(&sJob.ours[best], pu))
+        {
+            sJob.ours[sJob.nOurs] = sJob.ours[best];
+            sJob.partners[sJob.nOurs] = *pu;
+            sJob.nOurs++;
+        }
+    }
+    if (sJob.nOurs == n0)
+        return FALSE;
+    sJob.i = n0; // AdvanceLevel1 ha già azzerato a, b, somme
+    sJob.phase = 0;
+    return TRUE;
+}
+
 static void StartLookAhead(void)
 {
     struct PlanAction none = { PLAN_ACT_NONE, 0, -1, MOVE_NONE, 0, 0, 100 };
@@ -2821,7 +2979,7 @@ static void FinishJob(void)
     s32 bestEv = INT32_MIN, chosenEv = INT32_MIN;
     u32 i, bestIdx = 0;
 
-    u32 chosenIdx = PLAN_MAX_PAIRS;
+    u32 chosenIdx = PLAN_ALL_PAIRS;
     enum BattlerId partner = GetPartnerBattler(sJob.me);
 
     // Costo del cambio: il simulatore vede il Pokémon che entra al meglio (pieno di PS, con le sue mosse il turno
@@ -2857,7 +3015,7 @@ static void FinishJob(void)
         }
     }
     // A pari valore resta la coppia delle regole.
-    if (chosenIdx != PLAN_MAX_PAIRS && bestEv < chosenEv + PLAN_OVERRIDE_MARGIN)
+    if (chosenIdx != PLAN_ALL_PAIRS && bestEv < chosenEv + PLAN_OVERRIDE_MARGIN)
         bestIdx = chosenIdx;
     // Esplorazione del self-play (M9, solo test): a volte una coppia vicina alla migliore.
     bestIdx = AI_VgcExplorePick(sJob.me, bestIdx, sJob.ev, sJob.nOurs);
@@ -3168,6 +3326,7 @@ bool32 AI_VgcPlanBegin(enum BattlerId me)
     }
     sJob.rankSide = sJob.rankIdx = 0;
     sJob.bestSoFar = INT32_MIN;
+    sJob.repaired = FALSE;
     {
         u32 side = GetBattlerSide(me);
         if (!(sVgcWeightsSet & (1u << side)))
@@ -3361,7 +3520,7 @@ bool32 AI_VgcPlanStep(void)
             else
             {
                 Accumulate(Evaluate(&sJob.s1) - sJob.missPen, PairWeight(&sJob.foeA[sJob.a], &sJob.foeB[sJob.b]));
-                if (AdvanceLevel1())
+                if (AdvanceLevel1() && !AddRepairPairs())
                     FinishJob();
             }
         }
@@ -3462,7 +3621,7 @@ bool32 AI_VgcPlanStep(void)
 #endif
                 Accumulate(v1, PairWeight(&sJob.foeA[sJob.a], &sJob.foeB[sJob.b]));
                 sJob.phase = 0;
-                if (AdvanceLevel1())
+                if (AdvanceLevel1() && !AddRepairPairs())
                     FinishJob();
             }
         }

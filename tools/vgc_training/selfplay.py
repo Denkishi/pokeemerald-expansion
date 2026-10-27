@@ -547,7 +547,7 @@ def write_game_report(g, lines):
             b = line.split()[2]
             mine = [m for m in plan if 'b' + m.group(1) == b]
             if mine:
-                best = sorted(mine, key=lambda m: -int(m.group(9)))[:4]
+                best = sorted(mine, key=lambda m: -int(m.group(9)))
                 alts = []
                 for m in best:
                     tag = ' (scelta)' if '<==' in m.group(10) else (' (regole)' if 'regole' in m.group(10) else '')

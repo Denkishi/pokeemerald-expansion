@@ -986,7 +986,9 @@ static void CheckBattlerChoice(enum BattlerId b)
         {
             if (gBattleMons[f].moves[i] == MOVE_NONE || IsBattleMoveStatus(gBattleMons[f].moves[i]))
                 continue;
-            if (DmgMin(f, b, i) >= gBattleMons[b].hp)
+            // KO prevedibile: danno minimo che basta e mossa che non può mancare (con il 90% il KO è un rischio,
+            // non una certezza: va tra i dubbi).
+            if (DmgMin(f, b, i) >= gBattleMons[b].hp && gAiLogicData->moveAccuracy[f][b][i] >= 100)
             {
                 threatMin = TRUE;
                 threatFoe = f;

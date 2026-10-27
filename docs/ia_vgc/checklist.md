@@ -214,3 +214,13 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
 - ✅ Turno 2 più largo: 4 azioni per i nostri due Pokémon (prima 3), Follow Me/Rage Powder nella corsia delle azioni utili: il test di Carletto (Rage Powder + Belly Drum) passa. Porygon2 Trick Room passa (mancava SEND_OUT dopo il KO)
 - ✅ Test VGC: 61 PASS / 7 KNOWN_FAILING (+ Dugtrio) / 0 FAIL. Rimasti: Banette TR, Aerodactyl e Altaria Tailwind, Grimmsnarl schermi, Lilligant, Hariyama Fake Out, Scream Tail Encore
 - ✅ Costo senza tetto (432 partite): mediana 178 fotogrammi (~3 s), 90° percentile 451 (~7,5 s), massimo 1255 (~21 s); misplay certi 445 (rumore della misura ±40 tra build quasi uguali)
+
+## Seconda tornata del 27/10 (pomeriggio)
+- ✅ Valutazione: risorsa rimasta di velocità — nei turni in cui Tailwind/Trick Room rovesciano l'ordine naturale, la coppia vale fino a 3 volte di più in base alla corsa ai KO (CanKoNextTurn nei due sensi); schermi nuovi valgono anche oltre l'orizzonte (3 turni per avversario che attacca con quella categoria). Schermi tra le azioni utili
+- ❌ Nessuno dei KNOWN_FAILING di velocità si sblocca: con la traccia di tutte le coppie si vede che Tailwind + Fake Out sul bersaglio "giusto" vale -336 contro 607 di Rock Slide + lo stesso Fake Out. Il simulatore preferisce davvero l'attacco: il problema è nei turni simulati (il giocatore modellato agisce prima del Tailwind), non nella scelta delle coppie
+- ❌ Provate e spente (flag in custom.h): sostituzioni dopo un KO nel simulatore (`CUSTOM_VGC_PLAN_REPLACE_KO`: misplay 445 → 515, costo x2, 2 test rotti) e seconda passata delle coppie (`CUSTOM_VGC_PLAN_REPAIR_PAIRS`: nessun KNOWN_FAILING risolto, Savarotto Beat Up rotto)
+- ✅ Dugtrio-Alola: diagnosi. Il belief stima Arcanine al massimo della Velocità (161, la spread più usata) contro Dugtrio a 160: per l'IA Flare Blitz arriva prima e, con Rock Slide di Aggron dopo la Focus Sash, Dugtrio cade se attacca. Il vero Arcanine di Simone è Adamant 184 Spe (127): la decisione dipende da un'informazione nascosta. Resta KNOWN_FAILING finché non si modella l'incertezza della velocità (pareggi e quasi-pareggi come rami)
+- ✅ Checker: minaccia di KO "prevedibile" solo con mosse al 100% di precisione (win condition persa: partite con il misplay 153 → 106)
+- ✅ Report: tutte le coppie valutate nelle pagine per partita (prima le prime 4); pagine per partita in .gitignore
+- ✅ Campagna (432 partite): partite con misplay per categoria 356 (prima 412), misplay certi 438; G/A 225/206; costo mediana 186 fotogrammi (~3 s), 90° percentile 474, massimo 1064 (~18 s). Test: 61 PASS / 8 KNOWN_FAILING / 0 FAIL
+- ⬜ Risposte del giocatore su scala unica; regole ridotte a filtro di candidate con un test ciascuna: non fatte
