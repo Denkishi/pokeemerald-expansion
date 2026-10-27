@@ -1,33 +1,33 @@
 # Self-play VGC: riepilogo
 
-Aggiornato: 2026-10-27 14:07:21. Partite lette: 432 (completate 432, con problemi 0).
+Aggiornato: 2026-10-27 14:28:59. Partite lette: 720 (completate 720, con problemi 0).
 
 Ogni partita: lato G = allenatore della riga, lato A = allenatore della colonna; entrambi IA VGC con team preview propria e informazione chiusa (ognuno vede solo cio che ha osservato dell'altro). Dettagli turno per turno in [partite/](partite/).
 
-Turni per partita: media 7.6, min 2, max 32.
-Fitness (gancio M9, misplay certi per partita x -0.5): -0.515
+Turni per partita: media 7.5, min 2, max 43.
+Fitness (gancio M9, misplay certi per partita x -0.5): -0.505
 
 ## Misplay per categoria
 
 | Categoria | Misplay certi | Casi dubbi (revisione) |
 |---|---:|---:|
-| Mossa su un immune noto | 9 | 0 |
-| Bersaglio gia KO senza redirect utile | 6 | 0 |
-| KO garantito non preso | 116 | 0 |
-| KO non preso: lettura di un Protect visto | 0 | 352 |
-| KO non preso: scelta una mossa ad area | 0 | 57 |
-| KO non preso: scelto supporto/Protect/cambio | 0 | 741 |
-| Attacco sul compagno senza combo | 2 | 0 |
-| Protect consecutivo | 7 | 0 |
-| Fake Out dopo il primo turno | 3 | 0 |
-| Cambio su chi va KO all'entrata | 89 | 8 |
-| Cambi a ripetizione | 0 | 55 |
-| Turni di Tailwind/Trick Room sprecati | 5 | 47 |
-| Setup con KO in arrivo | 51 | 16 |
-| Win condition persa evitabilmente | 151 | 139 |
-| Team preview: abilita penalizzante senza chi la toglie | 6 | 0 |
-| Team preview: lead che si danneggia da sola | 0 | 78 |
-| **Totale** | **445** | **1493** |
+| Mossa su un immune noto | 35 | 0 |
+| Bersaglio gia KO senza redirect utile | 14 | 0 |
+| KO garantito non preso | 168 | 0 |
+| KO non preso: lettura di un Protect visto | 0 | 508 |
+| KO non preso: scelta una mossa ad area | 0 | 107 |
+| KO non preso: scelto supporto/Protect/cambio | 0 | 1243 |
+| Attacco sul compagno senza combo | 3 | 4 |
+| Protect consecutivo | 23 | 0 |
+| Fake Out dopo il primo turno | 6 | 0 |
+| Cambio su chi va KO all'entrata | 152 | 12 |
+| Cambi a ripetizione | 1 | 113 |
+| Turni di Tailwind/Trick Room sprecati | 10 | 70 |
+| Setup con KO in arrivo | 68 | 26 |
+| Win condition persa evitabilmente | 237 | 220 |
+| Team preview: abilita penalizzante senza chi la toglie | 10 | 0 |
+| Team preview: lead che si danneggia da sola | 0 | 130 |
+| **Totale** | **727** | **2433** |
 
 ## Risultati (riga = lato G, colonna = lato A)
 
@@ -35,107 +35,113 @@ V = vince G, S = vince A, P = pareggio, L = limite turni, ! = blocco/crash, . = 
 
 | G \ A | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 0 ENZO | [P](partite/00_00_s1.md)[V](partite/00_00_s1001.md)[V](partite/00_00_s2001.md) | [V](partite/00_01_s1002.md)[V](partite/00_01_s2.md)[V](partite/00_01_s2002.md) | [V](partite/00_02_s1003.md)[V](partite/00_02_s2003.md)[V](partite/00_02_s3.md) | [S](partite/00_03_s1004.md)[S](partite/00_03_s2004.md)[V](partite/00_03_s4.md) | [V](partite/00_04_s1005.md)[V](partite/00_04_s2005.md)[V](partite/00_04_s5.md) | [V](partite/00_05_s1006.md)[V](partite/00_05_s2006.md)[V](partite/00_05_s6.md) | [V](partite/00_06_s1007.md)[S](partite/00_06_s2007.md)[V](partite/00_06_s7.md) | [V](partite/00_07_s1008.md)[V](partite/00_07_s2008.md)[S](partite/00_07_s8.md) | [V](partite/00_08_s1009.md)[V](partite/00_08_s2009.md)[V](partite/00_08_s9.md) | [S](partite/00_09_s10.md)[S](partite/00_09_s1010.md)[S](partite/00_09_s2010.md) | [S](partite/00_10_s1011.md)[V](partite/00_10_s11.md)[S](partite/00_10_s2011.md) | [V](partite/00_11_s1012.md)[V](partite/00_11_s12.md)[S](partite/00_11_s2012.md) |
-| 1 SIMONE | [S](partite/01_00_s1013.md)[S](partite/01_00_s13.md)[V](partite/01_00_s2013.md) | [V](partite/01_01_s1014.md)[S](partite/01_01_s14.md)[V](partite/01_01_s2014.md) | [V](partite/01_02_s1015.md)[S](partite/01_02_s15.md)[V](partite/01_02_s2015.md) | [V](partite/01_03_s1016.md)[V](partite/01_03_s16.md)[S](partite/01_03_s2016.md) | [S](partite/01_04_s1017.md)[S](partite/01_04_s17.md)[V](partite/01_04_s2017.md) | [V](partite/01_05_s1018.md)[S](partite/01_05_s18.md)[V](partite/01_05_s2018.md) | [V](partite/01_06_s1019.md)[V](partite/01_06_s19.md)[V](partite/01_06_s2019.md) | [S](partite/01_07_s1020.md)[V](partite/01_07_s20.md)[S](partite/01_07_s2020.md) | [S](partite/01_08_s1021.md)[S](partite/01_08_s2021.md)[S](partite/01_08_s21.md) | [V](partite/01_09_s1022.md)[V](partite/01_09_s2022.md)[S](partite/01_09_s22.md) | [S](partite/01_10_s1023.md)[S](partite/01_10_s2023.md)[S](partite/01_10_s23.md) | [S](partite/01_11_s1024.md)[V](partite/01_11_s2024.md)[S](partite/01_11_s24.md) |
-| 2 ELIA | [S](partite/02_00_s1025.md)[V](partite/02_00_s2025.md)[V](partite/02_00_s25.md) | [S](partite/02_01_s1026.md)[S](partite/02_01_s2026.md)[S](partite/02_01_s26.md) | [S](partite/02_02_s1027.md)[S](partite/02_02_s2027.md)[S](partite/02_02_s27.md) | [S](partite/02_03_s1028.md)[V](partite/02_03_s2028.md)[V](partite/02_03_s28.md) | [S](partite/02_04_s1029.md)[S](partite/02_04_s2029.md)[S](partite/02_04_s29.md) | [V](partite/02_05_s1030.md)[S](partite/02_05_s2030.md)[V](partite/02_05_s30.md) | [S](partite/02_06_s1031.md)[V](partite/02_06_s2031.md)[S](partite/02_06_s31.md) | [S](partite/02_07_s1032.md)[V](partite/02_07_s2032.md)[S](partite/02_07_s32.md) | [V](partite/02_08_s1033.md)[S](partite/02_08_s2033.md)[S](partite/02_08_s33.md) | [S](partite/02_09_s1034.md)[S](partite/02_09_s2034.md)[S](partite/02_09_s34.md) | [V](partite/02_10_s1035.md)[S](partite/02_10_s2035.md)[S](partite/02_10_s35.md) | [V](partite/02_11_s1036.md)[S](partite/02_11_s2036.md)[V](partite/02_11_s36.md) |
-| 3 RAFEL | [V](partite/03_00_s1037.md)[V](partite/03_00_s2037.md)[V](partite/03_00_s37.md) | [S](partite/03_01_s1038.md)[S](partite/03_01_s2038.md)[V](partite/03_01_s38.md) | [S](partite/03_02_s1039.md)[S](partite/03_02_s2039.md)[S](partite/03_02_s39.md) | [S](partite/03_03_s1040.md)[S](partite/03_03_s2040.md)[S](partite/03_03_s40.md) | [S](partite/03_04_s1041.md)[S](partite/03_04_s2041.md)[S](partite/03_04_s41.md) | [S](partite/03_05_s1042.md)[S](partite/03_05_s2042.md)[S](partite/03_05_s42.md) | [V](partite/03_06_s1043.md)[V](partite/03_06_s2043.md)[V](partite/03_06_s43.md) | [S](partite/03_07_s1044.md)[S](partite/03_07_s2044.md)[S](partite/03_07_s44.md) | [S](partite/03_08_s1045.md)[S](partite/03_08_s2045.md)[S](partite/03_08_s45.md) | [V](partite/03_09_s1046.md)[S](partite/03_09_s2046.md)[S](partite/03_09_s46.md) | [S](partite/03_10_s1047.md)[S](partite/03_10_s2047.md)[S](partite/03_10_s47.md) | [V](partite/03_11_s1048.md)[S](partite/03_11_s2048.md)[V](partite/03_11_s48.md) |
-| 4 TONY | [S](partite/04_00_s1049.md)[S](partite/04_00_s2049.md)[S](partite/04_00_s49.md) | [S](partite/04_01_s1050.md)[S](partite/04_01_s2050.md)[V](partite/04_01_s50.md) | [V](partite/04_02_s1051.md)[V](partite/04_02_s2051.md)[V](partite/04_02_s51.md) | [V](partite/04_03_s1052.md)[V](partite/04_03_s2052.md)[V](partite/04_03_s52.md) | [V](partite/04_04_s1053.md)[S](partite/04_04_s2053.md)[S](partite/04_04_s53.md) | [S](partite/04_05_s1054.md)[V](partite/04_05_s2054.md)[V](partite/04_05_s54.md) | [V](partite/04_06_s1055.md)[V](partite/04_06_s2055.md)[V](partite/04_06_s55.md) | [S](partite/04_07_s1056.md)[S](partite/04_07_s2056.md)[S](partite/04_07_s56.md) | [V](partite/04_08_s1057.md)[S](partite/04_08_s2057.md)[S](partite/04_08_s57.md) | [V](partite/04_09_s1058.md)[S](partite/04_09_s2058.md)[S](partite/04_09_s58.md) | [S](partite/04_10_s1059.md)[V](partite/04_10_s2059.md)[V](partite/04_10_s59.md) | [V](partite/04_11_s1060.md)[V](partite/04_11_s2060.md)[V](partite/04_11_s60.md) |
-| 5 MARIO LETT | [S](partite/05_00_s1061.md)[S](partite/05_00_s2061.md)[S](partite/05_00_s61.md) | [S](partite/05_01_s1062.md)[S](partite/05_01_s2062.md)[S](partite/05_01_s62.md) | [S](partite/05_02_s1063.md)[S](partite/05_02_s2063.md)[S](partite/05_02_s63.md) | [S](partite/05_03_s1064.md)[S](partite/05_03_s2064.md)[V](partite/05_03_s64.md) | [S](partite/05_04_s1065.md)[S](partite/05_04_s2065.md)[V](partite/05_04_s65.md) | [V](partite/05_05_s1066.md)[V](partite/05_05_s2066.md)[S](partite/05_05_s66.md) | [V](partite/05_06_s1067.md)[V](partite/05_06_s2067.md)[V](partite/05_06_s67.md) | [V](partite/05_07_s1068.md)[S](partite/05_07_s2068.md)[S](partite/05_07_s68.md) | [S](partite/05_08_s1069.md)[S](partite/05_08_s2069.md)[S](partite/05_08_s69.md) | [V](partite/05_09_s1070.md)[S](partite/05_09_s2070.md)[V](partite/05_09_s70.md) | [V](partite/05_10_s1071.md)[V](partite/05_10_s2071.md)[V](partite/05_10_s71.md) | [S](partite/05_11_s1072.md)[V](partite/05_11_s2072.md)[V](partite/05_11_s72.md) |
-| 6 TATORE | [S](partite/06_00_s1073.md)[S](partite/06_00_s2073.md)[V](partite/06_00_s73.md) | [S](partite/06_01_s1074.md)[S](partite/06_01_s2074.md)[S](partite/06_01_s74.md) | [V](partite/06_02_s1075.md)[V](partite/06_02_s2075.md)[V](partite/06_02_s75.md) | [V](partite/06_03_s1076.md)[S](partite/06_03_s2076.md)[S](partite/06_03_s76.md) | [S](partite/06_04_s1077.md)[S](partite/06_04_s2077.md)[S](partite/06_04_s77.md) | [S](partite/06_05_s1078.md)[S](partite/06_05_s2078.md)[S](partite/06_05_s78.md) | [S](partite/06_06_s1079.md)[V](partite/06_06_s2079.md)[S](partite/06_06_s79.md) | [S](partite/06_07_s1080.md)[V](partite/06_07_s2080.md)[V](partite/06_07_s80.md) | [S](partite/06_08_s1081.md)[S](partite/06_08_s2081.md)[S](partite/06_08_s81.md) | [S](partite/06_09_s1082.md)[S](partite/06_09_s2082.md)[S](partite/06_09_s82.md) | [S](partite/06_10_s1083.md)[S](partite/06_10_s2083.md)[S](partite/06_10_s83.md) | [S](partite/06_11_s1084.md)[S](partite/06_11_s2084.md)[V](partite/06_11_s84.md) |
-| 7 MARIO | [V](partite/07_00_s1085.md)[V](partite/07_00_s2085.md)[V](partite/07_00_s85.md) | [V](partite/07_01_s1086.md)[V](partite/07_01_s2086.md)[V](partite/07_01_s86.md) | [V](partite/07_02_s1087.md)[S](partite/07_02_s2087.md)[V](partite/07_02_s87.md) | [V](partite/07_03_s1088.md)[S](partite/07_03_s2088.md)[V](partite/07_03_s88.md) | [V](partite/07_04_s1089.md)[V](partite/07_04_s2089.md)[V](partite/07_04_s89.md) | [V](partite/07_05_s1090.md)[V](partite/07_05_s2090.md)[S](partite/07_05_s90.md) | [S](partite/07_06_s1091.md)[V](partite/07_06_s2091.md)[V](partite/07_06_s91.md) | [S](partite/07_07_s1092.md)[V](partite/07_07_s2092.md)[V](partite/07_07_s92.md) | [S](partite/07_08_s1093.md)[S](partite/07_08_s2093.md)[S](partite/07_08_s93.md) | [S](partite/07_09_s1094.md)[S](partite/07_09_s2094.md)[S](partite/07_09_s94.md) | [V](partite/07_10_s1095.md)[S](partite/07_10_s2095.md)[V](partite/07_10_s95.md) | [S](partite/07_11_s1096.md)[V](partite/07_11_s2096.md)[V](partite/07_11_s96.md) |
-| 8 GEROZZ | [V](partite/08_00_s1097.md)[S](partite/08_00_s2097.md)[S](partite/08_00_s97.md) | [V](partite/08_01_s1098.md)[V](partite/08_01_s2098.md)[V](partite/08_01_s98.md) | [V](partite/08_02_s1099.md)[V](partite/08_02_s2099.md)[V](partite/08_02_s99.md) | [S](partite/08_03_s100.md)[V](partite/08_03_s1100.md)[V](partite/08_03_s2100.md) | [S](partite/08_04_s101.md)[S](partite/08_04_s1101.md)[S](partite/08_04_s2101.md) | [S](partite/08_05_s102.md)[V](partite/08_05_s1102.md)[V](partite/08_05_s2102.md) | [V](partite/08_06_s103.md)[V](partite/08_06_s1103.md)[V](partite/08_06_s2103.md) | [V](partite/08_07_s104.md)[V](partite/08_07_s1104.md)[V](partite/08_07_s2104.md) | [S](partite/08_08_s105.md)[S](partite/08_08_s1105.md)[S](partite/08_08_s2105.md) | [V](partite/08_09_s106.md)[S](partite/08_09_s1106.md)[V](partite/08_09_s2106.md) | [V](partite/08_10_s107.md)[V](partite/08_10_s1107.md)[V](partite/08_10_s2107.md) | [V](partite/08_11_s108.md)[S](partite/08_11_s1108.md)[V](partite/08_11_s2108.md) |
-| 9 CARLETTO | [S](partite/09_00_s109.md)[V](partite/09_00_s1109.md)[V](partite/09_00_s2109.md) | [S](partite/09_01_s110.md)[V](partite/09_01_s1110.md)[V](partite/09_01_s2110.md) | [V](partite/09_02_s111.md)[V](partite/09_02_s1111.md)[S](partite/09_02_s2111.md) | [V](partite/09_03_s1112.md)[V](partite/09_03_s112.md)[V](partite/09_03_s2112.md) | [S](partite/09_04_s1113.md)[S](partite/09_04_s113.md)[V](partite/09_04_s2113.md) | [V](partite/09_05_s1114.md)[S](partite/09_05_s114.md)[V](partite/09_05_s2114.md) | [V](partite/09_06_s1115.md)[V](partite/09_06_s115.md)[V](partite/09_06_s2115.md) | [V](partite/09_07_s1116.md)[V](partite/09_07_s116.md)[V](partite/09_07_s2116.md) | [V](partite/09_08_s1117.md)[S](partite/09_08_s117.md)[S](partite/09_08_s2117.md) | [V](partite/09_09_s1118.md)[V](partite/09_09_s118.md)[V](partite/09_09_s2118.md) | [S](partite/09_10_s1119.md)[S](partite/09_10_s119.md)[S](partite/09_10_s2119.md) | [S](partite/09_11_s1120.md)[S](partite/09_11_s120.md)[V](partite/09_11_s2120.md) |
-| 10 GIGI PINTO | [S](partite/10_00_s1121.md)[V](partite/10_00_s121.md)[V](partite/10_00_s2121.md) | [V](partite/10_01_s1122.md)[S](partite/10_01_s122.md)[S](partite/10_01_s2122.md) | [V](partite/10_02_s1123.md)[V](partite/10_02_s123.md)[V](partite/10_02_s2123.md) | [S](partite/10_03_s1124.md)[V](partite/10_03_s124.md)[S](partite/10_03_s2124.md) | [S](partite/10_04_s1125.md)[S](partite/10_04_s125.md)[S](partite/10_04_s2125.md) | [S](partite/10_05_s1126.md)[S](partite/10_05_s126.md)[S](partite/10_05_s2126.md) | [V](partite/10_06_s1127.md)[V](partite/10_06_s127.md)[V](partite/10_06_s2127.md) | [V](partite/10_07_s1128.md)[S](partite/10_07_s128.md)[S](partite/10_07_s2128.md) | [V](partite/10_08_s1129.md)[S](partite/10_08_s129.md)[S](partite/10_08_s2129.md) | [V](partite/10_09_s1130.md)[V](partite/10_09_s130.md)[V](partite/10_09_s2130.md) | [V](partite/10_10_s1131.md)[V](partite/10_10_s131.md)[V](partite/10_10_s2131.md) | [S](partite/10_11_s1132.md)[V](partite/10_11_s132.md)[V](partite/10_11_s2132.md) |
-| 11 SAVAROTTO | [S](partite/11_00_s1133.md)[S](partite/11_00_s133.md)[S](partite/11_00_s2133.md) | [V](partite/11_01_s1134.md)[S](partite/11_01_s134.md)[V](partite/11_01_s2134.md) | [V](partite/11_02_s1135.md)[V](partite/11_02_s135.md)[V](partite/11_02_s2135.md) | [S](partite/11_03_s1136.md)[S](partite/11_03_s136.md)[S](partite/11_03_s2136.md) | [V](partite/11_04_s1137.md)[S](partite/11_04_s137.md)[S](partite/11_04_s2137.md) | [S](partite/11_05_s1138.md)[S](partite/11_05_s138.md)[S](partite/11_05_s2138.md) | [V](partite/11_06_s1139.md)[V](partite/11_06_s139.md)[V](partite/11_06_s2139.md) | [V](partite/11_07_s1140.md)[V](partite/11_07_s140.md)[V](partite/11_07_s2140.md) | [S](partite/11_08_s1141.md)[S](partite/11_08_s141.md)[V](partite/11_08_s2141.md) | [V](partite/11_09_s1142.md)[S](partite/11_09_s142.md)[S](partite/11_09_s2142.md) | [V](partite/11_10_s1143.md)[S](partite/11_10_s143.md)[V](partite/11_10_s2143.md) | [V](partite/11_11_s1144.md)[V](partite/11_11_s144.md)[S](partite/11_11_s2144.md) |
+| 0 ENZO | [S](partite/00_00_s10000.md)[S](partite/00_00_s11000.md)[S](partite/00_00_s12000.md)[S](partite/00_00_s13000.md)[S](partite/00_00_s9000.md) | [V](partite/00_01_s10001.md)[V](partite/00_01_s11001.md)[S](partite/00_01_s12001.md)[S](partite/00_01_s13001.md)[V](partite/00_01_s9001.md) | [V](partite/00_02_s10002.md)[V](partite/00_02_s11002.md)[V](partite/00_02_s12002.md)[V](partite/00_02_s13002.md)[V](partite/00_02_s9002.md) | [S](partite/00_03_s10003.md)[S](partite/00_03_s11003.md)[S](partite/00_03_s12003.md)[S](partite/00_03_s13003.md)[S](partite/00_03_s9003.md) | [V](partite/00_04_s10004.md)[V](partite/00_04_s11004.md)[V](partite/00_04_s12004.md)[V](partite/00_04_s13004.md)[V](partite/00_04_s9004.md) | [V](partite/00_05_s10005.md)[V](partite/00_05_s11005.md)[V](partite/00_05_s12005.md)[V](partite/00_05_s13005.md)[V](partite/00_05_s9005.md) | [V](partite/00_06_s10006.md)[V](partite/00_06_s11006.md)[V](partite/00_06_s12006.md)[V](partite/00_06_s13006.md)[S](partite/00_06_s9006.md) | [S](partite/00_07_s10007.md)[S](partite/00_07_s11007.md)[S](partite/00_07_s12007.md)[S](partite/00_07_s13007.md)[S](partite/00_07_s9007.md) | [V](partite/00_08_s10008.md)[V](partite/00_08_s11008.md)[V](partite/00_08_s12008.md)[V](partite/00_08_s13008.md)[V](partite/00_08_s9008.md) | [S](partite/00_09_s10009.md)[V](partite/00_09_s11009.md)[S](partite/00_09_s12009.md)[S](partite/00_09_s13009.md)[S](partite/00_09_s9009.md) | [V](partite/00_10_s10010.md)[S](partite/00_10_s11010.md)[V](partite/00_10_s12010.md)[S](partite/00_10_s13010.md)[S](partite/00_10_s9010.md) | [V](partite/00_11_s10011.md)[V](partite/00_11_s11011.md)[V](partite/00_11_s12011.md)[V](partite/00_11_s13011.md)[S](partite/00_11_s9011.md) |
+| 1 SIMONE | [S](partite/01_00_s10012.md)[S](partite/01_00_s11012.md)[S](partite/01_00_s12012.md)[V](partite/01_00_s13012.md)[V](partite/01_00_s9012.md) | [V](partite/01_01_s10013.md)[S](partite/01_01_s11013.md)[S](partite/01_01_s12013.md)[S](partite/01_01_s13013.md)[V](partite/01_01_s9013.md) | [V](partite/01_02_s10014.md)[V](partite/01_02_s11014.md)[S](partite/01_02_s12014.md)[V](partite/01_02_s13014.md)[V](partite/01_02_s9014.md) | [V](partite/01_03_s10015.md)[V](partite/01_03_s11015.md)[V](partite/01_03_s12015.md)[V](partite/01_03_s13015.md)[S](partite/01_03_s9015.md) | [S](partite/01_04_s10016.md)[S](partite/01_04_s11016.md)[S](partite/01_04_s12016.md)[S](partite/01_04_s13016.md)[S](partite/01_04_s9016.md) | [S](partite/01_05_s10017.md)[V](partite/01_05_s11017.md)[V](partite/01_05_s12017.md)[S](partite/01_05_s13017.md)[S](partite/01_05_s9017.md) | [V](partite/01_06_s10018.md)[V](partite/01_06_s11018.md)[V](partite/01_06_s12018.md)[V](partite/01_06_s13018.md)[V](partite/01_06_s9018.md) | [S](partite/01_07_s10019.md)[V](partite/01_07_s11019.md)[V](partite/01_07_s12019.md)[S](partite/01_07_s13019.md)[S](partite/01_07_s9019.md) | [S](partite/01_08_s10020.md)[S](partite/01_08_s11020.md)[S](partite/01_08_s12020.md)[S](partite/01_08_s13020.md)[S](partite/01_08_s9020.md) | [V](partite/01_09_s10021.md)[V](partite/01_09_s11021.md)[V](partite/01_09_s12021.md)[S](partite/01_09_s13021.md)[S](partite/01_09_s9021.md) | [V](partite/01_10_s10022.md)[S](partite/01_10_s11022.md)[S](partite/01_10_s12022.md)[S](partite/01_10_s13022.md)[S](partite/01_10_s9022.md) | [S](partite/01_11_s10023.md)[S](partite/01_11_s11023.md)[S](partite/01_11_s12023.md)[S](partite/01_11_s13023.md)[S](partite/01_11_s9023.md) |
+| 2 ELIA | [S](partite/02_00_s10024.md)[S](partite/02_00_s11024.md)[V](partite/02_00_s12024.md)[V](partite/02_00_s13024.md)[S](partite/02_00_s9024.md) | [S](partite/02_01_s10025.md)[S](partite/02_01_s11025.md)[V](partite/02_01_s12025.md)[S](partite/02_01_s13025.md)[S](partite/02_01_s9025.md) | [V](partite/02_02_s10026.md)[V](partite/02_02_s11026.md)[S](partite/02_02_s12026.md)[V](partite/02_02_s13026.md)[V](partite/02_02_s9026.md) | [S](partite/02_03_s10027.md)[V](partite/02_03_s11027.md)[V](partite/02_03_s12027.md)[S](partite/02_03_s13027.md)[V](partite/02_03_s9027.md) | [S](partite/02_04_s10028.md)[S](partite/02_04_s11028.md)[S](partite/02_04_s12028.md)[S](partite/02_04_s13028.md)[S](partite/02_04_s9028.md) | [V](partite/02_05_s10029.md)[S](partite/02_05_s11029.md)[V](partite/02_05_s12029.md)[V](partite/02_05_s13029.md)[S](partite/02_05_s9029.md) | [S](partite/02_06_s10030.md)[S](partite/02_06_s11030.md)[S](partite/02_06_s12030.md)[S](partite/02_06_s13030.md)[S](partite/02_06_s9030.md) | [V](partite/02_07_s10031.md)[V](partite/02_07_s11031.md)[V](partite/02_07_s12031.md)[S](partite/02_07_s13031.md)[S](partite/02_07_s9031.md) | [S](partite/02_08_s10032.md)[S](partite/02_08_s11032.md)[S](partite/02_08_s12032.md)[S](partite/02_08_s13032.md)[S](partite/02_08_s9032.md) | [V](partite/02_09_s10033.md)[S](partite/02_09_s11033.md)[S](partite/02_09_s12033.md)[S](partite/02_09_s13033.md)[S](partite/02_09_s9033.md) | [S](partite/02_10_s10034.md)[S](partite/02_10_s11034.md)[S](partite/02_10_s12034.md)[S](partite/02_10_s13034.md)[S](partite/02_10_s9034.md) | [V](partite/02_11_s10035.md)[V](partite/02_11_s11035.md)[V](partite/02_11_s12035.md)[S](partite/02_11_s13035.md)[S](partite/02_11_s9035.md) |
+| 3 RAFEL | [V](partite/03_00_s10036.md)[V](partite/03_00_s11036.md)[V](partite/03_00_s12036.md)[V](partite/03_00_s13036.md)[V](partite/03_00_s9036.md) | [V](partite/03_01_s10037.md)[S](partite/03_01_s11037.md)[V](partite/03_01_s12037.md)[S](partite/03_01_s13037.md)[S](partite/03_01_s9037.md) | [S](partite/03_02_s10038.md)[S](partite/03_02_s11038.md)[S](partite/03_02_s12038.md)[S](partite/03_02_s13038.md)[S](partite/03_02_s9038.md) | [V](partite/03_03_s10039.md)[V](partite/03_03_s11039.md)[S](partite/03_03_s12039.md)[V](partite/03_03_s13039.md)[S](partite/03_03_s9039.md) | [S](partite/03_04_s10040.md)[S](partite/03_04_s11040.md)[S](partite/03_04_s12040.md)[S](partite/03_04_s13040.md)[S](partite/03_04_s9040.md) | [V](partite/03_05_s10041.md)[V](partite/03_05_s11041.md)[V](partite/03_05_s12041.md)[V](partite/03_05_s13041.md)[V](partite/03_05_s9041.md) | [V](partite/03_06_s10042.md)[V](partite/03_06_s11042.md)[V](partite/03_06_s12042.md)[V](partite/03_06_s13042.md)[V](partite/03_06_s9042.md) | [V](partite/03_07_s10043.md)[V](partite/03_07_s11043.md)[V](partite/03_07_s12043.md)[S](partite/03_07_s13043.md)[V](partite/03_07_s9043.md) | [S](partite/03_08_s10044.md)[S](partite/03_08_s11044.md)[S](partite/03_08_s12044.md)[V](partite/03_08_s13044.md)[S](partite/03_08_s9044.md) | [S](partite/03_09_s10045.md)[S](partite/03_09_s11045.md)[S](partite/03_09_s12045.md)[S](partite/03_09_s13045.md)[S](partite/03_09_s9045.md) | [S](partite/03_10_s10046.md)[S](partite/03_10_s11046.md)[V](partite/03_10_s12046.md)[V](partite/03_10_s13046.md)[S](partite/03_10_s9046.md) | [S](partite/03_11_s10047.md)[V](partite/03_11_s11047.md)[V](partite/03_11_s12047.md)[V](partite/03_11_s13047.md)[V](partite/03_11_s9047.md) |
+| 4 TONY | [S](partite/04_00_s10048.md)[S](partite/04_00_s11048.md)[S](partite/04_00_s12048.md)[S](partite/04_00_s13048.md)[S](partite/04_00_s9048.md) | [V](partite/04_01_s10049.md)[V](partite/04_01_s11049.md)[V](partite/04_01_s12049.md)[V](partite/04_01_s13049.md)[S](partite/04_01_s9049.md) | [V](partite/04_02_s10050.md)[V](partite/04_02_s11050.md)[V](partite/04_02_s12050.md)[V](partite/04_02_s13050.md)[V](partite/04_02_s9050.md) | [S](partite/04_03_s10051.md)[V](partite/04_03_s11051.md)[V](partite/04_03_s12051.md)[V](partite/04_03_s13051.md)[V](partite/04_03_s9051.md) | [S](partite/04_04_s10052.md)[V](partite/04_04_s11052.md)[S](partite/04_04_s12052.md)[S](partite/04_04_s13052.md)[V](partite/04_04_s9052.md) | [V](partite/04_05_s10053.md)[S](partite/04_05_s11053.md)[V](partite/04_05_s12053.md)[V](partite/04_05_s13053.md)[V](partite/04_05_s9053.md) | [S](partite/04_06_s10054.md)[S](partite/04_06_s11054.md)[V](partite/04_06_s12054.md)[V](partite/04_06_s13054.md)[V](partite/04_06_s9054.md) | [S](partite/04_07_s10055.md)[V](partite/04_07_s11055.md)[S](partite/04_07_s12055.md)[S](partite/04_07_s13055.md)[S](partite/04_07_s9055.md) | [V](partite/04_08_s10056.md)[V](partite/04_08_s11056.md)[V](partite/04_08_s12056.md)[V](partite/04_08_s13056.md)[S](partite/04_08_s9056.md) | [V](partite/04_09_s10057.md)[S](partite/04_09_s11057.md)[S](partite/04_09_s12057.md)[S](partite/04_09_s13057.md)[V](partite/04_09_s9057.md) | [V](partite/04_10_s10058.md)[S](partite/04_10_s11058.md)[V](partite/04_10_s12058.md)[S](partite/04_10_s13058.md)[V](partite/04_10_s9058.md) | [V](partite/04_11_s10059.md)[S](partite/04_11_s11059.md)[S](partite/04_11_s12059.md)[V](partite/04_11_s13059.md)[S](partite/04_11_s9059.md) |
+| 5 MARIO LETT | [S](partite/05_00_s10060.md)[S](partite/05_00_s11060.md)[S](partite/05_00_s12060.md)[S](partite/05_00_s13060.md)[S](partite/05_00_s9060.md) | [S](partite/05_01_s10061.md)[S](partite/05_01_s11061.md)[S](partite/05_01_s12061.md)[S](partite/05_01_s13061.md)[S](partite/05_01_s9061.md) | [V](partite/05_02_s10062.md)[S](partite/05_02_s11062.md)[V](partite/05_02_s12062.md)[S](partite/05_02_s13062.md)[S](partite/05_02_s9062.md) | [V](partite/05_03_s10063.md)[S](partite/05_03_s11063.md)[V](partite/05_03_s12063.md)[V](partite/05_03_s13063.md)[S](partite/05_03_s9063.md) | [S](partite/05_04_s10064.md)[V](partite/05_04_s11064.md)[S](partite/05_04_s12064.md)[S](partite/05_04_s13064.md)[S](partite/05_04_s9064.md) | [V](partite/05_05_s10065.md)[V](partite/05_05_s11065.md)[V](partite/05_05_s12065.md)[V](partite/05_05_s13065.md)[S](partite/05_05_s9065.md) | [V](partite/05_06_s10066.md)[V](partite/05_06_s11066.md)[V](partite/05_06_s12066.md)[V](partite/05_06_s13066.md)[V](partite/05_06_s9066.md) | [S](partite/05_07_s10067.md)[V](partite/05_07_s11067.md)[S](partite/05_07_s12067.md)[V](partite/05_07_s13067.md)[S](partite/05_07_s9067.md) | [S](partite/05_08_s10068.md)[S](partite/05_08_s11068.md)[S](partite/05_08_s12068.md)[S](partite/05_08_s13068.md)[S](partite/05_08_s9068.md) | [V](partite/05_09_s10069.md)[V](partite/05_09_s11069.md)[V](partite/05_09_s12069.md)[P](partite/05_09_s13069.md)[V](partite/05_09_s9069.md) | [S](partite/05_10_s10070.md)[V](partite/05_10_s11070.md)[V](partite/05_10_s12070.md)[V](partite/05_10_s13070.md)[V](partite/05_10_s9070.md) | [V](partite/05_11_s10071.md)[V](partite/05_11_s11071.md)[V](partite/05_11_s12071.md)[S](partite/05_11_s13071.md)[S](partite/05_11_s9071.md) |
+| 6 TATORE | [S](partite/06_00_s10072.md)[S](partite/06_00_s11072.md)[S](partite/06_00_s12072.md)[V](partite/06_00_s13072.md)[V](partite/06_00_s9072.md) | [S](partite/06_01_s10073.md)[S](partite/06_01_s11073.md)[S](partite/06_01_s12073.md)[S](partite/06_01_s13073.md)[S](partite/06_01_s9073.md) | [V](partite/06_02_s10074.md)[V](partite/06_02_s11074.md)[V](partite/06_02_s12074.md)[V](partite/06_02_s13074.md)[V](partite/06_02_s9074.md) | [S](partite/06_03_s10075.md)[S](partite/06_03_s11075.md)[S](partite/06_03_s12075.md)[S](partite/06_03_s13075.md)[S](partite/06_03_s9075.md) | [V](partite/06_04_s10076.md)[S](partite/06_04_s11076.md)[S](partite/06_04_s12076.md)[V](partite/06_04_s13076.md)[V](partite/06_04_s9076.md) | [V](partite/06_05_s10077.md)[V](partite/06_05_s11077.md)[V](partite/06_05_s12077.md)[S](partite/06_05_s13077.md)[S](partite/06_05_s9077.md) | [V](partite/06_06_s10078.md)[S](partite/06_06_s11078.md)[S](partite/06_06_s12078.md)[V](partite/06_06_s13078.md)[S](partite/06_06_s9078.md) | [S](partite/06_07_s10079.md)[S](partite/06_07_s11079.md)[S](partite/06_07_s12079.md)[S](partite/06_07_s13079.md)[S](partite/06_07_s9079.md) | [S](partite/06_08_s10080.md)[S](partite/06_08_s11080.md)[S](partite/06_08_s12080.md)[S](partite/06_08_s13080.md)[S](partite/06_08_s9080.md) | [S](partite/06_09_s10081.md)[S](partite/06_09_s11081.md)[S](partite/06_09_s12081.md)[S](partite/06_09_s13081.md)[S](partite/06_09_s9081.md) | [S](partite/06_10_s10082.md)[S](partite/06_10_s11082.md)[S](partite/06_10_s12082.md)[S](partite/06_10_s13082.md)[S](partite/06_10_s9082.md) | [S](partite/06_11_s10083.md)[S](partite/06_11_s11083.md)[V](partite/06_11_s12083.md)[V](partite/06_11_s13083.md)[S](partite/06_11_s9083.md) |
+| 7 MARIO | [V](partite/07_00_s10084.md)[V](partite/07_00_s11084.md)[V](partite/07_00_s12084.md)[V](partite/07_00_s13084.md)[V](partite/07_00_s9084.md) | [V](partite/07_01_s10085.md)[V](partite/07_01_s11085.md)[V](partite/07_01_s12085.md)[V](partite/07_01_s13085.md)[V](partite/07_01_s9085.md) | [V](partite/07_02_s10086.md)[V](partite/07_02_s11086.md)[V](partite/07_02_s12086.md)[V](partite/07_02_s13086.md)[V](partite/07_02_s9086.md) | [S](partite/07_03_s10087.md)[V](partite/07_03_s11087.md)[S](partite/07_03_s12087.md)[V](partite/07_03_s13087.md)[V](partite/07_03_s9087.md) | [V](partite/07_04_s10088.md)[V](partite/07_04_s11088.md)[V](partite/07_04_s12088.md)[V](partite/07_04_s13088.md)[V](partite/07_04_s9088.md) | [V](partite/07_05_s10089.md)[V](partite/07_05_s11089.md)[V](partite/07_05_s12089.md)[S](partite/07_05_s13089.md)[V](partite/07_05_s9089.md) | [V](partite/07_06_s10090.md)[S](partite/07_06_s11090.md)[V](partite/07_06_s12090.md)[V](partite/07_06_s13090.md)[S](partite/07_06_s9090.md) | [S](partite/07_07_s10091.md)[S](partite/07_07_s11091.md)[V](partite/07_07_s12091.md)[S](partite/07_07_s13091.md)[V](partite/07_07_s9091.md) | [S](partite/07_08_s10092.md)[S](partite/07_08_s11092.md)[S](partite/07_08_s12092.md)[V](partite/07_08_s13092.md)[S](partite/07_08_s9092.md) | [S](partite/07_09_s10093.md)[S](partite/07_09_s11093.md)[S](partite/07_09_s12093.md)[S](partite/07_09_s13093.md)[S](partite/07_09_s9093.md) | [S](partite/07_10_s10094.md)[S](partite/07_10_s11094.md)[S](partite/07_10_s12094.md)[S](partite/07_10_s13094.md)[S](partite/07_10_s9094.md) | [V](partite/07_11_s10095.md)[S](partite/07_11_s11095.md)[S](partite/07_11_s12095.md)[V](partite/07_11_s13095.md)[S](partite/07_11_s9095.md) |
+| 8 GEROZZ | [V](partite/08_00_s10096.md)[S](partite/08_00_s11096.md)[S](partite/08_00_s12096.md)[S](partite/08_00_s13096.md)[S](partite/08_00_s9096.md) | [V](partite/08_01_s10097.md)[V](partite/08_01_s11097.md)[V](partite/08_01_s12097.md)[V](partite/08_01_s13097.md)[V](partite/08_01_s9097.md) | [V](partite/08_02_s10098.md)[V](partite/08_02_s11098.md)[V](partite/08_02_s12098.md)[V](partite/08_02_s13098.md)[V](partite/08_02_s9098.md) | [V](partite/08_03_s10099.md)[V](partite/08_03_s11099.md)[V](partite/08_03_s12099.md)[V](partite/08_03_s13099.md)[V](partite/08_03_s9099.md) | [S](partite/08_04_s10100.md)[V](partite/08_04_s11100.md)[V](partite/08_04_s12100.md)[S](partite/08_04_s13100.md)[S](partite/08_04_s9100.md) | [V](partite/08_05_s10101.md)[V](partite/08_05_s11101.md)[V](partite/08_05_s12101.md)[V](partite/08_05_s13101.md)[V](partite/08_05_s9101.md) | [V](partite/08_06_s10102.md)[V](partite/08_06_s11102.md)[V](partite/08_06_s12102.md)[V](partite/08_06_s13102.md)[V](partite/08_06_s9102.md) | [S](partite/08_07_s10103.md)[S](partite/08_07_s11103.md)[V](partite/08_07_s12103.md)[V](partite/08_07_s13103.md)[V](partite/08_07_s9103.md) | [S](partite/08_08_s10104.md)[S](partite/08_08_s11104.md)[S](partite/08_08_s12104.md)[S](partite/08_08_s13104.md)[S](partite/08_08_s9104.md) | [S](partite/08_09_s10105.md)[V](partite/08_09_s11105.md)[S](partite/08_09_s12105.md)[S](partite/08_09_s13105.md)[V](partite/08_09_s9105.md) | [V](partite/08_10_s10106.md)[V](partite/08_10_s11106.md)[V](partite/08_10_s12106.md)[V](partite/08_10_s13106.md)[V](partite/08_10_s9106.md) | [V](partite/08_11_s10107.md)[V](partite/08_11_s11107.md)[V](partite/08_11_s12107.md)[V](partite/08_11_s13107.md)[V](partite/08_11_s9107.md) |
+| 9 CARLETTO | [P](partite/09_00_s10108.md)[S](partite/09_00_s11108.md)[S](partite/09_00_s12108.md)[V](partite/09_00_s13108.md)[V](partite/09_00_s9108.md) | [S](partite/09_01_s10109.md)[S](partite/09_01_s11109.md)[S](partite/09_01_s12109.md)[S](partite/09_01_s13109.md)[V](partite/09_01_s9109.md) | [V](partite/09_02_s10110.md)[V](partite/09_02_s11110.md)[S](partite/09_02_s12110.md)[V](partite/09_02_s13110.md)[V](partite/09_02_s9110.md) | [S](partite/09_03_s10111.md)[V](partite/09_03_s11111.md)[V](partite/09_03_s12111.md)[V](partite/09_03_s13111.md)[V](partite/09_03_s9111.md) | [S](partite/09_04_s10112.md)[S](partite/09_04_s11112.md)[S](partite/09_04_s12112.md)[V](partite/09_04_s13112.md)[S](partite/09_04_s9112.md) | [V](partite/09_05_s10113.md)[S](partite/09_05_s11113.md)[S](partite/09_05_s12113.md)[V](partite/09_05_s13113.md)[S](partite/09_05_s9113.md) | [V](partite/09_06_s10114.md)[V](partite/09_06_s11114.md)[V](partite/09_06_s12114.md)[V](partite/09_06_s13114.md)[V](partite/09_06_s9114.md) | [V](partite/09_07_s10115.md)[V](partite/09_07_s11115.md)[V](partite/09_07_s12115.md)[V](partite/09_07_s13115.md)[V](partite/09_07_s9115.md) | [S](partite/09_08_s10116.md)[V](partite/09_08_s11116.md)[S](partite/09_08_s12116.md)[S](partite/09_08_s13116.md)[S](partite/09_08_s9116.md) | [V](partite/09_09_s10117.md)[V](partite/09_09_s11117.md)[V](partite/09_09_s12117.md)[S](partite/09_09_s13117.md)[V](partite/09_09_s9117.md) | [S](partite/09_10_s10118.md)[V](partite/09_10_s11118.md)[V](partite/09_10_s12118.md)[S](partite/09_10_s13118.md)[V](partite/09_10_s9118.md) | [S](partite/09_11_s10119.md)[S](partite/09_11_s11119.md)[V](partite/09_11_s12119.md)[S](partite/09_11_s13119.md)[S](partite/09_11_s9119.md) |
+| 10 GIGI PINTO | [S](partite/10_00_s10120.md)[S](partite/10_00_s11120.md)[S](partite/10_00_s12120.md)[V](partite/10_00_s13120.md)[V](partite/10_00_s9120.md) | [V](partite/10_01_s10121.md)[V](partite/10_01_s11121.md)[V](partite/10_01_s12121.md)[V](partite/10_01_s13121.md)[V](partite/10_01_s9121.md) | [V](partite/10_02_s10122.md)[V](partite/10_02_s11122.md)[V](partite/10_02_s12122.md)[V](partite/10_02_s13122.md)[V](partite/10_02_s9122.md) | [V](partite/10_03_s10123.md)[V](partite/10_03_s11123.md)[V](partite/10_03_s12123.md)[V](partite/10_03_s13123.md)[V](partite/10_03_s9123.md) | [S](partite/10_04_s10124.md)[V](partite/10_04_s11124.md)[V](partite/10_04_s12124.md)[S](partite/10_04_s13124.md)[V](partite/10_04_s9124.md) | [S](partite/10_05_s10125.md)[V](partite/10_05_s11125.md)[S](partite/10_05_s12125.md)[S](partite/10_05_s13125.md)[S](partite/10_05_s9125.md) | [V](partite/10_06_s10126.md)[V](partite/10_06_s11126.md)[V](partite/10_06_s12126.md)[V](partite/10_06_s13126.md)[V](partite/10_06_s9126.md) | [S](partite/10_07_s10127.md)[S](partite/10_07_s11127.md)[V](partite/10_07_s12127.md)[S](partite/10_07_s13127.md)[S](partite/10_07_s9127.md) | [V](partite/10_08_s10128.md)[S](partite/10_08_s11128.md)[S](partite/10_08_s12128.md)[S](partite/10_08_s13128.md)[V](partite/10_08_s9128.md) | [V](partite/10_09_s10129.md)[V](partite/10_09_s11129.md)[V](partite/10_09_s12129.md)[V](partite/10_09_s13129.md)[S](partite/10_09_s9129.md) | [V](partite/10_10_s10130.md)[V](partite/10_10_s11130.md)[S](partite/10_10_s12130.md)[V](partite/10_10_s13130.md)[V](partite/10_10_s9130.md) | [V](partite/10_11_s10131.md)[V](partite/10_11_s11131.md)[S](partite/10_11_s12131.md)[V](partite/10_11_s13131.md)[V](partite/10_11_s9131.md) |
+| 11 SAVAROTTO | [V](partite/11_00_s10132.md)[S](partite/11_00_s11132.md)[V](partite/11_00_s12132.md)[V](partite/11_00_s13132.md)[S](partite/11_00_s9132.md) | [V](partite/11_01_s10133.md)[V](partite/11_01_s11133.md)[S](partite/11_01_s12133.md)[V](partite/11_01_s13133.md)[V](partite/11_01_s9133.md) | [S](partite/11_02_s10134.md)[V](partite/11_02_s11134.md)[S](partite/11_02_s12134.md)[V](partite/11_02_s13134.md)[S](partite/11_02_s9134.md) | [S](partite/11_03_s10135.md)[V](partite/11_03_s11135.md)[V](partite/11_03_s12135.md)[S](partite/11_03_s13135.md)[S](partite/11_03_s9135.md) | [V](partite/11_04_s10136.md)[V](partite/11_04_s11136.md)[V](partite/11_04_s12136.md)[S](partite/11_04_s13136.md)[S](partite/11_04_s9136.md) | [S](partite/11_05_s10137.md)[V](partite/11_05_s11137.md)[S](partite/11_05_s12137.md)[S](partite/11_05_s13137.md)[S](partite/11_05_s9137.md) | [S](partite/11_06_s10138.md)[V](partite/11_06_s11138.md)[V](partite/11_06_s12138.md)[S](partite/11_06_s13138.md)[V](partite/11_06_s9138.md) | [S](partite/11_07_s10139.md)[S](partite/11_07_s11139.md)[V](partite/11_07_s12139.md)[S](partite/11_07_s13139.md)[V](partite/11_07_s9139.md) | [S](partite/11_08_s10140.md)[S](partite/11_08_s11140.md)[S](partite/11_08_s12140.md)[S](partite/11_08_s13140.md)[S](partite/11_08_s9140.md) | [V](partite/11_09_s10141.md)[V](partite/11_09_s11141.md)[V](partite/11_09_s12141.md)[V](partite/11_09_s13141.md)[S](partite/11_09_s9141.md) | [S](partite/11_10_s10142.md)[S](partite/11_10_s11142.md)[V](partite/11_10_s12142.md)[S](partite/11_10_s13142.md)[V](partite/11_10_s9142.md) | [S](partite/11_11_s10143.md)[V](partite/11_11_s11143.md)[V](partite/11_11_s12143.md)[V](partite/11_11_s13143.md)[S](partite/11_11_s9143.md) |
 
 ## Allenatori
 
 | # | Allenatore | Vittorie / partite | Misplay certi (propri) |
 |---:|---|---|---:|
-| 0 | ENZO | 43 / 72 | 47 |
-| 1 | SIMONE | 35 / 72 | 45 |
-| 2 | ELIA | 24 / 72 | 27 |
-| 3 | RAFEL | 28 / 72 | 45 |
-| 4 | TONY | 45 / 72 | 52 |
-| 5 | MARIO LETT | 34 / 72 | 25 |
-| 6 | TATORE | 15 / 72 | 36 |
-| 7 | MARIO | 40 / 72 | 27 |
-| 8 | GEROZZ | 52 / 72 | 34 |
-| 9 | CARLETTO | 44 / 72 | 30 |
-| 10 | GIGI PINTO | 39 / 72 | 19 |
-| 11 | SAVAROTTO | 32 / 72 | 58 |
+| 0 | ENZO | 69 / 120 | 74 |
+| 1 | SIMONE | 53 / 120 | 64 |
+| 2 | ELIA | 34 / 120 | 86 |
+| 3 | RAFEL | 55 / 120 | 86 |
+| 4 | TONY | 69 / 120 | 67 |
+| 5 | MARIO LETT | 49 / 120 | 33 |
+| 6 | TATORE | 32 / 120 | 58 |
+| 7 | MARIO | 70 / 120 | 56 |
+| 8 | GEROZZ | 89 / 120 | 54 |
+| 9 | CARLETTO | 67 / 120 | 53 |
+| 10 | GIGI PINTO | 75 / 120 | 33 |
+| 11 | SAVAROTTO | 56 / 120 | 63 |
 
 ## Esempi di misplay
 
-### Win condition persa evitabilmente (151)
-- [00_00_s1](partite/00_00_s1.md), turno 4, ENZO: Gengar KO senza Protect/cambio (cambio possibile): il KO era prevedibile
-- [00_00_s1](partite/00_00_s1.md), turno 5, ENZO: Gengar KO senza Protect/cambio (cambio possibile): il KO era prevedibile
-- [00_00_s1](partite/00_00_s1.md), turno 7, ENZO: Annihilape KO senza Protect/cambio (cambio possibile): il KO era prevedibile
-- [00_01_s2](partite/00_01_s2.md), turno 4, ENZO: Annihilape KO senza Protect/cambio (cambio possibile): il KO era prevedibile
-- [00_01_s2](partite/00_01_s2.md), turno 8, SIMONE: Aggron KO senza Protect/cambio (Protect disponibile): il KO era prevedibile
+### Win condition persa evitabilmente (237)
+- [00_00_s12000](partite/00_00_s12000.md), turno 4, ENZO: Gengar KO senza Protect/cambio (Protect disponibile, cambio possibile): il KO era prevedibile
+- [00_00_s13000](partite/00_00_s13000.md), turno 4, ENZO: Gengar KO senza Protect/cambio (cambio possibile): il KO era prevedibile
+- [00_00_s13000](partite/00_00_s13000.md), turno 5, ENZO: Gengar KO senza Protect/cambio (cambio possibile): il KO era prevedibile
+- [00_00_s13000](partite/00_00_s13000.md), turno 6, ENZO: Annihilape KO senza Protect/cambio (cambio possibile): il KO era prevedibile
+- [00_00_s13000](partite/00_00_s13000.md), turno 6, ENZO: Annihilape KO senza Protect/cambio (cambio possibile): il KO era prevedibile
 
-### KO garantito non preso (116)
-- [00_06_s7](partite/00_06_s7.md), turno 7, ENZO: Gengar Shadow Ball avrebbe mandato KO Dusclops, scelto Sludge Bomb
-- [00_07_s1008](partite/00_07_s1008.md), turno 7, MARIO: Iron Hands Close Combat avrebbe mandato KO Rillaboom, scelto Wild Charge
-- [00_09_s2010](partite/00_09_s2010.md), turno 14, ENZO: Gengar Shadow Ball avrebbe mandato KO Malamar, scelto Shadow Ball
-- [00_11_s1012](partite/00_11_s1012.md), turno 10, ENZO: Rillaboom Wood Hammer avrebbe mandato KO Incineroar, scelto Fake Out
-- [01_02_s1015](partite/01_02_s1015.md), turno 12, ELIA: Lickitung Body Press avrebbe mandato KO Toedscruel, scelto Body Press
+### KO garantito non preso (168)
+- [00_01_s10001](partite/00_01_s10001.md), turno 3, SIMONE: Arcanine Flare Blitz avrebbe mandato KO Rillaboom, scelto Extreme Speed
+- [00_02_s9002](partite/00_02_s9002.md), turno 8, ENZO: Annihilape Close Combat avrebbe mandato KO Lickitung, scelto Rage Fist
+- [00_02_s9002](partite/00_02_s9002.md), turno 8, ENZO: Rillaboom Grassy Glide avrebbe mandato KO Lickitung, scelto Wood Hammer
+- [00_03_s9003](partite/00_03_s9003.md), turno 2, ENZO: Rillaboom Grassy Glide avrebbe mandato KO Indeedee, scelto High Horsepower
+- [00_03_s9003](partite/00_03_s9003.md), turno 2, ENZO: Annihilape Close Combat avrebbe mandato KO Indeedee, scelto Close Combat
 
-### Cambio su chi va KO all'entrata (89)
-- [00_00_s2001](partite/00_00_s2001.md), turno 3, ENZO: Annihilape entrato con un cambio e KO nello stesso turno
-- [00_03_s4](partite/00_03_s4.md), turno 2, ENZO: Annihilape entrato con un cambio e KO nello stesso turno
-- [00_04_s2005](partite/00_04_s2005.md), turno 2, TONY: Gyarados entrato con un cambio e KO nello stesso turno
-- [00_05_s2006](partite/00_05_s2006.md), turno 2, MARIO LETT: Chatot entrato con un cambio e KO nello stesso turno
-- [00_07_s8](partite/00_07_s8.md), turno 3, ENZO: Rillaboom entrato con un cambio e KO nello stesso turno
+### Cambio su chi va KO all'entrata (152)
+- [00_00_s10000](partite/00_00_s10000.md), turno 2, ENZO: Gengar entrato con un cambio e KO nello stesso turno
+- [00_00_s11000](partite/00_00_s11000.md), turno 2, ENZO: Gengar entrato con un cambio e KO nello stesso turno
+- [00_02_s12002](partite/00_02_s12002.md), turno 4, ENZO: Aerodactyl entrato con un cambio e KO nello stesso turno
+- [00_03_s13003](partite/00_03_s13003.md), turno 2, ENZO: Annihilape entrato con un cambio e KO nello stesso turno
+- [00_04_s11004](partite/00_04_s11004.md), turno 2, TONY: Gyarados entrato con un cambio e KO nello stesso turno
 
-### Setup con KO in arrivo (51)
-- [00_06_s2007](partite/00_06_s2007.md), turno 13, TATORE: Armaldo Swords Dance mentre Gengar lo manda KO (danno minimo stimato)
-- [00_08_s9](partite/00_08_s9.md), turno 8, GEROZZ: Great Tusk Bulk Up mentre Aerodactyl lo manda KO (danno minimo stimato)
-- [00_11_s12](partite/00_11_s12.md), turno 6, SAVAROTTO: Espathra Calm Mind mentre Gengar lo manda KO (danno minimo stimato)
-- [00_11_s2012](partite/00_11_s2012.md), turno 5, SAVAROTTO: Espathra Calm Mind mentre Gengar lo manda KO (danno minimo stimato)
-- [00_11_s2012](partite/00_11_s2012.md), turno 7, SAVAROTTO: Espathra Calm Mind mentre Rillaboom lo manda KO (danno minimo stimato)
+### Setup con KO in arrivo (68)
+- [00_02_s12002](partite/00_02_s12002.md), turno 9, ELIA: Lickitung Iron Defense mentre Annihilape lo manda KO (danno minimo stimato)
+- [00_02_s9002](partite/00_02_s9002.md), turno 9, ELIA: Lickitung Iron Defense mentre Gengar lo manda KO (danno minimo stimato)
+- [00_11_s11011](partite/00_11_s11011.md), turno 8, SAVAROTTO: Espathra Calm Mind mentre Gengar lo manda KO (danno minimo stimato)
+- [01_03_s9015](partite/01_03_s9015.md), turno 9, RAFEL: Ceruledge Swords Dance mentre Aggron lo manda KO (danno minimo stimato)
+- [01_09_s11021](partite/01_09_s11021.md), turno 3, CARLETTO: Snorlax Belly Drum mentre Machamp lo manda KO (danno minimo stimato)
 
-### Mossa su un immune noto (9)
-- [00_04_s2005](partite/00_04_s2005.md), turno 4, ENZO: Grimmsnarl Taunt su Roaring Moon (immunita' nota)
-- [02_02_s1027](partite/02_02_s1027.md), turno 25, ELIA: Banette Shadow Claw su Lickitung (immune)
-- [02_02_s1027](partite/02_02_s1027.md), turno 26, ELIA: Banette Shadow Claw su Lickitung (immune)
-- [02_02_s1027](partite/02_02_s1027.md), turno 27, ELIA: Banette Shadow Claw su Lickitung (immune)
-- [02_02_s1027](partite/02_02_s1027.md), turno 30, ELIA: Banette Shadow Claw su Lickitung (immune)
+### Mossa su un immune noto (35)
+- [00_05_s12005](partite/00_05_s12005.md), turno 4, ENZO: Annihilape Rage Fist su Chatot (immune)
+- [00_05_s12005](partite/00_05_s12005.md), turno 5, ENZO: Annihilape Rage Fist su Chatot (immune)
+- [02_02_s10026](partite/02_02_s10026.md), turno 31, ELIA: Mimikyu Shadow Sneak su Lickitung (immune)
+- [02_02_s10026](partite/02_02_s10026.md), turno 35, ELIA: Mimikyu Shadow Sneak su Lickitung (immune)
+- [02_02_s12026](partite/02_02_s12026.md), turno 26, ELIA: Banette Shadow Claw su Lickitung (immune)
 
-### Protect consecutivo (7)
-- [00_00_s1](partite/00_00_s1.md), turno 4, ENZO: Gengar Protect dopo Protect al turno prima
-- [02_02_s1027](partite/02_02_s1027.md), turno 27, ELIA: Mimikyu Protect dopo Protect al turno prima
-- [02_02_s1027](partite/02_02_s1027.md), turno 28, ELIA: Mimikyu Protect dopo Protect al turno prima
-- [02_02_s1027](partite/02_02_s1027.md), turno 29, ELIA: Banette Protect dopo Protect al turno prima
-- [02_05_s2030](partite/02_05_s2030.md), turno 10, MARIO LETT: Weezing Protect dopo Protect al turno prima
+### Protect consecutivo (23)
+- [00_00_s13000](partite/00_00_s13000.md), turno 4, ENZO: Gengar Protect dopo Protect al turno prima
+- [02_02_s10026](partite/02_02_s10026.md), turno 25, ELIA: Mimikyu Protect dopo Protect al turno prima
+- [02_02_s10026](partite/02_02_s10026.md), turno 26, ELIA: Mimikyu Protect dopo Protect al turno prima
+- [02_02_s10026](partite/02_02_s10026.md), turno 27, ELIA: Mimikyu Protect dopo Protect al turno prima
+- [02_02_s10026](partite/02_02_s10026.md), turno 28, ELIA: Mimikyu Protect dopo Protect al turno prima
 
-### Bersaglio gia KO senza redirect utile (6)
-- [00_06_s2007](partite/00_06_s2007.md), turno 3, ENZO: Annihilape Close Combat su Armaldo che il compagno manda KO prima; nessun redirect utile
-- [01_08_s1021](partite/01_08_s1021.md), turno 4, SIMONE: Aggron Body Press su Rotom che il compagno manda KO prima; nessun redirect utile
-- [07_00_s1085](partite/07_00_s1085.md), turno 4, MARIO: Iron Hands Close Combat su Aerodactyl che il compagno manda KO prima; nessun redirect utile
-- [08_01_s1098](partite/08_01_s1098.md), turno 4, SIMONE: Aggron Body Press su Rotom che il compagno manda KO prima; nessun redirect utile
-- [11_01_s2134](partite/11_01_s2134.md), turno 5, SIMONE: Aggron Body Press su Incineroar che il compagno manda KO prima; nessun redirect utile
+### Bersaglio gia KO senza redirect utile (14)
+- [00_02_s12002](partite/00_02_s12002.md), turno 8, ELIA: Lickitung Body Press su Rillaboom che il compagno manda KO prima; nessun redirect utile
+- [00_07_s10007](partite/00_07_s10007.md), turno 5, MARIO: Iron Hands Close Combat su Aerodactyl che il compagno manda KO prima; nessun redirect utile
+- [00_07_s11007](partite/00_07_s11007.md), turno 4, MARIO: Iron Hands Close Combat su Aerodactyl che il compagno manda KO prima; nessun redirect utile
+- [01_03_s12015](partite/01_03_s12015.md), turno 4, SIMONE: Aggron Body Press su Copperajah che il compagno manda KO prima; nessun redirect utile
+- [01_08_s13020](partite/01_08_s13020.md), turno 4, SIMONE: Aggron Body Press su Rotom che il compagno manda KO prima; nessun redirect utile
 
-### Team preview: abilita penalizzante senza chi la toglie (6)
-- [02_05_s1030](partite/02_05_s1030.md), team preview, MARIO LETT:  Slaking: Truant e nessuno che la tolga
-- [02_05_s2030](partite/02_05_s2030.md), team preview, MARIO LETT:  Slaking: Truant e nessuno che la tolga
-- [02_05_s30](partite/02_05_s30.md), team preview, MARIO LETT:  Slaking: Truant e nessuno che la tolga
-- [05_02_s1063](partite/05_02_s1063.md), team preview, MARIO LETT:  Slaking: Truant e nessuno che la tolga
-- [05_02_s2063](partite/05_02_s2063.md), team preview, MARIO LETT:  Slaking: Truant e nessuno che la tolga
+### Team preview: abilita penalizzante senza chi la toglie (10)
+- [02_05_s10029](partite/02_05_s10029.md), team preview, MARIO LETT:  Slaking: Truant e nessuno che la tolga
+- [02_05_s11029](partite/02_05_s11029.md), team preview, MARIO LETT:  Slaking: Truant e nessuno che la tolga
+- [02_05_s12029](partite/02_05_s12029.md), team preview, MARIO LETT:  Slaking: Truant e nessuno che la tolga
+- [02_05_s13029](partite/02_05_s13029.md), team preview, MARIO LETT:  Slaking: Truant e nessuno che la tolga
+- [02_05_s9029](partite/02_05_s9029.md), team preview, MARIO LETT:  Slaking: Truant e nessuno che la tolga
 
-### Turni di Tailwind/Trick Room sprecati (5)
-- [04_06_s55](partite/04_06_s55.md), turno 4, TATORE: Scream Tail Trick Room con Trick Room attivo (2 turni): lo chiude
-- [06_00_s1073](partite/06_00_s1073.md), turno 4, TATORE: Dusclops Trick Room con Trick Room attivo (2 turni): lo chiude
-- [06_07_s2080](partite/06_07_s2080.md), turno 3, TATORE: Scream Tail Trick Room con Trick Room attivo (4 turni): lo chiude
-- [09_05_s1114](partite/09_05_s1114.md), turno 9, CARLETTO: Malamar Trick Room con Trick Room attivo (4 turni): lo chiude
-- [11_08_s2141](partite/11_08_s2141.md), turno 4, GEROZZ: Porygon2 Trick Room con Trick Room attivo (4 turni): lo chiude
+### Turni di Tailwind/Trick Room sprecati (10)
+- [03_03_s12039](partite/03_03_s12039.md), turno 5, RAFEL: Indeedee Trick Room con Trick Room attivo (4 turni): lo chiude
+- [03_11_s11047](partite/03_11_s11047.md), turno 5, RAFEL: Indeedee Trick Room con Trick Room attivo (2 turni): lo chiude
+- [04_06_s11054](partite/04_06_s11054.md), turno 8, TATORE: Scream Tail Trick Room con Trick Room attivo (3 turni): lo chiude
+- [04_06_s13054](partite/04_06_s13054.md), turno 3, TATORE: Scream Tail Trick Room con Trick Room attivo (3 turni): lo chiude
+- [05_05_s9065](partite/05_05_s9065.md), turno 10, MARIO LETT: Sinistcha Trick Room con Trick Room attivo (2 turni): lo chiude
 
-### Fake Out dopo il primo turno (3)
-- [01_11_s2024](partite/01_11_s2024.md), turno 3, SAVAROTTO: Incineroar Fake Out non al primo turno in campo (fallisce)
-- [06_11_s1084](partite/06_11_s1084.md), turno 4, SAVAROTTO: Incineroar Fake Out non al primo turno in campo (fallisce)
-- [11_04_s137](partite/11_04_s137.md), turno 3, SAVAROTTO: Incineroar Fake Out non al primo turno in campo (fallisce)
+### Fake Out dopo il primo turno (6)
+- [01_11_s13023](partite/01_11_s13023.md), turno 3, SAVAROTTO: Incineroar Fake Out non al primo turno in campo (fallisce)
+- [06_05_s10077](partite/06_05_s10077.md), turno 11, TATORE: Kecleon Fake Out non al primo turno in campo (fallisce)
+- [06_05_s11077](partite/06_05_s11077.md), turno 12, TATORE: Kecleon Fake Out non al primo turno in campo (fallisce)
+- [06_05_s11077](partite/06_05_s11077.md), turno 13, TATORE: Kecleon Fake Out non al primo turno in campo (fallisce)
+- [06_11_s10083](partite/06_11_s10083.md), turno 3, SAVAROTTO: Incineroar Fake Out non al primo turno in campo (fallisce)
 
-### Attacco sul compagno senza combo (2)
-- [01_09_s1022](partite/01_09_s1022.md), turno 7, SIMONE: Rotom Discharge manda KO il compagno Machamp
-- [10_11_s132](partite/10_11_s132.md), turno 1, SAVAROTTO: Incineroar Flare Blitz sul compagno Chandelure senza combo
+### Attacco sul compagno senza combo (3)
+- [04_05_s13053](partite/04_05_s13053.md), turno 2, MARIO LETT: Dondozo Earthquake manda KO il compagno Sinistcha
+- [05_01_s13061](partite/05_01_s13061.md), turno 6, MARIO LETT: Dondozo Earthquake manda KO il compagno Sinistcha
+- [05_04_s12064](partite/05_04_s12064.md), turno 2, MARIO LETT: Dondozo Earthquake manda KO il compagno Sinistcha
+
+### Cambi a ripetizione (1)
+- [05_02_s9062](partite/05_02_s9062.md), turno 5, MARIO LETT: Chatot rientra Slaking uscito 1 turni fa
 
