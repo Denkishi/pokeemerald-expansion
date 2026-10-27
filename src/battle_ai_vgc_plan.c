@@ -262,6 +262,9 @@ struct PlanPartnerDecision
 
 // Per lato: in IA contro IA i due lati pianificano a turno nello stesso turno e non devono cancellarsi
 // a vicenda la metà già decisa per il partner.
+// Battler il cui colpo fa il danno minimo (ramo "colpo basso": un KO solo con la mediana non è sicuro), più 1.
+static EWRAM_DATA u8 sLowRollBattler = 0;
+
 static EWRAM_DATA struct PlanPartnerDecision sPartnerDecisionBySide[NUM_BATTLE_SIDES] = {0};
 
 #if TESTING
@@ -885,6 +888,18 @@ static u32 TerrainFactor(u8 terrain, const struct PlanMon *am, const struct Plan
     return f;
 }
 
+// Danno minimo rispetto alla mediana, in %: dalla tabella dell'IA quando c'è, altrimenti il tiro minimo (85%).
+static u32 LowRollPct(const struct PlanState *st, const struct PlanAction *a, enum BattlerId t)
+{
+    if (a->moveIndex < MAX_MON_MOVES && st->m[a->user].partyIdx < 0 && st->m[t].partyIdx < 0)
+    {
+        const struct SimulatedDamage *sd = &gAiLogicData->simulatedDmg[a->user][t][a->moveIndex];
+        if (sd->median > 0)
+            return sd->minimum * 100 / sd->median;
+    }
+    return 87;
+}
+
 static s32 DamageOf(const struct PlanState *st, const struct PlanAction *a, enum BattlerId t)
 {
     const struct PlanMon *am = &st->m[a->user], *dm = &st->m[t];
@@ -933,6 +948,8 @@ static s32 DamageOf(const struct PlanState *st, const struct PlanAction *a, enum
     }
     if (am->helping)
         dmg = dmg * 3 / 2;
+    if (a->user + 1 == sLowRollBattler)
+        dmg = dmg * LowRollPct(st, a, t) / 100;
     // Niente precisione qui: il danno è quello di un colpo andato a segno. La probabilità di mancare la
     // conta il pianificatore a parte (ramo "mancato", vedi ActionAccuracy e MissPenalty).
     return dmg;
@@ -940,6 +957,7 @@ static s32 DamageOf(const struct PlanState *st, const struct PlanAction *a, enum
 
 // Battler la cui azione manca il bersaglio nella simulazione in corso (ramo "mancato"), più 1; 0 = nessuno.
 static EWRAM_DATA u8 sMissBattler = 0;
+
 
 // Precisione (0..100) dell'azione `a` sul suo bersaglio: dalla tabella dell'IA quando c'è (comprende
 // Compound Eyes, No Guard, meteo...), altrimenti quella della mossa. 100 = non può mancare.
@@ -2481,6 +2499,25 @@ static u32 BuildPairs(enum BattlerId me, const struct PlanState *st)
 // al 90% che manda KO due bersagli vale ~1,8 KO; due mosse che fanno lo stesso KO preferiscono la più precisa.
 // La differenza si misura sul turno 1 e si assume uguale sul resto della linea (costo: un turno simulato in
 // più per azione imprecisa, non un albero intero). Ritorna il numero di simulazioni fatte.
+// Probabilità (0..50) che un colpo che manda KO con il danno medio NON lo faccia (tiro basso): i tiri sono uniformi tra
+// minimo e massimo, la mediana è a metà; se anche il minimo basta, 0.
+static u32 LowRollFailChance(const struct PlanState *st, const struct PlanAction *a)
+{
+    enum BattlerId t = a->target;
+    s32 med, lo, hp;
+
+    if (a->kind != PLAN_ACT_MOVE || IsBattleMoveStatus(a->move) || IsBattlerAlly(a->user, t) || !st->m[t].alive)
+        return 0;
+    med = DamageOf(st, a, t);
+    hp = st->m[t].hp;
+    if (med < hp)
+        return 0;
+    lo = med * (s32)LowRollPct(st, a, t) / 100;
+    if (lo >= hp)
+        return 0;
+    return (u32)(50 * (hp - lo) / max(med - lo, 1));
+}
+
 static u32 MissPenalty(const struct PlanState *base, const struct PlanState *hit, const struct PlanAction *const *acts4, s32 *pen)
 {
     u32 k, sims = 0;
@@ -2506,6 +2543,28 @@ static u32 MissPenalty(const struct PlanState *base, const struct PlanState *hit
         eMiss = Evaluate(&sm);
         // Per il giocatore, un suo colpo mancato è un guadagno per noi: il segno viene da Evaluate.
         *pen += (s32)(100 - acc) * (eHit - eMiss) / 100;
+        sims++;
+    }
+    // Danno: un KO che riesce solo con il tiro medio non è sicuro. Ramo "colpo basso" pesato per la probabilità
+    // che il tiro non basti: così un KO sicuro vale più di un KO a testa o croce, anche per gli avversari.
+    for (k = 0; k < 4; k++)
+    {
+        u32 fail = LowRollFailChance(base, acts4[k]);
+        const struct PlanAction *acts[4];
+        struct PlanState sm;
+        s32 eLow;
+
+        if (fail == 0)
+            continue;
+        if (sims == 0)
+            eHit = Evaluate(hit);
+        memcpy(acts, acts4, sizeof(acts));
+        sm = *base;
+        sLowRollBattler = acts4[k]->user + 1;
+        RunTurn(&sm, acts, 4);
+        sLowRollBattler = 0;
+        eLow = Evaluate(&sm);
+        *pen += (s32)fail * (eHit - eLow) / 100;
         sims++;
     }
     return sims;

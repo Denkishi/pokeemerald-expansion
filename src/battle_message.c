@@ -3020,9 +3020,15 @@ static const u8 *BattleStringGetPlayerName(u8 *text, enum BattlerId battler)
         break;
     case B_POSITION_PLAYER_RIGHT:
         if (((gBattleTypeFlags & BATTLE_TYPE_RECORDED) && !(gBattleTypeFlags & (BATTLE_TYPE_MULTI | BATTLE_TYPE_INGAME_PARTNER)))
-            || gTestRunnerEnabled)
+            || (gTestRunnerEnabled && !IsAiVsAiBattle()))
         {
             toCpy = gLinkPlayers[0].name;
+        }
+        else if (IsAiVsAiBattle() && !(gBattleTypeFlags & BATTLE_TYPE_INGAME_PARTNER))
+        {
+            // IA contro IA (self-play): il lato G è un solo allenatore. gLinkPlayers qui non è inizializzato e la
+            // copia del nome senza terminatore bloccava la lotta (messaggio della Mega del Pokémon a destra).
+            toCpy = gSaveBlock2Ptr->playerName;
         }
         else if ((gBattleTypeFlags & BATTLE_TYPE_LINK) && gBattleTypeFlags & (BATTLE_TYPE_RECORDED | BATTLE_TYPE_MULTI))
         {
