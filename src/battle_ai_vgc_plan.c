@@ -338,6 +338,16 @@ struct PlanTestLog
     s32 ev[PLAN_ALL_PAIRS];
 };
 static EWRAM_DATA struct PlanTestLog sTestLog = {0};
+// Spinta delle regole (M8) di ogni candidata della decisione del turno 0 (test delle spinte, ai_vgc_rules.c).
+extern s32 Test_MgbaPrintf(const char *fmt, ...);
+struct PlanTestPrior
+{
+    u8 n;
+    enum BattlerId user[2 * PLAN_ALL_OURS];
+    enum Move move[2 * PLAN_ALL_OURS];
+    s32 prior[2 * PLAN_ALL_OURS];
+};
+static EWRAM_DATA struct PlanTestPrior sTestPrior = {0};
 // Contatori di chiamate per la misura del costo (VGCCPU).
 static EWRAM_DATA u32 sCntEval = 0, sCntBuild = 0, sCntKo = 0, sCntEst = 0, sCntDmg = 0;
 static EWRAM_DATA u32 sProf[5] = {0}; // Evaluate, RunTurn, ApplyAction, CanKo (senza cache), EstimateDamage
@@ -2394,12 +2404,14 @@ static s32 RolloutValue(const struct PlanState *s2)
 // Candidate nostre al primo turno e azione del partner
 // ---------------------------------------------------------------------
 // Tutte le azioni legali di `me` al primo turno: ogni mossa usabile (PP, Choice, Taunt, Disable... dal motore)
-// su ogni bersaglio possibile, più il cambio. Nessun filtro delle regole: le ordina la simulazione (fase 2).
+// su ogni bersaglio possibile, più il cambio, tolte quelle che il filtro delle regole (AI_VgcFilterAction, M8) dà per
+// illegali o certamente inutili: lo stesso filtro vale per l'azione delle regole. Le altre le ordina la simulazione.
 static u32 BuildOurFirstActions(enum BattlerId me, struct PlanAction *out, u32 chosenMove, enum BattlerId chosenTarget)
 {
     u32 n = 0, i, limits = gAiLogicData->moveLimitations[me];
     enum BattlerId t, p = GetPartnerBattler(me);
     enum Move lastMove = gLastResultingMoves[me];
+    bool32 legacy = AI_VgcRulesLegacy(me);
     bool32 protectedLast = lastMove != MOVE_NONE && lastMove != MOVE_UNAVAILABLE
                         && gBattleMoveEffects[GetMoveEffect(lastMove)].usesProtectCounter
                         && gBattleMons[me].volatiles.consecutiveMoveUses > 0;
@@ -2413,19 +2425,18 @@ static u32 BuildOurFirstActions(enum BattlerId me, struct PlanAction *out, u32 c
 
         if (m == MOVE_NONE || m == MOVE_UNAVAILABLE || gBattleMons[me].pp[i] == 0)
             continue;
-        if ((limits & (1u << i)) && !(i == chosenMove))
-            continue;
-        // Fake Out & co. fuori dal primo turno in campo falliscono sempre: non sono candidate (a pari valore con le
-        // altre azioni, cioè quando l'azione conta poco, venivano scelte lo stesso).
-        if (GetMoveEffect(m) == EFFECT_FIRST_TURN_ONLY && !IsBattlersFirstTurn(me))
-            continue;
-        // Protect & co. subito dopo un Protect riuscito: il secondo fallisce (a pari valore con le azioni che contano
-        // poco veniva scelto lo stesso, come la mossa delle regole).
-        if (gBattleMoveEffects[GetMoveEffect(m)].usesProtectCounter && protectedLast)
-            continue;
-        // Tailwind con il nostro Tailwind ancora attivo non fa niente.
-        if (GetMoveEffect(m) == EFFECT_TAILWIND && (gSideStatuses[GetBattlerSide(me)] & SIDE_STATUS_TAILWIND))
-            continue;
+        if (legacy)
+        {
+            // Regole di prima di M8 (solo self-play, verifica-regole): i filtri che c'erano qui.
+            if ((limits & (1u << i)) && !(i == chosenMove))
+                continue;
+            if (GetMoveEffect(m) == EFFECT_FIRST_TURN_ONLY && !IsBattlersFirstTurn(me))
+                continue;
+            if (gBattleMoveEffects[GetMoveEffect(m)].usesProtectCounter && protectedLast)
+                continue;
+            if (GetMoveEffect(m) == EFFECT_TAILWIND && (gSideStatuses[GetBattlerSide(me)] & SIDE_STATUS_TAILWIND))
+                continue;
+        }
         kind = (GetMoveEffect(m) == EFFECT_PROTECT && GetMoveProtectMethod(m) == PROTECT_NORMAL) ? PLAN_ACT_PROTECT : PLAN_ACT_MOVE;
         tt = GetMoveTarget(m);
         if (tt == TARGET_SELECTED || tt == TARGET_SMART || tt == TARGET_OPPONENT || tt == TARGET_USER_OR_ALLY)
@@ -2434,15 +2445,16 @@ static u32 BuildOurFirstActions(enum BattlerId me, struct PlanAction *out, u32 c
             {
                 if (t == me || !IsBattlerAlive(t) || !CanTargetBattler(me, t, m))
                     continue;
-                // Attacco su un avversario immune noto (tipo, o abilità che l'IA conosce): non è una candidata.
-                if (!IsBattlerAlly(me, t) && !IsBattleMoveStatus(m) && gAiLogicData->effectiveness[me][t][i] == UQ_4_12(0.0))
+                if (legacy ? (!IsBattlerAlly(me, t) && !IsBattleMoveStatus(m) && gAiLogicData->effectiveness[me][t][i] == UQ_4_12(0.0))
+                           : AI_VgcFilterAction(me, i, t) != VGC_FILTER_NONE)
                     continue;
                 // Sul compagno solo le mosse fatte per lui o che gli cambiano l'abilità; le combo che lo colpiscono
                 // (Beat Up -> Justified) le aggiunge il grafo della squadra.
                 if (IsBattlerAlly(me, t) && !(i == chosenMove && t == chosenTarget)
                  && !(IsBattleMoveStatus(m) && (GetMoveEffect(m) == EFFECT_OVERWRITE_ABILITY || GetMoveEffect(m) == EFFECT_SKILL_SWAP
                                               || GetMoveEffect(m) == EFFECT_GASTRO_ACID || GetMoveEffect(m) == EFFECT_ENTRAINMENT
-                                              || GetMoveEffect(m) == EFFECT_HELPING_HAND)))
+                                              || GetMoveEffect(m) == EFFECT_HELPING_HAND
+                                              || (!legacy && (GetMoveEffect(m) == EFFECT_AFTER_YOU || GetMoveEffect(m) == EFFECT_INSTRUCT)))))
                     continue;
                 w = gAiBattleData->finalScore[me][t][i];
                 AddCand(out, &n, PLAN_ALL_OURS - 2, kind, i, -1, m, me, t, w);
@@ -2462,6 +2474,8 @@ static u32 BuildOurFirstActions(enum BattlerId me, struct PlanAction *out, u32 c
                 continue;
             if (i == chosenMove)
                 t = (tt == TARGET_USER || tt == TARGET_ALLY) ? t : (IsBattlerAlive(chosenTarget) ? chosenTarget : t);
+            if (!legacy && AI_VgcFilterAction(me, i, t) != VGC_FILTER_NONE)
+                continue;
             w = gAiBattleData->finalScore[me][(t == me) ? GetBattlerLeftFoe(me) : t][i];
             AddCand(out, &n, PLAN_ALL_OURS - 2, kind, i, -1, m, me, t, w);
         }
@@ -2561,6 +2575,9 @@ static struct PlanAction RulesAction(enum BattlerId b, u32 moveIdx, enum Battler
     m = gBattleMons[b].moves[moveIdx];
     if (m == MOVE_NONE || m == MOVE_UNAVAILABLE)
         return a;
+    // Un'azione delle regole scartata dal filtro non fa da termine di paragone (il compagno "non fa niente").
+    if (!AI_VgcRulesLegacy(b) && AI_VgcFilterAction(b, moveIdx, target) != VGC_FILTER_NONE)
+        return a;
     a.kind = (GetMoveEffect(m) == EFFECT_PROTECT && GetMoveProtectMethod(m) == PROTECT_NORMAL) ? PLAN_ACT_PROTECT : PLAN_ACT_MOVE;
     a.moveIndex = moveIdx;
     a.move = m;
@@ -2571,6 +2588,21 @@ static struct PlanAction RulesAction(enum BattlerId b, u32 moveIdx, enum Battler
 static bool32 IsOrigAction(const struct PlanAction *a, u32 origMove, enum BattlerId origTarget)
 {
     return a->kind != PLAN_ACT_SWITCH && a->kind != PLAN_ACT_NONE && a->moveIndex == origMove && a->target == origTarget;
+}
+
+// Spinta delle regole (AI_VgcActionPrior, M8) per un'azione nostra. exact: `partner` è l'azione vera del compagno nella
+// coppia (Protect o cambio = non attacca); altrimenti è solo un riferimento, e se non è una mossa la spinta la stima.
+static s32 ActionPrior(const struct PlanAction *a, const struct PlanAction *partner, bool32 exact)
+{
+    enum Move partnerMove = MOVE_NONE;
+
+    if ((a->kind != PLAN_ACT_MOVE && a->kind != PLAN_ACT_PROTECT) || AI_VgcRulesLegacy(a->user))
+        return 0;
+    if (partner != NULL && partner->kind == PLAN_ACT_MOVE)
+        partnerMove = partner->move;
+    else if (exact && partner != NULL && partner->kind != PLAN_ACT_NONE)
+        partnerMove = MOVE_UNAVAILABLE;
+    return AI_VgcActionPrior(a->user, a->move, a->target, partnerMove);
 }
 
 // Coppie impossibili o che si annullano da sole.
@@ -2703,6 +2735,17 @@ static u32 TrimCands(u32 side, struct PlanAction *out, u8 origMove, enum Battler
         }
         if (bestKo != 0xFF)
             taken[bestKo] = 2; // segnato: entra con i protetti qui sotto
+    }
+    // Un posto protetto per il miglior Fake Out (& co.) del primo turno in campo: rende nel turno dopo (chi lo subisce non
+    // agisce) e a 1 turno resta dietro agli attacchi; prima ce lo portava l'azione delle regole (M8: ora è un filtro).
+    if (!AI_VgcRulesLegacy(sJob.me))
+    {
+        u32 bestFo = 0xFF;
+        for (i = 0; i < n; i++)
+            if (c[i].kind == PLAN_ACT_MOVE && GetMoveEffect(c[i].move) == EFFECT_FIRST_TURN_ONLY && (bestFo == 0xFF || val[i] > val[bestFo]))
+                bestFo = i;
+        if (bestFo != 0xFF)
+            taken[bestFo] = 2;
     }
     for (i = 0; i < n && outN < PLAN_MAX_OURS; i++)
     {
@@ -3091,6 +3134,9 @@ static void FinishJob(void)
         if (sJob.ours[i].kind == PLAN_ACT_PROTECT && sJob.partners[i].kind == PLAN_ACT_PROTECT)
             sJob.ev[i] -= VW(switchCost) / 2;
     }
+    // Spinta delle regole (M8): solo per gli effetti che la simulazione non modella (Gravity, Quick Guard, Instruct...).
+    for (i = 0; i < sJob.nOurs; i++)
+        sJob.ev[i] += ActionPrior(&sJob.ours[i], &sJob.partners[i], TRUE) + ActionPrior(&sJob.partners[i], &sJob.ours[i], TRUE);
     // Libro dei piani (M9): ai turni 1 e 2, bonus alle azioni congiunte del piano scelto in team preview.
     for (i = 0; i < sJob.nOurs; i++)
         sJob.ev[i] += AI_VgcBookPairBonus(sJob.me, sJob.ours[i].kind <= PLAN_ACT_PROTECT ? sJob.ours[i].move : MOVE_NONE,
@@ -3162,6 +3208,28 @@ static void FinishJob(void)
         }
         sTestLog.n = sJob.nOurs;
     }
+    // Spinte delle candidate della decisione del turno 0 (al turno 0 decide un solo pianificatore per lato: il compagno
+    // riceve la sua metà). Restano fino alla lotta dopo: le legge il THEN dei test.
+    if (gBattleTurnCounter == 0)
+    {
+        sTestPrior.n = 0;
+        for (i = 0; i < 2; i++)
+        {
+            u32 c;
+            enum BattlerId pb = (i == 0) ? partner : sJob.me;
+            struct PlanAction other = (i == 0) ? RulesAction(pb, sJob.origPMove, sJob.origPTarget)
+                                               : RulesAction(pb, sJob.origMove, sJob.origTarget);
+            for (c = 0; c < sJob.nCand[i] && sTestPrior.n < ARRAY_COUNT(sTestPrior.move); c++)
+            {
+                sTestPrior.user[sTestPrior.n] = sJob.cand[i][c].user;
+                sTestPrior.move[sTestPrior.n] = sJob.cand[i][c].move;
+                sTestPrior.prior[sTestPrior.n] = ActionPrior(&sJob.cand[i][c], &other, FALSE);
+                Test_MgbaPrintf("VGCPRIOR b%d m%d t%d = %d", sTestPrior.user[sTestPrior.n], sTestPrior.move[sTestPrior.n],
+                                sJob.cand[i][c].target, sTestPrior.prior[sTestPrior.n]);
+                sTestPrior.n++;
+            }
+        }
+    }
 #endif
     sJob.resultKind = sJob.ours[bestIdx].kind;
     sJob.resultMove = sJob.ours[bestIdx].moveIndex;
@@ -3194,6 +3262,19 @@ s32 AI_VgcPlanTestValue(enum BattlerId battler, enum Move move)
     for (i = 0; i < sTestLog.n; i++)
         if ((sTestLog.user[i] == battler && sTestLog.move[i] == move) || (sTestLog.puser[i] == battler && sTestLog.pmove[i] == move))
             best = max(best, sTestLog.ev[i]);
+    return best;
+}
+#endif
+
+#if TESTING
+// Spinta più alta data a una candidata di `battler` con `move` nella prima decisione del turno 0 (INT32_MIN = mai candidata).
+s32 AI_VgcPlanTestPrior(enum BattlerId battler, enum Move move)
+{
+    s32 best = INT32_MIN;
+    u32 i;
+    for (i = 0; i < sTestPrior.n; i++)
+        if (sTestPrior.user[i] == battler && sTestPrior.move[i] == move)
+            best = max(best, sTestPrior.prior[i]);
     return best;
 }
 #endif
@@ -3595,7 +3676,7 @@ bool32 AI_VgcPlanStep(void)
                     sEvalDebug = TRUE;
                 }
 #endif
-                sJob.candVal[side][idx] = Evaluate(&st) - pen;
+                sJob.candVal[side][idx] = Evaluate(&st) - pen + ActionPrior(&sJob.cand[side][idx], &other, FALSE);
                 if (sJob.cand[side][idx].kind == PLAN_ACT_SWITCH)
                     sJob.candVal[side][idx] -= IsBattlersFirstTurn(sJob.cand[side][idx].user) ? VW(switchCost) : VW(switchCost) / 2;
 #if TESTING

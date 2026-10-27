@@ -587,6 +587,7 @@ static void VgcSelfPlay_Run(void *data)
     // Allenamento (M9): libro dei piani per lato, esplorazione, log silenzioso.
     memset(&gVgcTraining, 0, sizeof(gVgcTraining));
     gVgcTraining.bookOff = sVsp.args.bookOff;
+    gVgcTraining.rulesLegacy = sVsp.args.rulesLegacy;
     gVgcTraining.exploreEps[B_SIDE_PLAYER] = sVsp.args.explorePct[0];
     gVgcTraining.exploreEps[B_SIDE_OPPONENT] = sVsp.args.explorePct[1];
     gTestMgbaQuiet = sVsp.args.quiet != 0;
@@ -653,8 +654,8 @@ static void VgcSelfPlay_Run(void *data)
     // Taratura (M9): pesi del lato weightSide dai parametri (reserved[0..6], % / 2; 0 = default), l'altro ai default.
     AI_VgcResetEvalWeights();
     AI_VgcSetEvalWeightPct(sVsp.args.weightSide ? B_SIDE_OPPONENT : B_SIDE_PLAYER, sVsp.args.reserved);
-    Test_MgbaPrintf("VSP PESI lato=%s libro_spento=%d esplora=%d,%d", sVsp.args.weightSide ? "A" : "G", sVsp.args.bookOff,
-                    sVsp.args.explorePct[0], sVsp.args.explorePct[1]);
+    Test_MgbaPrintf("VSP PESI lato=%s libro_spento=%d esplora=%d,%d regole_vecchie=%d", sVsp.args.weightSide ? "A" : "G", sVsp.args.bookOff,
+                    sVsp.args.explorePct[0], sVsp.args.explorePct[1], sVsp.args.rulesLegacy);
 
     sVsp.battleStarted = TRUE;
     gMain.savedCallback = CB2_TestRunner;

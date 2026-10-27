@@ -1509,6 +1509,10 @@ static void CheckIfMaxScoreEqualExpectMove(enum BattlerId battlerId, s32 target,
     s32 *scores = gAiBattleData->finalScore[battlerId][target];
     s32 bestScore = 0, bestScoreId = 0;
     u16 *moves = gBattleMons[battlerId].moves;
+    // IA VGC (AI_FLAG_VGC_DOUBLES): nei doppi la mossa la sceglie il pianificatore, non il punteggio del motore (che è
+    // solo il filtro delle regole, M8): un pari punteggio non vuol dire una scelta a caso.
+    if (IsDoubleBattle() && (gAiThinkingStruct->aiFlags[battlerId] & AI_FLAG_VGC_DOUBLES))
+        return;
     for (i = 0; i < MAX_MON_MOVES; i++)
     {
         if (scores[i] > bestScore)
