@@ -58,8 +58,17 @@ static u32 ReturnAnimIdForBattler(bool32 isPlayerSide, u32 specificBattler);
 static void LaunchKOAnimation(enum BattlerId battlerId, u16 animId, bool32 isFront);
 static void AnimateMonAfterKnockout(enum BattlerId battler);
 
+#if TESTING
+// Harness di self-play VGC (test/vgc_selfplay): IA contro IA senza bisogno della flag di config.
+EWRAM_DATA bool8 gTestAiVsAiBattle = FALSE;
+#endif
+
 bool32 IsAiVsAiBattle(void)
 {
+#if TESTING
+    if (gTestAiVsAiBattle)
+        return TRUE;
+#endif
     return (B_FLAG_AI_VS_AI_BATTLE && FlagGet(B_FLAG_AI_VS_AI_BATTLE));
 }
 

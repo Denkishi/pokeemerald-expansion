@@ -1,6 +1,7 @@
 #include "global.h"
 #include "battle.h"
 #include "battle_anim.h"
+#include "battle_ai_perspective.h"
 #include "battle_anim_scripts.h"
 #include "battle_arena.h"
 #include "battle_environment.h"
@@ -488,6 +489,7 @@ void HandleAction_UseMove(void)
     }
 
     gCurrMovePos = gChosenMovePos = gBattleStruct->chosenMovePositions[gBattlerAttacker];
+    AI_SetPerspectiveSide(GetBattlerSide(gBattlerAttacker) ^ BIT_SIDE); // IA contro IA: osserva il lato avversario
     AI_VgcNotePlayerMove(gBattlerAttacker, gBattleMons[gBattlerAttacker].moves[gCurrMovePos]); // IA VGC: memoria comportamento
     Scout_BeliefNoteMove(gBattlerAttacker, gBattleMons[gBattlerAttacker].moves[gCurrMovePos]); // IA VGC: belief (ordine di turno)
 
@@ -602,6 +604,7 @@ void HandleAction_UseMove(void)
 void HandleAction_Switch(void)
 {
     gBattlerAttacker = gBattlerByTurnOrder[gCurrentTurnActionNumber];
+    AI_SetPerspectiveSide(GetBattlerSide(gBattlerAttacker) ^ BIT_SIDE); // IA contro IA: osserva il lato avversario
     AI_VgcNotePlayerSwitch(gBattlerAttacker); // IA VGC: memoria comportamento
 
     enum BattlerId partnerAtk = GetPartnerBattler(gBattlerAttacker);

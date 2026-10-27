@@ -36,6 +36,11 @@
 #include "constants/battle_move_effects.h"
 #include "constants/hold_effects.h"
 #include "constants/moves.h"
+#include "battle_ai_perspective.h"
+
+// IA contro IA (B_FLAG_AI_VS_AI_BATTLE): il "giocatore" di questo file è il lato avversario di chi sta
+// pianificando (battle_ai_perspective.h). Fuori da IA contro IA è identico a IsOnPlayerSide.
+#define IsOnPlayerSide(battler) AI_IsFoeOfPerspective(battler)
 
 #ifndef CUSTOM_VGC_PLAN_DEPTH
 #define CUSTOM_VGC_PLAN_DEPTH 3
@@ -249,7 +254,9 @@ struct PlanPartnerDecision
     enum BattlerId target;
 };
 
-static EWRAM_DATA struct PlanPartnerDecision sPartnerDecision = {0};
+// Per lato: in IA contro IA i due lati pianificano a turno nello stesso turno e non devono cancellarsi
+// a vicenda la metà già decisa per il partner.
+static EWRAM_DATA struct PlanPartnerDecision sPartnerDecisionBySide[NUM_BATTLE_SIDES] = {0};
 
 #if TESTING
 // Registro della prima decisione del turno 0 (per i test: confronto dei valori delle azioni).
@@ -1950,7 +1957,7 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
                 s32 bestIdx = -1;
                 for (i = 0; i < PARTY_SIZE; i++)
                 {
-                    const struct AiPartyMon *known2 = &gAiPartyData->mons[B_TRAINER_PLAYER][i];
+                    const struct AiPartyMon *known2 = &gAiPartyData->mons[GetBattlerSide(b)][i]; // (lato di b: IA contro IA)
                     if (known2->species == SPECIES_NONE || known2->isFainted || GetMonData(&party[i], MON_DATA_HP) == 0)
                         continue;
                     if ((s32)i == bm->partyIdx || gBattlerPartyIndexes[b] == i
@@ -2611,6 +2618,7 @@ static void FinishJob(void)
     sJob.resultParty = sJob.ours[bestIdx].partyIdx;
 
     // La metà del partner della coppia vincente vale per lui quando tocca a lui scegliere.
+#define sPartnerDecision sPartnerDecisionBySide[GetBattlerSide(sJob.me)]
     sPartnerDecision.valid = FALSE;
     if (partner != sJob.me && sJob.partners[bestIdx].kind != PLAN_ACT_NONE)
     {
@@ -2622,6 +2630,7 @@ static void FinishJob(void)
         sPartnerDecision.target = sJob.partners[bestIdx].target;
         sPartnerDecision.party = sJob.partners[bestIdx].partyIdx;
     }
+#undef sPartnerDecision
     sJob.finished = TRUE;
 }
 
@@ -2719,7 +2728,8 @@ void AI_VgcPlanResetTurn(void)
 #endif
     sJob.active = FALSE;
     sJob.finished = FALSE;
-    sPartnerDecision.valid = FALSE;
+    sPartnerDecisionBySide[B_SIDE_PLAYER].valid = FALSE;
+    sPartnerDecisionBySide[B_SIDE_OPPONENT].valid = FALSE;
 }
 
 // TRUE se il pianificatore lavora (o ha un risultato non ancora applicato) per un altro battler in questo turno.
@@ -2785,6 +2795,7 @@ bool32 AI_VgcPlanBegin(enum BattlerId me)
     sJob.origTarget = gAiBattleData->chosenTarget[me];
 
     // Il partner ha già pianificato la coppia in questo turno: si applica la nostra metà.
+#define sPartnerDecision sPartnerDecisionBySide[GetBattlerSide(me)]
     if (sPartnerDecision.valid && sPartnerDecision.battler == me && sPartnerDecision.turn == gBattleTurnCounter)
     {
         sPartnerDecision.valid = FALSE;
@@ -2796,6 +2807,7 @@ bool32 AI_VgcPlanBegin(enum BattlerId me)
         sJob.finished = TRUE;
         return TRUE;
     }
+#undef sPartnerDecision
 
     {
         enum BattlerId p = GetPartnerBattler(me);

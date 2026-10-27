@@ -5,6 +5,7 @@
 #include "battle_anim.h"
 #include "battle_ai_field_statuses.h"
 #include "battle_ai_util.h"
+#include "battle_ai_perspective.h"
 #include "battle_ai_main.h"
 #include "battle_stat_change.h"
 #include "battle_controllers.h"
@@ -202,7 +203,8 @@ bool32 IsAiBattlerAware(enum BattlerId battlerId)
     if (IsAiFlagPresent(AI_FLAG_OMNISCIENT))
         return TRUE;
 
-    return BattlerHasAi(battlerId);
+    // IA contro IA: chi pensa conosce solo il proprio lato (battle_ai_perspective.h).
+    return AI_PerspectiveKnowsBattler(battlerId);
 }
 
 bool32 IsAiBattlerAssumingStab(enum BattlerId battlerId)
@@ -254,7 +256,7 @@ enum Move GetPredictedMove(enum BattlerId battler, enum BattlerId opposingBattle
 
 void SaveBattlerData(enum BattlerId battlerId)
 {
-    if (!BattlerHasAi(battlerId) && !gAiThinkingStruct->saved[battlerId].saved)
+    if (!AI_PerspectiveKnowsBattler(battlerId) && !gAiThinkingStruct->saved[battlerId].saved)
     {
         gAiThinkingStruct->saved[battlerId].saved = TRUE;
         gAiThinkingStruct->saved[battlerId].ability = gBattleMons[battlerId].ability;
@@ -366,7 +368,7 @@ static bool32 ShouldFailForIllusion(enum Species illusionSpecies, enum BattlerId
 
 void SetBattlerData(enum BattlerId battlerId)
 {
-    if (!BattlerHasAi(battlerId) && gAiThinkingStruct->saved[battlerId].saved)
+    if (!AI_PerspectiveKnowsBattler(battlerId) && gAiThinkingStruct->saved[battlerId].saved)
     {
         enum Species species, illusionSpecies;
         enum BattleSide side = GetBattlerSide(battlerId);
@@ -410,7 +412,8 @@ void SetBattlerData(enum BattlerId battlerId)
 
 void RestoreBattlerData(enum BattlerId battlerId)
 {
-    if (!BattlerHasAi(battlerId) && gAiThinkingStruct->saved[battlerId].saved)
+    // Si ripristina sempre ciò che è stato salvato (in IA contro IA la prospettiva può essere cambiata nel frattempo).
+    if (gAiThinkingStruct->saved[battlerId].saved)
     {
         gAiThinkingStruct->saved[battlerId].saved = FALSE;
         gBattleMons[battlerId].ability = gAiThinkingStruct->saved[battlerId].ability;
@@ -1790,12 +1793,15 @@ enum Ability AI_DecideKnownAbilityForTurn(enum BattlerId battlerId)
         indexAbility = GetSpeciesAbility(gBattleMons[battlerId].species, abilityIndex);
         if (indexAbility != ABILITY_NONE)
         {
-            abilityAiRatings[numValidAbilities] = gAbilitiesInfo[indexAbility].aiRating;
+            // aiRating può essere negativo: come peso u16 diventerebbe enorme (assert in RandomWeightedArray,
+            // visto con il self-play VGC dove anche il lato del giocatore indovina le abilità).
+            abilityAiRatings[numValidAbilities] = max(0, gAbilitiesInfo[indexAbility].aiRating);
             validAbilities[numValidAbilities++] = indexAbility;
         }
     }
 
-    if (numValidAbilities > 0 && IsAiBattlerPredictingAbility(battlerId))
+    if (numValidAbilities > 0 && IsAiBattlerPredictingAbility(battlerId)
+     && abilityAiRatings[0] + abilityAiRatings[1] + abilityAiRatings[2] > 0)
         return validAbilities[RandomWeighted(RNG_AI_PREDICT_ABILITY, abilityAiRatings[0], abilityAiRatings[1], abilityAiRatings[2])];
 
     if (numValidAbilities > 0)

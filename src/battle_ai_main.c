@@ -5,6 +5,7 @@
 #include "battle.h"
 #include "battle_anim.h"
 #include "battle_ai_util.h"
+#include "battle_ai_perspective.h"
 #include "battle_ai_items.h"
 #include "battle_ai_switch.h"
 #include "battle_ai_main.h"
@@ -409,6 +410,7 @@ void SetupAIPredictionData(enum BattlerId battler, enum SwitchType switchType)
 
 void ComputeAiBattlerDecisions(enum BattlerId battler)
 {
+    AI_SetPerspective(battler); // IA contro IA: pensa il lato di `battler`
     gAiLogicData->aiCalcInProgress = TRUE;
 
         AIDebugTimerStart();
@@ -515,6 +517,7 @@ void AI_TrySwitchOrUseItem(enum BattlerId battler)
     s32 lastId = GetAILastPartyIndex(battler); // + 1
     party = GetBattlerParty(battler);
 
+    AI_SetPerspective(battler); // IA contro IA: pensa il lato di `battler`
     if (gBattleTypeFlags & BATTLE_TYPE_TRAINER)
     {
         if (gAiLogicData->shouldSwitch & (1u << battler) && IsSwitchinValid(battler))
@@ -641,8 +644,8 @@ void Ai_InitPartyStruct(void)
     if (IsDoubleBattle())
         CopyBattlerDataToAIParty(B_POSITION_PLAYER_RIGHT, GetTrainerFromBattlePosition(B_POSITION_PLAYER_RIGHT));
 
-    // If player's partner is AI, save opponent mons
-    if (gBattleTypeFlags & BATTLE_TYPE_INGAME_PARTNER)
+    // If player's partner is AI, save opponent mons (anche in IA contro IA: il lato del giocatore vede i lead avversari)
+    if ((gBattleTypeFlags & BATTLE_TYPE_INGAME_PARTNER) || IsAiVsAiBattle())
     {
         CopyBattlerDataToAIParty(B_POSITION_OPPONENT_LEFT, GetTrainerFromBattlePosition(B_POSITION_OPPONENT_LEFT));
         CopyBattlerDataToAIParty(B_POSITION_OPPONENT_RIGHT, GetTrainerFromBattlePosition(B_POSITION_OPPONENT_RIGHT));
@@ -756,7 +759,7 @@ void SetBattlerAiData(enum BattlerId battler, struct AiLogicData *aiData)
     holdEffect = aiData->holdEffects[battler] = AI_DecideHoldEffectForTurn(battler);
     // IA VGC: strumento del giocatore non ancora visto -> si assume il più probabile per la specie
     // (Focus Sash, Stolascelta, Corpetto Assalto, Evolcondensa...), come farebbe un giocatore.
-    if (holdEffect == HOLD_EFFECT_NONE && IsOnPlayerSide(battler) && !IsAiBattlerAware(battler)
+    if (holdEffect == HOLD_EFFECT_NONE && AI_IsFoeOfPerspective(battler) && !IsAiBattlerAware(battler)
      && IsAiFlagPresent(AI_FLAG_VGC_DOUBLES) && !Scout_ItemKnownGone(battler))
         holdEffect = aiData->holdEffects[battler] = Scout_AssumedHoldEffect(battler);
     aiData->lastUsedMove[battler] = (gLastMoves[battler] == MOVE_UNAVAILABLE) ? MOVE_NONE : gLastMoves[battler];
@@ -871,7 +874,19 @@ static void SetBattlerAiMovesData(struct AiLogicData *aiData, enum BattlerId bat
     RestoreBattlerData(battlerAtk);
 }
 
+static void SetAiLogicDataForTurnInternal(struct AiLogicData *aiData);
+
+// IA contro IA: i dati di inizio turno si calcolano una volta per lato, ognuno dal proprio punto di vista
+// (battle_ai_perspective.h). Altrimenti come sempre.
 void SetAiLogicDataForTurn(struct AiLogicData *aiData)
+{
+    if (AI_PerspectiveActive())
+        AI_SetLogicDataForTurnPerSide(SetAiLogicDataForTurnInternal);
+    else
+        SetAiLogicDataForTurnInternal(aiData);
+}
+
+static void SetAiLogicDataForTurnInternal(struct AiLogicData *aiData)
 {
     memset(aiData, 0, sizeof(struct AiLogicData));
     gAiBattleData->aiUsingGimmick = 0;
@@ -910,7 +925,8 @@ void SetAiLogicDataForTurn(struct AiLogicData *aiData)
     for (enum BattlerId battler = 0; battler < battlersCount; battler++)
     {
         // Prediction limited to player side but can be expanded to read partners move in the future
-        if (!IsOnPlayerSide(battler))
+        // (IA contro IA: il lato avversario di chi sta calcolando)
+        if (!AI_IsFoeOfPerspective(battler))
             continue;
 
         BattleAI_SetupAIData(0xF, battler);

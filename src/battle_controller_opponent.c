@@ -3,6 +3,7 @@
 #include "battle_ai_switch.h"
 #include "battle_ai_util.h"
 #include "battle_ai_vgc.h"
+#include "battle_ai_perspective.h"
 #include "trainer_pokemon_sprites.h"
 #include "config/custom.h"
 #include "constants/battle.h"
@@ -490,6 +491,8 @@ static void OpponentThinkThenChooseAction(enum BattlerId battler)
 {
     bool32 done;
 
+    AI_SetPerspective(battler); // IA contro IA: pensa il lato di `battler`
+
     // Un solo pianificatore alla volta: se sta lavorando per il partner (che decide la coppia), si aspetta.
     if (AI_VgcPlanIsBusy(battler))
         return;
@@ -530,6 +533,7 @@ static void OpponentThinkThenChooseAction(enum BattlerId battler)
 
 static void OpponentHandleChooseAction(enum BattlerId battler)
 {
+    AI_SetPerspective(battler); // IA contro IA: pensa il lato di `battler`
     if (IsDoubleBattle() && (gBattleTypeFlags & BATTLE_TYPE_TRAINER)
      && (gAiThinkingStruct->aiFlags[battler] & AI_FLAG_VGC_DOUBLES))
     {
@@ -636,6 +640,8 @@ static void OpponentHandleChoosePokemon(enum BattlerId battler)
     s32 chosenMonId;
     enum SwitchType switchType = SWITCH_AFTER_KO;
 
+    AI_SetPerspective(battler); // IA contro IA: pensa il lato di `battler`
+
     // Choosing Revival Blessing target
     if (gBattleResources->bufferA[battler][1] == PARTY_ACTION_CHOOSE_FAINTED_MON)
     {
@@ -651,9 +657,10 @@ static void OpponentHandleChoosePokemon(enum BattlerId battler)
             switchType = SWITCH_MID_BATTLE_FORCED;
 
         // reset the AI data to consider the correct on-field state at time of switch
-        SetBattlerAiData(GetBattlerAtPosition(B_POSITION_PLAYER_LEFT), gAiLogicData);
+        // (posizioni relative al lato di chi sceglie: in IA contro IA questa funzione serve anche al lato del giocatore)
+        SetBattlerAiData(GetBattlerAtPosition((enum BattlerPosition)(GetBattlerSide(battler) ^ BIT_SIDE)), gAiLogicData);
         if (IsDoubleBattle())
-            SetBattlerAiData(GetBattlerAtPosition(B_POSITION_PLAYER_RIGHT), gAiLogicData);
+            SetBattlerAiData(GetBattlerAtPosition((enum BattlerPosition)((GetBattlerSide(battler) ^ BIT_SIDE) | BIT_FLANK)), gAiLogicData);
 
         chosenMonId = GetMostSuitableMonToSwitchInto(battler, switchType);
         // IA VGC: con Baton Pass entra il ricevente designato (quello per cui i boost sono stati accumulati),
@@ -678,12 +685,12 @@ static void OpponentHandleChoosePokemon(enum BattlerId battler)
 
             if (!IsDoubleBattle())
             {
-                battler2 = battler1 = GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT);
+                battler2 = battler1 = GetBattlerAtPosition((enum BattlerPosition)GetBattlerSide(battler));
             }
             else
             {
-                battler1 = GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT);
-                battler2 = GetBattlerAtPosition(B_POSITION_OPPONENT_RIGHT);
+                battler1 = GetBattlerAtPosition((enum BattlerPosition)GetBattlerSide(battler));
+                battler2 = GetBattlerAtPosition((enum BattlerPosition)(GetBattlerSide(battler) | BIT_FLANK));
             }
 
             for (chosenMonId = 0; chosenMonId < lastId; chosenMonId++)
@@ -728,4 +735,17 @@ static void OpponentHandleEndLinkBattle(enum BattlerId battler)
         SetMainCallback2(gMain.savedCallback);
     }
     BtlController_Complete(battler);
+}
+
+// IA contro IA (B_FLAG_AI_VS_AI_BATTLE): il lato del giocatore, comandato dal controller "partner", sceglie
+// azioni e cambi con la stessa logica dell'IA avversaria (pianificatore VGC compreso). Vedi
+// battle_controller_player_partner.c e include/battle_ai_perspective.h.
+void OpponentAi_HandleChooseAction(enum BattlerId battler)
+{
+    OpponentHandleChooseAction(battler);
+}
+
+void OpponentAi_HandleChoosePokemon(enum BattlerId battler)
+{
+    OpponentHandleChoosePokemon(battler);
 }

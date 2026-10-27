@@ -4,6 +4,7 @@
 #include "battle_ai_main.h"
 #include "battle_ai_switch.h"
 #include "battle_ai_util.h"
+#include "battle_ai_perspective.h"
 #include "battle_ai_vgc.h"
 #include "battle_util.h"
 #include "battle_anim.h"
@@ -1467,7 +1468,7 @@ static enum VgcSwitchResult VgcShouldSwitch(struct SwitchAiContext *switchContex
     // Piano di squadra: la modalità è attiva (Distorsione / Ventoincoda / meteo) ma in campo non c'è chi
     // deve vincere la lotta e questo Pokémon non fa male: si manda dentro la win condition.
     if (AI_VgcPlanModeActive(battler) && !canHurt
-     && !AI_VgcPlanIsWinCon(TRAINER_BATTLE_PARAM.opponentA, gBattleMons[battler].species)
+     && !AI_VgcPlanIsWinCon(AI_TrainerIdOfBattler(battler), gBattleMons[battler].species)
      && !((threatL && slowerL) && (threatR && slowerR)) && Random() % 100 < 50)
     {
         struct Pokemon *party = switchContext->party;
@@ -1479,7 +1480,7 @@ static enum VgcSwitchResult VgcShouldSwitch(struct SwitchAiContext *switchContex
                 continue;
             if (gBattlerPartyIndexes[battler] == i || (IsBattlerAlive(partner) && gBattlerPartyIndexes[partner] == i))
                 continue;
-            if (AI_VgcPlanIsWinCon(TRAINER_BATTLE_PARAM.opponentA, GetMonData(&party[i], MON_DATA_SPECIES))
+            if (AI_VgcPlanIsWinCon(AI_TrainerIdOfBattler(battler), GetMonData(&party[i], MON_DATA_SPECIES))
              && VgcIsSwitchinSafeFromField(battler, i, party))
                 return SetSwitchinAndSwitch(battler, i) ? VGC_SWITCH_GO : VGC_SWITCH_STAY;
         }
@@ -2851,7 +2852,7 @@ u32 GetMostSuitableMonToSwitchInto(enum BattlerId battler, enum SwitchType switc
     party = GetBattlerParty(battler);
 
     // Savarotto: Espathra quando usa Staffetta (Baton Pass) passa prioritariamente i boost a Chandelure
-    if (TRAINER_BATTLE_PARAM.opponentA == TRAINER_SAVAROTTO
+    if (AI_TrainerIdOfBattler(battler) == TRAINER_SAVAROTTO // (IA contro IA: l'allenatore del lato di `battler`)
      && GET_BASE_SPECIES_ID(gBattleMons[battler].species) == SPECIES_ESPATHRA)
     {
         for (u32 m = 0; m < (u32)lastId; m++)

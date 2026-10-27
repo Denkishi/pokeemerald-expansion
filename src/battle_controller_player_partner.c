@@ -268,6 +268,12 @@ static void PlayerPartnerHandleTrainerSlideBack(enum BattlerId battler)
 
 static void PlayerPartnerHandleChooseAction(enum BattlerId battler)
 {
+    // IA contro IA: stessa logica dell'IA avversaria (pianificatore VGC, prospettiva del proprio lato).
+    if (IsAiVsAiBattle() && !(gBattleTypeFlags & BATTLE_TYPE_INGAME_PARTNER))
+    {
+        OpponentAi_HandleChooseAction(battler);
+        return;
+    }
     AI_TrySwitchOrUseItem(battler);
     BtlController_Complete(battler);
 }
@@ -281,6 +287,14 @@ static void PlayerPartnerHandleChooseMove(enum BattlerId battler)
 static void PlayerPartnerHandleChoosePokemon(enum BattlerId battler)
 {
     s32 chosenMonId;
+
+    // IA contro IA: la squadra è quella del giocatore (non gParties[B_TRAINER_PARTNER]) e il cambio scelto
+    // dall'IA va rispettato: stessa logica dell'IA avversaria.
+    if (IsAiVsAiBattle() && !(gBattleTypeFlags & BATTLE_TYPE_INGAME_PARTNER))
+    {
+        OpponentAi_HandleChoosePokemon(battler);
+        return;
+    }
     // Choosing Revival Blessing target
     if (gBattleResources->bufferA[battler][1] == PARTY_ACTION_CHOOSE_FAINTED_MON)
     {

@@ -2,6 +2,7 @@
 #include "team_preview.h"
 #include "battle.h"
 #include "battle_anim.h"
+#include "battle_ai_perspective.h"
 #include "battle_controllers.h"
 #include "malloc.h"
 #include "pokemon.h"
@@ -44,6 +45,7 @@ void AllocateBattleResources(void)
     gAiBattleData = AllocZeroed(sizeof(*gAiBattleData));
     gAiThinkingStruct = AllocZeroed(sizeof(*gAiThinkingStruct));
     gAiLogicData = AllocZeroed(sizeof(*gAiLogicData));
+    AI_PerspectiveAlloc(); // IA contro IA: dati dell'IA anche per il lato del giocatore
     gAiPartyData = AllocZeroed(sizeof(*gAiPartyData));
     gBattleHistory = AllocZeroed(sizeof(*gBattleHistory));
 
@@ -83,6 +85,7 @@ void FreeBattleResources(void)
         FREE_AND_SET_NULL(gBattleStruct);
         FREE_AND_SET_NULL(gAiBattleData);
         FREE_AND_SET_NULL(gAiThinkingStruct);
+        AI_PerspectiveFree(); // rimette gAiLogicData sul buffer da liberare
         FREE_AND_SET_NULL(gAiLogicData);
         FREE_AND_SET_NULL(gAiPartyData);
         FREE_AND_SET_NULL(gBattleHistory);
