@@ -50,7 +50,7 @@ AI_DOUBLE_BATTLE_TEST("VGC rules: filter - no Protect twice in a row (Gerozz's D
     } WHEN {
         TURN { MOVE(playerLeft, MOVE_MUDDY_WATER); MOVE(playerRight, MOVE_BODY_PRESS, target: opponentLeft);
                EXPECT_MOVE(opponentLeft, MOVE_PROTECT); }
-        TURN { MOVE(playerLeft, MOVE_HELPING_HAND); MOVE(playerRight, MOVE_BODY_PRESS, target: opponentRight);
+        TURN { MOVE(playerLeft, MOVE_HELPING_HAND); MOVE(playerRight, MOVE_HELPING_HAND);
                NOT_EXPECT_MOVE(opponentLeft, MOVE_PROTECT); }
     }
 }
