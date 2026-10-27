@@ -1036,7 +1036,7 @@ static s32 ContextAnswerScore(struct Pokemon *enemy, const u32 *slots, u32 n, u3
         u32 ans = spread + taunt + 2 * haze;
         s += (s32)ctx->redirectP * (s32)min(ans, 3u) * 40 / 100;
     }
-    return s * (s32)gScoutContextAnswerPct / 100;
+    return s * (s32)(gScoutContextAnswerPct ? gScoutContextAnswerPct : 100) / 100;
 }
 
 // Coerenza del gruppo di 4: dipendenze e conflitti ricavati dalle proprietà.
@@ -1859,7 +1859,7 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                 if (mask & (1u << i))
                     best = max(best, (s32)sMatch[i][mainThreat[t]]);
             if (best <= 0)
-                score -= (120 - best) * (s32)gScoutContextAnswerPct / 100;
+                score -= (120 - best) * (s32)(gScoutContextAnswerPct ? gScoutContextAnswerPct : 100) / 100;
         }
 
         // Dipendenze e conflitti del gruppo ricavati dalle proprietà (grafo della squadra): Baton Passer col suo
