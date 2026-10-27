@@ -202,7 +202,16 @@ delle 13:00; dettaglio in [report/taratura.md](report/taratura.md)):
   un obbligo). In Bo3 le lead che hanno perso una gara della serie non si ripropongono dal libro; il piano si
   risceglie a ogni gara. Nei test normali (non IA contro IA) il libro è spento: risultati deterministici.
 
-BOOK_PLACEHOLDER
+**Risultato del 27/10** (IA senza tetto al costo; dettagli in [report/verifica_libro.md](report/verifica_libro.md)):
+
+- Esplorazione: 144 scontri × 30 semi (4.320 partite, `eps` 30%, libro spento, ~25 minuti). Libro generato:
+  **196 piani per 48 chiavi (squadra, classe)**, tutti i 12 allenatori; 150 piani con l'azione congiunta del turno 1,
+  113 anche con quella del turno 2 (es. Indeedee + Armarouge: Follow Me + Armor Cannon, poi Follow Me + Expanding
+  Force; Copperajah + Indeedee: Heavy Slam + Trick Room). ~4 KB di ROM.
+- **Verifica su 8 semi mai visti** (ROM dopo il merge delle 16:20 di `ia-vgc`), libro acceso per un lato e spento per
+  l'altro, a specchio: 1.151 coppie (2.303 partite valide, 1 non valida per un assert del motore,
+  `battle_move_resolution.c:5845 savedAttackerCount`, Parting Shot di Incineroar). **Il lato con il libro vince il
+  52,7%**, IC 95% [51,1%; 54,3%], z = 3,25, p = 0,001; misplay certi 0,50 a partita. Miglioramento significativo.
 
 ## Limiti noti
 

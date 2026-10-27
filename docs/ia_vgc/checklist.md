@@ -177,9 +177,15 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
   - ✅ 144 scontri, report, eseguire il test di invarianza e i test VGC esistenti, ricompilare il ROM normale
 
 ## M9 — Allenamento automatico (dopo M4)
-- ✅ ROM di allenamento (senza animazioni), IA su entrambi i lati — è il ROM di test headless (`selfplay.gba`): niente grafica né attese, IA su entrambi i lati
-- ✅ Benchmark: partite/ora con 1 e con ~28 istanze mGBA — 1 istanza: ~1.400 partite/ora (2,5 s a partita); 28 istanze: 432 partite in ~90 s, ~17.000 partite/ora
-- ➡️ Taratura pesi, esplorazione, libro dei piani in ROM, strategia mista — tabella pesi per lato (`AI_VgcSetEvalWeightPct`), SPSA in `selfplay.py tune` / `taratura.bat`, libro dei piani `src/data/vgc_plan_book.h` (generato da `gen_plan_book.py`) nel team preview con rumore ±10 — **passato all'agente M9 (branch `ia-vgc-m9`)**
+Branch `ia-vgc-m9` (27/10). Guida e numeri: [training.md](training.md#allenamento-automatico-m9).
+- ✅ ROM di allenamento: ROM dei test headless (niente animazioni, attese di testo, intro/transizioni, suoni) + **modalità silenziosa** (`Test_MgbaPrintf` scarta senza formattarla la diagnostica `VGC...` e la cronaca della lotta); l'orchestratore riscrive solo i 76 byte dei parametri in un ROM per istanza invece di 32 MB a partita
+- ✅ Benchmark (IA del mattino): **1 istanza 1.572 partite/ora** (prima 1.380); **28 istanze 19.228 partite/ora** (prima 12.234; 24 istanze 17.947, 32 istanze 18.767). IA senza tetto al costo: ~14.000 partite/ora a 28 istanze
+- ✅ Taratura dei pesi `CUSTOM_VGC_EVAL_*` (7 pesi): SPSA a specchio (pesi in prova su G e su A, 2 semi fissi, 1.152 partite a passo, penalità 0,01 per misplay), 20 passi = 23.040 partite sul ROM senza tetto; validazione su 8 semi mai visti (2.304 partite): **50,3%, IC 95% [48,8; 51,8], p = 0,70 → non significativo, `custom.h` invariato** (i pesi sono su un altopiano). Stato su disco, pausa/ripresa/stop provati sui .bat
+- ✅ Esplorazione: team preview con rumore (±500 su gruppi e lead) e coppie vicine alla migliore ai turni 1/2, `eps` 30%; 4.320 partite
+- ✅ Libro dei piani in ROM (`src/data/vgc_plan_book.h`, const, ~4 KB; RAM 4 byte + esclusioni Bo3): chiave = hash della nostra squadra + classe di velocità dell'avversario visibile in team preview (niente nomi di allenatori, niente dati nascosti); 196 piani per 48 chiavi con lead, retro e azioni congiunte dei turni 1/2
+- ✅ Strategia mista: piano scelto a caso tra quelli entro 12 punti dal migliore, peso (tasso − migliore + 13)²; bonus a gruppo/lead in team preview e alle mosse del piano ai turni 1/2; Bo3: le lead perse nella serie escluse, piano riscelto a ogni gara
+- ✅ Verifica del libro su 8 semi mai visti, a specchio (2.303 partite): **52,7% per il lato con il libro, IC 95% [51,1; 54,3], p = 0,001**
+- ⬜ Da fare: validazione dei pesi con più semi (`--val-seeds 32`) o pesi nuovi (es. stati, Fake Out, Sash); libro rigenerato dopo ogni cambio importante dell'IA (`esplora.bat` → `libro.bat` → `compila.bat` → `verifica_libro.bat`); classi dell'avversario più fini quando ci saranno più squadre
 
 ## Self-play (27/10 mattina)
 - ✅ Merge di `ia-vgc-selfplay` in `ia-vgc`; prima partita IA contro IA completa (blocco dopo il rimpiazzo del lato G, probabilità di brutto colpo 1/0, parametri della lotta allenatore, fine lotta e chiusura del test corretti; vedi [training.md](training.md))

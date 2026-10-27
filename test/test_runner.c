@@ -826,6 +826,8 @@ bool8 gTestMgbaQuiet = FALSE;
 
 static bool32 QuietSkip(const char *fmt)
 {
+    while (*fmt == ' ')
+        fmt++;
     if (fmt[0] != 'V')
         return FALSE;
     if (fmt[1] == 'G' && fmt[2] == 'C')
