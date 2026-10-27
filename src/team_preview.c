@@ -324,15 +324,22 @@ static bool32 IsPlayerMon(struct Pokemon *mon)
     return mon >= gPlayerParty && mon < gPlayerParty + PARTY_SIZE;
 }
 
+// Contesto della squadra del giocatore (le sue 6 specie, vedi Scout_SetTeamContextFromParty): calcolato all'inizio della
+// scelta dell'IA, ritrovato per contenuto (anche dopo che la squadra è stata ridotta ai 4 portati).
+static const struct ScoutTeamContext *PlayerContext(void)
+{
+    return Scout_PartyContext(gPlayerParty);
+}
+
 // Statistica di un Pokémon: vera per i nostri, stimata da specie e livello per quelli del giocatore
-// (in team preview si vedono solo specie e livello).
+// (in team preview si vedono solo specie e livello), con la spread che ha senso nella sua squadra (contesto).
 static u32 PreviewStat(struct Pokemon *mon, enum MonData id)
 {
     u16 hp, stats[NUM_STATS];
 
     if (!IsPlayerMon(mon))
         return GetMonData(mon, id);
-    Scout_EstimateStats(GetMonData(mon, MON_DATA_SPECIES), GetMonData(mon, MON_DATA_LEVEL), &hp, stats);
+    Scout_EstimateStatsInTeam(PlayerContext(), GetMonData(mon, MON_DATA_SPECIES), GetMonData(mon, MON_DATA_LEVEL), &hp, stats);
     switch (id)
     {
     case MON_DATA_MAX_HP: return hp;
@@ -824,7 +831,7 @@ static s32 Matchup(struct Pokemon *e, struct Pokemon *p, bool32 omniscient)
 
     // Strumento e Mega probabili (solo dalla specie e dalla lista degli strumenti del formato;
     // nel Bo3 lo strumento visto nelle gare prima è certo).
-    Scout_GuessItem(pSpecies, &g);
+    Scout_GuessItemInTeam(PlayerContext(), pSpecies, &g); // clausola degli strumenti e una sola Mega per squadra
     if (mem != NULL && mem->heldEffect != HOLD_EFFECT_NONE)
     {
         g.effect = mem->heldEffect;
@@ -940,6 +947,96 @@ static bool32 MonReliesOnType(struct Pokemon *mon, enum Type type)
 static bool32 IsWeatherSpeedAbility(enum Ability ab)
 {
     return ab == ABILITY_SWIFT_SWIM || ab == ABILITY_CHLOROPHYLL || ab == ABILITY_SAND_RUSH || ab == ABILITY_SLUSH_RUSH;
+}
+
+// Risposte del nostro gruppo (o della lead) ai piani di gioco dell'avversario letti dalla sua squadra in team preview
+// (contesto, include/battle_ai_scout.h): ogni piano pesa per quanto è forte. Positivo = buono per l'IA.
+//  - Trick Room: Provocazione, Fake Out, Imprison con Trick Room, il nostro Trick Room (lo annulla); i nostri lenti;
+//  - Tailwind / squadra veloce: il nostro Trick Room o Tailwind, Icy Wind & co., priorità, Fake Out;
+//  - meteo: il nostro meteo o Cloud Nine / Air Lock, chi resiste al tipo potenziato;
+//  - redirect + setup: mosse ad area, Provocazione, Haze / Clear Smog.
+static bool32 MonHasSpreadAttack(struct Pokemon *mon);
+static s32 ContextAnswerScore(struct Pokemon *enemy, const u32 *slots, u32 n, u32 mask, const struct ScoutTeamContext *ctx)
+{
+    u32 i, k, taunt = 0, fakeOut = 0, imprison = 0, ownTr = 0, ownTw = 0, soft = 0, prio = 0, slowAtk = 0;
+    u32 weather = 0, resist = 0, spread = 0, haze = 0;
+    s32 s = 0;
+
+    if (ctx == NULL || ctx->n == 0)
+        return 0;
+    for (i = 0; i < n; i++)
+    {
+        struct Pokemon *mon = &enemy[slots[i]];
+        enum Ability ab;
+        if (!(mask & (1u << i)))
+            continue;
+        ab = MonWeatherAbility(mon);
+        taunt += MonKnowsEffect(mon, EFFECT_TAUNT);
+        fakeOut += HasFakeOut(mon);
+        ownTr += MonKnowsEffect(mon, EFFECT_TRICK_ROOM);
+        ownTw += MonKnowsEffect(mon, EFFECT_TAILWIND);
+        imprison += MonKnowsEffect(mon, EFFECT_IMPRISON) && MonKnowsEffect(mon, EFFECT_TRICK_ROOM);
+        haze += MonKnowsEffect(mon, EFFECT_HAZE) || MonKnowsMove(mon, MOVE_CLEAR_SMOG);
+        spread += MonHasSpreadAttack(mon);
+        if (BaseSpeed(mon) <= 60 && max(gSpeciesInfo[GetMonData(mon, MON_DATA_SPECIES)].baseAttack,
+                                         gSpeciesInfo[GetMonData(mon, MON_DATA_SPECIES)].baseSpAttack) >= 100)
+            slowAtk++;
+        for (k = 0; k < MAX_MON_MOVES; k++)
+        {
+            enum Move m = GetMonData(mon, MON_DATA_MOVE1 + k);
+            if (m == MOVE_NONE)
+                continue;
+            if (Scout_MoveHasRole(m, SCOUT_SOFT_SPEED))
+                soft++;
+            else if (!IsBattleMoveStatus(m) && GetMovePriority(m) > 0 && GetMoveEffect(m) != EFFECT_FIRST_TURN_ONLY)
+                prio++;
+        }
+        switch (ab)
+        {
+        case ABILITY_DROUGHT: case ABILITY_ORICHALCUM_PULSE:
+            weather += ctx->weather != SCOUT_WEATHER_SUN;
+            break;
+        case ABILITY_DRIZZLE:
+            weather += ctx->weather != SCOUT_WEATHER_RAIN;
+            break;
+        case ABILITY_SAND_STREAM:
+            weather += ctx->weather != SCOUT_WEATHER_SAND;
+            break;
+        case ABILITY_SNOW_WARNING:
+            weather += ctx->weather != SCOUT_WEATHER_SNOW;
+            break;
+        case ABILITY_CLOUD_NINE: case ABILITY_AIR_LOCK:
+            weather += 2;
+            break;
+        default:
+            break;
+        }
+        if ((ctx->weather == SCOUT_WEATHER_RAIN && TypeVsMonPct(TYPE_WATER, mon) < 100)
+         || (ctx->weather == SCOUT_WEATHER_SUN && TypeVsMonPct(TYPE_FIRE, mon) < 100))
+            resist++;
+    }
+    if (ctx->archetype & SCOUT_ARCH_TRICK_ROOM)
+    {
+        u32 ans = 2 * taunt + fakeOut + 3 * imprison + ownTr;
+        s += (s32)ctx->trP * (s32)min(ans, 4u) * 60 / 100;
+        s += (s32)ctx->trP * (s32)min(slowAtk, 2u) * 30 / 100;
+    }
+    if (ctx->archetype & (SCOUT_ARCH_TAILWIND | SCOUT_ARCH_FAST))
+    {
+        u32 ans = 2 * ownTr + 2 * ownTw + soft + prio + fakeOut;
+        s += (s32)ctx->twP * (s32)min(ans, 4u) * 60 / 100;
+    }
+    if (ctx->archetype & SCOUT_ARCH_WEATHER)
+    {
+        u32 ans = 2 * weather + resist;
+        s += (s32)ctx->weatherP * (s32)min(ans, 4u) * 50 / 100;
+    }
+    if (ctx->archetype & SCOUT_ARCH_REDIRECT)
+    {
+        u32 ans = spread + taunt + 2 * haze;
+        s += (s32)ctx->redirectP * (s32)min(ans, 3u) * 40 / 100;
+    }
+    return s;
 }
 
 // Coerenza del gruppo di 4: dipendenze e conflitti ricavati dalle proprietà.
@@ -1166,20 +1263,23 @@ static void PlayerProfile(struct Pokemon *mon, struct ScoutProfile *out)
     u32 i, r, known = 0;
     bool8 hit[SCOUT_ROLE_COUNT] = {0};
 
-    Scout_GetSpeciesProfile(GetMonData(mon, MON_DATA_SPECIES), out);
+    // Ruoli nella sua squadra (contesto: setter del Trick Room di una squadra TR, chi sfrutta il meteo...).
+    Scout_GetProfileInTeam(PlayerContext(), GetMonData(mon, MON_DATA_SPECIES), out);
     {
         u16 mega = Scout_MegaTargetSpecies(GetMonData(mon, MON_DATA_SPECIES));
-        if (mega != SPECIES_NONE)
+        // Una sola Mega per squadra: la probabilità è quella del contesto (la Mega più probabile della squadra).
+        u32 megaP = min(Scout_MegaChanceInTeam(PlayerContext(), GetMonData(mon, MON_DATA_SPECIES)), 100u);
+        if (mega != SPECIES_NONE && megaP > 0)
         {
             struct ScoutProfile mp;
             Scout_GetSpeciesProfile(mega, &mp);
-            if (mp.weather != SCOUT_WEATHER_NONE && mp.weatherP * 70 / 100 > out->weatherP)
+            if (mp.weather != SCOUT_WEATHER_NONE && mp.weatherP * megaP / 100 > out->weatherP)
             {
                 out->weather = mp.weather;
-                out->weatherP = mp.weatherP * 70 / 100;
+                out->weatherP = mp.weatherP * megaP / 100;
             }
-            if (mp.intimidateP * 70 / 100 > out->intimidateP)
-                out->intimidateP = mp.intimidateP * 70 / 100;
+            if (mp.intimidateP * megaP / 100 > out->intimidateP)
+                out->intimidateP = mp.intimidateP * megaP / 100;
             if (mp.baseSpeed > out->baseSpeed)
                 out->baseSpeed = (out->baseSpeed + mp.baseSpeed) / 2;
         }
@@ -1242,6 +1342,9 @@ static s32 PlayerLeadScore(const struct ScoutProfile *a, const struct ScoutProfi
     // Commander: Dondozo + Tatsugiri partono insieme.
     if (PairIs(GetMonData(ma, MON_DATA_SPECIES), GetMonData(mb, MON_DATA_SPECIES), SPECIES_DONDOZO, SPECIES_TATSUGIRI))
         s += 60;
+    // Contesto della squadra: coppie che hanno senso insieme (setter + chi ne approfitta, Fake Out + setter,
+    // redirect + setup, meteo + chi lo sfrutta), lenti senza Trick Room accanto meno probabili.
+    s += Scout_ContextLeadScore(PlayerContext(), GetMonData(ma, MON_DATA_SPECIES), GetMonData(mb, MON_DATA_SPECIES));
     // Bo3: chi ha già fatto da lead tende a rifarlo.
     {
         const struct SeriesMonMemory *m1 = SeriesFindMemory(GetMonData(ma, MON_DATA_PERSONALITY));
@@ -1464,8 +1567,11 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
     s32 predW[PRED_LEADS];
     bool32 planTrViable = FALSE, planTwViable = FALSE;
     u16 trainerId = TRAINER_BATTLE_PARAM.opponentA;
+    const struct ScoutTeamContext *ctx;
 
     AI_VgcBuildTeamGraph(enemy, &sTPGraph);
+    // Contesto della squadra del giocatore: calcolato una volta dalle sue 6 specie, vale da qui a tutta la lotta.
+    ctx = Scout_SetTeamContextFromParty(player);
     for (i = 0; i < PARTY_SIZE; i++)
     {
         if (IsMonUsable(&enemy[i])) enemySlots[nEnemy++] = i;
@@ -1473,8 +1579,8 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
         {
             struct ScoutProfile prof;
             playerSlots[nPlayer++] = i;
-            // Le mosse del giocatore non si vedono: Fake Out probabile dal profilo della specie.
-            Scout_GetSpeciesProfile(GetMonData(&player[i], MON_DATA_SPECIES), &prof);
+            // Le mosse del giocatore non si vedono: Fake Out probabile dal profilo della specie nella sua squadra.
+            Scout_GetProfileInTeam(PlayerContext(), GetMonData(&player[i], MON_DATA_SPECIES), &prof);
             if (prof.role[SCOUT_FAKE_OUT] >= 50)
                 foeHasFakeOut = TRUE;
         }
@@ -1701,6 +1807,10 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
             }
         }
 
+        // Risposte al piano di gioco dell'avversario letto dalla sua squadra (contesto): Trick Room, Tailwind, meteo...
+        if (isDouble)
+            score += ContextAnswerScore(enemy, enemySlots, nEnemy, mask, ctx);
+
         // Dipendenze e conflitti del gruppo ricavati dalle proprietà (grafo della squadra): Baton Passer col suo
         // ricevente, Truant col Gas Reagente, Commander con Dondozo, meteo contro attaccanti, Trick Room contro
         // meteo veloce, sinergie di coppia.
@@ -1879,6 +1989,8 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                     // Coerenza della coppia di lead dal grafo della squadra (sinergie, Commander, abilità
                     // penalizzanti, meteo, mosse ad area sul compagno).
                     s += GraphLeadScore(enemy, enemySlots[ea], enemySlots[eb]);
+                    // Risposta immediata al piano dell'avversario (contesto), a metà peso rispetto al gruppo.
+                    s += ContextAnswerScore(enemy, enemySlots, nEnemy, (1u << ea) | (1u << eb), ctx) / 2;
                 }
                 // Scouting: questa lead contro le lead probabili del giocatore. Media pesata (70%) +
                 // caso peggiore (30%): si evita la lead che una contro-lead del giocatore smonta.

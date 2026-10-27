@@ -536,7 +536,7 @@ static void LoadPartyMon(struct PlanState *st, enum BattlerId b, u32 partyIdx)
         u32 level = GetMonData(mon, MON_DATA_LEVEL);
         u32 realMax = GetMonData(mon, MON_DATA_MAX_HP);
 
-        Scout_EstimateStats(species, level, &hp, stats);
+        Scout_EstimateStatsInTeam(Scout_BattlerContext(b), species, level, &hp, stats); // contesto della squadra
         pm->maxHp = hp;
         pm->hp = (realMax == 0) ? 0 : hp * GetMonData(mon, MON_DATA_HP) / realMax;
         if (pm->hp == 0 && GetMonData(mon, MON_DATA_HP) != 0)
@@ -548,7 +548,7 @@ static void LoadPartyMon(struct PlanState *st, enum BattlerId b, u32 partyIdx)
         pm->spd = stats[STAT_SPDEF];
         {
             u32 chance;
-            pm->ability = Scout_LikelyAbility(species, &chance);
+            pm->ability = Scout_LikelyAbilityInTeam(Scout_BattlerContext(b), species, &chance);
             if (chance < 60)
                 pm->ability = Scout_KnownAbility(species);
         }
@@ -562,7 +562,7 @@ static void LoadPartyMon(struct PlanState *st, enum BattlerId b, u32 partyIdx)
                     pm->ability = gSpeciesInfo[species].abilities[i];
             }
         }
-        Scout_GuessItem(species, &g);
+        Scout_GuessItemInTeam(Scout_BattlerContext(b), species, &g);
         pm->holdEffect = (g.chance >= 50) ? g.effect : HOLD_EFFECT_NONE;
         if (pm->holdEffect == HOLD_EFFECT_CHOICE_SCARF)
             pm->speed = pm->speed * 3 / 2;
@@ -683,7 +683,8 @@ static void LoadMega(struct PlanState *st, enum BattlerId b)
     {
         struct ScoutMegaChance mc[2];
         // Soglia alta: una Mega creduta e non avvenuta cambia molto la posizione (una sola per squadra).
-        if (Scout_GetMegaForms(pm->species, mc, 2) == 0 || mc[0].p < 80 || pm->holdEffect != HOLD_EFFECT_NONE)
+        if (Scout_GetMegaForms(pm->species, mc, 2) == 0 || Scout_MegaChanceInTeam(Scout_BattlerContext(b), pm->species) < 80
+         || pm->holdEffect != HOLD_EFFECT_NONE)
             return;
         mega = mc[0].species;
         ab = mc[0].ability ? mc[0].ability : gSpeciesInfo[mega].abilities[0];
@@ -1703,7 +1704,7 @@ static bool32 FakeOutReady(const struct PlanState *st, enum BattlerId b)
     if (IsOnPlayerSide(b))
     {
         struct ScoutProfile prof;
-        Scout_GetSpeciesProfile(pm->species, &prof);
+        Scout_GetPartyMonProfile(b, pm->species, &prof);
         return prof.role[SCOUT_FAKE_OUT] >= 50;
     }
     for (i = 0; i < MAX_MON_MOVES; i++)
@@ -2087,7 +2088,7 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
         u32 bestPow = 0;
         bool32 seenStabAttack = FALSE;
 
-        Scout_GetSpeciesProfile(bm->species, &prof);
+        Scout_GetPartyMonProfile(b, bm->species, &prof); // ruoli nella sua squadra (contesto della team preview)
         for (i = 0; i < na; i++)
         {
             enum Type ty = GetMoveType(attacks[i]);
@@ -2535,6 +2536,10 @@ static u32 PickFoeActions(u32 side, struct PlanAction *out)
     if (best == INT32_MIN)
         for (i = 0; i < n; i++)
             best = max(best, score[i]);
+    // Contesto della squadra (team preview): il giocatore gioca il piano della sua squadra (Trick Room, Tailwind).
+    // Solo l'ordine: la scala delle altre risposte (e di Protect) resta quella di prima.
+    for (i = 0; i < n; i++)
+        score[i] += 2 * (s32)Scout_BattlerPlanMoveBonus(sJob.foeCand[side][i].user, sJob.foeCand[side][i].move);
     while (outN < PLAN_FOE_PER && outN < n)
     {
         u32 bi = 0xFF;
@@ -2544,7 +2549,7 @@ static u32 PickFoeActions(u32 side, struct PlanAction *out)
         taken[bi] = TRUE;
         out[outN] = sJob.foeCand[side][bi];
         // Peso: la migliore conta di più; una alternativa molto peggiore per lui resta, ma poco probabile.
-        out[outN].weight = max(8, 100 - (best - score[bi]) / 4);
+        out[outN].weight = max(8, 100 - max(best - score[bi], 0) / 4);
         outN++;
     }
     return outN;
@@ -3298,7 +3303,7 @@ bool32 AI_VgcPlanIsBusy(enum BattlerId battler)
 static void BuildLikelyAttacks(enum BattlerId b)
 {
     struct ScoutMoveChance mc[12];
-    u32 n = Scout_GetLikelyMoves(gBattleMons[b].species, mc, ARRAY_COUNT(mc)), i, k;
+    u32 n = Scout_BattlerLikelyMoves(b, mc, ARRAY_COUNT(mc)), i, k; // nella sua squadra (contesto)
     enum Move *seen = GetMovesArray(b);
 
     sJob.nLikely[b] = 0;

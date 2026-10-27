@@ -40,6 +40,10 @@ struct VgcMetaEntry
     u16 megas[VGC_META_MEGAS];
     u8 megaP[VGC_META_MEGAS];
     struct VgcMetaSpread spreads[VGC_META_SPREADS];
+    struct VgcMetaSpread trSpread;          // spread da Trick Room più usata (p = quota di tutte le spread -Vel/0 EV)
+    struct VgcMetaSpread fastSpread;        // spread veloce più usata (p = quota di tutte le spread +Vel/max Vel)
+    u8 trMate;                              // % compagni con Trick Room (dai "Teammates": P(compagno) x P(ha TR))
+    u8 twMate;                              // idem con Tailwind
 };
 
 static const char *const sVgcMetaSources[] UNUSED =
@@ -68,6 +72,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 12, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_MODEST, 4, { 43, 0, 0, 63, 0, 23 } },
         },
+        .fastSpread = { NATURE_TIMID, 13, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 42, .twMate = 39,
     },
     {
         .species = SPECIES_CHARIZARD, .usage = 11, .source = 0, // gen9championsvgc2026regmc-1630, 331291 lotte
@@ -80,6 +86,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 8, { 23, 0, 27, 15, 0, 63 } },
             { NATURE_MODEST, 8, { 3, 0, 0, 63, 0, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 26, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 45, .twMate = 48,
     },
     {
         .species = SPECIES_BLASTOISE, .usage = 3, .source = 0, // gen9championsvgc2026regmc-1630, 104463 lotte
@@ -94,6 +102,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 25, { 43, 0, 0, 49, 0, 37 } },
             { NATURE_QUIET, 22, { 63, 0, 0, 63, 3, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 22, { 63, 0, 0, 63, 3, 0 } },
+        .fastSpread = { NATURE_TIMID, 3, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 98, .twMate = 35,
     },
     {
         .species = SPECIES_BEEDRILL, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 11141 lotte
@@ -106,6 +117,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 16, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 5, { 0, 33, 31, 0, 1, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 69, { 1, 63, 0, 0, 1, 63 } },
+        .trMate = 57, .twMate = 48,
     },
     {
         .species = SPECIES_PIDGEOT, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 5128 lotte
@@ -118,6 +131,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 7, { 39, 0, 0, 27, 0, 63 } },
             { NATURE_MODEST, 3, { 3, 0, 0, 63, 0, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 96, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 53, .twMate = 13,
     },
     {
         .species = SPECIES_PIKACHU, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 4906 lotte
@@ -132,6 +147,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 14, { 0, 0, 63, 0, 3, 63 } },
             { NATURE_TIMID, 12, { 1, 0, 0, 63, 1, 63 } },
         },
+        .trSpread = { NATURE_SASSY, 1, { 0, 0, 0, 0, 0, 0 } },
+        .fastSpread = { NATURE_JOLLY, 85, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 25, .twMate = 72,
     },
     {
         .species = SPECIES_RAICHU, .usage = 15, .source = 0, // gen9championsvgc2026regmc-1630, 410514 lotte
@@ -146,6 +164,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 19, { 63, 0, 21, 0, 0, 45 } },
             { NATURE_TIMID, 11, { 63, 0, 19, 0, 0, 47 } },
         },
+        .fastSpread = { NATURE_TIMID, 68, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 21, .twMate = 45,
     },
     {
         .species = SPECIES_CLEFAIRY, .usage = 5, .source = 1, // gen9vgc2024regg-0, 1215 lotte
@@ -160,6 +180,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_SASSY, 14, { 63, 0, 35, 0, 29, 0 } },
             { NATURE_BOLD, 9, { 63, 0, 63, 0, 1, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 77, { 63, 0, 63, 0, 1, 0 } },
+        .trMate = 8, .twMate = 36,
     },
     {
         .species = SPECIES_CLEFABLE, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 65670 lotte
@@ -176,6 +198,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_CALM, 13, { 63, 0, 0, 3, 63, 0 } },
             { NATURE_CALM, 9, { 63, 0, 21, 0, 45, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 9, { 63, 0, 63, 0, 3, 0 } },
+        .trMate = 33, .twMate = 37,
     },
     {
         .species = SPECIES_NINETALES, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 14186 lotte
@@ -190,6 +214,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 21, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_TIMID, 6, { 63, 0, 1, 0, 1, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 29, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 74, .twMate = 72,
     },
     {
         .species = SPECIES_WIGGLYTUFF, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 12233 lotte
@@ -204,6 +230,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_QUIET, 12, { 63, 0, 3, 63, 0, 0 } },
             { NATURE_RELAXED, 7, { 9, 0, 53, 3, 63, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 48, { 63, 0, 23, 23, 19, 0 } },
+        .fastSpread = { NATURE_TIMID, 1, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 68, .twMate = 31,
     },
     {
         .species = SPECIES_VILEPLUME, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 12878 lotte
@@ -218,6 +247,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 14, { 63, 0, 0, 3, 0, 63 } },
             { NATURE_MODEST, 11, { 1, 0, 0, 63, 1, 63 } },
         },
+        .trSpread = { NATURE_SASSY, 5, { 63, 0, 47, 0, 19, 0 } },
+        .fastSpread = { NATURE_TIMID, 81, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 100, .twMate = 12,
     },
     {
         .species = SPECIES_GOLDUCK, .usage = 0, .source = 2, // gen9nationaldexdoubles-0, 863 lotte
@@ -232,6 +264,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 16, { 0, 0, 0, 63, 1, 63 } },
             { NATURE_MODEST, 14, { 0, 0, 63, 1, 63, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 2, { 1, 63, 0, 63, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 22, { 1, 0, 0, 63, 0, 63 } },
+        .trMate = 16, .twMate = 33,
     },
     {
         .species = SPECIES_ARCANINE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 13601 lotte
@@ -246,6 +281,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 13, { 61, 5, 5, 0, 57, 0 } },
             { NATURE_ADAMANT, 7, { 63, 57, 0, 0, 9, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 3, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_TIMID, 35, { 63, 0, 0, 0, 3, 63 } },
+        .trMate = 39, .twMate = 25,
     },
     {
         .species = SPECIES_ALAKAZAM, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 63533 lotte
@@ -262,6 +300,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 25, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_MODEST, 6, { 57, 0, 0, 9, 0, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 62, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 84, .twMate = 32,
     },
     {
         .species = SPECIES_MACHAMP, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 3285 lotte
@@ -276,6 +316,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_BRAVE, 29, { 63, 63, 0, 0, 3, 0 } },
             { NATURE_JOLLY, 6, { 13, 63, 0, 0, 0, 53 } },
         },
+        .trSpread = { NATURE_BRAVE, 36, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 12, { 13, 63, 0, 0, 0, 53 } },
+        .trMate = 71, .twMate = 28,
     },
     {
         .species = SPECIES_VICTREEBEL, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 5015 lotte
@@ -288,6 +331,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_BOLD, 13, { 63, 0, 51, 0, 15, 0 } },
             { NATURE_RASH, 12, { 63, 0, 3, 63, 0, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 9, { 63, 63, 0, 3, 0, 0 } },
+        .fastSpread = { NATURE_NAIVE, 3, { 63, 0, 0, 3, 0, 63 } },
+        .trMate = 37, .twMate = 43,
     },
     {
         .species = SPECIES_SLOWBRO, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 20771 lotte
@@ -304,6 +350,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_CALM, 8, { 61, 0, 0, 0, 39, 29 } },
             { NATURE_RELAXED, 7, { 63, 0, 63, 0, 0, 3 } },
         },
+        .trSpread = { NATURE_QUIET, 73, { 63, 0, 0, 63, 3, 0 } },
+        .trMate = 100, .twMate = 27,
     },
     {
         .species = SPECIES_GENGAR, .usage = 6, .source = 0, // gen9championsvgc2026regmc-1630, 171069 lotte
@@ -320,6 +368,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 7, { 63, 0, 11, 0, 15, 39 } },
             { NATURE_MODEST, 7, { 63, 0, 11, 19, 15, 19 } },
         },
+        .trSpread = { NATURE_QUIET, 3, { 63, 0, 3, 63, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 26, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 14, .twMate = 24,
     },
     {
         .species = SPECIES_KANGASKHAN, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 26188 lotte
@@ -336,6 +387,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 22, { 63, 63, 3, 0, 0, 0 } },
             { NATURE_ADAMANT, 6, { 3, 63, 0, 0, 0, 63 } },
         },
+        .trSpread = { NATURE_BRAVE, 51, { 63, 63, 3, 0, 0, 0 } },
+        .fastSpread = { NATURE_JOLLY, 6, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 92, .twMate = 37,
     },
     {
         .species = SPECIES_STARMIE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 27724 lotte
@@ -352,6 +406,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 9, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_JOLLY, 8, { 19, 63, 0, 0, 0, 47 } },
         },
+        .fastSpread = { NATURE_JOLLY, 69, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 61, .twMate = 58,
     },
     {
         .species = SPECIES_MR_MIME, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 12424 lotte
@@ -366,6 +422,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_BOLD, 11, { 63, 0, 63, 0, 3, 0 } },
             { NATURE_JOLLY, 10, { 3, 63, 0, 0, 0, 63 } },
         },
+        .trSpread = { NATURE_RELAXED, 5, { 63, 0, 43, 0, 23, 0 } },
+        .fastSpread = { NATURE_JOLLY, 66, { 63, 0, 3, 0, 0, 63 } },
+        .trMate = 98, .twMate = 22,
     },
     {
         .species = SPECIES_PINSIR, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 2981 lotte
@@ -378,6 +437,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 14, { 1, 63, 0, 0, 1, 63 } },
             { NATURE_ADAMANT, 5, { 63, 63, 0, 0, 3, 0 } },
         },
+        .fastSpread = { NATURE_JOLLY, 74, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 36, .twMate = 56,
     },
     {
         .species = SPECIES_GYARADOS, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 30039 lotte
@@ -394,6 +455,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 12, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 9, { 37, 29, 1, 0, 1, 59 } },
         },
+        .trSpread = { NATURE_SASSY, 1, { 63, 3, 0, 0, 63, 0 } },
+        .fastSpread = { NATURE_JOLLY, 21, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 54, .twMate = 36,
     },
     {
         .species = SPECIES_LAPRAS, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 1300 lotte
@@ -408,6 +472,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_CALM, 12, { 63, 0, 1, 0, 63, 0 } },
             { NATURE_QUIET, 11, { 0, 0, 39, 63, 25, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 28, { 0, 0, 39, 63, 25, 0 } },
+        .fastSpread = { NATURE_TIMID, 1, { 63, 0, 0, 1, 0, 63 } },
+        .trMate = 32, .twMate = 41,
     },
     {
         .species = SPECIES_DITTO, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 18285 lotte
@@ -422,6 +489,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_BOLD, 15, { 63, 0, 63, 0, 3, 0 } },
             { NATURE_JOLLY, 9, { 63, 3, 0, 0, 0, 63 } },
         },
+        .trSpread = { NATURE_RELAXED, 13, { 63, 0, 63, 0, 3, 0 } },
+        .fastSpread = { NATURE_TIMID, 54, { 63, 0, 0, 0, 3, 63 } },
+        .trMate = 55, .twMate = 44,
     },
     {
         .species = SPECIES_VAPOREON, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 6353 lotte
@@ -436,6 +506,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_BOLD, 13, { 63, 0, 63, 0, 1, 1 } },
             { NATURE_RELAXED, 4, { 37, 0, 63, 0, 29, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 57, { 63, 0, 63, 0, 3, 0 } },
+        .trMate = 45, .twMate = 48,
     },
     {
         .species = SPECIES_JOLTEON, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 12361 lotte
@@ -450,6 +522,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 10, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_TIMID, 7, { 63, 0, 0, 3, 0, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 82, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 38, .twMate = 34,
     },
     {
         .species = SPECIES_AERODACTYL, .usage = 3, .source = 0, // gen9championsvgc2026regmc-1630, 123955 lotte
@@ -466,6 +540,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 15, { 31, 25, 0, 0, 9, 63 } },
             { NATURE_JOLLY, 9, { 51, 13, 1, 0, 0, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 89, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 53, .twMate = 12,
     },
     {
         .species = SPECIES_SNORLAX, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 24443 lotte
@@ -480,6 +556,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_RELAXED, 16, { 63, 0, 63, 0, 3, 0 } },
             { NATURE_RELAXED, 10, { 41, 0, 61, 0, 27, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 72, { 11, 0, 59, 0, 59, 0 } },
+        .trMate = 79, .twMate = 27,
     },
     {
         .species = SPECIES_ZAPDOS, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 3437 lotte
@@ -494,6 +572,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 15, { 1, 0, 0, 63, 0, 63 } },
             { NATURE_CALM, 10, { 62, 0, 2, 0, 63, 0 } },
         },
+        .fastSpread = { NATURE_TIMID, 43, { 1, 0, 0, 63, 0, 63 } },
+        .trMate = 14, .twMate = 41,
     },
     {
         .species = SPECIES_DRAGONITE, .usage = 4, .source = 0, // gen9championsvgc2026regmc-1630, 136795 lotte
@@ -510,6 +590,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 10, { 63, 0, 0, 63, 3, 0 } },
             { NATURE_ADAMANT, 7, { 13, 63, 0, 0, 0, 53 } },
         },
+        .trSpread = { NATURE_QUIET, 1, { 63, 3, 0, 63, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 8, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 36, .twMate = 17,
     },
     {
         .species = SPECIES_MEW, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 5903 lotte
@@ -524,6 +607,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_CALM, 20, { 62, 0, 0, 2, 63, 0 } },
             { NATURE_TIMID, 6, { 0, 0, 32, 0, 32, 63 } },
         },
+        .trSpread = { NATURE_QUIET, 7, { 63, 1, 0, 63, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 51, { 63, 0, 1, 0, 0, 63 } },
+        .trMate = 43, .twMate = 29,
     },
     {
         .species = SPECIES_MEGANIUM, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 48162 lotte
@@ -536,6 +622,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 14, { 33, 0, 0, 63, 0, 33 } },
             { NATURE_MODEST, 12, { 3, 0, 0, 63, 0, 63 } },
         },
+        .trSpread = { NATURE_QUIET, 7, { 63, 0, 3, 63, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 11, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 55, .twMate = 59,
     },
     {
         .species = SPECIES_TYPHLOSION, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 6136 lotte
@@ -550,6 +639,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 33, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_QUIET, 5, { 63, 0, 3, 63, 0, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 5, { 63, 0, 3, 63, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 56, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 39, .twMate = 53,
     },
     {
         .species = SPECIES_FERALIGATR, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 12128 lotte
@@ -566,6 +658,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 12, { 63, 63, 0, 0, 3, 0 } },
             { NATURE_ADAMANT, 11, { 3, 63, 0, 0, 0, 63 } },
         },
+        .trSpread = { NATURE_BRAVE, 10, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 24, { 31, 35, 0, 0, 0, 63 } },
+        .trMate = 65, .twMate = 53,
     },
     {
         .species = SPECIES_ARIADOS, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 3486 lotte
@@ -580,6 +675,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_CAREFUL, 16, { 63, 3, 0, 0, 63, 0 } },
             { NATURE_BRAVE, 11, { 0, 63, 0, 0, 0, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 29, { 0, 63, 0, 0, 0, 0 } },
+        .fastSpread = { NATURE_JOLLY, 2, { 63, 3, 0, 0, 0, 63 } },
+        .trMate = 29, .twMate = 40,
     },
     {
         .species = SPECIES_AMPHAROS, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 15044 lotte
@@ -592,6 +690,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_QUIET, 13, { 63, 0, 0, 49, 17, 0 } },
             { NATURE_MODEST, 12, { 63, 0, 0, 63, 3, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 75, { 63, 0, 3, 63, 0, 0 } },
+        .trMate = 100, .twMate = 15,
     },
     {
         .species = SPECIES_AZUMARILL, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 11098 lotte
@@ -606,6 +706,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 16, { 49, 63, 0, 0, 17, 0 } },
             { NATURE_BRAVE, 12, { 63, 63, 0, 0, 3, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 17, { 63, 63, 0, 0, 3, 0 } },
+        .trMate = 61, .twMate = 39,
     },
     {
         .species = SPECIES_POLITOED, .usage = 7, .source = 0, // gen9championsvgc2026regmc-1630, 211141 lotte
@@ -620,6 +722,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 12, { 63, 0, 3, 63, 0, 0 } },
             { NATURE_CALM, 10, { 63, 0, 47, 0, 13, 5 } },
         },
+        .trSpread = { NATURE_QUIET, 16, { 63, 0, 3, 63, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 7, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 64, .twMate = 19,
     },
     {
         .species = SPECIES_ESPEON, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 5080 lotte
@@ -634,6 +739,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 16, { 0, 0, 21, 63, 0, 45 } },
             { NATURE_BOLD, 6, { 63, 0, 49, 0, 17, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 2, { 63, 0, 63, 0, 3, 0 } },
+        .fastSpread = { NATURE_TIMID, 64, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 47, .twMate = 44,
     },
     {
         .species = SPECIES_UMBREON, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 12376 lotte
@@ -648,6 +756,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_CALM, 15, { 63, 0, 0, 0, 63, 3 } },
             { NATURE_BOLD, 12, { 59, 0, 31, 0, 39, 0 } },
         },
+        .trSpread = { NATURE_SASSY, 12, { 63, 0, 47, 0, 19, 0 } },
+        .trMate = 37, .twMate = 32,
     },
     {
         .species = SPECIES_MURKROW, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 3802 lotte
@@ -662,6 +772,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 14, { 63, 0, 0, 0, 1, 63 } },
             { NATURE_IMPISH, 9, { 63, 0, 63, 0, 0, 1 } },
         },
+        .trSpread = { NATURE_SASSY, 1, { 1, 0, 63, 0, 63, 0 } },
+        .fastSpread = { NATURE_TIMID, 22, { 63, 0, 0, 0, 1, 63 } },
+        .trMate = 34, .twMate = 20,
     },
     {
         .species = SPECIES_SLOWKING, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 6401 lotte
@@ -676,6 +789,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_RELAXED, 14, { 63, 0, 63, 0, 3, 0 } },
             { NATURE_QUIET, 10, { 63, 0, 0, 63, 3, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 86, { 63, 0, 53, 9, 3, 0 } },
+        .trMate = 33, .twMate = 21,
     },
     {
         .species = SPECIES_STEELIX, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 16630 lotte
@@ -692,6 +807,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 18, { 63, 63, 0, 0, 3, 0 } },
             { NATURE_BRAVE, 6, { 63, 11, 1, 0, 53, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 59, { 63, 63, 0, 0, 3, 0 } },
+        .trMate = 86, .twMate = 35,
     },
     {
         .species = SPECIES_SCIZOR, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 41075 lotte
@@ -708,6 +825,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 5, { 41, 63, 0, 0, 3, 21 } },
             { NATURE_ADAMANT, 4, { 3, 63, 0, 0, 0, 63 } },
         },
+        .trSpread = { NATURE_BRAVE, 3, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 1, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 33, .twMate = 58,
     },
     {
         .species = SPECIES_HERACROSS, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 7190 lotte
@@ -720,6 +840,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 21, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 21, { 63, 63, 0, 0, 3, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 29, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 3, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 79, .twMate = 49,
     },
     {
         .species = SPECIES_SKARMORY, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 19728 lotte
@@ -736,6 +859,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 11, { 17, 63, 0, 0, 0, 49 } },
             { NATURE_ADAMANT, 11, { 3, 63, 0, 0, 0, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 51, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 36, .twMate = 31,
     },
     {
         .species = SPECIES_HOUNDOOM, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 12481 lotte
@@ -752,6 +877,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 9, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_TIMID, 6, { 63, 0, 3, 0, 0, 63 } },
         },
+        .trSpread = { NATURE_QUIET, 5, { 63, 0, 0, 63, 3, 0 } },
+        .fastSpread = { NATURE_TIMID, 74, { 1, 0, 0, 63, 1, 63 } },
+        .trMate = 51, .twMate = 50,
     },
     {
         .species = SPECIES_KINGDRA, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 2504 lotte
@@ -766,6 +894,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 12, { 1, 0, 0, 63, 0, 63 } },
             { NATURE_MODEST, 5, { 25, 0, 0, 63, 0, 39 } },
         },
+        .fastSpread = { NATURE_TIMID, 12, { 1, 0, 0, 63, 0, 63 } },
+        .trMate = 12, .twMate = 57,
     },
     {
         .species = SPECIES_PORYGON2, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 4933 lotte
@@ -780,6 +910,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_SASSY, 14, { 63, 0, 35, 0, 29, 0 } },
             { NATURE_QUIET, 9, { 63, 0, 0, 63, 1, 0 } },
         },
+        .trSpread = { NATURE_SASSY, 76, { 63, 0, 0, 1, 63, 0 } },
+        .trMate = 66, .twMate = 16,
     },
     {
         .species = SPECIES_SMEARGLE, .usage = 4, .source = 1, // gen9vgc2024regg-0, 936 lotte
@@ -794,6 +926,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 30, { 1, 0, 63, 0, 0, 63 } },
             { NATURE_RELAXED, 10, { 63, 0, 63, 0, 1, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 12, { 63, 0, 63, 0, 1, 0 } },
+        .fastSpread = { NATURE_JOLLY, 80, { 63, 0, 1, 0, 0, 63 } },
+        .trMate = 82, .twMate = 22,
     },
     {
         .species = SPECIES_MILTANK, .usage = 0, .source = 2, // gen9nationaldexdoubles-0, 462 lotte
@@ -808,6 +943,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_IMPISH, 13, { 63, 1, 3, 0, 50, 10 } },
             { NATURE_HARDY, 13, { 25, 36, 19, 0, 47, 0 } },
         },
+        .fastSpread = { NATURE_JOLLY, 3, { 1, 63, 0, 0, 0, 63 } },
+        .trMate = 39, .twMate = 57,
     },
     {
         .species = SPECIES_TYRANITAR, .usage = 9, .source = 0, // gen9championsvgc2026regmc-1630, 308340 lotte
@@ -824,6 +961,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 17, { 33, 33, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 13, { 63, 63, 0, 0, 3, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 4, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 43, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 41, .twMate = 61,
     },
     {
         .species = SPECIES_SCEPTILE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 28352 lotte
@@ -840,6 +980,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 19, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_MODEST, 12, { 19, 0, 0, 61, 0, 49 } },
         },
+        .fastSpread = { NATURE_TIMID, 51, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 48, .twMate = 31,
     },
     {
         .species = SPECIES_BLAZIKEN, .usage = 2, .source = 0, // gen9championsvgc2026regmc-1630, 83338 lotte
@@ -856,6 +998,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 11, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_JOLLY, 9, { 3, 63, 0, 0, 0, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 15, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 59, .twMate = 33,
     },
     {
         .species = SPECIES_SWAMPERT, .usage = 5, .source = 0, // gen9championsvgc2026regmc-1630, 146715 lotte
@@ -872,6 +1016,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 28, { 35, 59, 0, 0, 0, 35 } },
             { NATURE_ADAMANT, 11, { 63, 19, 1, 0, 1, 43 } },
         },
+        .trSpread = { NATURE_RELAXED, 2, { 61, 3, 39, 0, 25, 0 } },
+        .fastSpread = { NATURE_JOLLY, 4, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 47, .twMate = 70,
     },
     {
         .species = SPECIES_LUDICOLO, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 1928 lotte
@@ -886,6 +1033,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 8, { 18, 0, 0, 63, 0, 46 } },
             { NATURE_MILD, 7, { 0, 1, 0, 63, 0, 63 } },
         },
+        .trSpread = { NATURE_SASSY, 6, { 63, 1, 0, 0, 63, 0 } },
+        .fastSpread = { NATURE_TIMID, 8, { 1, 0, 0, 63, 0, 63 } },
+        .trMate = 18, .twMate = 58,
     },
     {
         .species = SPECIES_PELIPPER, .usage = 14, .source = 0, // gen9championsvgc2026regmc-1630, 520827 lotte
@@ -900,6 +1050,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 16, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_MODEST, 9, { 63, 0, 0, 63, 3, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 5, { 63, 0, 0, 63, 3, 0 } },
+        .fastSpread = { NATURE_TIMID, 18, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 55, .twMate = 14,
     },
     {
         .species = SPECIES_GARDEVOIR, .usage = 9, .source = 0, // gen9championsvgc2026regmc-1630, 326512 lotte
@@ -914,6 +1067,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 16, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_TIMID, 13, { 3, 0, 0, 63, 0, 63 } },
         },
+        .trSpread = { NATURE_QUIET, 8, { 63, 0, 3, 63, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 17, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 81, .twMate = 49,
     },
     {
         .species = SPECIES_SLAKING, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 1530 lotte
@@ -928,6 +1084,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 20, { 63, 63, 0, 0, 1, 0 } },
             { NATURE_ADAMANT, 9, { 1, 63, 0, 0, 0, 63 } },
         },
+        .trSpread = { NATURE_BRAVE, 4, { 63, 63, 0, 0, 1, 0 } },
+        .fastSpread = { NATURE_JOLLY, 40, { 1, 63, 0, 0, 0, 63 } },
+        .trMate = 38, .twMate = 27,
     },
     {
         .species = SPECIES_HARIYAMA, .usage = 0, .source = 2, // gen9nationaldexdoubles-0, 543 lotte
@@ -942,6 +1101,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_BRAVE, 21, { 63, 63, 0, 0, 1, 0 } },
             { NATURE_BRAVE, 7, { 0, 63, 32, 0, 32, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 41, { 63, 63, 0, 0, 1, 0 } },
+        .fastSpread = { NATURE_JOLLY, 2, { 6, 63, 1, 0, 1, 56 } },
+        .trMate = 52, .twMate = 31,
     },
     {
         .species = SPECIES_SABLEYE, .usage = 2, .source = 0, // gen9championsvgc2026regmc-1630, 116660 lotte
@@ -958,6 +1120,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_BOLD, 10, { 63, 0, 63, 0, 3, 0 } },
             { NATURE_CAREFUL, 9, { 63, 0, 23, 0, 43, 0 } },
         },
+        .trSpread = { NATURE_SASSY, 24, { 63, 0, 17, 0, 49, 0 } },
+        .fastSpread = { NATURE_JOLLY, 1, { 63, 0, 0, 0, 3, 63 } },
+        .trMate = 56, .twMate = 46,
     },
     {
         .species = SPECIES_MAWILE, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 65762 lotte
@@ -970,6 +1135,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 31, { 63, 63, 0, 0, 3, 0 } },
             { NATURE_ADAMANT, 2, { 27, 63, 0, 0, 0, 39 } },
         },
+        .trSpread = { NATURE_BRAVE, 59, { 63, 63, 0, 0, 3, 0 } },
+        .trMate = 100, .twMate = 36,
     },
     {
         .species = SPECIES_AGGRON, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 17003 lotte
@@ -982,6 +1149,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_CAREFUL, 22, { 63, 0, 3, 0, 63, 0 } },
             { NATURE_SASSY, 6, { 63, 0, 3, 0, 63, 0 } },
         },
+        .trSpread = { NATURE_SASSY, 18, { 63, 0, 3, 0, 63, 0 } },
+        .trMate = 68, .twMate = 31,
     },
     {
         .species = SPECIES_MEDICHAM, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 9766 lotte
@@ -998,6 +1167,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_BRAVE, 24, { 63, 63, 0, 0, 3, 0 } },
             { NATURE_JOLLY, 9, { 63, 0, 1, 0, 1, 63 } },
         },
+        .trSpread = { NATURE_BRAVE, 26, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 51, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 85, .twMate = 31,
     },
     {
         .species = SPECIES_MANECTRIC, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 12920 lotte
@@ -1014,6 +1186,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 29, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_TIMID, 9, { 21, 0, 0, 31, 13, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 91, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 47, .twMate = 57,
     },
     {
         .species = SPECIES_SHARPEDO, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 3208 lotte
@@ -1026,6 +1200,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 8, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 3, { 17, 63, 0, 0, 0, 49 } },
         },
+        .fastSpread = { NATURE_JOLLY, 8, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 60, .twMate = 47,
     },
     {
         .species = SPECIES_CAMERUPT, .usage = 2, .source = 0, // gen9championsvgc2026regmc-1630, 78147 lotte
@@ -1038,6 +1214,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 8, { 63, 0, 0, 63, 3, 0 } },
             { NATURE_MODEST, 2, { 63, 0, 37, 29, 0, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 89, { 63, 0, 3, 63, 0, 0 } },
+        .trMate = 100, .twMate = 15,
     },
     {
         .species = SPECIES_TORKOAL, .usage = 5, .source = 0, // gen9championsvgc2026regmc-1630, 222546 lotte
@@ -1052,6 +1230,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 11, { 63, 0, 0, 63, 3, 0 } },
             { NATURE_QUIET, 2, { 43, 0, 0, 63, 23, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 84, { 63, 0, 0, 63, 3, 0 } },
+        .trMate = 100, .twMate = 21,
     },
     {
         .species = SPECIES_ALTARIA, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 29481 lotte
@@ -1068,6 +1248,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_BOLD, 9, { 59, 0, 53, 0, 1, 15 } },
             { NATURE_MODEST, 5, { 63, 0, 0, 63, 0, 3 } },
         },
+        .trSpread = { NATURE_RELAXED, 4, { 63, 0, 39, 0, 27, 0 } },
+        .fastSpread = { NATURE_TIMID, 47, { 63, 0, 9, 0, 0, 57 } },
+        .trMate = 64, .twMate = 8,
     },
     {
         .species = SPECIES_ARMALDO, .usage = 0, .source = 2, // gen9nationaldexdoubles-0, 779 lotte
@@ -1082,6 +1265,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_BRAVE, 28, { 63, 63, 0, 0, 1, 0 } },
             { NATURE_CAREFUL, 7, { 63, 0, 0, 0, 63, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 31, { 63, 63, 0, 0, 1, 0 } },
+        .fastSpread = { NATURE_JOLLY, 3, { 0, 63, 1, 0, 0, 63 } },
+        .trMate = 73, .twMate = 35,
     },
     {
         .species = SPECIES_MILOTIC, .usage = 13, .source = 0, // gen9championsvgc2026regmc-1630, 443214 lotte
@@ -1096,6 +1282,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_BOLD, 10, { 63, 0, 63, 0, 3, 0 } },
             { NATURE_MODEST, 7, { 63, 0, 41, 21, 0, 3 } },
         },
+        .trSpread = { NATURE_RELAXED, 1, { 63, 0, 63, 0, 3, 0 } },
+        .fastSpread = { NATURE_TIMID, 3, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 37, .twMate = 51,
     },
     {
         .species = SPECIES_KECLEON, .usage = 0, .source = 2, // gen9nationaldexdoubles-0, 551 lotte
@@ -1110,6 +1299,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_SASSY, 29, { 63, 1, 0, 0, 63, 0 } },
             { NATURE_BRAVE, 4, { 63, 63, 0, 0, 1, 0 } },
         },
+        .trSpread = { NATURE_SASSY, 34, { 63, 1, 0, 0, 63, 0 } },
+        .fastSpread = { NATURE_JOLLY, 2, { 1, 63, 0, 0, 0, 63 } },
+        .trMate = 57, .twMate = 33,
     },
     {
         .species = SPECIES_BANETTE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 7750 lotte
@@ -1122,6 +1314,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_BRAVE, 11, { 63, 63, 0, 0, 3, 0 } },
             { NATURE_CAREFUL, 7, { 63, 0, 35, 0, 31, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 27, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 2, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 39, .twMate = 33,
     },
     {
         .species = SPECIES_DUSCLOPS, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 3436 lotte
@@ -1136,6 +1331,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_SASSY, 12, { 63, 0, 1, 0, 63, 0 } },
             { NATURE_SASSY, 12, { 63, 0, 34, 0, 30, 0 } },
         },
+        .trSpread = { NATURE_SASSY, 82, { 63, 0, 34, 0, 30, 0 } },
+        .trMate = 81, .twMate = 17,
     },
     {
         .species = SPECIES_CHIMECHO, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 7761 lotte
@@ -1148,6 +1345,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 13, { 63, 0, 3, 63, 0, 0 } },
             { NATURE_SASSY, 8, { 63, 0, 3, 0, 63, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 47, { 63, 0, 3, 63, 0, 0 } },
+        .trMate = 55, .twMate = 28,
     },
     {
         .species = SPECIES_ABSOL, .usage = 2, .source = 0, // gen9championsvgc2026regmc-1630, 120733 lotte
@@ -1160,6 +1359,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 24, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_JOLLY, 5, { 21, 37, 7, 0, 0, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 58, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 59, .twMate = 41,
     },
     {
         .species = SPECIES_GLALIE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 13991 lotte
@@ -1172,6 +1373,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 27, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 10, { 63, 63, 0, 0, 0, 3 } },
         },
+        .trSpread = { NATURE_QUIET, 2, { 63, 0, 0, 63, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 33, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 62, .twMate = 61,
     },
     {
         .species = SPECIES_SALAMENCE, .usage = 27, .source = 0, // gen9championsvgc2026regmc-1630, 832747 lotte
@@ -1186,6 +1390,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 8, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_NAIVE, 5, { 1, 41, 0, 29, 0, 57 } },
         },
+        .fastSpread = { NATURE_TIMID, 76, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 30, .twMate = 13,
     },
     {
         .species = SPECIES_METAGROSS, .usage = 6, .source = 0, // gen9championsvgc2026regmc-1630, 234641 lotte
@@ -1200,6 +1406,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 9, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 7, { 47, 29, 0, 0, 0, 53 } },
         },
+        .fastSpread = { NATURE_JOLLY, 52, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 42, .twMate = 53,
     },
     {
         .species = SPECIES_LATIOS, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 4356 lotte
@@ -1216,6 +1424,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 21, { 63, 0, 0, 0, 1, 63 } },
             { NATURE_MODEST, 5, { 1, 0, 0, 63, 0, 63 } },
         },
+        .trSpread = { NATURE_QUIET, 3, { 63, 0, 1, 63, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 78, { 1, 0, 0, 63, 0, 63 } },
+        .trMate = 44, .twMate = 29,
     },
     {
         .species = SPECIES_KYOGRE, .usage = 5, .source = 1, // gen9vgc2024regg-0, 1197 lotte
@@ -1230,6 +1441,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 14, { 63, 0, 33, 23, 3, 5 } },
             { NATURE_TIMID, 13, { 1, 0, 1, 63, 1, 61 } },
         },
+        .trSpread = { NATURE_QUIET, 1, { 63, 0, 1, 63, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 14, { 1, 0, 1, 63, 1, 61 } },
+        .trMate = 12, .twMate = 75,
     },
     {
         .species = SPECIES_GROUDON, .usage = 2, .source = 1, // gen9vgc2024regg-0, 521 lotte
@@ -1244,6 +1458,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 14, { 63, 63, 0, 0, 1, 0 } },
             { NATURE_ADAMANT, 13, { 63, 19, 1, 0, 27, 17 } },
         },
+        .fastSpread = { NATURE_JOLLY, 7, { 0, 63, 0, 0, 1, 63 } },
+        .trMate = 22, .twMate = 43,
     },
     {
         .species = SPECIES_JIRACHI, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 4288 lotte
@@ -1258,6 +1474,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 6, { 59, 60, 4, 0, 4, 0 } },
             { NATURE_IMPISH, 5, { 63, 0, 19, 0, 45, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 8, { 63, 0, 19, 0, 45, 0 } },
+        .fastSpread = { NATURE_JOLLY, 13, { 1, 63, 0, 0, 0, 63 } },
+        .trMate = 29, .twMate = 45,
     },
     {
         .species = SPECIES_TORTERRA, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 8524 lotte
@@ -1272,6 +1491,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 11, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 4, { 63, 63, 0, 0, 3, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 6, { 63, 31, 35, 0, 0, 0 } },
+        .fastSpread = { NATURE_JOLLY, 4, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 24, .twMate = 8,
     },
     {
         .species = SPECIES_INFERNAPE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 7857 lotte
@@ -1286,6 +1508,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 18, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_NAIVE, 13, { 3, 0, 0, 63, 0, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 84, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 47, .twMate = 68,
     },
     {
         .species = SPECIES_EMPOLEON, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 37588 lotte
@@ -1300,6 +1524,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 8, { 63, 0, 5, 37, 0, 23 } },
             { NATURE_MODEST, 7, { 63, 0, 43, 17, 5, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 9, { 63, 0, 0, 63, 3, 0 } },
+        .fastSpread = { NATURE_TIMID, 2, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 55, .twMate = 46,
     },
     {
         .species = SPECIES_STARAPTOR, .usage = 7, .source = 0, // gen9championsvgc2026regmc-1630, 250405 lotte
@@ -1316,6 +1543,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 18, { 29, 37, 0, 0, 0, 63 } },
             { NATURE_JOLLY, 11, { 3, 63, 0, 0, 0, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 74, { 63, 3, 0, 0, 0, 63 } },
+        .trMate = 45, .twMate = 20,
     },
     {
         .species = SPECIES_RAMPARDOS, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 4766 lotte
@@ -1330,6 +1559,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 16, { 63, 63, 0, 0, 3, 0 } },
             { NATURE_ADAMANT, 14, { 15, 63, 0, 0, 0, 51 } },
         },
+        .trSpread = { NATURE_BRAVE, 56, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 4, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 97, .twMate = 34,
     },
     {
         .species = SPECIES_GASTRODON, .usage = 3, .source = 2, // gen9nationaldexdoubles-0, 7042 lotte
@@ -1344,6 +1576,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_QUIET, 17, { 63, 0, 0, 63, 1, 0 } },
             { NATURE_QUIET, 5, { 40, 0, 31, 43, 13, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 41, { 63, 0, 0, 63, 1, 0 } },
+        .trMate = 34, .twMate = 34,
     },
     {
         .species = SPECIES_LOPUNNY, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 35167 lotte
@@ -1360,6 +1594,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 5, { 63, 3, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 3, { 3, 63, 0, 0, 0, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 94, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 56, .twMate = 48,
     },
     {
         .species = SPECIES_BRONZONG, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 3456 lotte
@@ -1374,6 +1610,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_SASSY, 20, { 63, 0, 1, 0, 63, 0 } },
             { NATURE_RELAXED, 10, { 63, 0, 33, 0, 30, 0 } },
         },
+        .trSpread = { NATURE_SASSY, 90, { 63, 0, 1, 0, 63, 0 } },
+        .trMate = 50, .twMate = 18,
     },
     {
         .species = SPECIES_CHATOT, .usage = 0, .source = 2, // gen9nationaldexdoubles-0, 180 lotte
@@ -1388,6 +1626,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 31, { 1, 0, 0, 63, 0, 63 } },
             { NATURE_JOLLY, 21, { 0, 0, 0, 63, 1, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 62, { 0, 0, 0, 63, 1, 63 } },
+        .trMate = 13, .twMate = 44,
     },
     {
         .species = SPECIES_SPIRITOMB, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 9133 lotte
@@ -1402,6 +1642,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_SASSY, 15, { 63, 0, 33, 0, 33, 0 } },
             { NATURE_RELAXED, 14, { 3, 0, 63, 0, 63, 0 } },
         },
+        .trSpread = { NATURE_SASSY, 95, { 63, 0, 0, 3, 63, 0 } },
+        .trMate = 35, .twMate = 27,
     },
     {
         .species = SPECIES_GARCHOMP, .usage = 17, .source = 0, // gen9championsvgc2026regmc-1630, 573377 lotte
@@ -1418,6 +1660,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 23, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 13, { 3, 63, 0, 0, 0, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 34, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 37, .twMate = 43,
     },
     {
         .species = SPECIES_LUCARIO, .usage = 4, .source = 0, // gen9championsvgc2026regmc-1630, 228803 lotte
@@ -1432,6 +1676,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 10, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_TIMID, 9, { 63, 0, 0, 3, 0, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 37, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 40, .twMate = 48,
     },
     {
         .species = SPECIES_HIPPOWDON, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 11010 lotte
@@ -1446,6 +1692,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_CAREFUL, 21, { 63, 0, 3, 0, 63, 0 } },
             { NATURE_RELAXED, 12, { 63, 7, 3, 0, 55, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 61, { 63, 15, 3, 0, 47, 0 } },
+        .trMate = 39, .twMate = 45,
     },
     {
         .species = SPECIES_TOXICROAK, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 4701 lotte
@@ -1460,6 +1708,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 12, { 23, 63, 17, 0, 5, 19 } },
             { NATURE_ADAMANT, 11, { 63, 63, 0, 0, 3, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 8, { 63, 63, 3, 0, 0, 0 } },
+        .fastSpread = { NATURE_JOLLY, 32, { 1, 63, 0, 0, 1, 63 } },
+        .trMate = 57, .twMate = 54,
     },
     {
         .species = SPECIES_ABOMASNOW, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 13619 lotte
@@ -1476,6 +1727,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 6, { 63, 0, 0, 63, 3, 0 } },
             { NATURE_SASSY, 3, { 63, 0, 3, 0, 63, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 85, { 63, 0, 0, 63, 3, 0 } },
+        .trMate = 100, .twMate = 17,
     },
     {
         .species = SPECIES_WEAVILE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 39416 lotte
@@ -1490,6 +1743,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 4, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_HARDY, 4, { 3, 63, 0, 0, 0, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 89, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 44, .twMate = 50,
     },
     {
         .species = SPECIES_RHYPERIOR, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 10130 lotte
@@ -1504,6 +1759,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 24, { 63, 63, 0, 0, 3, 0 } },
             { NATURE_BRAVE, 7, { 17, 63, 0, 0, 49, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 51, { 63, 63, 0, 0, 3, 0 } },
+        .trMate = 100, .twMate = 18,
     },
     {
         .species = SPECIES_TOGEKISS, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 5215 lotte
@@ -1518,6 +1775,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_BOLD, 8, { 63, 0, 49, 0, 15, 0 } },
             { NATURE_BOLD, 7, { 63, 0, 32, 0, 32, 0 } },
         },
+        .trSpread = { NATURE_SASSY, 3, { 33, 0, 0, 44, 50, 0 } },
+        .fastSpread = { NATURE_TIMID, 25, { 0, 0, 0, 63, 1, 63 } },
+        .trMate = 30, .twMate = 30,
     },
     {
         .species = SPECIES_LEAFEON, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 2389 lotte
@@ -1532,6 +1792,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 20, { 49, 63, 17, 0, 0, 0 } },
             { NATURE_ADAMANT, 5, { 17, 63, 29, 0, 0, 19 } },
         },
+        .fastSpread = { NATURE_JOLLY, 4, { 0, 63, 0, 0, 3, 63 } },
+        .trMate = 23, .twMate = 42,
     },
     {
         .species = SPECIES_GLACEON, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 6378 lotte
@@ -1546,6 +1808,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 14, { 63, 0, 47, 19, 0, 0 } },
             { NATURE_MODEST, 12, { 63, 0, 0, 31, 35, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 5, { 63, 0, 0, 63, 3, 0 } },
+        .fastSpread = { NATURE_TIMID, 3, { 0, 0, 0, 63, 0, 63 } },
+        .trMate = 44, .twMate = 21,
     },
     {
         .species = SPECIES_GLISCOR, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 13250 lotte
@@ -1560,6 +1825,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 18, { 63, 63, 0, 0, 3, 0 } },
             { NATURE_ADAMANT, 8, { 27, 63, 0, 0, 0, 39 } },
         },
+        .fastSpread = { NATURE_JOLLY, 25, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 52, .twMate = 22,
     },
     {
         .species = SPECIES_MAMOSWINE, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 38289 lotte
@@ -1574,6 +1841,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 32, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 6, { 63, 63, 0, 0, 3, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 2, { 63, 63, 3, 0, 0, 0 } },
+        .fastSpread = { NATURE_JOLLY, 33, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 45, .twMate = 59,
     },
     {
         .species = SPECIES_PORYGON_Z, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 1792 lotte
@@ -1588,6 +1858,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 22, { 0, 0, 0, 63, 1, 63 } },
             { NATURE_QUIET, 5, { 63, 0, 0, 63, 1, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 12, { 63, 0, 0, 63, 1, 0 } },
+        .fastSpread = { NATURE_TIMID, 51, { 0, 0, 0, 63, 1, 63 } },
+        .trMate = 41, .twMate = 34,
     },
     {
         .species = SPECIES_GALLADE, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 59004 lotte
@@ -1604,6 +1877,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 17, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 13, { 63, 63, 3, 0, 0, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 46, { 63, 63, 3, 0, 0, 0 } },
+        .fastSpread = { NATURE_JOLLY, 14, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 100, .twMate = 26,
     },
     {
         .species = SPECIES_FROSLASS, .usage = 5, .source = 0, // gen9championsvgc2026regmc-1630, 155704 lotte
@@ -1616,6 +1892,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 14, { 27, 0, 0, 39, 0, 63 } },
             { NATURE_TIMID, 12, { 63, 0, 0, 3, 0, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 73, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 23, .twMate = 31,
     },
     {
         .species = SPECIES_HEATRAN, .usage = 3, .source = 1, // gen9vgc2024regg-0, 721 lotte
@@ -1630,6 +1908,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_BOLD, 14, { 61, 0, 61, 5, 0, 0 } },
             { NATURE_RELAXED, 12, { 63, 0, 47, 17, 0, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 69, { 63, 0, 47, 17, 0, 0 } },
+        .trMate = 14, .twMate = 6,
     },
     {
         .species = SPECIES_REGIGIGAS, .usage = 1, .source = 1, // gen9vgc2024regg-0, 250 lotte
@@ -1644,6 +1924,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 6, { 1, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 2, { 57, 63, 3, 0, 3, 0 } },
         },
+        .fastSpread = { NATURE_JOLLY, 8, { 1, 63, 0, 0, 0, 63 } },
+        .trMate = 2, .twMate = 4,
     },
     {
         .species = SPECIES_CRESSELIA, .usage = 1, .source = 1, // gen9vgc2024regg-0, 175 lotte
@@ -1658,6 +1940,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_RELAXED, 12, { 63, 0, 39, 0, 25, 0 } },
             { NATURE_SASSY, 11, { 63, 0, 0, 1, 63, 0 } },
         },
+        .trSpread = { NATURE_SASSY, 49, { 63, 0, 63, 0, 1, 0 } },
+        .fastSpread = { NATURE_TIMID, 7, { 63, 0, 0, 1, 0, 63 } },
+        .trMate = 50, .twMate = 10,
     },
     {
         .species = SPECIES_SERPERIOR, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 11331 lotte
@@ -1672,6 +1957,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 20, { 63, 0, 0, 3, 0, 63 } },
             { NATURE_MODEST, 12, { 3, 0, 0, 63, 0, 63 } },
         },
+        .trSpread = { NATURE_SASSY, 1, { 41, 0, 25, 27, 35, 0 } },
+        .fastSpread = { NATURE_TIMID, 51, { 63, 0, 0, 3, 0, 63 } },
+        .trMate = 35, .twMate = 52,
     },
     {
         .species = SPECIES_EMBOAR, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 5703 lotte
@@ -1688,6 +1976,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 17, { 63, 63, 0, 0, 3, 0 } },
             { NATURE_BRAVE, 16, { 63, 63, 0, 0, 3, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 22, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 18, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 88, .twMate = 46,
     },
     {
         .species = SPECIES_LIEPARD, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 7617 lotte
@@ -1702,6 +1993,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 17, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_JOLLY, 4, { 63, 3, 0, 0, 0, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 77, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 89, .twMate = 64,
     },
     {
         .species = SPECIES_SIMIPOUR, .usage = 0, .source = 3, // gen9championsvgc2026regmc-0, 851 lotte
@@ -1716,6 +2009,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_HASTY, 17, { 0, 3, 0, 63, 0, 63 } },
             { NATURE_MODEST, 11, { 0, 3, 0, 63, 0, 63 } },
         },
+        .trSpread = { NATURE_BRAVE, 4, { 63, 63, 3, 0, 0, 0 } },
+        .fastSpread = { NATURE_HASTY, 53, { 0, 3, 0, 63, 0, 63 } },
+        .trMate = 44, .twMate = 33,
     },
     {
         .species = SPECIES_EXCADRILL, .usage = 6, .source = 0, // gen9championsvgc2026regmc-1630, 204980 lotte
@@ -1732,6 +2028,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 31, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 1, { 27, 63, 0, 0, 0, 39 } },
         },
+        .fastSpread = { NATURE_JOLLY, 32, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 33, .twMate = 66,
     },
     {
         .species = SPECIES_AUDINO, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 14249 lotte
@@ -1748,6 +2046,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_RELAXED, 25, { 63, 0, 27, 0, 39, 0 } },
             { NATURE_RELAXED, 19, { 63, 0, 47, 0, 19, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 94, { 63, 0, 63, 0, 3, 0 } },
+        .trMate = 70, .twMate = 18,
     },
     {
         .species = SPECIES_CONKELDURR, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 8168 lotte
@@ -1762,6 +2062,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 17, { 63, 63, 0, 0, 3, 0 } },
             { NATURE_BRAVE, 7, { 0, 63, 3, 0, 63, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 72, { 63, 63, 0, 0, 3, 0 } },
+        .trMate = 100, .twMate = 25,
     },
     {
         .species = SPECIES_SCOLIPEDE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 8443 lotte
@@ -1778,6 +2080,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 13, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_JOLLY, 10, { 63, 11, 0, 0, 0, 17 } },
         },
+        .trSpread = { NATURE_BRAVE, 2, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 14, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 49, .twMate = 39,
     },
     {
         .species = SPECIES_WHIMSICOTT, .usage = 8, .source = 0, // gen9championsvgc2026regmc-1630, 390815 lotte
@@ -1792,6 +2097,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 6, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_BOLD, 5, { 63, 0, 63, 3, 0, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 1, { 63, 0, 63, 3, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 71, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 43, .twMate = 27,
     },
     {
         .species = SPECIES_LILLIGANT, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 1683 lotte
@@ -1806,6 +2114,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 22, { 63, 0, 1, 0, 0, 63 } },
             { NATURE_TIMID, 15, { 1, 0, 0, 63, 0, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 55, { 63, 0, 1, 0, 0, 63 } },
+        .trMate = 33, .twMate = 39,
     },
     {
         .species = SPECIES_KROOKODILE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 15651 lotte
@@ -1820,6 +2130,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 29, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_IMPISH, 14, { 63, 0, 5, 0, 49, 11 } },
         },
+        .trSpread = { NATURE_BRAVE, 1, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 33, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 54, .twMate = 41,
     },
     {
         .species = SPECIES_SCRAFTY, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 36064 lotte
@@ -1836,6 +2149,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_BRAVE, 24, { 63, 63, 0, 0, 3, 0 } },
             { NATURE_ADAMANT, 7, { 63, 27, 0, 0, 39, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 35, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 1, { 63, 5, 0, 0, 0, 61 } },
+        .trMate = 83, .twMate = 31,
     },
     {
         .species = SPECIES_COFAGRIGUS, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 14075 lotte
@@ -1850,6 +2166,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_SASSY, 17, { 63, 0, 3, 0, 63, 0 } },
             { NATURE_RELAXED, 17, { 63, 0, 29, 0, 37, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 92, { 63, 0, 63, 0, 3, 0 } },
+        .trMate = 51, .twMate = 21,
     },
     {
         .species = SPECIES_GOTHITELLE, .usage = 4, .source = 1, // gen9vgc2024regg-0, 918 lotte
@@ -1864,6 +2182,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_CALM, 26, { 63, 0, 25, 0, 39, 0 } },
             { NATURE_SASSY, 6, { 63, 0, 1, 0, 63, 0 } },
         },
+        .trSpread = { NATURE_SASSY, 15, { 63, 0, 1, 0, 63, 0 } },
+        .trMate = 9, .twMate = 4,
     },
     {
         .species = SPECIES_REUNICLUS, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 9370 lotte
@@ -1878,6 +2198,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_QUIET, 23, { 63, 0, 19, 33, 13, 0 } },
             { NATURE_MODEST, 13, { 63, 0, 3, 63, 0, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 80, { 63, 0, 3, 63, 0, 0 } },
+        .trMate = 77, .twMate = 34,
     },
     {
         .species = SPECIES_VANILLUXE, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 20169 lotte
@@ -1892,6 +2214,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_QUIET, 30, { 63, 0, 1, 63, 1, 0 } },
             { NATURE_MODEST, 9, { 9, 0, 0, 63, 0, 57 } },
         },
+        .trSpread = { NATURE_QUIET, 33, { 63, 0, 1, 63, 1, 0 } },
+        .fastSpread = { NATURE_TIMID, 45, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 79, .twMate = 39,
     },
     {
         .species = SPECIES_AMOONGUSS, .usage = 26, .source = 1, // gen9vgc2024regg-0, 5592 lotte
@@ -1906,6 +2231,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_RELAXED, 19, { 61, 0, 39, 0, 27, 0 } },
             { NATURE_BOLD, 10, { 59, 0, 41, 0, 27, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 50, { 61, 0, 39, 0, 27, 0 } },
+        .trMate = 41, .twMate = 31,
     },
     {
         .species = SPECIES_FERROTHORN, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 5716 lotte
@@ -1920,6 +2247,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_SASSY, 9, { 63, 0, 25, 0, 39, 0 } },
             { NATURE_RELAXED, 9, { 63, 0, 26, 0, 38, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 66, { 62, 2, 63, 0, 0, 0 } },
+        .trMate = 37, .twMate = 34,
     },
     {
         .species = SPECIES_EELEKTROSS, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 16171 lotte
@@ -1932,6 +2261,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 15, { 1, 0, 0, 63, 1, 63 } },
             { NATURE_QUIET, 7, { 63, 0, 3, 63, 0, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 11, { 63, 0, 3, 63, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 20, { 1, 0, 0, 63, 1, 63 } },
+        .trMate = 53, .twMate = 50,
     },
     {
         .species = SPECIES_CHANDELURE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 34345 lotte
@@ -1948,6 +2280,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 14, { 63, 0, 3, 63, 0, 0 } },
             { NATURE_TIMID, 13, { 3, 0, 0, 63, 0, 63 } },
         },
+        .trSpread = { NATURE_QUIET, 30, { 63, 0, 1, 63, 1, 0 } },
+        .fastSpread = { NATURE_TIMID, 15, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 43, .twMate = 38,
     },
     {
         .species = SPECIES_GOLURK, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 18413 lotte
@@ -1964,6 +2299,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 19, { 63, 63, 0, 0, 3, 0 } },
             { NATURE_BRAVE, 6, { 59, 31, 19, 0, 19, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 64, { 63, 63, 0, 0, 3, 0 } },
+        .trMate = 100, .twMate = 20,
     },
     {
         .species = SPECIES_HYDREIGON, .usage = 2, .source = 0, // gen9championsvgc2026regmc-1630, 69330 lotte
@@ -1978,6 +2315,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 30, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_MODEST, 3, { 43, 0, 0, 49, 0, 37 } },
         },
+        .trSpread = { NATURE_QUIET, 1, { 63, 0, 3, 63, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 32, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 44, .twMate = 39,
     },
     {
         .species = SPECIES_VOLCARONA, .usage = 9, .source = 0, // gen9championsvgc2026regmc-1630, 264576 lotte
@@ -1992,6 +2332,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 12, { 41, 0, 29, 9, 1, 47 } },
             { NATURE_TIMID, 11, { 63, 0, 21, 0, 0, 45 } },
         },
+        .fastSpread = { NATURE_TIMID, 9, { 63, 0, 3, 0, 0, 63 } },
+        .trMate = 21, .twMate = 31,
     },
     {
         .species = SPECIES_TORNADUS, .usage = 12, .source = 1, // gen9vgc2024regg-0, 2666 lotte
@@ -2006,6 +2348,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 7, { 63, 0, 25, 1, 1, 37 } },
             { NATURE_MODEST, 6, { 63, 0, 51, 1, 11, 1 } },
         },
+        .fastSpread = { NATURE_TIMID, 29, { 1, 0, 0, 63, 0, 63 } },
+        .trMate = 28, .twMate = 1,
     },
     {
         .species = SPECIES_THUNDURUS, .usage = 1, .source = 1, // gen9vgc2024regg-0, 274 lotte
@@ -2020,6 +2364,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_CALM, 10, { 63, 0, 0, 0, 63, 1 } },
             { NATURE_CALM, 4, { 43, 0, 19, 1, 59, 5 } },
         },
+        .fastSpread = { NATURE_TIMID, 3, { 1, 0, 0, 63, 0, 63 } },
+        .trMate = 10, .twMate = 8,
     },
     {
         .species = SPECIES_LANDORUS, .usage = 14, .source = 1, // gen9vgc2024regg-0, 2993 lotte
@@ -2034,6 +2380,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 23, { 61, 0, 1, 31, 1, 33 } },
             { NATURE_TIMID, 23, { 0, 0, 0, 63, 1, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 25, { 0, 0, 0, 63, 1, 63 } },
+        .trMate = 73, .twMate = 43,
     },
     {
         .species = SPECIES_KYUREM, .usage = 0, .source = 2, // gen9nationaldexdoubles-0, 1053 lotte
@@ -2048,6 +2396,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 23, { 46, 0, 9, 63, 9, 0 } },
             { NATURE_MODEST, 17, { 63, 0, 0, 63, 1, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 3, { 31, 0, 17, 63, 16, 0 } },
+        .fastSpread = { NATURE_TIMID, 31, { 0, 0, 0, 63, 1, 63 } },
+        .trMate = 25, .twMate = 29,
     },
     {
         .species = SPECIES_CHESNAUGHT, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 17172 lotte
@@ -2064,6 +2415,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_IMPISH, 9, { 57, 0, 15, 0, 57, 0 } },
             { NATURE_ADAMANT, 8, { 63, 63, 0, 0, 3, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 39, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 1, { 61, 17, 0, 0, 0, 51 } },
+        .trMate = 65, .twMate = 30,
     },
     {
         .species = SPECIES_DELPHOX, .usage = 4, .source = 0, // gen9championsvgc2026regmc-1630, 122339 lotte
@@ -2080,6 +2434,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 16, { 17, 0, 27, 21, 0, 63 } },
             { NATURE_TIMID, 12, { 21, 0, 7, 37, 0, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 87, { 1, 0, 0, 63, 1, 63 } },
+        .trMate = 54, .twMate = 31,
     },
     {
         .species = SPECIES_GRENINJA, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 26412 lotte
@@ -2096,6 +2452,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 13, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_HASTY, 6, { 0, 3, 0, 63, 0, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 81, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 44, .twMate = 52,
     },
     {
         .species = SPECIES_TALONFLAME, .usage = 2, .source = 0, // gen9championsvgc2026regmc-1630, 114745 lotte
@@ -2110,6 +2468,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 26, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_ADAMANT, 12, { 3, 63, 0, 0, 0, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 81, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 69, .twMate = 14,
     },
     {
         .species = SPECIES_VIVILLON, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 44502 lotte
@@ -2124,6 +2484,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 12, { 63, 0, 0, 3, 0, 63 } },
             { NATURE_TIMID, 1, { 0, 0, 47, 9, 9, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 98, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 64, .twMate = 8,
     },
     {
         .species = SPECIES_PYROAR, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 24900 lotte
@@ -2136,6 +2498,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 4, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_TIMID, 1, { 61, 0, 3, 3, 5, 55 } },
         },
+        .fastSpread = { NATURE_TIMID, 94, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 88, .twMate = 64,
     },
     {
         .species = SPECIES_MEOWSTIC, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 14380 lotte
@@ -2150,6 +2514,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 11, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_BOLD, 10, { 3, 0, 63, 0, 63, 0 } },
         },
+        .trSpread = { NATURE_SASSY, 11, { 63, 0, 27, 0, 39, 0 } },
+        .fastSpread = { NATURE_TIMID, 27, { 63, 0, 3, 0, 0, 63 } },
+        .trMate = 58, .twMate = 44,
     },
     {
         .species = SPECIES_AEGISLASH, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 47591 lotte
@@ -2164,6 +2531,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 24, { 63, 63, 0, 0, 3, 0 } },
             { NATURE_BRAVE, 10, { 63, 63, 0, 0, 3, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 18, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 1, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 36, .twMate = 46,
     },
     {
         .species = SPECIES_AROMATISSE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 4950 lotte
@@ -2178,6 +2548,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_SASSY, 12, { 61, 0, 0, 5, 63, 0 } },
             { NATURE_QUIET, 8, { 61, 0, 0, 63, 5, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 86, { 63, 0, 63, 0, 3, 0 } },
+        .trMate = 75, .twMate = 24,
     },
     {
         .species = SPECIES_MALAMAR, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 38738 lotte
@@ -2194,6 +2566,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 11, { 63, 63, 3, 0, 0, 0 } },
             { NATURE_BRAVE, 8, { 63, 63, 0, 0, 3, 0 } },
         },
+        .trSpread = { NATURE_SASSY, 45, { 63, 0, 3, 0, 63, 0 } },
+        .fastSpread = { NATURE_JOLLY, 12, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 75, .twMate = 27,
     },
     {
         .species = SPECIES_BARBARACLE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 2977 lotte
@@ -2206,6 +2581,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 31, { 59, 63, 0, 0, 0, 7 } },
             { NATURE_BRAVE, 12, { 63, 63, 3, 0, 0, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 12, { 63, 63, 3, 0, 0, 0 } },
+        .fastSpread = { NATURE_JOLLY, 9, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 73, .twMate = 31,
     },
     {
         .species = SPECIES_DRAGALGE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 18820 lotte
@@ -2222,6 +2600,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 20, { 63, 0, 0, 63, 3, 0 } },
             { NATURE_QUIET, 8, { 63, 0, 29, 35, 1, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 53, { 63, 0, 3, 63, 0, 0 } },
+        .trMate = 83, .twMate = 21,
     },
     {
         .species = SPECIES_CLAWITZER, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 12859 lotte
@@ -2236,6 +2616,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 15, { 63, 0, 0, 63, 3, 0 } },
             { NATURE_TIMID, 5, { 3, 0, 0, 63, 0, 63 } },
         },
+        .trSpread = { NATURE_QUIET, 64, { 63, 0, 3, 63, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 6, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 100, .twMate = 26,
     },
     {
         .species = SPECIES_HELIOLISK, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 18755 lotte
@@ -2250,6 +2633,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 39, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_MODEST, 2, { 0, 0, 19, 63, 5, 41 } },
         },
+        .trSpread = { NATURE_QUIET, 1, { 63, 0, 0, 63, 3, 0 } },
+        .fastSpread = { NATURE_TIMID, 51, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 46, .twMate = 45,
     },
     {
         .species = SPECIES_TYRANTRUM, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 3300 lotte
@@ -2264,6 +2650,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 24, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 10, { 39, 57, 0, 0, 1, 31 } },
         },
+        .trSpread = { NATURE_BRAVE, 12, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 60, { 31, 35, 0, 0, 0, 63 } },
+        .trMate = 60, .twMate = 51,
     },
     {
         .species = SPECIES_AURORUS, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 6908 lotte
@@ -2278,6 +2667,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 11, { 63, 0, 0, 63, 3, 0 } },
             { NATURE_MODEST, 5, { 1, 0, 3, 61, 0, 63 } },
         },
+        .trSpread = { NATURE_QUIET, 53, { 63, 0, 3, 63, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 5, { 1, 0, 0, 63, 1, 63 } },
+        .trMate = 85, .twMate = 27,
     },
     {
         .species = SPECIES_SYLVEON, .usage = 9, .source = 0, // gen9championsvgc2026regmc-1630, 262857 lotte
@@ -2292,6 +2684,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 9, { 63, 0, 3, 63, 0, 0 } },
             { NATURE_MODEST, 9, { 37, 0, 1, 59, 0, 31 } },
         },
+        .trSpread = { NATURE_QUIET, 12, { 63, 0, 3, 63, 0, 0 } },
+        .trMate = 41, .twMate = 54,
     },
     {
         .species = SPECIES_HAWLUCHA, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 20015 lotte
@@ -2308,6 +2702,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 17, { 63, 0, 0, 0, 3, 63 } },
             { NATURE_ADAMANT, 16, { 3, 63, 0, 0, 0, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 34, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 59, .twMate = 15,
     },
     {
         .species = SPECIES_GOODRA, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 4118 lotte
@@ -2322,6 +2718,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_SASSY, 11, { 3, 0, 0, 63, 63, 0 } },
             { NATURE_MODEST, 9, { 39, 0, 15, 63, 0, 11 } },
         },
+        .trSpread = { NATURE_SASSY, 26, { 3, 0, 0, 63, 63, 0 } },
+        .fastSpread = { NATURE_TIMID, 10, { 0, 0, 3, 63, 0, 63 } },
+        .trMate = 36, .twMate = 47,
     },
     {
         .species = SPECIES_KLEFKI, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 23270 lotte
@@ -2336,6 +2735,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_BOLD, 19, { 63, 0, 37, 0, 29, 0 } },
             { NATURE_CALM, 19, { 63, 0, 41, 0, 25, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 8, { 63, 0, 63, 0, 3, 0 } },
+        .trMate = 29, .twMate = 59,
     },
     {
         .species = SPECIES_NOIVERN, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 17180 lotte
@@ -2350,6 +2751,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 7, { 61, 0, 0, 5, 0, 63 } },
             { NATURE_TIMID, 3, { 31, 0, 0, 39, 0, 59 } },
         },
+        .fastSpread = { NATURE_TIMID, 96, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 46, .twMate = 14,
     },
     {
         .species = SPECIES_DIANCIE, .usage = 4, .source = 2, // gen9nationaldexdoubles-0, 10343 lotte
@@ -2366,6 +2769,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_HARDY, 10, { 62, 2, 37, 0, 26, 0 } },
             { NATURE_HASTY, 6, { 0, 1, 0, 63, 0, 63 } },
         },
+        .trSpread = { NATURE_BRAVE, 38, { 63, 63, 0, 0, 1, 0 } },
+        .fastSpread = { NATURE_HASTY, 28, { 0, 1, 0, 63, 0, 63 } },
+        .trMate = 46, .twMate = 31,
     },
     {
         .species = SPECIES_VOLCANION, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 3612 lotte
@@ -2380,6 +2786,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 19, { 35, 0, 11, 47, 30, 4 } },
             { NATURE_QUIET, 9, { 62, 0, 0, 63, 2, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 16, { 62, 0, 0, 63, 2, 0 } },
+        .fastSpread = { NATURE_TIMID, 4, { 1, 0, 0, 63, 0, 63 } },
+        .trMate = 34, .twMate = 35,
     },
     {
         .species = SPECIES_INCINEROAR, .usage = 31, .source = 0, // gen9championsvgc2026regmc-1630, 1005513 lotte
@@ -2394,6 +2803,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_IMPISH, 15, { 63, 0, 39, 0, 27, 0 } },
             { NATURE_SASSY, 6, { 61, 0, 29, 0, 39, 0 } },
         },
+        .trSpread = { NATURE_SASSY, 18, { 61, 0, 29, 0, 39, 0 } },
+        .fastSpread = { NATURE_JOLLY, 1, { 63, 0, 5, 0, 0, 61 } },
+        .trMate = 45, .twMate = 36,
     },
     {
         .species = SPECIES_PRIMARINA, .usage = 4, .source = 0, // gen9championsvgc2026regmc-1630, 142440 lotte
@@ -2408,6 +2820,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_QUIET, 9, { 63, 0, 3, 63, 0, 0 } },
             { NATURE_MODEST, 8, { 61, 0, 31, 35, 0, 1 } },
         },
+        .trSpread = { NATURE_QUIET, 22, { 63, 0, 3, 63, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 1, { 7, 0, 0, 59, 0, 63 } },
+        .trMate = 48, .twMate = 43,
     },
     {
         .species = SPECIES_TOUCANNON, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 3382 lotte
@@ -2422,6 +2837,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_BRAVE, 28, { 63, 63, 0, 0, 3, 0 } },
             { NATURE_JOLLY, 8, { 3, 63, 0, 0, 0, 63 } },
         },
+        .trSpread = { NATURE_BRAVE, 31, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 9, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 71, .twMate = 41,
     },
     {
         .species = SPECIES_CRABOMINABLE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 24929 lotte
@@ -2436,6 +2854,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 8, { 63, 63, 0, 0, 3, 0 } },
             { NATURE_BRAVE, 2, { 31, 63, 0, 0, 35, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 89, { 63, 63, 0, 0, 3, 0 } },
+        .trMate = 100, .twMate = 9,
     },
     {
         .species = SPECIES_LYCANROC, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 3399 lotte
@@ -2450,6 +2870,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 21, { 1, 63, 0, 0, 1, 63 } },
             { NATURE_TIMID, 1, { 3, 63, 0, 0, 0, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 22, { 1, 63, 0, 0, 1, 63 } },
+        .trMate = 75, .twMate = 72,
     },
     {
         .species = SPECIES_TOXAPEX, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 48545 lotte
@@ -2464,6 +2886,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_CALM, 14, { 63, 0, 31, 0, 35, 0 } },
             { NATURE_BOLD, 10, { 63, 0, 63, 3, 0, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 24, { 63, 0, 35, 0, 31, 0 } },
+        .trMate = 24, .twMate = 33,
     },
     {
         .species = SPECIES_MUDSDALE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 8989 lotte
@@ -2478,6 +2902,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 7, { 63, 63, 0, 0, 3, 0 } },
             { NATURE_BRAVE, 6, { 33, 49, 0, 0, 47, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 75, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 4, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 95, .twMate = 27,
     },
     {
         .species = SPECIES_ARAQUANID, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 41813 lotte
@@ -2492,6 +2919,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 14, { 63, 63, 3, 0, 0, 0 } },
             { NATURE_CAREFUL, 5, { 63, 1, 63, 0, 1, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 56, { 63, 63, 3, 0, 0, 0 } },
+        .trMate = 77, .twMate = 34,
     },
     {
         .species = SPECIES_LURANTIS, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 1600 lotte
@@ -2506,6 +2935,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 12, { 62, 63, 0, 0, 2, 0 } },
             { NATURE_SASSY, 10, { 62, 0, 2, 0, 63, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 71, { 62, 63, 0, 0, 2, 0 } },
+        .fastSpread = { NATURE_JOLLY, 3, { 0, 59, 0, 0, 5, 63 } },
+        .trMate = 69, .twMate = 33,
     },
     {
         .species = SPECIES_SALAZZLE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 11084 lotte
@@ -2520,6 +2952,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_HASTY, 15, { 0, 3, 0, 63, 0, 63 } },
             { NATURE_MODEST, 10, { 3, 0, 0, 63, 0, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 86, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 31, .twMate = 48,
     },
     {
         .species = SPECIES_TSAREENA, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 49478 lotte
@@ -2534,6 +2968,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 13, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 10, { 63, 63, 0, 0, 3, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 6, { 59, 63, 3, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 32, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 30, .twMate = 72,
     },
     {
         .species = SPECIES_COMFEY, .usage = 1, .source = 1, // gen9vgc2024regg-0, 197 lotte
@@ -2548,6 +2985,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_CALM, 19, { 63, 0, 39, 5, 19, 1 } },
             { NATURE_BOLD, 13, { 63, 0, 37, 1, 3, 23 } },
         },
+        .trSpread = { NATURE_RELAXED, 5, { 63, 0, 39, 0, 23, 0 } },
+        .fastSpread = { NATURE_TIMID, 13, { 63, 0, 0, 1, 0, 63 } },
+        .trMate = 40, .twMate = 11,
     },
     {
         .species = SPECIES_ORANGURU, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 27545 lotte
@@ -2562,6 +3002,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_BOLD, 13, { 63, 0, 63, 0, 3, 0 } },
             { NATURE_SASSY, 13, { 63, 0, 0, 3, 63, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 74, { 63, 0, 63, 0, 3, 0 } },
+        .trMate = 40, .twMate = 23,
     },
     {
         .species = SPECIES_GOLISOPOD, .usage = 16, .source = 0, // gen9championsvgc2026regmc-1630, 677921 lotte
@@ -2574,6 +3016,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_BRAVE, 27, { 63, 63, 0, 0, 3, 0 } },
             { NATURE_ADAMANT, 5, { 63, 39, 0, 0, 27, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 35, { 63, 63, 0, 0, 3, 0 } },
+        .trMate = 77, .twMate = 51,
     },
     {
         .species = SPECIES_MIMIKYU, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 22365 lotte
@@ -2588,6 +3032,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_BRAVE, 17, { 63, 63, 0, 0, 3, 0 } },
             { NATURE_JOLLY, 14, { 3, 63, 0, 0, 0, 63 } },
         },
+        .trSpread = { NATURE_BRAVE, 31, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 15, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 48, .twMate = 42,
     },
     {
         .species = SPECIES_DRAMPA, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 26703 lotte
@@ -2604,6 +3051,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 16, { 63, 0, 0, 63, 3, 0 } },
             { NATURE_BOLD, 6, { 63, 0, 33, 0, 23, 9 } },
         },
+        .trSpread = { NATURE_QUIET, 67, { 63, 0, 3, 63, 0, 0 } },
+        .trMate = 100, .twMate = 31,
     },
     {
         .species = SPECIES_KOMMO_O, .usage = 4, .source = 0, // gen9championsvgc2026regmc-1630, 79927 lotte
@@ -2618,6 +3067,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 12, { 63, 0, 0, 63, 3, 0 } },
             { NATURE_MODEST, 10, { 21, 0, 0, 39, 5, 63 } },
         },
+        .trSpread = { NATURE_QUIET, 2, { 63, 0, 0, 63, 3, 0 } },
+        .fastSpread = { NATURE_TIMID, 14, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 69, .twMate = 35,
     },
     {
         .species = SPECIES_TAPU_KOKO, .usage = 4, .source = 2, // gen9nationaldexdoubles-0, 9519 lotte
@@ -2632,6 +3084,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 10, { 1, 0, 0, 63, 0, 63 } },
             { NATURE_TIMID, 5, { 63, 0, 1, 0, 0, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 78, { 1, 0, 0, 63, 0, 63 } },
+        .trMate = 20, .twMate = 39,
     },
     {
         .species = SPECIES_TAPU_LELE, .usage = 4, .source = 2, // gen9nationaldexdoubles-0, 8675 lotte
@@ -2646,6 +3100,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 9, { 1, 0, 0, 63, 0, 63 } },
             { NATURE_MODEST, 4, { 63, 0, 0, 63, 1, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 2, { 63, 0, 0, 63, 1, 0 } },
+        .fastSpread = { NATURE_TIMID, 66, { 1, 0, 0, 63, 0, 63 } },
+        .trMate = 43, .twMate = 44,
     },
     {
         .species = SPECIES_TAPU_FINI, .usage = 3, .source = 2, // gen9nationaldexdoubles-0, 6333 lotte
@@ -2660,6 +3117,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 9, { 1, 0, 0, 63, 0, 63 } },
             { NATURE_BOLD, 7, { 62, 0, 19, 39, 1, 6 } },
         },
+        .trSpread = { NATURE_QUIET, 6, { 63, 0, 0, 63, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 9, { 1, 0, 0, 63, 0, 63 } },
+        .trMate = 29, .twMate = 42,
     },
     {
         .species = SPECIES_LUNALA, .usage = 3, .source = 1, // gen9vgc2024regg-0, 592 lotte
@@ -2674,6 +3134,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 22, { 63, 0, 1, 61, 1, 1 } },
             { NATURE_MODEST, 12, { 55, 0, 11, 45, 1, 15 } },
         },
+        .trSpread = { NATURE_QUIET, 3, { 63, 0, 0, 63, 1, 0 } },
+        .fastSpread = { NATURE_TIMID, 7, { 1, 0, 1, 61, 1, 63 } },
+        .trMate = 41, .twMate = 62,
     },
     {
         .species = SPECIES_XURKITREE, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 3950 lotte
@@ -2688,6 +3151,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 8, { 1, 0, 0, 63, 0, 63 } },
             { NATURE_QUIET, 5, { 63, 0, 0, 63, 1, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 9, { 1, 0, 63, 0, 63, 0 } },
+        .fastSpread = { NATURE_TIMID, 65, { 1, 0, 0, 63, 0, 63 } },
+        .trMate = 38, .twMate = 46,
     },
     {
         .species = SPECIES_CELESTEELA, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 3810 lotte
@@ -2702,6 +3168,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_IMPISH, 7, { 63, 1, 63, 0, 0, 0 } },
             { NATURE_CAREFUL, 5, { 63, 1, 26, 0, 35, 2 } },
         },
+        .trSpread = { NATURE_SASSY, 31, { 63, 0, 6, 0, 58, 0 } },
+        .trMate = 32, .twMate = 36,
     },
     {
         .species = SPECIES_KARTANA, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 4978 lotte
@@ -2716,6 +3184,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 9, { 1, 63, 0, 0, 0, 63 } },
             { NATURE_HARDY, 8, { 0, 63, 1, 0, 0, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 69, { 1, 63, 0, 0, 0, 63 } },
+        .trMate = 23, .twMate = 51,
     },
     {
         .species = SPECIES_MARSHADOW, .usage = 4, .source = 2, // gen9nationaldexdoubles-0, 9065 lotte
@@ -2730,6 +3200,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 13, { 1, 63, 0, 0, 0, 63 } },
             { NATURE_HASTY, 1, { 0, 63, 0, 1, 0, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 81, { 1, 63, 0, 0, 0, 63 } },
+        .trMate = 25, .twMate = 40,
     },
     {
         .species = SPECIES_ZERAORA, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 4576 lotte
@@ -2744,6 +3216,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 11, { 1, 63, 0, 0, 0, 63 } },
             { NATURE_JOLLY, 7, { 62, 7, 8, 0, 0, 50 } },
         },
+        .fastSpread = { NATURE_JOLLY, 73, { 1, 63, 0, 0, 0, 63 } },
+        .trMate = 21, .twMate = 37,
     },
     {
         .species = SPECIES_RILLABOOM, .usage = 46, .source = 0, // gen9championsvgc2026regmc-1630, 1410840 lotte
@@ -2758,6 +3232,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 13, { 63, 29, 0, 0, 37, 0 } },
             { NATURE_ADAMANT, 6, { 35, 49, 9, 0, 19, 15 } },
         },
+        .trSpread = { NATURE_SASSY, 7, { 63, 0, 7, 0, 59, 0 } },
+        .fastSpread = { NATURE_JOLLY, 4, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 26, .twMate = 47,
     },
     {
         .species = SPECIES_CINDERACE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 19301 lotte
@@ -2772,6 +3249,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 33, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_JOLLY, 2, { 63, 0, 1, 0, 1, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 62, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 38, .twMate = 52,
     },
     {
         .species = SPECIES_INTELEON, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 49797 lotte
@@ -2786,6 +3265,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 18, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_MODEST, 1, { 19, 0, 0, 63, 0, 47 } },
         },
+        .fastSpread = { NATURE_TIMID, 78, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 57, .twMate = 55,
     },
     {
         .species = SPECIES_CORVIKNIGHT, .usage = 2, .source = 0, // gen9championsvgc2026regmc-1630, 115866 lotte
@@ -2800,6 +3281,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_CAREFUL, 7, { 63, 1, 1, 0, 29, 33 } },
             { NATURE_IMPISH, 5, { 63, 0, 63, 0, 3, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 1, { 63, 0, 9, 0, 57, 0 } },
+        .trMate = 43, .twMate = 42,
     },
     {
         .species = SPECIES_APPLETUN, .usage = 0, .source = 3, // gen9championsvgc2026regmc-0, 1066 lotte
@@ -2814,6 +3297,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_SASSY, 12, { 63, 0, 3, 0, 63, 0 } },
             { NATURE_MODEST, 9, { 63, 0, 0, 63, 3, 0 } },
         },
+        .trSpread = { NATURE_SASSY, 43, { 63, 0, 3, 0, 63, 0 } },
+        .trMate = 67, .twMate = 22,
     },
     {
         .species = SPECIES_TOXTRICITY, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 45306 lotte
@@ -2828,6 +3313,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 23, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_MODEST, 18, { 37, 0, 0, 51, 0, 41 } },
         },
+        .trSpread = { NATURE_QUIET, 9, { 63, 0, 1, 63, 1, 0 } },
+        .fastSpread = { NATURE_TIMID, 30, { 1, 0, 0, 63, 1, 63 } },
+        .trMate = 48, .twMate = 55,
     },
     {
         .species = SPECIES_GRAPPLOCT, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 49812 lotte
@@ -2842,6 +3330,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 20, { 63, 63, 0, 0, 3, 0 } },
             { NATURE_BRAVE, 2, { 63, 43, 0, 0, 19, 3 } },
         },
+        .trSpread = { NATURE_BRAVE, 67, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 1, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 100, .twMate = 30,
     },
     {
         .species = SPECIES_HATTERENE, .usage = 2, .source = 0, // gen9championsvgc2026regmc-1630, 126010 lotte
@@ -2856,6 +3347,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 4, { 63, 0, 3, 63, 0, 0 } },
             { NATURE_SASSY, 3, { 63, 0, 0, 3, 63, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 93, { 63, 0, 3, 63, 0, 0 } },
+        .trMate = 100, .twMate = 17,
     },
     {
         .species = SPECIES_GRIMMSNARL, .usage = 5, .source = 0, // gen9championsvgc2026regmc-1630, 174777 lotte
@@ -2870,6 +3363,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_SASSY, 21, { 63, 0, 37, 0, 29, 0 } },
             { NATURE_CAREFUL, 7, { 63, 3, 0, 0, 63, 0 } },
         },
+        .trSpread = { NATURE_SASSY, 28, { 63, 0, 37, 0, 29, 0 } },
+        .trMate = 40, .twMate = 58,
     },
     {
         .species = SPECIES_PERRSERKER, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 20456 lotte
@@ -2884,6 +3379,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 18, { 63, 63, 0, 0, 3, 0 } },
             { NATURE_ADAMANT, 12, { 3, 63, 0, 0, 0, 63 } },
         },
+        .trSpread = { NATURE_BRAVE, 35, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 9, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 57, .twMate = 49,
     },
     {
         .species = SPECIES_SIRFETCHD, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 62505 lotte
@@ -2898,6 +3396,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 24, { 63, 63, 0, 0, 3, 0 } },
             { NATURE_ADAMANT, 17, { 43, 63, 0, 0, 0, 23 } },
         },
+        .trSpread = { NATURE_BRAVE, 29, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 6, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 87, .twMate = 51,
     },
     {
         .species = SPECIES_MR_RIME, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 8453 lotte
@@ -2912,6 +3413,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 10, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_SASSY, 7, { 63, 0, 0, 3, 63, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 48, { 63, 0, 3, 63, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 21, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 86, .twMate = 29,
     },
     {
         .species = SPECIES_RUNERIGUS, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 9569 lotte
@@ -2926,6 +3430,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_SASSY, 14, { 63, 3, 0, 0, 63, 0 } },
             { NATURE_IMPISH, 8, { 63, 9, 9, 0, 47, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 68, { 63, 0, 63, 0, 3, 0 } },
+        .trMate = 56, .twMate = 39,
     },
     {
         .species = SPECIES_ALCREMIE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 15783 lotte
@@ -2940,6 +3446,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_RELAXED, 16, { 63, 0, 63, 3, 0, 0 } },
             { NATURE_CALM, 12, { 63, 0, 0, 3, 63, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 24, { 63, 0, 63, 3, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 13, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 71, .twMate = 38,
     },
     {
         .species = SPECIES_FALINKS, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 5734 lotte
@@ -2952,6 +3461,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 25, { 0, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 9, { 63, 63, 0, 0, 0, 3 } },
         },
+        .trSpread = { NATURE_BRAVE, 1, { 41, 25, 0, 0, 63, 0 } },
+        .fastSpread = { NATURE_JOLLY, 29, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 66, .twMate = 29,
     },
     {
         .species = SPECIES_PINCURCHIN, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 51040 lotte
@@ -2966,6 +3478,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_RELAXED, 8, { 63, 0, 63, 3, 0, 0 } },
             { NATURE_MODEST, 6, { 63, 0, 0, 63, 3, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 79, { 63, 0, 0, 63, 3, 0 } },
+        .trMate = 69, .twMate = 27,
     },
     {
         .species = SPECIES_INDEEDEE, .usage = 7, .source = 0, // gen9championsvgc2026regmc-1630, 242274 lotte
@@ -2980,6 +3494,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 42, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_MODEST, 3, { 23, 0, 0, 63, 0, 43 } },
         },
+        .trSpread = { NATURE_SASSY, 2, { 63, 0, 0, 3, 63, 0 } },
+        .fastSpread = { NATURE_TIMID, 45, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 9, .twMate = 58,
     },
     {
         .species = SPECIES_MORPEKO, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 3950 lotte
@@ -2994,6 +3511,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 18, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_JOLLY, 4, { 63, 0, 0, 0, 3, 63 } },
         },
+        .trSpread = { NATURE_RELAXED, 1, { 23, 0, 43, 0, 63, 0 } },
+        .fastSpread = { NATURE_JOLLY, 80, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 54, .twMate = 42,
     },
     {
         .species = SPECIES_COPPERAJAH, .usage = 0, .source = 2, // gen9nationaldexdoubles-0, 250 lotte
@@ -3008,6 +3528,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_BRAVE, 29, { 0, 63, 32, 0, 32, 0 } },
             { NATURE_BRAVE, 10, { 62, 63, 0, 0, 2, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 53, { 0, 63, 32, 0, 32, 0 } },
+        .fastSpread = { NATURE_JOLLY, 1, { 0, 63, 0, 0, 1, 63 } },
+        .trMate = 53, .twMate = 11,
     },
     {
         .species = SPECIES_DRACOVISH, .usage = 3, .source = 2, // gen9nationaldexdoubles-0, 8293 lotte
@@ -3022,6 +3545,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 30, { 1, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 5, { 62, 63, 0, 0, 2, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 3, { 62, 63, 0, 0, 2, 0 } },
+        .fastSpread = { NATURE_JOLLY, 51, { 1, 63, 0, 0, 0, 63 } },
+        .trMate = 29, .twMate = 59,
     },
     {
         .species = SPECIES_DRAGAPULT, .usage = 2, .source = 0, // gen9championsvgc2026regmc-1630, 102368 lotte
@@ -3036,6 +3562,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 27, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_JOLLY, 11, { 3, 63, 0, 0, 0, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 59, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 64, .twMate = 45,
     },
     {
         .species = SPECIES_URSHIFU, .usage = 8, .source = 1, // gen9vgc2024regg-0, 1663 lotte
@@ -3050,6 +3578,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 13, { 1, 63, 0, 0, 0, 63 } },
             { NATURE_BRAVE, 9, { 63, 63, 0, 0, 1, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 12, { 63, 63, 0, 0, 1, 0 } },
+        .fastSpread = { NATURE_JOLLY, 13, { 1, 63, 0, 0, 0, 63 } },
+        .trMate = 70, .twMate = 47,
     },
     {
         .species = SPECIES_REGIELEKI, .usage = 1, .source = 1, // gen9vgc2024regg-0, 302 lotte
@@ -3064,6 +3595,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 28, { 1, 0, 0, 63, 0, 63 } },
             { NATURE_MODEST, 11, { 0, 0, 61, 41, 0, 25 } },
         },
+        .fastSpread = { NATURE_TIMID, 29, { 1, 0, 0, 63, 0, 63 } },
+        .trMate = 100, .twMate = 31,
     },
     {
         .species = SPECIES_REGIDRAGO, .usage = 2, .source = 1, // gen9vgc2024regg-0, 539 lotte
@@ -3078,6 +3611,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 7, { 0, 0, 1, 63, 0, 63 } },
             { NATURE_MODEST, 6, { 1, 0, 21, 63, 17, 25 } },
         },
+        .trSpread = { NATURE_QUIET, 1, { 1, 1, 31, 63, 31, 0 } },
+        .fastSpread = { NATURE_TIMID, 8, { 0, 0, 1, 63, 0, 63 } },
+        .trMate = 20, .twMate = 87,
     },
     {
         .species = SPECIES_WYRDEER, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 12578 lotte
@@ -3092,6 +3628,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_QUIET, 11, { 63, 0, 17, 49, 0, 0 } },
             { NATURE_QUIET, 4, { 63, 0, 3, 63, 0, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 62, { 63, 0, 17, 49, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 5, { 63, 0, 0, 3, 0, 63 } },
+        .trMate = 38, .twMate = 37,
     },
     {
         .species = SPECIES_KLEAVOR, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 36201 lotte
@@ -3106,6 +3645,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 45, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 3, { 63, 63, 0, 0, 3, 0 } },
         },
+        .fastSpread = { NATURE_JOLLY, 47, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 40, .twMate = 59,
     },
     {
         .species = SPECIES_URSALUNA, .usage = 4, .source = 1, // gen9vgc2024regg-0, 836 lotte
@@ -3120,6 +3661,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 14, { 63, 63, 0, 0, 1, 0 } },
             { NATURE_BRAVE, 8, { 35, 61, 21, 0, 9, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 79, { 63, 63, 0, 0, 1, 0 } },
+        .fastSpread = { NATURE_JOLLY, 1, { 0, 63, 0, 0, 1, 63 } },
+        .trMate = 100, .twMate = 36,
     },
     {
         .species = SPECIES_BASCULEGION, .usage = 19, .source = 0, // gen9championsvgc2026regmc-1630, 633262 lotte
@@ -3134,6 +3678,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 21, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 7, { 7, 45, 25, 0, 0, 51 } },
         },
+        .trSpread = { NATURE_BRAVE, 1, { 63, 63, 3, 0, 0, 0 } },
+        .fastSpread = { NATURE_JOLLY, 43, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 40, .twMate = 62,
     },
     {
         .species = SPECIES_SNEASLER, .usage = 37, .source = 0, // gen9championsvgc2026regmc-1630, 1241478 lotte
@@ -3148,6 +3695,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 25, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 8, { 31, 39, 0, 0, 0, 59 } },
         },
+        .fastSpread = { NATURE_JOLLY, 27, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 45, .twMate = 49,
     },
     {
         .species = SPECIES_OVERQWIL, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 22486 lotte
@@ -3162,6 +3711,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_IMPISH, 15, { 63, 0, 9, 0, 57, 0 } },
             { NATURE_RELAXED, 14, { 63, 0, 3, 0, 63, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 27, { 63, 0, 3, 0, 63, 0 } },
+        .fastSpread = { NATURE_JOLLY, 4, { 1, 63, 0, 0, 1, 63 } },
+        .trMate = 97, .twMate = 34,
     },
     {
         .species = SPECIES_ENAMORUS, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 1245 lotte
@@ -3176,6 +3728,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_HASTY, 17, { 0, 63, 0, 1, 0, 63 } },
             { NATURE_TIMID, 13, { 1, 0, 0, 63, 0, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 73, { 1, 63, 0, 0, 0, 63 } },
+        .trMate = 24, .twMate = 47,
     },
     {
         .species = SPECIES_RAICHU_ALOLA, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 15165 lotte
@@ -3190,6 +3744,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 22, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_HASTY, 11, { 0, 3, 0, 63, 0, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 34, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 57, .twMate = 27,
     },
     {
         .species = SPECIES_NINETALES_ALOLA, .usage = 3, .source = 0, // gen9championsvgc2026regmc-1630, 168774 lotte
@@ -3204,6 +3760,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 14, { 63, 0, 0, 3, 0, 63 } },
             { NATURE_MODEST, 8, { 3, 0, 0, 63, 0, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 86, { 1, 0, 0, 63, 1, 63 } },
+        .trMate = 32, .twMate = 31,
     },
     {
         .species = SPECIES_DUGTRIO_ALOLA, .usage = 0, .source = 4, // gen9doublesou-0, 221 lotte
@@ -3218,6 +3776,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_HASTY, 15, { 0, 63, 0, 1, 0, 63 } },
             { NATURE_HARDY, 12, { 1, 63, 0, 0, 0, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 77, { 1, 63, 0, 0, 0, 63 } },
+        .trMate = 20, .twMate = 35,
     },
     {
         .species = SPECIES_PERSIAN_ALOLA, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 12423 lotte
@@ -3232,6 +3792,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 17, { 41, 0, 1, 0, 29, 57 } },
             { NATURE_JOLLY, 13, { 63, 0, 0, 0, 3, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 72, { 41, 0, 1, 0, 29, 57 } },
+        .trMate = 39, .twMate = 50,
     },
     {
         .species = SPECIES_SLOWBRO_GALAR, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 5370 lotte
@@ -3246,6 +3808,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_RELAXED, 11, { 19, 0, 39, 11, 59, 0 } },
             { NATURE_MODEST, 8, { 63, 0, 0, 63, 3, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 87, { 63, 0, 0, 63, 3, 0 } },
+        .trMate = 52, .twMate = 32,
     },
     {
         .species = SPECIES_WEEZING_GALAR, .usage = 2, .source = 1, // gen9vgc2024regg-0, 579 lotte
@@ -3260,6 +3824,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 5, { 9, 0, 0, 63, 0, 55 } },
             { NATURE_MODEST, 4, { 29, 0, 1, 49, 29, 19 } },
         },
+        .trSpread = { NATURE_RELAXED, 1, { 63, 1, 63, 0, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 5, { 9, 0, 0, 63, 0, 55 } },
+        .trMate = 38, .twMate = 23,
     },
     {
         .species = SPECIES_MOLTRES_GALAR, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 1378 lotte
@@ -3274,6 +3841,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 16, { 63, 0, 1, 63, 0, 0 } },
             { NATURE_MODEST, 6, { 1, 0, 0, 63, 0, 63 } },
         },
+        .trSpread = { NATURE_QUIET, 6, { 0, 0, 56, 8, 63, 0 } },
+        .fastSpread = { NATURE_TIMID, 40, { 1, 0, 0, 63, 0, 63 } },
+        .trMate = 25, .twMate = 30,
     },
     {
         .species = SPECIES_SLOWKING_GALAR, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 24023 lotte
@@ -3288,6 +3858,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_SASSY, 9, { 63, 0, 9, 37, 19, 0 } },
             { NATURE_SASSY, 8, { 63, 0, 0, 3, 63, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 77, { 63, 0, 0, 63, 3, 0 } },
+        .trMate = 37, .twMate = 24,
     },
     {
         .species = SPECIES_ARCANINE_HISUI, .usage = 12, .source = 0, // gen9championsvgc2026regmc-1630, 337729 lotte
@@ -3302,6 +3874,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 13, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 1, { 63, 63, 0, 0, 0, 3 } },
         },
+        .fastSpread = { NATURE_JOLLY, 85, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 25, .twMate = 55,
     },
     {
         .species = SPECIES_TYPHLOSION_HISUI, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 49007 lotte
@@ -3316,6 +3890,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 41, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_TIMID, 3, { 19, 0, 1, 63, 1, 43 } },
         },
+        .fastSpread = { NATURE_TIMID, 42, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 65, .twMate = 66,
     },
     {
         .species = SPECIES_SAMUROTT_HISUI, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 24227 lotte
@@ -3330,6 +3906,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 23, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 6, { 51, 63, 0, 0, 0, 15 } },
         },
+        .trSpread = { NATURE_BRAVE, 2, { 63, 63, 3, 0, 0, 0 } },
+        .fastSpread = { NATURE_JOLLY, 48, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 56, .twMate = 61,
     },
     {
         .species = SPECIES_LILLIGANT_HISUI, .usage = 1, .source = 1, // gen9vgc2024regg-0, 203 lotte
@@ -3344,6 +3923,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 18, { 27, 37, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 13, { 1, 63, 0, 0, 0, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 85, { 1, 63, 0, 0, 0, 63 } },
+        .trMate = 97, .twMate = 3,
     },
     {
         .species = SPECIES_ZOROARK_HISUI, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 38011 lotte
@@ -3358,6 +3939,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 17, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_HASTY, 13, { 0, 63, 0, 3, 0, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 78, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 72, .twMate = 44,
     },
     {
         .species = SPECIES_GOODRA_HISUI, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 23107 lotte
@@ -3372,6 +3955,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 9, { 63, 0, 0, 63, 3, 0 } },
             { NATURE_RELAXED, 7, { 63, 0, 63, 3, 0, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 25, { 63, 51, 15, 0, 0, 0 } },
+        .trMate = 42, .twMate = 44,
     },
     {
         .species = SPECIES_DECIDUEYE_HISUI, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 8821 lotte
@@ -3386,6 +3971,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 20, { 63, 55, 9, 0, 0, 1 } },
             { NATURE_ADAMANT, 20, { 9, 63, 0, 0, 1, 55 } },
         },
+        .trSpread = { NATURE_BRAVE, 23, { 63, 63, 3, 0, 0, 0 } },
+        .fastSpread = { NATURE_JOLLY, 7, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 88, .twMate = 42,
     },
     {
         .species = SPECIES_ROTOM_HEAT, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 35721 lotte
@@ -3400,6 +3988,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 12, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_BOLD, 11, { 63, 0, 33, 33, 0, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 2, { 63, 0, 3, 63, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 35, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 34, .twMate = 43,
     },
     {
         .species = SPECIES_ROTOM_WASH, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 74990 lotte
@@ -3414,6 +4005,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 12, { 63, 0, 7, 15, 31, 11 } },
             { NATURE_MODEST, 11, { 63, 0, 0, 63, 0, 3 } },
         },
+        .trSpread = { NATURE_QUIET, 2, { 63, 0, 0, 63, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 19, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 45, .twMate = 43,
     },
     {
         .species = SPECIES_ROTOM_FROST, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 4694 lotte
@@ -3428,6 +4022,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 18, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_MODEST, 10, { 63, 0, 0, 63, 3, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 1, { 3, 0, 63, 63, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 54, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 29, .twMate = 29,
     },
     {
         .species = SPECIES_ROTOM_MOW, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 5430 lotte
@@ -3442,6 +4039,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_HARDY, 20, { 63, 0, 7, 15, 31, 11 } },
             { NATURE_MODEST, 7, { 3, 0, 0, 63, 0, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 56, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 71, .twMate = 18,
     },
     {
         .species = SPECIES_LANDORUS_THERIAN, .usage = 5, .source = 2, // gen9nationaldexdoubles-0, 11035 lotte
@@ -3456,6 +4055,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 14, { 1, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 4, { 26, 46, 5, 0, 18, 32 } },
         },
+        .trSpread = { NATURE_BRAVE, 2, { 63, 1, 63, 0, 0, 0 } },
+        .fastSpread = { NATURE_JOLLY, 50, { 0, 63, 0, 0, 1, 63 } },
+        .trMate = 24, .twMate = 51,
     },
     {
         .species = SPECIES_FLOETTE_ETERNAL, .usage = 11, .source = 0, // gen9championsvgc2026regmc-1630, 279193 lotte
@@ -3470,6 +4072,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 12, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_MODEST, 10, { 3, 0, 0, 63, 0, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 21, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 22, .twMate = 50,
     },
     {
         .species = SPECIES_MEOWSTIC_F, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 23144 lotte
@@ -3482,6 +4086,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 9, { 31, 0, 7, 33, 0, 57 } },
             { NATURE_HASTY, 7, { 0, 3, 0, 63, 0, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 98, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 56, .twMate = 16,
     },
     {
         .species = SPECIES_GOURGEIST_SUPER, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 2291 lotte
@@ -3496,6 +4102,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_SASSY, 15, { 63, 0, 3, 0, 63, 0 } },
             { NATURE_ADAMANT, 8, { 3, 63, 0, 0, 0, 63 } },
         },
+        .trSpread = { NATURE_BRAVE, 78, { 61, 63, 0, 0, 5, 0 } },
+        .trMate = 64, .twMate = 19,
     },
     {
         .species = SPECIES_HOOPA_UNBOUND, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 2228 lotte
@@ -3510,6 +4118,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_HASTY, 9, { 0, 1, 0, 63, 0, 63 } },
             { NATURE_TIMID, 9, { 1, 0, 0, 63, 0, 63 } },
         },
+        .trSpread = { NATURE_BRAVE, 40, { 52, 63, 0, 0, 12, 0 } },
+        .fastSpread = { NATURE_JOLLY, 33, { 1, 63, 0, 0, 0, 63 } },
+        .trMate = 71, .twMate = 27,
     },
     {
         .species = SPECIES_LYCANROC_DUSK, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 27118 lotte
@@ -3524,6 +4135,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 34, { 1, 63, 0, 0, 1, 63 } },
             { NATURE_ADAMANT, 1, { 19, 53, 0, 0, 0, 57 } },
         },
+        .fastSpread = { NATURE_JOLLY, 35, { 1, 63, 0, 0, 1, 63 } },
+        .trMate = 19, .twMate = 25,
     },
     {
         .species = SPECIES_INDEEDEE_F, .usage = 21, .source = 0, // gen9championsvgc2026regmc-1630, 833895 lotte
@@ -3538,6 +4151,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_RELAXED, 34, { 63, 0, 63, 0, 3, 0 } },
             { NATURE_SASSY, 4, { 63, 0, 63, 0, 3, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 50, { 63, 0, 63, 0, 3, 0 } },
+        .fastSpread = { NATURE_TIMID, 1, { 63, 0, 0, 3, 0, 63 } },
+        .trMate = 49, .twMate = 43,
     },
     {
         .species = SPECIES_ZACIAN_CROWNED, .usage = 3, .source = 1, // gen9vgc2024regg-0, 715 lotte
@@ -3552,6 +4168,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 25, { 13, 63, 0, 0, 0, 51 } },
             { NATURE_JOLLY, 17, { 17, 63, 1, 0, 1, 45 } },
         },
+        .fastSpread = { NATURE_JOLLY, 32, { 13, 63, 0, 0, 0, 51 } },
+        .trMate = 12, .twMate = 82,
     },
     {
         .species = SPECIES_ZAMAZENTA_CROWNED, .usage = 7, .source = 1, // gen9vgc2024regg-0, 1471 lotte
@@ -3566,6 +4184,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_IMPISH, 17, { 45, 0, 39, 0, 0, 43 } },
             { NATURE_CAREFUL, 12, { 63, 0, 1, 0, 63, 0 } },
         },
+        .fastSpread = { NATURE_JOLLY, 2, { 0, 23, 39, 0, 1, 63 } },
+        .trMate = 18, .twMate = 26,
     },
     {
         .species = SPECIES_URSHIFU_RAPID_STRIKE, .usage = 51, .source = 1, // gen9vgc2024regg-0, 11286 lotte
@@ -3580,6 +4200,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 12, { 0, 63, 0, 0, 1, 63 } },
             { NATURE_ADAMANT, 5, { 13, 61, 1, 0, 25, 27 } },
         },
+        .fastSpread = { NATURE_JOLLY, 12, { 0, 63, 0, 0, 1, 63 } },
+        .trMate = 49, .twMate = 41,
     },
     {
         .species = SPECIES_CALYREX_ICE, .usage = 15, .source = 1, // gen9vgc2024regg-0, 3318 lotte
@@ -3592,6 +4214,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_BRAVE, 14, { 63, 63, 0, 0, 1, 0 } },
             { NATURE_ADAMANT, 13, { 63, 49, 1, 0, 5, 9 } },
         },
+        .trSpread = { NATURE_BRAVE, 40, { 63, 63, 0, 0, 1, 0 } },
+        .fastSpread = { NATURE_JOLLY, 1, { 1, 63, 0, 0, 0, 63 } },
+        .trMate = 39, .twMate = 23,
     },
     {
         .species = SPECIES_CALYREX_SHADOW, .usage = 26, .source = 1, // gen9vgc2024regg-0, 5796 lotte
@@ -3604,6 +4229,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 21, { 35, 0, 1, 25, 3, 63 } },
             { NATURE_TIMID, 5, { 7, 0, 21, 35, 1, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 73, { 1, 0, 0, 63, 0, 63 } },
+        .trMate = 24, .twMate = 31,
     },
     {
         .species = SPECIES_BASCULEGION_F, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 15389 lotte
@@ -3618,6 +4245,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 22, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_MODEST, 18, { 17, 0, 31, 37, 5, 37 } },
         },
+        .fastSpread = { NATURE_TIMID, 24, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 45, .twMate = 72,
     },
     {
         .species = SPECIES_MEOWSCARADA, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 36073 lotte
@@ -3632,6 +4261,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 26, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 2, { 53, 63, 0, 0, 0, 13 } },
         },
+        .fastSpread = { NATURE_JOLLY, 67, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 52, .twMate = 47,
     },
     {
         .species = SPECIES_SKELEDIRGE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 13709 lotte
@@ -3646,6 +4277,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 10, { 63, 0, 0, 63, 3, 0 } },
             { NATURE_BOLD, 6, { 63, 0, 15, 0, 51, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 16, { 63, 0, 0, 63, 3, 0 } },
+        .fastSpread = { NATURE_TIMID, 1, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 43, .twMate = 30,
     },
     {
         .species = SPECIES_QUAQUAVAL, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 8593 lotte
@@ -3660,6 +4294,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 37, { 1, 63, 0, 0, 1, 63 } },
             { NATURE_ADAMANT, 5, { 17, 63, 0, 0, 0, 49 } },
         },
+        .trSpread = { NATURE_BRAVE, 1, { 39, 63, 7, 0, 19, 0 } },
+        .fastSpread = { NATURE_JOLLY, 46, { 1, 63, 0, 0, 1, 63 } },
+        .trMate = 51, .twMate = 54,
     },
     {
         .species = SPECIES_PAWMOT, .usage = 3, .source = 0, // gen9championsvgc2026regmc-1630, 153341 lotte
@@ -3674,6 +4311,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 21, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_JOLLY, 2, { 63, 3, 0, 0, 0, 63 } },
         },
+        .trSpread = { NATURE_BRAVE, 1, { 63, 63, 3, 0, 0, 0 } },
+        .fastSpread = { NATURE_JOLLY, 77, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 60, .twMate = 49,
     },
     {
         .species = SPECIES_MAUSHOLD, .usage = 3, .source = 0, // gen9championsvgc2026regmc-1630, 112095 lotte
@@ -3688,6 +4328,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 17, { 63, 0, 3, 0, 0, 63 } },
             { NATURE_TIMID, 16, { 63, 0, 0, 0, 3, 63 } },
         },
+        .trSpread = { NATURE_SASSY, 2, { 63, 0, 37, 0, 29, 0 } },
+        .fastSpread = { NATURE_JOLLY, 69, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 57, .twMate = 34,
     },
     {
         .species = SPECIES_ARBOLIVA, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 13538 lotte
@@ -3702,6 +4345,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_SASSY, 17, { 61, 0, 41, 0, 27, 0 } },
             { NATURE_MODEST, 14, { 63, 0, 0, 63, 3, 0 } },
         },
+        .trSpread = { NATURE_SASSY, 60, { 61, 0, 41, 0, 27, 0 } },
+        .trMate = 52, .twMate = 38,
     },
     {
         .species = SPECIES_SQUAWKABILLY, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 12166 lotte
@@ -3716,6 +4361,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 4, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_TIMID, 4, { 63, 0, 0, 0, 3, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 91, { 63, 3, 0, 0, 0, 63 } },
+        .trMate = 100, .twMate = 22,
     },
     {
         .species = SPECIES_GARGANACL, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 7385 lotte
@@ -3730,6 +4377,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_IMPISH, 16, { 63, 3, 0, 0, 63, 0 } },
             { NATURE_CAREFUL, 9, { 63, 0, 3, 0, 63, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 26, { 63, 0, 63, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 1, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 59, .twMate = 49,
     },
     {
         .species = SPECIES_ARMAROUGE, .usage = 6, .source = 0, // gen9championsvgc2026regmc-1630, 234003 lotte
@@ -3744,6 +4394,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 23, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_MODEST, 20, { 63, 0, 0, 63, 3, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 32, { 63, 0, 0, 63, 3, 0 } },
+        .fastSpread = { NATURE_TIMID, 7, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 92, .twMate = 39,
     },
     {
         .species = SPECIES_CERULEDGE, .usage = 2, .source = 0, // gen9championsvgc2026regmc-1630, 91889 lotte
@@ -3758,6 +4411,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 15, { 61, 13, 47, 0, 5, 1 } },
             { NATURE_JOLLY, 14, { 3, 63, 0, 0, 0, 63 } },
         },
+        .trSpread = { NATURE_BRAVE, 1, { 63, 63, 3, 0, 0, 0 } },
+        .fastSpread = { NATURE_JOLLY, 15, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 24, .twMate = 45,
     },
     {
         .species = SPECIES_BELLIBOLT, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 16081 lotte
@@ -3772,6 +4428,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 13, { 63, 0, 0, 63, 3, 0 } },
             { NATURE_BOLD, 12, { 61, 0, 31, 0, 37, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 24, { 63, 0, 0, 63, 3, 0 } },
+        .trMate = 58, .twMate = 20,
     },
     {
         .species = SPECIES_KILOWATTREL, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 2222 lotte
@@ -3786,6 +4444,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 10, { 1, 0, 0, 63, 0, 63 } },
             { NATURE_TIMID, 3, { 18, 0, 0, 46, 0, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 84, { 1, 0, 0, 63, 0, 63 } },
+        .trMate = 12, .twMate = 46,
     },
     {
         .species = SPECIES_TOEDSCRUEL, .usage = 0, .source = 2, // gen9nationaldexdoubles-0, 868 lotte
@@ -3800,6 +4460,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 21, { 1, 0, 0, 63, 0, 63 } },
             { NATURE_CALM, 6, { 63, 0, 0, 32, 32, 0 } },
         },
+        .trSpread = { NATURE_SASSY, 7, { 63, 0, 63, 1, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 65, { 49, 0, 0, 15, 0, 63 } },
+        .trMate = 29, .twMate = 16,
     },
     {
         .species = SPECIES_SCOVILLAIN, .usage = 1, .source = 0, // gen9championsvgc2026regmc-1630, 48364 lotte
@@ -3814,6 +4477,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_CALM, 20, { 63, 0, 37, 0, 29, 0 } },
             { NATURE_BOLD, 15, { 63, 0, 63, 0, 3, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 2, { 63, 0, 49, 0, 17, 0 } },
+        .fastSpread = { NATURE_TIMID, 1, { 63, 0, 0, 3, 0, 63 } },
+        .trMate = 22, .twMate = 42,
     },
     {
         .species = SPECIES_ESPATHRA, .usage = 2, .source = 0, // gen9championsvgc2026regmc-1630, 44757 lotte
@@ -3828,6 +4494,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 11, { 63, 0, 7, 0, 0, 59 } },
             { NATURE_TIMID, 7, { 63, 0, 13, 0, 27, 25 } },
         },
+        .fastSpread = { NATURE_TIMID, 21, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 25, .twMate = 34,
     },
     {
         .species = SPECIES_TINKATON, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 27258 lotte
@@ -3842,6 +4510,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 13, { 45, 29, 0, 0, 0, 55 } },
             { NATURE_JOLLY, 12, { 63, 3, 0, 0, 0, 63 } },
         },
+        .trSpread = { NATURE_BRAVE, 4, { 0, 63, 63, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 66, { 45, 29, 0, 0, 0, 55 } },
+        .trMate = 44, .twMate = 42,
     },
     {
         .species = SPECIES_PALAFIN, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 32205 lotte
@@ -3856,6 +4527,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 23, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 14, { 3, 63, 0, 0, 0, 63 } },
         },
+        .trSpread = { NATURE_BRAVE, 1, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 26, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 36, .twMate = 44,
     },
     {
         .species = SPECIES_ORTHWORM, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 7978 lotte
@@ -3870,6 +4544,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_RELAXED, 13, { 61, 0, 5, 0, 63, 0 } },
             { NATURE_IMPISH, 11, { 63, 0, 63, 0, 3, 0 } },
         },
+        .trSpread = { NATURE_SASSY, 36, { 63, 0, 17, 0, 49, 0 } },
+        .fastSpread = { NATURE_JOLLY, 4, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 46, .twMate = 55,
     },
     {
         .species = SPECIES_GLIMMORA, .usage = 4, .source = 0, // gen9championsvgc2026regmc-1630, 135876 lotte
@@ -3886,6 +4563,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 34, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_MODEST, 4, { 25, 0, 0, 41, 0, 63 } },
         },
+        .trSpread = { NATURE_QUIET, 1, { 63, 0, 0, 63, 3, 0 } },
+        .fastSpread = { NATURE_TIMID, 48, { 1, 0, 0, 63, 1, 63 } },
+        .trMate = 33, .twMate = 66,
     },
     {
         .species = SPECIES_HOUNDSTONE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 10447 lotte
@@ -3900,6 +4580,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 16, { 63, 63, 0, 0, 3, 0 } },
             { NATURE_ADAMANT, 8, { 17, 63, 0, 0, 0, 49 } },
         },
+        .trSpread = { NATURE_BRAVE, 4, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 11, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 48, .twMate = 35,
     },
     {
         .species = SPECIES_FLAMIGO, .usage = 1, .source = 1, // gen9vgc2024regg-0, 208 lotte
@@ -3914,6 +4597,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 21, { 1, 63, 0, 0, 0, 63 } },
             { NATURE_CAREFUL, 19, { 63, 0, 25, 0, 39, 0 } },
         },
+        .fastSpread = { NATURE_JOLLY, 49, { 0, 63, 0, 0, 0, 63 } },
+        .trMate = 36, .twMate = 4,
     },
     {
         .species = SPECIES_DONDOZO, .usage = 6, .source = 1, // gen9vgc2024regg-0, 1502 lotte
@@ -3928,6 +4613,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 14, { 1, 39, 21, 0, 53, 13 } },
             { NATURE_CAREFUL, 9, { 63, 0, 0, 0, 63, 1 } },
         },
+        .trSpread = { NATURE_SASSY, 15, { 63, 0, 9, 0, 55, 0 } },
+        .fastSpread = { NATURE_JOLLY, 2, { 1, 63, 0, 0, 0, 63 } },
+        .trMate = 28, .twMate = 36,
     },
     {
         .species = SPECIES_TATSUGIRI, .usage = 5, .source = 1, // gen9vgc2024regg-0, 1206 lotte
@@ -3942,6 +4630,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 26, { 1, 0, 0, 63, 0, 63 } },
             { NATURE_CALM, 19, { 59, 0, 59, 0, 9, 0 } },
         },
+        .fastSpread = { NATURE_TIMID, 37, { 1, 0, 0, 63, 0, 63 } },
+        .trMate = 35, .twMate = 30,
     },
     {
         .species = SPECIES_ANNIHILAPE, .usage = 3, .source = 0, // gen9championsvgc2026regmc-1630, 113973 lotte
@@ -3956,6 +4646,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 29, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 6, { 63, 63, 0, 0, 3, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 2, { 63, 63, 3, 0, 0, 0 } },
+        .fastSpread = { NATURE_JOLLY, 35, { 3, 63, 0, 0, 0, 63 } },
+        .trMate = 49, .twMate = 46,
     },
     {
         .species = SPECIES_FARIGIRAF, .usage = 16, .source = 0, // gen9championsvgc2026regmc-1630, 595738 lotte
@@ -3970,6 +4663,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_RELAXED, 9, { 63, 0, 39, 0, 27, 0 } },
             { NATURE_CALM, 9, { 57, 0, 27, 0, 45, 0 } },
         },
+        .trSpread = { NATURE_SASSY, 40, { 63, 0, 0, 3, 63, 0 } },
+        .trMate = 15, .twMate = 45,
     },
     {
         .species = SPECIES_KINGAMBIT, .usage = 24, .source = 0, // gen9championsvgc2026regmc-1630, 717550 lotte
@@ -3984,6 +4679,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 14, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_BRAVE, 10, { 63, 63, 0, 0, 3, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 12, { 63, 63, 0, 0, 3, 0 } },
+        .trMate = 46, .twMate = 53,
     },
     {
         .species = SPECIES_GREAT_TUSK, .usage = 2, .source = 2, // gen9nationaldexdoubles-0, 3908 lotte
@@ -3998,6 +4695,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 17, { 63, 63, 0, 0, 1, 0 } },
             { NATURE_JOLLY, 10, { 63, 1, 0, 0, 0, 63 } },
         },
+        .trSpread = { NATURE_BRAVE, 3, { 0, 44, 63, 0, 0, 0 } },
+        .fastSpread = { NATURE_JOLLY, 55, { 1, 63, 0, 0, 0, 63 } },
+        .trMate = 27, .twMate = 52,
     },
     {
         .species = SPECIES_SCREAM_TAIL, .usage = 7, .source = 1, // gen9vgc2024regg-0, 1530 lotte
@@ -4012,6 +4712,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 23, { 63, 0, 21, 0, 17, 25 } },
             { NATURE_TIMID, 18, { 63, 0, 5, 1, 9, 49 } },
         },
+        .fastSpread = { NATURE_TIMID, 22, { 63, 0, 5, 1, 9, 49 } },
+        .trMate = 13, .twMate = 7,
     },
     {
         .species = SPECIES_BRUTE_BONNET, .usage = 4, .source = 1, // gen9vgc2024regg-0, 776 lotte
@@ -4026,6 +4728,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_IMPISH, 23, { 63, 1, 33, 0, 29, 1 } },
             { NATURE_RELAXED, 22, { 63, 0, 31, 0, 33, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 27, { 63, 0, 31, 0, 33, 0 } },
+        .trMate = 35, .twMate = 4,
     },
     {
         .species = SPECIES_FLUTTER_MANE, .usage = 21, .source = 1, // gen9vgc2024regg-0, 4596 lotte
@@ -4040,6 +4744,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 13, { 61, 0, 33, 1, 1, 31 } },
             { NATURE_TIMID, 5, { 33, 0, 51, 1, 1, 41 } },
         },
+        .fastSpread = { NATURE_TIMID, 53, { 1, 0, 0, 63, 0, 63 } },
+        .trMate = 17, .twMate = 14,
     },
     {
         .species = SPECIES_SLITHER_WING, .usage = 0, .source = 2, // gen9nationaldexdoubles-0, 969 lotte
@@ -4054,6 +4760,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 13, { 1, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 9, { 63, 63, 0, 0, 1, 0 } },
         },
+        .trSpread = { NATURE_BRAVE, 10, { 0, 63, 63, 0, 0, 0 } },
+        .fastSpread = { NATURE_JOLLY, 47, { 0, 63, 0, 0, 1, 63 } },
+        .trMate = 11, .twMate = 45,
     },
     {
         .species = SPECIES_IRON_BUNDLE, .usage = 1, .source = 1, // gen9vgc2024regg-0, 191 lotte
@@ -4068,6 +4777,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 7, { 0, 0, 0, 63, 1, 63 } },
             { NATURE_TIMID, 2, { 21, 0, 0, 43, 0, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 92, { 0, 0, 0, 63, 1, 63 } },
+        .trMate = 60, .twMate = 24,
     },
     {
         .species = SPECIES_IRON_HANDS, .usage = 15, .source = 1, // gen9vgc2024regg-0, 3234 lotte
@@ -4082,6 +4793,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 8, { 63, 63, 0, 0, 1, 0 } },
             { NATURE_ADAMANT, 7, { 31, 51, 9, 0, 23, 13 } },
         },
+        .trSpread = { NATURE_BRAVE, 51, { 19, 45, 3, 0, 59, 0 } },
+        .trMate = 65, .twMate = 61,
     },
     {
         .species = SPECIES_BAXCALIBUR, .usage = 4, .source = 0, // gen9championsvgc2026regmc-1630, 210117 lotte
@@ -4098,6 +4811,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 13, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_JOLLY, 11, { 1, 63, 0, 0, 1, 63 } },
         },
+        .trSpread = { NATURE_BRAVE, 4, { 63, 63, 0, 0, 3, 0 } },
+        .fastSpread = { NATURE_JOLLY, 16, { 1, 63, 0, 0, 1, 63 } },
+        .trMate = 34, .twMate = 30,
     },
     {
         .species = SPECIES_GHOLDENGO, .usage = 19, .source = 0, // gen9championsvgc2026regmc-1630, 533753 lotte
@@ -4112,6 +4828,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 13, { 3, 0, 0, 63, 0, 63 } },
             { NATURE_TIMID, 8, { 33, 0, 0, 33, 0, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 38, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 18, .twMate = 57,
     },
     {
         .species = SPECIES_CHIEN_PAO, .usage = 12, .source = 1, // gen9vgc2024regg-0, 2688 lotte
@@ -4126,6 +4844,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 23, { 0, 63, 1, 0, 0, 63 } },
             { NATURE_ADAMANT, 2, { 1, 39, 23, 0, 1, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 74, { 0, 63, 1, 0, 0, 63 } },
+        .trMate = 11, .twMate = 35,
     },
     {
         .species = SPECIES_TING_LU, .usage = 3, .source = 1, // gen9vgc2024regg-0, 545 lotte
@@ -4140,6 +4860,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_IMPISH, 18, { 57, 1, 9, 0, 59, 1 } },
             { NATURE_IMPISH, 9, { 53, 0, 29, 0, 45, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 45, { 59, 0, 9, 0, 59, 0 } },
+        .trMate = 31, .twMate = 41,
     },
     {
         .species = SPECIES_CHI_YU, .usage = 13, .source = 1, // gen9vgc2024regg-0, 2768 lotte
@@ -4154,6 +4876,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 30, { 0, 0, 0, 63, 1, 63 } },
             { NATURE_MODEST, 16, { 33, 0, 1, 29, 1, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 32, { 0, 0, 0, 63, 1, 63 } },
+        .trMate = 27, .twMate = 34,
     },
     {
         .species = SPECIES_ROARING_MOON, .usage = 6, .source = 1, // gen9vgc2024regg-0, 1220 lotte
@@ -4168,6 +4892,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 30, { 37, 21, 29, 0, 1, 39 } },
             { NATURE_JOLLY, 12, { 9, 13, 39, 0, 3, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 58, { 7, 55, 1, 0, 1, 63 } },
+        .trMate = 70, .twMate = 1,
     },
     {
         .species = SPECIES_IRON_VALIANT, .usage = 1, .source = 1, // gen9vgc2024regg-0, 226 lotte
@@ -4182,6 +4908,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 17, { 63, 1, 17, 0, 31, 15 } },
             { NATURE_JOLLY, 12, { 51, 1, 25, 0, 7, 43 } },
         },
+        .fastSpread = { NATURE_JOLLY, 49, { 1, 63, 0, 0, 0, 63 } },
+        .trMate = 55, .twMate = 35,
     },
     {
         .species = SPECIES_KORAIDON, .usage = 10, .source = 1, // gen9vgc2024regg-0, 2295 lotte
@@ -4196,6 +4924,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 10, { 1, 61, 1, 0, 1, 63 } },
             { NATURE_ADAMANT, 10, { 25, 49, 1, 0, 1, 51 } },
         },
+        .fastSpread = { NATURE_JOLLY, 70, { 1, 63, 0, 0, 0, 63 } },
+        .trMate = 24, .twMate = 9,
     },
     {
         .species = SPECIES_MIRAIDON, .usage = 12, .source = 1, // gen9vgc2024regg-0, 2677 lotte
@@ -4210,6 +4940,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 17, { 1, 0, 0, 63, 0, 63 } },
             { NATURE_MODEST, 15, { 55, 0, 1, 55, 3, 13 } },
         },
+        .fastSpread = { NATURE_TIMID, 18, { 1, 0, 0, 63, 0, 63 } },
+        .trMate = 71, .twMate = 65,
     },
     {
         .species = SPECIES_TAUROS_PALDEA_BLAZE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 5959 lotte
@@ -4224,6 +4956,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 11, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_CAREFUL, 6, { 63, 0, 63, 0, 3, 0 } },
         },
+        .fastSpread = { NATURE_JOLLY, 53, { 0, 63, 0, 0, 0, 63 } },
+        .trMate = 40, .twMate = 58,
     },
     {
         .species = SPECIES_TAUROS_PALDEA_AQUA, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 9242 lotte
@@ -4238,6 +4972,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 19, { 3, 63, 0, 0, 0, 63 } },
             { NATURE_ADAMANT, 10, { 45, 51, 0, 0, 13, 19 } },
         },
+        .trSpread = { NATURE_BRAVE, 1, { 3, 63, 0, 0, 63, 0 } },
+        .fastSpread = { NATURE_JOLLY, 53, { 1, 63, 0, 0, 1, 63 } },
+        .trMate = 43, .twMate = 49,
     },
     {
         .species = SPECIES_WALKING_WAKE, .usage = 2, .source = 1, // gen9vgc2024regg-0, 417 lotte
@@ -4252,6 +4989,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 20, { 23, 0, 1, 49, 1, 53 } },
             { NATURE_RASH, 8, { 1, 0, 0, 63, 0, 63 } },
         },
+        .fastSpread = { NATURE_TIMID, 84, { 9, 0, 1, 63, 1, 53 } },
+        .trMate = 29, .twMate = 14,
     },
     {
         .species = SPECIES_SINISTCHA, .usage = 8, .source = 0, // gen9championsvgc2026regmc-1630, 394023 lotte
@@ -4266,6 +5005,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_BOLD, 11, { 63, 0, 7, 0, 59, 0 } },
             { NATURE_CALM, 8, { 63, 0, 27, 0, 39, 0 } },
         },
+        .trSpread = { NATURE_RELAXED, 29, { 63, 0, 63, 3, 0, 0 } },
+        .fastSpread = { NATURE_TIMID, 1, { 63, 0, 0, 0, 15, 51 } },
+        .trMate = 34, .twMate = 38,
     },
     {
         .species = SPECIES_OKIDOGI, .usage = 0, .source = 2, // gen9nationaldexdoubles-0, 1080 lotte
@@ -4280,6 +5022,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 22, { 63, 63, 0, 0, 1, 0 } },
             { NATURE_ADAMANT, 6, { 8, 42, 34, 0, 34, 9 } },
         },
+        .trSpread = { NATURE_BRAVE, 4, { 0, 63, 39, 0, 25, 0 } },
+        .fastSpread = { NATURE_JOLLY, 38, { 1, 63, 0, 0, 0, 63 } },
+        .trMate = 34, .twMate = 27,
     },
     {
         .species = SPECIES_OGERPON_WELLSPRING, .usage = 3, .source = 1, // gen9vgc2024regg-0, 655 lotte
@@ -4294,6 +5039,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 12, { 1, 63, 0, 0, 0, 63 } },
             { NATURE_IMPISH, 11, { 59, 1, 59, 0, 7, 1 } },
         },
+        .fastSpread = { NATURE_JOLLY, 22, { 1, 63, 0, 0, 0, 63 } },
+        .trMate = 48, .twMate = 43,
     },
     {
         .species = SPECIES_OGERPON_HEARTHFLAME, .usage = 21, .source = 1, // gen9vgc2024regg-0, 4542 lotte
@@ -4308,6 +5055,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_IMPISH, 14, { 55, 3, 63, 0, 1, 5 } },
             { NATURE_JOLLY, 12, { 0, 63, 0, 0, 1, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 16, { 0, 63, 0, 0, 1, 63 } },
+        .trMate = 53, .twMate = 57,
     },
     {
         .species = SPECIES_OGERPON_CORNERSTONE, .usage = 10, .source = 1, // gen9vgc2024regg-0, 2213 lotte
@@ -4322,6 +5071,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_ADAMANT, 15, { 1, 63, 0, 0, 0, 63 } },
             { NATURE_JOLLY, 5, { 41, 1, 57, 0, 1, 27 } },
         },
+        .fastSpread = { NATURE_JOLLY, 59, { 1, 63, 0, 0, 0, 63 } },
+        .trMate = 37, .twMate = 22,
     },
     {
         .species = SPECIES_URSALUNA_BLOODMOON, .usage = 4, .source = 1, // gen9vgc2024regg-0, 807 lotte
@@ -4336,6 +5087,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 19, { 63, 0, 0, 63, 1, 0 } },
             { NATURE_TIMID, 12, { 3, 0, 1, 63, 1, 59 } },
         },
+        .trSpread = { NATURE_QUIET, 44, { 63, 0, 0, 63, 1, 0 } },
+        .fastSpread = { NATURE_TIMID, 12, { 3, 0, 1, 63, 1, 59 } },
+        .trMate = 100, .twMate = 32,
     },
     {
         .species = SPECIES_ARCHALUDON, .usage = 16, .source = 0, // gen9championsvgc2026regmc-1630, 429034 lotte
@@ -4350,6 +5104,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_CALM, 15, { 63, 0, 3, 0, 63, 0 } },
             { NATURE_BOLD, 9, { 63, 0, 1, 1, 63, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 2, { 63, 0, 0, 3, 63, 0 } },
+        .fastSpread = { NATURE_TIMID, 6, { 3, 0, 0, 63, 0, 63 } },
+        .trMate = 50, .twMate = 62,
     },
     {
         .species = SPECIES_HYDRAPPLE, .usage = 0, .source = 0, // gen9championsvgc2026regmc-1630, 7630 lotte
@@ -4364,6 +5121,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 30, { 63, 0, 0, 63, 3, 0 } },
             { NATURE_MODEST, 5, { 63, 0, 0, 39, 27, 0 } },
         },
+        .trSpread = { NATURE_QUIET, 45, { 63, 0, 0, 63, 3, 0 } },
+        .trMate = 94, .twMate = 15,
     },
     {
         .species = SPECIES_GOUGING_FIRE, .usage = 1, .source = 1, // gen9vgc2024regg-0, 160 lotte
@@ -4378,6 +5137,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_JOLLY, 20, { 59, 9, 1, 0, 3, 55 } },
             { NATURE_JOLLY, 11, { 0, 63, 0, 0, 0, 63 } },
         },
+        .fastSpread = { NATURE_JOLLY, 86, { 33, 29, 1, 0, 1, 63 } },
+        .trMate = 8, .twMate = 39,
     },
     {
         .species = SPECIES_RAGING_BOLT, .usage = 24, .source = 1, // gen9vgc2024regg-0, 5239 lotte
@@ -4392,6 +5153,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 18, { 63, 0, 0, 63, 1, 0 } },
             { NATURE_MODEST, 7, { 47, 0, 9, 45, 1, 25 } },
         },
+        .trSpread = { NATURE_QUIET, 2, { 33, 0, 7, 63, 23, 0 } },
+        .trMate = 41, .twMate = 13,
     },
     {
         .species = SPECIES_IRON_CROWN, .usage = 2, .source = 1, // gen9vgc2024regg-0, 456 lotte
@@ -4406,6 +5169,9 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_TIMID, 27, { 23, 0, 1, 37, 3, 63 } },
             { NATURE_MODEST, 13, { 29, 0, 31, 55, 3, 9 } },
         },
+        .trSpread = { NATURE_QUIET, 1, { 14, 0, 25, 63, 25, 0 } },
+        .fastSpread = { NATURE_TIMID, 32, { 23, 0, 1, 37, 3, 63 } },
+        .trMate = 81, .twMate = 6,
     },
     {
         .species = SPECIES_TERAPAGOS, .usage = 8, .source = 1, // gen9vgc2024regg-0, 1641 lotte
@@ -4420,6 +5186,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_MODEST, 16, { 23, 0, 0, 63, 0, 41 } },
             { NATURE_MODEST, 8, { 43, 0, 63, 1, 1, 19 } },
         },
+        .fastSpread = { NATURE_TIMID, 1, { 1, 0, 0, 63, 0, 63 } },
+        .trMate = 15, .twMate = 18,
     },
     {
         .species = SPECIES_PECHARUNT, .usage = 1, .source = 2, // gen9nationaldexdoubles-0, 3154 lotte
@@ -4434,5 +5202,8 @@ static const struct VgcMetaEntry sVgcMeta[] =
             { NATURE_CALM, 16, { 63, 0, 0, 0, 63, 0 } },
             { NATURE_BOLD, 8, { 63, 0, 63, 1, 0, 0 } },
         },
+        .trSpread = { NATURE_SASSY, 8, { 1, 0, 0, 63, 63, 0 } },
+        .fastSpread = { NATURE_TIMID, 9, { 1, 0, 0, 63, 0, 63 } },
+        .trMate = 35, .twMate = 30,
     },
 };
