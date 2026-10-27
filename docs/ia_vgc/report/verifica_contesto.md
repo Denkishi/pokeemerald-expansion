@@ -1,34 +1,35 @@
 # Verifica contesto
 
-Aggiornato: 2026-10-27 20:08:43 (finita).
+Aggiornato: 2026-10-27 23:36:03 (finita).
 
 ```
 {
  "tipo": "verifica_contesto",
- "semi": 5,
- "seme_base": 20001,
+ "semi": 8,
+ "seme_base": 60001,
  "scontri": "all",
- "parallelo": 10,
+ "parallelo": 12,
  "cartella": "verifica_contesto",
- "creato": "2026-10-27 19:53:28",
+ "risposta_pct": 0,
+ "creato": "2026-10-27 23:17:01",
  "stato": "finita",
  "rom": "C:\\Users\\Antonio Grillo\\Documents\\GitHub\\pokeemerald-expansion-contesto\\tools\\vgc_training\\work\\esperimento.gba",
  "risultato": {
-  "coppie": 719,
-  "partite": 1439,
-  "non_valide": 1,
-  "vittorie": 0.4924,
-  "es": 0.0103,
+  "coppie": 1137,
+  "partite": 2281,
+  "non_valide": 23,
+  "vittorie": 0.5029,
+  "es": 0.0082,
   "ic95": [
-   0.4721,
-   0.5126
+   0.4868,
+   0.5189
   ],
-  "z": -0.74,
-  "p": 0.45948,
-  "misplay_partita": 0.571,
-  "fitness": 0.4924
+  "z": 0.35,
+  "p": 0.72733,
+  "misplay_partita": 0.504,
+  "fitness": 0.5029
  }
 }
 ```
 
-Tasso di vittoria del trattamento: **0.4924** su 719 coppie a specchio (IC 95% [0.4721, 0.5126], z=-0.74, p=0.45948).
+Tasso di vittoria del trattamento: **0.5029** su 1137 coppie a specchio (IC 95% [0.4868, 0.5189], z=0.35, p=0.72733).
