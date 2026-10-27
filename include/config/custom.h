@@ -99,7 +99,7 @@
 #define CUSTOM_VGC_EVAL_SLEEP               60  // addormentato
 #define CUSTOM_VGC_EVAL_BURN                35  // scottato (attaccante fisico)
 #define CUSTOM_VGC_EVAL_PARALYSIS           20  // paralizzato
-#define CUSTOM_VGC_EVAL_SPEED_PAIR          10  // per coppia (nostro, loro) e per turno: chi si muove prima
+#define CUSTOM_VGC_EVAL_SPEED_PAIR          18  // per coppia (nostro, loro) e per turno: chi si muove prima
 #define CUSTOM_VGC_EVAL_SPEED_TURNS         4   // turni futuri contati per l'ordine di velocità (Trick Room/Tailwind rimasti)
 #define CUSTOM_VGC_EVAL_THREAT_FAST         45  // minaccia di KO al turno dopo, da chi si muove prima
 #define CUSTOM_VGC_EVAL_THREAT_SLOW         20  // minaccia di KO al turno dopo, da chi si muove dopo

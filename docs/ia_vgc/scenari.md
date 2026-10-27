@@ -26,6 +26,12 @@ Dusclops che restano corretti. Cosa li ha corretti:
 - Recycle senza strumento consumato penalizzato nelle regole (il test di Snorlax ora inciampa su un pari
   punteggio Rage Powder / Spore di Amoonguss: da rivedere con `TIE_BREAK_SCORE` o un'asserzione diversa).
 
+Tailwind e Trick Room ora sono sempre simulati (posto protetto separato da Protect nelle candidate, coppia
+migliore sempre tra quelle simulate; peso della velocità per turno 18). Altaria e Aerodactyl restano KNOWN_FAILING
+ma per una ragione diversa: la simulazione trova un KO concentrato su Roaring Moon al turno 1 (Dragon Pulse +
+Bitter Blade; Rock Slide + compagno) che vale più del Tailwind, anche perché il giocatore può rispondere con il suo
+Tailwind. Discutibile più che sbagliato: da rivedere con il modello del giocatore (livello 1).
+
 Nuovo KNOWN_FAILING: **Sableye** (Tony) cambia con Slither Wing invece di Fake Out / Taunt. Diagnosi: Great Tusk con
 Booster Energy (attivazione visibile) manda KO Sableye con Headlong Rush; il pianificatore preferisce far entrare
 Slither Wing e mandare KO Porygon2 al turno dopo con Close Combat. Discutibile ma non la giocata attesa.

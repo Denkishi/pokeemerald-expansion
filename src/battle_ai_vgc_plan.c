@@ -1939,15 +1939,26 @@ static u32 TrimCands(u32 side, struct PlanAction *out, u8 origMove, enum Battler
 {
     struct PlanAction *c = sJob.cand[side];
     s32 *val = sJob.candVal[side];
-    u32 n = sJob.nCand[side], i, k, outN = 0, bestUtil = 0xFF;
+    u32 n = sJob.nCand[side], i, k, outN = 0, bestUtil = 0xFF, bestProtect = 0xFF;
     bool8 taken[PLAN_ALL_OURS] = {0};
 
+    // Due posti protetti distinti: il miglior Protect e la migliore azione "utile" che non è Protect (velocità,
+    // setup, Baton Pass). Con uno solo, Protect (sempre plausibile) lasciava fuori Tailwind e Trick Room.
     for (i = 0; i < n; i++)
-        if (IsUtilityAction(&c[i]) && (bestUtil == 0xFF || val[i] > val[bestUtil]))
+    {
+        if (c[i].kind == PLAN_ACT_PROTECT)
+        {
+            if (bestProtect == 0xFF || val[i] > val[bestProtect])
+                bestProtect = i;
+        }
+        else if (IsUtilityAction(&c[i]) && (bestUtil == 0xFF || val[i] > val[bestUtil]))
+        {
             bestUtil = i;
+        }
+    }
     for (i = 0; i < n && outN < PLAN_MAX_OURS; i++)
     {
-        if (IsOrigAction(&c[i], origMove, origTarget) || IsComboAction(&c[i]) || i == bestUtil)
+        if (IsOrigAction(&c[i], origMove, origTarget) || IsComboAction(&c[i]) || i == bestUtil || i == bestProtect)
         {
             taken[i] = TRUE;
             out[outN] = c[i];
@@ -2027,6 +2038,14 @@ static u32 BuildPairs(enum BattlerId me, const struct PlanState *st)
     for (j = 0; j < nTheirs; j++)
         if (bestI[j] != 0xFF && tier[bestI[j]][j] < 1)
             tier[bestI[j]][j] = 1;
+    // Le azioni di velocità/setup (non Protect) hanno sempre la loro coppia migliore tra quelle simulate: rendono
+    // nei turni dopo, e la stima rapida (1 turno) le mette in fondo.
+    for (i = 0; i < nMine; i++)
+        if (bestJ[i] != 0xFF && mine[i].kind != PLAN_ACT_PROTECT && IsUtilityAction(&mine[i]) && tier[i][bestJ[i]] < 2)
+            tier[i][bestJ[i]] = 2;
+    for (j = 0; j < nTheirs; j++)
+        if (bestI[j] != 0xFF && theirs[j].kind != PLAN_ACT_PROTECT && IsUtilityAction(&theirs[j]) && tier[bestI[j]][j] < 2)
+            tier[bestI[j]][j] = 2;
 
     for (i = 0; i < nMine; i++)
     {
