@@ -2647,9 +2647,10 @@ static s32 AI_CheckBadMove(enum BattlerId battlerAtk, enum BattlerId battlerDef,
         }
         else
         {
-            if (gFieldStatuses & STATUS_FIELD_TRICK_ROOM && (gBattleMons[battlerAtk].speed <= gBattleMons[battlerDef].speed))
+            // Velocità dai dati dell'IA (per il giocatore la stima, non la statistica vera).
+            if (gFieldStatuses & STATUS_FIELD_TRICK_ROOM && (aiData->speedStats[battlerAtk] <= aiData->speedStats[battlerDef]))
                 ADJUST_SCORE(-10);
-            else if (gBattleMons[battlerAtk].speed >= gBattleMons[battlerDef].speed)
+            else if (aiData->speedStats[battlerAtk] >= aiData->speedStats[battlerDef])
                 ADJUST_SCORE(-10);
         }
         break;
@@ -5307,7 +5308,7 @@ static s32 AI_CalcMoveEffectScore(enum BattlerId battlerAtk, enum BattlerId batt
         }
         break;
     case EFFECT_SPEED_SWAP:
-        if (gBattleMons[battlerDef].speed > gBattleMons[battlerAtk].speed)
+        if (aiData->speedStats[battlerDef] > aiData->speedStats[battlerAtk])
             ADJUST_SCORE(DECENT_EFFECT);
         break;
     case EFFECT_GUARD_SPLIT:

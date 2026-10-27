@@ -1849,6 +1849,15 @@ bool32 Scout_BattlerSpeedRange(enum BattlerId battler, u16 *lo, u16 *hi)
     return TRUE;
 }
 
+u32 Scout_BattlerMaxSpeed(enum BattlerId battler, enum Ability ability, u32 holdEffect)
+{
+    u16 lo, hi;
+    // Massima possibile per la specie (31 IV, 252 EV, natura +): pubblica. Non l'intervallo del belief, che dopo
+    // l'ordine di turno visto si è già allargato fino alla velocità osservata.
+    Scout_SpeciesSpeedRange(gBattleMons[battler].species, gBattleMons[battler].level, &lo, &hi);
+    return SpeedWithRaw(battler, hi, ability, holdEffect);
+}
+
 void Scout_EstimateBattlerStats(enum BattlerId battler, u16 *hp, u16 stats[NUM_STATS])
 {
     u16 species = gBattleMons[battler].species;

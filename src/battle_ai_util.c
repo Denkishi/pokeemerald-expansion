@@ -5,6 +5,7 @@
 #include "battle_anim.h"
 #include "battle_ai_field_statuses.h"
 #include "battle_ai_util.h"
+#include "battle_ai_scout.h"
 #include "battle_ai_perspective.h"
 #include "battle_ai_main.h"
 #include "battle_stat_change.h"
@@ -4736,7 +4737,11 @@ static enum AIScore IncreaseStatUpScoreInternal(enum BattlerId battlerAtk, enum 
             if (GetMoveEffect(GetMonData(&playerParty[gAiLogicData->mostSuitableMonId[battlerDef]], MON_DATA_MOVE1 + monIndex)) == EFFECT_ENCORE
                 && GetMonData(&playerParty[gAiLogicData->mostSuitableMonId[battlerDef]], MON_DATA_PP1 + monIndex) > 0)
             {
-                if (GetMonData(&playerParty[gAiLogicData->mostSuitableMonId[battlerDef]], MON_DATA_SPEED) > gBattleMons[battlerAtk].speed)
+                // Velocità del Pokémon in panchina del giocatore: stimata da specie e livello (la vera non si vede).
+                struct Pokemon *swIn = &playerParty[gAiLogicData->mostSuitableMonId[battlerDef]];
+                u16 estHp, est[NUM_STATS];
+                Scout_EstimateStats(GetMonData(swIn, MON_DATA_SPECIES), GetMonData(swIn, MON_DATA_LEVEL), &estHp, est);
+                if (est[STAT_SPEED] > gBattleMons[battlerAtk].speed)
                     return NO_INCREASE;
             }
         }

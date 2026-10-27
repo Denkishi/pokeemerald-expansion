@@ -1770,6 +1770,8 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                     // Piano di squadra: coppie di lead preferite, chi sta dietro non leada.
                     s += AI_VgcPlanLeadBonus(trainerId, GetMonData(&enemy[enemySlots[ea]], MON_DATA_SPECIES),
                                              GetMonData(&enemy[enemySlots[eb]], MON_DATA_SPECIES), planTrViable, planTwViable);
+                    // Libro dei piani dal self-play (strategia mista).
+                    s += AI_VgcPlanBookLeadBonus(trainerId, enemySlots[ea], enemySlots[eb]);
 
                     {
                         struct Pokemon *monA = &enemy[enemySlots[ea]];

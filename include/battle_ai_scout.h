@@ -176,6 +176,8 @@ bool32 Scout_BattlerSpeedRange(enum BattlerId battler, u16 *lo, u16 *hi);
 void Scout_EstimateBattlerStats(enum BattlerId battler, u16 *hp, u16 stats[NUM_STATS]);
 // Velocità effettiva creduta (stadi, Tailwind, paralisi, meteo con l'abilità e lo strumento passati).
 u32 Scout_BattlerBelievedSpeed(enum BattlerId battler, enum Ability ability, enum HoldEffect holdEffect);
+// Velocità effettiva massima possibile per la specie (31 IV, 252 EV, natura +), con stadi/Tailwind/meteo pubblici.
+u32 Scout_BattlerMaxSpeed(enum BattlerId battler, enum Ability ability, u32 holdEffect);
 enum HoldEffect Scout_BattlerDeducedHoldEffect(enum BattlerId battler);
 bool32 Scout_BattlerHoldEffectExcluded(enum BattlerId battler, enum HoldEffect holdEffect);
 bool32 Scout_BattlerOffenseBoosted(enum BattlerId battler);   // più danni del massimo senza strumento

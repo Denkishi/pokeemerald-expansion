@@ -41,6 +41,9 @@ enum BattlerId AI_VgcPlanBattler(void);
 bool32 AI_VgcPlanIsBusy(enum BattlerId battler);
 // A inizio turno: azzera lavori e decisioni rimasti dal turno (o dalla lotta) precedente.
 void AI_VgcPlanResetTurn(void);
+// Pesi della valutazione del pianificatore per lato, in % dei default (M9, taratura nel self-play).
+void AI_VgcSetEvalWeightPct(u32 side, const u8 pct[7]);
+void AI_VgcResetEvalWeights(void);
 #if TESTING
 // Test: miglior valore simulato, nella prima decisione del turno 0, di una coppia in cui `battler` usa `move`.
 s32 AI_VgcPlanTestValue(enum BattlerId battler, enum Move move);
@@ -54,6 +57,16 @@ void AI_VgcNoteSwitchIn(enum BattlerId battler);
 u32 AI_VgcReplacementAfterKo(enum BattlerId battler, u32 defaultIdx);
 bool32 AI_VgcPlanIsSetter(u16 trainerId, u16 species);
 bool32 AI_VgcPlanIsBack(u16 trainerId, u16 species);
+// Libro dei piani (M9, src/data/vgc_plan_book.h generato da tools/vgc_training/gen_plan_book.py): coppie di lead
+// giocate nel self-play con vittorie e partite.
+struct VgcPlanBookLead
+{
+    u16 trainerId;
+    u8 slotA, slotB;    // indici di squadra (slotA < slotB)
+    u16 wins, games;
+};
+// Bonus (team preview) alla coppia di lead (indici di squadra) secondo il libro, con un po' di rumore (strategia mista).
+s32 AI_VgcPlanBookLeadBonus(u16 trainerId, u32 slotA, u32 slotB);
 s32 AI_VgcPlanLeadBonus(u16 trainerId, u16 a, u16 b, bool32 trViable, bool32 twViable);
 s32 AI_VgcPlanBringBonus(u16 trainerId, u16 species, bool32 trViable, bool32 twViable);
 bool32 AI_VgcPlanModeActive(enum BattlerId battler);

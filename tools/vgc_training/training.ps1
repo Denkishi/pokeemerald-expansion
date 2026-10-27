@@ -7,6 +7,7 @@
 #   .\training.ps1 status                 avanzamento
 #   .\training.ps1 report                 rigenera docs/ia_vgc/report
 #   .\training.ps1 run-one 0 1 [seme]     una partita in primo piano
+#   .\training.ps1 tune [opzioni]         taratura automatica dei pesi (es. -- --iters 10 --parallel 24)
 # Guida: docs/ia_vgc/training.md
 param(
     [Parameter(Position = 0)][string]$Comando = 'status',

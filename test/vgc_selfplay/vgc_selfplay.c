@@ -587,6 +587,9 @@ static void VgcSelfPlay_Run(void *data)
     TRAINER_BATTLE_PARAM.opponentA = sVsp.enemyId;
     TRAINER_BATTLE_PARAM.opponentB = TRAINER_NONE;
     AI_VgcResetMemory();
+    // Taratura (M9): pesi del lato G dai parametri (reserved[0..6], % / 2; 0 = default), lato A ai default.
+    AI_VgcResetEvalWeights();
+    AI_VgcSetEvalWeightPct(B_SIDE_PLAYER, sVsp.args.reserved);
 
     sVsp.battleStarted = TRUE;
     gMain.savedCallback = CB2_TestRunner;
@@ -1057,16 +1060,26 @@ static void CheckBattlerChoice(enum BattlerId b)
             covered = ChoiceKOs(b, f) || (pAlive && ChoiceKOs(p, f)) || ChoiceKOs(b, OtherFoe(b, f));
             if (covered)
                 continue;
-            if (damaging)
+            // I casi dubbi divisi per tipo: lettura di un Protect visto, mossa ad area (danno su entrambi), scelta di
+            // supporto/Protect/cambio. Restano "certi" solo gli attacchi a bersaglio singolo senza lettura possibile.
+            if (damaging && KnowsProtect(f))
             {
-                // Se l'avversario ha Protect visto e non l'ha usato al turno prima, evitarlo può essere una lettura.
-                bool32 protectRead = KnowsProtect(f);
-                ReportMisplay(!protectRead, "KO_NON_PRESO", b, "%s avrebbe mandato KO %s, scelto %s%s", A(MoveName(gBattleMons[b].moves[koIdx])),
-                              A(GetSpeciesName(gBattleMons[f].species)), A(MoveName(move)), protectRead ? " (ha Protect: possibile lettura)" : "");
+                ReportMisplay(FALSE, "KO_NON_PRESO_LETTURA", b, "%s avrebbe mandato KO %s, scelto %s (ha Protect: possibile lettura)",
+                              A(MoveName(gBattleMons[b].moves[koIdx])), A(GetSpeciesName(gBattleMons[f].species)), A(MoveName(move)));
+            }
+            else if (damaging && IsSpreadMove(GetMoveTarget(move)))
+            {
+                ReportMisplay(FALSE, "KO_NON_PRESO_AREA", b, "%s avrebbe mandato KO %s, scelta la mossa ad area %s",
+                              A(MoveName(gBattleMons[b].moves[koIdx])), A(GetSpeciesName(gBattleMons[f].species)), A(MoveName(move)));
+            }
+            else if (damaging)
+            {
+                ReportMisplay(TRUE, "KO_NON_PRESO", b, "%s avrebbe mandato KO %s, scelto %s", A(MoveName(gBattleMons[b].moves[koIdx])),
+                              A(GetSpeciesName(gBattleMons[f].species)), A(MoveName(move)));
             }
             else
             {
-                ReportMisplay(FALSE, "KO_NON_PRESO", b, "%s avrebbe mandato KO %s, scelto %s %s", A(MoveName(gBattleMons[b].moves[koIdx])),
+                ReportMisplay(FALSE, "KO_NON_PRESO_SUPPORTO", b, "%s avrebbe mandato KO %s, scelto %s %s", A(MoveName(gBattleMons[b].moves[koIdx])),
                               A(GetSpeciesName(gBattleMons[f].species)), c->kind == VSP_CHOICE_SWITCH ? "cambio" : "mossa", A(MoveName(move)));
             }
             break;

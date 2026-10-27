@@ -119,6 +119,36 @@ static bool32 PlanModeViable(u8 mode, bool32 trViable, bool32 twViable)
     }
 }
 
+#include "data/vgc_plan_book.h"
+
+// Libro dei piani: chi ha vinto di più con una coppia di lead la ripropone (tasso di vittoria con prudenza sui pochi
+// dati), più un rumore casuale piccolo: strategia mista, e un po' di esplorazione delle coppie non provate.
+s32 AI_VgcPlanBookLeadBonus(u16 trainerId, u32 slotA, u32 slotB)
+{
+    u32 i, a = min(slotA, slotB), b = max(slotA, slotB);
+    s32 bonus = 0;
+
+    for (i = 0; i < ARRAY_COUNT(sVgcPlanBook); i++)
+    {
+        const struct VgcPlanBookLead *e = &sVgcPlanBook[i];
+        if (e->trainerId == trainerId && e->slotA == a && e->slotB == b)
+        {
+            // (vittorie + 1) / (partite + 2) contro il 50%, pesato per quante partite ci sono.
+            s32 rate = (e->wins * 2 + 1) * 100 / (e->games * 2 + 2);
+            bonus = (rate - 50) * 2 * e->games / (e->games + 3);
+            break;
+        }
+    }
+#if TESTING
+    {
+        extern bool8 gTestAiVsAiBattle;
+        if (!gTestAiVsAiBattle)
+            return bonus; // nei test normali niente rumore: risultati deterministici
+    }
+#endif
+    return bonus + (s32)(Random() % 21) - 10;
+}
+
 // Bonus (team preview) per la coppia di lead a+b secondo il piano. trViable / twViable: se Trick
 // Room / Tailwind convengono contro la squadra del giocatore (calcolato dal chiamante).
 s32 AI_VgcPlanLeadBonus(u16 trainerId, u16 a, u16 b, bool32 trViable, bool32 twViable)
@@ -708,43 +738,9 @@ void AI_VgcTurnStart(void)
 }
 
 // Il giocatore ha usato una mossa (chiamata quando l'azione viene eseguita, non quando la sceglie).
-// Deduzione da giocatore: si è mosso prima di un nostro Pokémon che, a statistiche, è più veloce,
-// senza priorità, senza Distorsione: tiene una Stolascelta. Se poi cambia mossa senza uscire, non
-// era Choice e la deduzione si ritira.
-static void VgcInferChoiceScarf(enum BattlerId battler, enum Move move)
-{
-    u32 k;
-    u32 plSpd;
-
-    if (gFieldStatuses & STATUS_FIELD_TRICK_ROOM)
-        return;
-    if (GetBattleMovePriority(battler, gAiLogicData->abilities[battler], move) != 0)
-        return;
-    if (gBattleHistory->itemEffects[battler] != HOLD_EFFECT_NONE && !(sVgcInferredScarf & (1u << battler)))
-        return; // strumento già noto davvero
-    plSpd = GetBattlerTotalSpeedStat(battler, gAiLogicData->abilities[battler], HOLD_EFFECT_NONE);
-    for (k = gCurrentTurnActionNumber + 1; k < gBattlersCount; k++)
-    {
-        enum BattlerId b = gBattlerByTurnOrder[k];
-        enum Move aiMove;
-        u32 aiSpd;
-
-        if (IsOnPlayerSide(b) || !IsBattlerAlive(b) || gActionsByTurnOrder[k] != B_ACTION_USE_MOVE)
-            continue;
-        aiMove = gBattleMons[b].moves[gBattleStruct->chosenMovePositions[b]];
-        if (aiMove == MOVE_NONE || aiMove == MOVE_UNAVAILABLE || GetBattleMovePriority(b, gAiLogicData->abilities[b], aiMove) != 0)
-            continue;
-        aiSpd = GetBattlerTotalSpeedStat(b, gAiLogicData->abilities[b], gAiLogicData->holdEffects[b]);
-        if (aiSpd > plSpd && plSpd * 3 / 2 >= aiSpd)
-        {
-            sVgcInferredScarf |= 1u << battler;
-            gBattleHistory->itemEffects[battler] = HOLD_EFFECT_CHOICE_SCARF;
-            gAiPartyData->mons[GetBattlerSide(battler)][gBattlerPartyIndexes[battler]].heldEffect = HOLD_EFFECT_CHOICE_SCARF;
-            return;
-        }
-    }
-}
-
+// La deduzione della Stolascelta dall'ordine dei turni è nel belief (battle_ai_scout.c, Scout_BeliefNoteMove), con la
+// Velocità massima possibile della specie e non quella vera del giocatore: qui c'era un doppione che leggeva la
+// statistica vera.
 void AI_VgcNotePlayerMove(enum BattlerId battler, enum Move move)
 {
     struct VgcBehaviour *mem;
@@ -760,7 +756,6 @@ void AI_VgcNotePlayerMove(enum BattlerId battler, enum Move move)
         gBattleHistory->itemEffects[battler] = HOLD_EFFECT_NONE;
         gAiPartyData->mons[GetBattlerSide(battler)][gBattlerPartyIndexes[battler]].heldEffect = HOLD_EFFECT_NONE;
     }
-    VgcInferChoiceScarf(battler, move);
     sVgcPlayerLastMove[battler] = move;
     if (GetMoveEffect(move) != EFFECT_PROTECT)
         return;

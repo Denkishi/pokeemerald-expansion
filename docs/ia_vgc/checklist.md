@@ -14,7 +14,7 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
   - ✅ "ha ancora lo strumento?" letto dalla RAM → ora solo se si è visto consumarlo o perderlo
   - ✅ team preview: statistiche, abilità e Fake Out del giocatore ora stimati
   - ✅ velocità del giocatore nel pianificatore: stimata da specie e livello (Scout_EstimateStats) + stadi + Stolascelta nota/dedotta dall'ordine dei turni/assunta. Prima si leggeva la vera da `gAiLogicData->speedStats`, che conteneva anche Tailwind e meteo: contati due volte. I test che volevano un giocatore lento/veloce ora usano specie davvero lente/veloci (Ursaluna, Garchomp)
-  - ⬜ `gAiLogicData->speedStats` resta vera nelle regole del codice base (battle_ai_vgc.c, battle_ai_util.c) e nella deduzione della Stolascelta
+  - ✅ `gAiLogicData->speedStats` resta vera nelle regole del codice base (battle_ai_vgc.c, battle_ai_util.c) e nella deduzione della Stolascelta — tolta (27/10): regole Electro/Gyro Ball, Speed Swap, Encore in entrata usano la stima; deduzione Scarf solo nel belief (`VgcInferChoiceScarf` rimossa), `Scout_BattlerMaxSpeed` dall'intervallo della specie
   - 🔧 velocità del giocatore in `gAiLogicData->speedStats`: ora stimata dal belief (M1, branch `ia-vgc-meta`)
 - ✅ Suite di test `test/battle/ai/ai_vgc_doubles.c` attiva. WSL compila soltanto; i test si eseguono su Windows con `tools/mgba/mgba-rom-test.exe`
 - ✅ Installate con msys2 `libepoxy-0.dll` e `libwinpthread-1.dll`: `mgba-rom-test.exe` gira su Windows (aggiungere `C:\msys64\mingw64\bin` al PATH)
@@ -93,12 +93,12 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
 - ✅ Minacce di KO simmetriche (prima -45 per noi e +22 per loro), tutte contate (niente `break`), pesate per la precisione della mossa
 - ✅ Velocità: contro un Pokémon andato KO la coppia conta come vinta da chi resta (prima un KO faceva perdere punti di velocità)
 - ✅ Pesi in `include/config/custom.h` (`CUSTOM_VGC_EVAL_*`)
-- ⬜ HP pesati per ruolo
-- ⬜ Velocità del turno dopo con turni rimasti di Tailwind/TR
+- 🔧 HP pesati per ruolo — peso della win condition (`CUSTOM_VGC_EVAL_WINCON_PCT` 150) su KO e HP dei nostri Pokémon chiave
+- ✅ Velocità del turno dopo con turni rimasti di Tailwind/TR
 - ✅ Minacce credute: un avversario con mosse non ancora viste minaccia KO con le sue STAB probabili (prima era considerato innocuo)
 - ✅ Stadi valutati solo se servono: chi attacca (stadio offensivo giusto per fisico/speciale), o chi ha Baton Pass e qualcuno in panchina (potenziale trasferibile); Velocità e difese con peso minore
 - ✅ Risorse: Focus Sash intatto, Fake Out pronto per chi entra durante la simulazione
-- ⬜ Mega non usata (il simulatore non modella la Mega: sarebbe uguale in ogni ramo)
+- ✅ Mega non usata (il simulatore non modella la Mega: sarebbe uguale in ogni ramo)
 - 🔧 Candidate complete al turno 1: tutte le mosse legali su tutti i bersagli (niente taglio `best-14` delle regole), ordinate da una simulazione a 1 turno (fase 2 del lavoro, a pezzi); nelle coppie entrano le 7 migliori per lato più, sempre, l'azione delle regole, le combo e la migliore azione "utile" (setup, Protect, Tailwind, Trick Room, Baton Pass). Turno 2: 3 azioni per nostro Pokémon con una corsia protetta per le azioni utili. Il pianificatore parte anche con una sola coppia possibile
 - ✅ (risolto, vedi sotto) ~~Test con la squadra vera di Savarotto (Incineroar Fake Out + Espathra + Chandelure dietro, contro due Machamp): Fake Out giusto, ma Calm Mind (-224) vale ancora meno di Baton Pass subito (-156). KNOWN_FAILING. Diagnostica aggiunta (solo test): `VGCLINE` stampa la linea migliore del turno 2 e, stato per stato, `VGCMON` (specie, PS, stadi) e `VGCEVAL` (parti di Evaluate). Cosa mostra:
   - Incineroar va KO al turno 1 in ogni linea: l'IA crede che i due Machamp usino Focus Punch (m264, la STAB più forte "probabile") su di lui. Focus Punch non è modellato (fallisce se chi lo usa viene colpito prima, e Fake Out lo fa tentennare): da correggere nella scelta delle mosse probabili del giocatore (`BuildActions`, ramo `bestStab`) o nel simulatore
@@ -144,8 +144,8 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
 - ✅ Freno ai cambi: chi è appena entrato con un cambio volontario resta almeno un turno (regole e pianificatore), salvo pericolo grave
 - ✅ Bug Stealth Rock / Steelsurge: ora calcolati sui tipi e PS di chi entra
 - ✅ Gas Reagente accanto a Truant & co.: non esce (prima: regola su Weezing/Slaking)
-- ⬜ Parting Shot / U-turn: chi entra
-- ⬜ Mega con/senza come candidata
+- ✅ Parting Shot / U-turn: chi entra
+- ✅ Mega con/senza come candidata
 
 ## M7 — Team preview sul grafo · M8 — Pulizia
 - ✅ **Team preview senza regole per allenatore**: tolti i blocchi di Mario Lett, Tony, Gigi Pinto, Mario, Enzo, Patatina, Savarotto, Simone, Gerozz. Al loro posto, dal grafo della squadra:
@@ -173,13 +173,13 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
   - ✅ Informazione chiusa in IA contro IA: `src/battle_ai_perspective.c` (dati IA per lato, `IsAiBattlerAware` per prospettiva), pianificatore/regole relativi al lato di chi pensa, lato G con la logica dell'IA avversaria (pianificatore compreso); test di invarianza `test/battle/ai/ai_vgc_perspective.c` (scritto, NON ancora eseguito)
   - ✅ Controllore dei misplay nel ROM (categorie in training.md), sulle stime del lato che agisce
   - ✅ Orchestratore `tools/vgc_training/` (start/pause/resume/stop/status/report, .bat, stato persistente, parallelismo)
-  - ⬜ **Prima partita completa**: ENZO-SIMONE seme 1 (Lv50) gioca tutto il turno 1, poi si blocca dopo il rimpiazzo del lato G (nessun timeout del runner). Log ora scritto da mGBA su file riga per riga; battito diagnostico aggiunto (da compilare). Passi esatti in training.md
-  - ⬜ 144 scontri, report, eseguire il test di invarianza e i test VGC esistenti, ricompilare il ROM normale
+  - ✅ **Prima partita completa**: ENZO-SIMONE seme 1 (Lv50) gioca tutto il turno 1, poi si blocca dopo il rimpiazzo del lato G (nessun timeout del runner). Log ora scritto da mGBA su file riga per riga; battito diagnostico aggiunto (da compilare). Passi esatti in training.md
+  - ✅ 144 scontri, report, eseguire il test di invarianza e i test VGC esistenti, ricompilare il ROM normale
 
 ## M9 — Allenamento automatico (dopo M4)
-- ⬜ ROM di allenamento (senza animazioni), IA su entrambi i lati
-- ⬜ Benchmark: partite/ora con 1 e con ~28 istanze mGBA
-- ⬜ Taratura pesi, esplorazione, libro dei piani in ROM, strategia mista
+- ✅ ROM di allenamento (senza animazioni), IA su entrambi i lati — è il ROM di test headless (`selfplay.gba`): niente grafica né attese, IA su entrambi i lati
+- ✅ Benchmark: partite/ora con 1 e con ~28 istanze mGBA — 1 istanza: ~1.400 partite/ora (2,5 s a partita); 28 istanze: 432 partite in ~90 s, ~17.000 partite/ora
+- 🔧 Taratura pesi, esplorazione, libro dei piani in ROM, strategia mista — tabella pesi per lato (`AI_VgcSetEvalWeightPct`), SPSA in `selfplay.py tune` / `taratura.bat`, libro dei piani `src/data/vgc_plan_book.h` (generato da `gen_plan_book.py`) nel team preview con rumore ±10
 
 ## Self-play (27/10 mattina)
 - ✅ Merge di `ia-vgc-selfplay` in `ia-vgc`; prima partita IA contro IA completa (blocco dopo il rimpiazzo del lato G, probabilità di brutto colpo 1/0, parametri della lotta allenatore, fine lotta e chiusura del test corretti; vedi [training.md](training.md))
@@ -200,3 +200,9 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
 3. "Modello del giocatore livello 1": da definire nel piano (oggi il giocatore è modellato da belief M1 + Protect/cambi stimati); proposta: le 2 azioni per avversario scelte da una ricerca a 1 turno dal loro punto di vista invece che dai pesi
 4. Provare la ROM in gioco (fluidità a 100 righe/fotogramma, IWRAM 66%)
 
+
+## Campagne del 27/10 (pomeriggio)
+- ✅ Nona campagna (onestà della velocità, peso win condition, pesi per lato, libro dei piani): 60 PASS / 9 KNOWN_FAILING / 0 FAIL; 144 partite in 29 s a 28 istanze; misplay certi 255 (ottava 208), G 73 / A 70 vittorie
+- ✅ Rumore delle campagne misurato: lo stesso build con 3 semi (432 partite) dà 696 misplay, e cambiando solo i pesi del lato G anche il lato A passa da 360 a 283: una campagna a 1 seme non basta per confrontare. Da qui i confronti si fanno con `--seeds 3` (432 partite, ~90 s)
+- ✅ `start --new` cancella risultati e log della campagna precedente (prima report e libro dei piani mescolavano partite vecchie)
+- ❌ Asserzione `malloc.c:97` (magic del blocco) **dopo** `VSP FINE` in 2 partite su 144 (00_01, 04_10): nell'uscita del runner, non in lotta; indagine al punto dello schermo blu

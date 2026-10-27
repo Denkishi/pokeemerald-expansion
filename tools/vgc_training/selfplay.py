@@ -55,6 +55,8 @@ assert ARGS_SIZE == 68
 MODE_LIST, MODE_PREVIEW, MODE_FIXED = 0, 1, 2
 
 DEFAULT_PARALLEL = 24
+# Pesi tarabili (ordine di reserved[0..6] nei parametri; deve combaciare con AI_VgcSetEvalWeightPct nel ROM).
+WEIGHT_NAMES = ['KO', 'VIVO', 'VELOCITA', 'MINACCE', 'MATERIALE', 'CAMBIO', 'WINCON']
 GAME_TIMEOUT_S = 45 * 60
 MAX_RAW_LOG = 300 * 1024 * 1024  # un log che cresce oltre (es. codice impazzito che stampa in ciclo) ferma la partita
 
@@ -87,6 +89,9 @@ CATEGORIES = {
     'IMMUNE': 'Mossa su un immune noto',
     'BERSAGLIO_GIA_KO': 'Bersaglio gia KO senza redirect utile',
     'KO_NON_PRESO': 'KO garantito non preso',
+    'KO_NON_PRESO_LETTURA': 'KO non preso: lettura di un Protect visto',
+    'KO_NON_PRESO_AREA': 'KO non preso: scelta una mossa ad area',
+    'KO_NON_PRESO_SUPPORTO': 'KO non preso: scelto supporto/Protect/cambio',
     'ATTACCO_COMPAGNO': 'Attacco sul compagno senza combo',
     'PROTECT_CONSECUTIVO': 'Protect consecutivo',
     'FAKE_OUT_TARDIVO': 'Fake Out dopo il primo turno',
@@ -170,7 +175,7 @@ def find_args_offset(rom_bytes):
     return off
 
 
-def pack_args(mode, player, enemy, seed, max_turns=0, player_order=None, enemy_order=None, scenario=None, verbose=0, variant=0):
+def pack_args(mode, player, enemy, seed, max_turns=0, player_order=None, enemy_order=None, scenario=None, verbose=0, weights=None):
     po = list(player_order or [0xFF] * 4)
     eo = list(enemy_order or [0xFF] * 4)
     sc = scenario or {}
@@ -178,7 +183,10 @@ def pack_args(mode, player, enemy, seed, max_turns=0, player_order=None, enemy_o
     hp = sc.get('hp', [0, 0, 0, 0])
     stages = sc.get('stadi', [[0] * 5 for _ in range(4)])
     flat = [int(v) for row in stages for v in row]
-    reserved = [variant & 0xFF] + [0] * 6  # reserved[0]: variante dei pesi (M9, non ancora letta dal ROM)
+    # reserved[0..6]: pesi della valutazione del lato G in % (diviso 2; 0 = default), vedi WEIGHT_NAMES e
+    # AI_VgcSetEvalWeightPct nel ROM. Il lato A resta sempre ai valori di default (termine di paragone).
+    w = list(weights or [])
+    reserved = [max(0, min(255, int(round(x / 2)))) if x else 0 for x in (w + [0] * 7)[:7]]
     return struct.pack(ARGS_LAYOUT, MAGIC, mode, player, enemy, max_turns & 0xFF, seed & 0xFFFFFFFF,
                        *po, *eo, sc.get('turno', 0), tw[0], tw[1], sc.get('trickroom', 0), *hp, *flat, verbose, *reserved)
 
@@ -216,8 +224,8 @@ def game_id(job):
     base = f"{job['p']:02d}_{job['e']:02d}_s{job['seed']}"
     if job.get('mode', MODE_PREVIEW) == MODE_FIXED:
         base += '_fisse'
-    if job.get('variant'):
-        base += f"_v{job['variant']}"
+    if job.get('pesi'):
+        base += '_p' + '-'.join(str(int(x)) for x in job['pesi'])
     return base
 
 
@@ -228,7 +236,7 @@ def start_game(job, rom_bytes, args_offset):
     data = bytearray(rom_bytes)
     packed = pack_args(job.get('mode', MODE_PREVIEW), job['p'], job['e'], job['seed'], job.get('max_turns', 0),
                        job.get('player_order'), job.get('enemy_order'), job.get('scenario'), job.get('verbose', 0),
-                       job.get('variant', 0))
+                       job.get('pesi'))
     data[args_offset:args_offset + ARGS_SIZE] = packed
     rom_path = TMP / f'{gid}.gba'
     rom_path.write_bytes(bytes(data))
@@ -664,7 +672,9 @@ def build_queue(opts, n):
     for p, e in parse_matchups(opts.get('scontri'), n):
         for k in range(opts['semi']):
             seed = opts['seme_base'] + k * 1000 + p * n + e
-            job = {'p': p, 'e': e, 'seed': seed, 'mode': opts['modo'], 'max_turns': opts['max_turni'], 'variant': opts.get('variante', 0)}
+            job = {'p': p, 'e': e, 'seed': seed, 'mode': opts['modo'], 'max_turns': opts['max_turni']}
+            if opts.get('pesi'):
+                job['pesi'] = opts['pesi']
             if opts['modo'] == MODE_FIXED:
                 job['player_order'] = opts['ordine_g']
                 job['enemy_order'] = opts['ordine_a']
@@ -692,7 +702,8 @@ def cmd_start(args):
     n = len(trainers)
     state = load_json(STATE)
     opts = {'semi': args.seeds, 'seme_base': args.seed_base, 'modo': MODE_FIXED if args.fixed else MODE_PREVIEW,
-            'max_turni': args.max_turns, 'scontri': args.matchups, 'parallelo': args.parallel, 'variante': args.variant,
+            'max_turni': args.max_turns, 'scontri': args.matchups, 'parallelo': args.parallel,
+            'pesi': [int(x) for x in args.weights.split(',')] if args.weights else None,
             'ordine_g': [int(x) for x in args.order_g.split(',')] if args.order_g else None,
             'ordine_a': [int(x) for x in args.order_a.split(',')] if args.order_a else None,
             'scenario': json.loads(args.scenario) if args.scenario else None}
@@ -705,10 +716,17 @@ def cmd_start(args):
         print(f"Ripresa della campagna del {state['creata']}: "
               f"{sum(1 for j in state['partite'] if j['stato'] == 'finita')}/{len(state['partite'])} partite finite.")
     else:
+        # Nuova campagna: via i risultati e i log della precedente (report e libro dei piani leggono solo questa).
+        for old in list(RESULTS.glob('*.json')) + list(LOGS.glob('*.log')):
+            try:
+                old.unlink()
+            except OSError:
+                pass
         state = {'creata': now(), 'opzioni': opts, 'partite': build_queue(opts, n)}
         print(f"Nuova campagna: {len(state['partite'])} partite ({n} allenatori).")
     state['stato'] = 'avvio'
     save_json(STATE, state)
+    MODE_FILE.write_text('campagna')
     for flag in (PAUSE_FLAG, STOP_FLAG):
         if flag.exists():
             flag.unlink()
@@ -716,17 +734,20 @@ def cmd_start(args):
     return 0
 
 
-def spawn_daemon():
+def spawn_daemon(command='daemon'):
     DAEMON_LOG.parent.mkdir(parents=True, exist_ok=True)
     log = open(DAEMON_LOG, 'a', encoding='utf-8')
     flags = 0
     if os.name == 'nt':
         flags = 0x00000008 | 0x00000200 | 0x08000000  # DETACHED_PROCESS | NEW_PROCESS_GROUP | NO_WINDOW
     exe = sys.executable
-    p = subprocess.Popen([exe, str(Path(__file__).resolve()), 'daemon'], stdout=log, stderr=subprocess.STDOUT,
+    p = subprocess.Popen([exe, str(Path(__file__).resolve()), command], stdout=log, stderr=subprocess.STDOUT,
                          stdin=subprocess.DEVNULL, creationflags=flags, cwd=str(ROOT), close_fds=True)
     PIDFILE.write_text(str(p.pid))
     print(f'Demone avviato (pid {p.pid}). Stato: training.ps1 status')
+
+
+IN_TUNE = False  # True quando il demone gira dentro la taratura (non toglie il pidfile alla fine)
 
 
 def cmd_daemon(args):
@@ -801,11 +822,131 @@ def cmd_daemon(args):
             time.sleep(1)
     finally:
         try:
+            if not IN_TUNE and PIDFILE.exists() and PIDFILE.read_text().strip() == str(os.getpid()):
+                PIDFILE.unlink()
+        except OSError:
+            pass
+    return 0
+
+
+# ---------------------------------------------------------------------------------------------
+# Taratura automatica dei pesi (M9): SPSA sul tasso di vittoria del lato G (pesi in prova) contro il lato A
+# (pesi di default), sugli stessi scontri e semi. Ogni passo: due campagne (theta + c*delta, theta - c*delta).
+# Pausa / ripresa / stop come le campagne (stessi file di controllo); stato in work/tuning.json.
+# ---------------------------------------------------------------------------------------------
+TUNE = WORK / 'tuning.json'
+MODE_FILE = WORK / 'modo.txt'
+
+
+def tune_fitness(state):
+    done = [j for j in state['partite'] if j['stato'] == 'finita']
+    if not done:
+        return 0.0
+    wins = sum(1 for j in done if j.get('esito') == 'VITTORIA_G')
+    losses = sum(1 for j in done if j.get('esito') == 'VITTORIA_A')
+    return (wins + 0.5 * (len(done) - wins - losses)) / len(done)
+
+
+def tune_campaign(t, theta, n):
+    opts = {'semi': t['semi'], 'seme_base': t['seme_base'], 'modo': MODE_PREVIEW, 'max_turni': 50,
+            'scontri': t['scontri'], 'parallelo': t['parallelo'], 'pesi': [int(x) for x in theta]}
+    return {'creata': now(), 'opzioni': opts, 'partite': build_queue(opts, n), 'stato': 'avvio'}
+
+
+def cmd_tune(args):
+    WORK.mkdir(parents=True, exist_ok=True)
+    if daemon_pid():
+        print('Il demone sta gia girando (usa status / pause / stop).')
+        return 0
+    t = load_json(TUNE)
+    if not t or args.new or t.get('stato') == 'finita':
+        t = {'creata': now(), 'stato': 'in corso', 'k': 0, 'iterazioni': args.iters, 'theta': [100] * len(WEIGHT_NAMES),
+             'c': args.c, 'a': args.a, 'semi': args.seeds, 'seme_base': args.seed_base, 'scontri': args.matchups,
+             'parallelo': args.parallel, 'fase': None, 'storia': []}
+        print(f"Nuova taratura: {args.iters} passi SPSA, 2 campagne a passo.")
+    else:
+        print(f"Ripresa della taratura: passo {t['k'] + 1}/{t['iterazioni']}.")
+    save_json(TUNE, t)
+    MODE_FILE.write_text('taratura')
+    for flag in (PAUSE_FLAG, STOP_FLAG):
+        if flag.exists():
+            flag.unlink()
+    spawn_daemon('tune-daemon')
+    return 0
+
+
+def cmd_tune_daemon(args):
+    global IN_TUNE
+    import random as _r
+    IN_TUNE = True
+    PIDFILE.write_text(str(os.getpid()))
+    trainers = load_json(TRAINERS_JSON) or []
+    n = len(trainers)
+    try:
+        t = load_json(TUNE)
+        while t['k'] < t['iterazioni']:
+            rng = _r.Random(1000 + t['k'])
+            delta = [rng.choice((-1, 1)) for _ in WEIGHT_NAMES]
+            c = t['c']
+            plus = [max(50, min(250, th + c * d)) for th, d in zip(t['theta'], delta)]
+            minus = [max(50, min(250, th - c * d)) for th, d in zip(t['theta'], delta)]
+            results = {}
+            for fase, theta in (('piu', plus), ('meno', minus)):
+                if t.get('risultati_passo', {}).get(fase) is not None:
+                    results[fase] = t['risultati_passo'][fase]
+                    continue
+                state = load_json(STATE)
+                if t.get('fase') != fase or not state or state.get('opzioni', {}).get('pesi') != [int(x) for x in theta]:
+                    state = tune_campaign(t, theta, n)
+                    save_json(STATE, state)
+                    t['fase'] = fase
+                    save_json(TUNE, t)
+                cmd_daemon(None)
+                state = load_json(STATE)
+                if state.get('stato') != 'completata':
+                    print(f'[{now()}] taratura fermata al passo {t["k"] + 1} ({fase})', flush=True)
+                    return 0
+                results[fase] = tune_fitness(state)
+                t.setdefault('risultati_passo', {})[fase] = results[fase]
+                save_json(TUNE, t)
+            g = (results['piu'] - results['meno']) / (2 * c)
+            t['theta'] = [max(50, min(250, th + t['a'] * g * d)) for th, d in zip(t['theta'], delta)]
+            t['storia'].append({'passo': t['k'] + 1, 'piu': results['piu'], 'meno': results['meno'],
+                                'theta': [round(x, 1) for x in t['theta']], 'quando': now()})
+            print(f"[{now()}] passo {t['k'] + 1}: vittorie G piu={results['piu']:.3f} meno={results['meno']:.3f} "
+                  f"theta={[round(x) for x in t['theta']]}", flush=True)
+            t['k'] += 1
+            t['fase'] = None
+            t['risultati_passo'] = {}
+            save_json(TUNE, t)
+            tune_report(t)
+        t['stato'] = 'finita'
+        save_json(TUNE, t)
+        tune_report(t)
+    finally:
+        try:
             if PIDFILE.exists() and PIDFILE.read_text().strip() == str(os.getpid()):
                 PIDFILE.unlink()
         except OSError:
             pass
     return 0
+
+
+def tune_report(t):
+    REPORT.mkdir(parents=True, exist_ok=True)
+    out = ['# Taratura automatica dei pesi (SPSA)', '',
+           f"Aggiornato: {now()}. Passi: {t['k']}/{t['iterazioni']} ({t.get('stato')}). "
+           f"Ogni passo: due campagne di {t['scontri']} scontri x {t['semi']} semi con i pesi del lato G spostati di "
+           f"+/-{t['c']} punti percentuali; il lato A resta ai valori di default.", '',
+           '| Peso | Valore attuale (%) |', '|---|---:|']
+    for name, th in zip(WEIGHT_NAMES, t['theta']):
+        out.append(f'| {name} | {th:.0f} |')
+    out += ['', '| Passo | Vittorie G (+) | Vittorie G (-) | Pesi dopo il passo |', '|---:|---:|---:|---|']
+    for h in t['storia']:
+        out.append(f"| {h['passo']} | {h['piu']:.3f} | {h['meno']:.3f} | {', '.join(str(round(x)) for x in h['theta'])} |")
+    out += ['', 'Per applicare i pesi trovati: moltiplicare i `CUSTOM_VGC_EVAL_*` corrispondenti in '
+            '`include/config/custom.h` per il valore / 100.']
+    (REPORT / 'taratura.md').write_text('\n'.join(out) + '\n', encoding='utf-8')
 
 
 def cmd_pause(args):
@@ -821,6 +962,12 @@ def cmd_resume(args):
     if daemon_pid():
         print('Ripresa.')
         return 0
+    if MODE_FILE.exists() and MODE_FILE.read_text().strip() == 'taratura':
+        t = load_json(TUNE)
+        if t and t.get('stato') != 'finita':
+            print(f"Ripresa della taratura: passo {t['k'] + 1}/{t['iterazioni']}.")
+            spawn_daemon('tune-daemon')
+            return 0
     state = load_json(STATE)
     if not state:
         print('Nessuna campagna da riprendere: usa start.')
@@ -854,6 +1001,10 @@ def cmd_stop(args):
 def cmd_status(args):
     state = load_json(STATE)
     pid = daemon_pid()
+    if MODE_FILE.exists() and MODE_FILE.read_text().strip() == 'taratura':
+        t = load_json(TUNE) or {}
+        print(f"Taratura: passo {t.get('k', 0) + (0 if t.get('stato') == 'finita' else 1)}/{t.get('iterazioni')} "
+              f"({t.get('stato')}, fase {t.get('fase')}), pesi G: {[round(x) for x in t.get('theta', [])]}")
     if not state:
         print('Nessuna campagna. Usa: training.ps1 start')
         return 0
@@ -917,9 +1068,19 @@ def main():
     st.add_argument('--order-g', help='slot 0..5 del lato G in ordine (lead prima), es. 0,1,2,3')
     st.add_argument('--order-a', help='slot 0..5 del lato A')
     st.add_argument('--scenario', help='posizione preparata in JSON, es. {"turno":3,"tailwind":[0,1],"stadi":[[0,0,0,2,0],[0]*5...]}')
-    st.add_argument('--variant', type=int, default=0, help='variante dei pesi (M9, riservato)')
+    st.add_argument('--weights', help='pesi del lato G in %% (ordine: ' + ','.join(WEIGHT_NAMES) + '), es. 100,120,100,...')
     st.add_argument('--new', action='store_true', help='nuova campagna anche se ce n\'e una in corso')
     sub.add_parser('daemon')
+    sub.add_parser('tune-daemon')
+    tu = sub.add_parser('tune')
+    tu.add_argument('--iters', type=int, default=10, help='passi SPSA (2 campagne ciascuno)')
+    tu.add_argument('--c', type=float, default=20.0, help='ampiezza della perturbazione (punti %%)')
+    tu.add_argument('--a', type=float, default=1500.0, help='passo del gradiente')
+    tu.add_argument('--seeds', type=int, default=1)
+    tu.add_argument('--seed-base', type=int, default=7)
+    tu.add_argument('--matchups', default='all')
+    tu.add_argument('--parallel', type=int, default=DEFAULT_PARALLEL)
+    tu.add_argument('--new', action='store_true')
     sub.add_parser('pause')
     sub.add_parser('resume')
     sub.add_parser('stop')
@@ -936,7 +1097,8 @@ def main():
     ro.add_argument('--scenario')
     args = ap.parse_args()
     handlers = {'build': cmd_build, 'list': cmd_list, 'start': cmd_start, 'daemon': cmd_daemon, 'pause': cmd_pause,
-                'resume': cmd_resume, 'stop': cmd_stop, 'status': cmd_status, 'report': cmd_report, 'run-one': cmd_run_one}
+                'resume': cmd_resume, 'stop': cmd_stop, 'status': cmd_status, 'report': cmd_report, 'run-one': cmd_run_one,
+                'tune': cmd_tune, 'tune-daemon': cmd_tune_daemon}
     sys.exit(handlers[args.cmd](args) or 0)
 
 

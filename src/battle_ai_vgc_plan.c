@@ -218,6 +218,8 @@ struct PlanJob
     s32 sum, wsum, worst;
     s32 ev[PLAN_MAX_PAIRS];
     s32 bestSoFar;      // miglior valore di coppia già finito (potatura)
+    const struct VgcEvalWeights *w; // pesi della valutazione del lato di chi pensa
+    u8 winconParty;     // bit per indice di squadra: le win condition del piano del nostro allenatore
     struct PlanState s1;
     s32 missPen;        // quanto si perde, in media, per le azioni del turno 1 che possono mancare
     // livello 2 (turno dopo)
@@ -247,6 +249,54 @@ struct PlanJob
 };
 
 static EWRAM_DATA struct PlanJob sJob = {0};
+
+// Pesi della valutazione per lato (M9: la taratura automatica li cambia per il lato G del self-play; nel gioco
+// restano i valori di include/config/custom.h). Si leggono con VW(campo) per il lato di chi pensa.
+struct VgcEvalWeights
+{
+    s16 ko, alive, speedPair, threatFast, threatSlow, material, switchCost, wincon;
+};
+static EWRAM_DATA struct VgcEvalWeights sVgcWeights[NUM_BATTLE_SIDES] = {0};
+static EWRAM_DATA u8 sVgcWeightsSet = 0; // bit per lato: pesi impostati
+
+static void DefaultEvalWeights(struct VgcEvalWeights *w)
+{
+    w->ko = CUSTOM_VGC_EVAL_KO;
+    w->alive = CUSTOM_VGC_EVAL_ALIVE;
+    w->speedPair = CUSTOM_VGC_EVAL_SPEED_PAIR;
+    w->threatFast = CUSTOM_VGC_EVAL_THREAT_FAST;
+    w->threatSlow = CUSTOM_VGC_EVAL_THREAT_SLOW;
+    w->material = CUSTOM_VGC_EVAL_MATERIAL;
+    w->switchCost = CUSTOM_VGC_SWITCH_COST;
+    w->wincon = CUSTOM_VGC_EVAL_WINCON_PCT;
+}
+
+// Pesi del lato `side` in % dei valori di default (ordine: KO, vivo, velocità, minacce, materiale, cambio, win
+// condition; 0 = 100%). Usato dalla taratura (test/vgc_selfplay); senza chiamate valgono i default.
+void AI_VgcSetEvalWeightPct(u32 side, const u8 pct[7])
+{
+    struct VgcEvalWeights *w = &sVgcWeights[side];
+    u32 p[7], i;
+    for (i = 0; i < 7; i++)
+        p[i] = pct[i] ? pct[i] * 2 : 100;
+    DefaultEvalWeights(w);
+    w->ko = w->ko * p[0] / 100;
+    w->alive = w->alive * p[1] / 100;
+    w->speedPair = w->speedPair * p[2] / 100;
+    w->threatFast = w->threatFast * p[3] / 100;
+    w->threatSlow = w->threatSlow * p[3] / 100;
+    w->material = w->material * p[4] / 100;
+    w->switchCost = w->switchCost * p[5] / 100;
+    w->wincon = 100 + (w->wincon - 100) * (s32)p[6] / 100;
+    sVgcWeightsSet |= 1u << side;
+}
+
+void AI_VgcResetEvalWeights(void)
+{
+    sVgcWeightsSet = 0;
+}
+
+#define VW(field) (sJob.w->field)
 
 // Decisione già presa per il partner nello stesso turno (la ricerca sceglie la coppia): quando tocca a lui,
 // il pianificatore la applica senza ricalcolare.
@@ -1589,13 +1639,18 @@ PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st)
 
         if (pm->species == SPECIES_NONE)
             continue;
-        if (!pm->alive)
+        // Peso per ruolo: la win condition del piano (per il nostro lato) vale di più, viva e in PS.
         {
-            v -= side * CUSTOM_VGC_EVAL_KO;
-            continue;
+            u32 pIdx = (pm->partyIdx >= 0) ? (u32)pm->partyIdx : gBattlerPartyIndexes[b];
+            s32 roleW = (side > 0 && pIdx < PARTY_SIZE && (sJob.winconParty & (1u << pIdx))) ? VW(wincon) : 100;
+            if (!pm->alive)
+            {
+                v -= side * VW(ko) * roleW / 100;
+                continue;
+            }
+            count[GetBattlerSide(b)]++;
+            v += side * ((pm->hp + pm->subHp / 2) * 100 / max(pm->maxHp, 1) + VW(alive)) * roleW / 100;
         }
-        count[GetBattlerSide(b)]++;
-        v += side * ((pm->hp + pm->subHp / 2) * 100 / max(pm->maxHp, 1) + CUSTOM_VGC_EVAL_ALIVE);
         if (pm->asleep)
             v -= side * CUSTOM_VGC_EVAL_SLEEP;
         // Stato: la scottatura pesa sugli attaccanti fisici, la paralisi su tutti (Velocità dimezzata).
@@ -1644,11 +1699,11 @@ PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st)
         u32 ourSide = GetBattlerSide(sJob.me), theirSide = ourSide ^ BIT_SIDE;
         s32 ours = count[ourSide] + sJob.bench[ourSide];
         s32 theirs = count[theirSide] + sJob.bench[theirSide];
-        v += CUSTOM_VGC_EVAL_MATERIAL * 2 * (ours - theirs) / max(ours + theirs, 1);
+        v += VW(material) * 2 * (ours - theirs) / max(ours + theirs, 1);
         if (ours == 0 && theirs > 0)
-            v -= CUSTOM_VGC_EVAL_KO * 4;
+            v -= VW(ko) * 4;
         else if (theirs == 0 && ours > 0)
-            v += CUSTOM_VGC_EVAL_KO * 4;
+            v += VW(ko) * 4;
     }
     EVAL_DEBUG("+materiale", v);
     // Velocità al turno dopo, per ogni coppia (nostro, loro). Contro un Pokémon andato KO la coppia conta come
@@ -1663,7 +1718,7 @@ PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st)
                 continue;
             if (!st->m[o].alive || !st->m[b].alive)
             {
-                v += (st->m[b].alive ? 1 : -1) * CUSTOM_VGC_EVAL_SPEED_PAIR * CUSTOM_VGC_EVAL_SPEED_TURNS;
+                v += (st->m[b].alive ? 1 : -1) * VW(speedPair) * CUSTOM_VGC_EVAL_SPEED_TURNS;
                 continue;
             }
             // Ordine nei prossimi CUSTOM_VGC_EVAL_SPEED_TURNS turni, con i turni rimasti di Trick Room e Tailwind:
@@ -1675,7 +1730,7 @@ PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st)
                     u32 xb = (st->tailwind[GetBattlerSide(b)] > t) ? sb * 2 : sb;
                     u32 xo = (st->tailwind[GetBattlerSide(o)] > t) ? so * 2 : so;
                     bool32 ourFirst = (st->trickRoom > t) ? xb <= xo : xb > xo;
-                    v += ourFirst ? CUSTOM_VGC_EVAL_SPEED_PAIR : -CUSTOM_VGC_EVAL_SPEED_PAIR;
+                    v += ourFirst ? VW(speedPair) : -VW(speedPair);
                 }
             }
         }
@@ -1695,7 +1750,7 @@ PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st)
             chance = CanKoNextTurn(st, o, b);
             if (chance > 0)
             {
-                s32 pen = (FASTER(o, b) ? CUSTOM_VGC_EVAL_THREAT_FAST : CUSTOM_VGC_EVAL_THREAT_SLOW) * (s32)chance / 100;
+                s32 pen = (FASTER(o, b) ? VW(threatFast) : VW(threatSlow)) * (s32)chance / 100;
                 v += IsOnPlayerSide(b) ? pen : -pen;
             }
         }
@@ -2665,9 +2720,9 @@ static void FinishJob(void)
     for (i = 0; i < sJob.nOurs; i++)
     {
         if (sJob.ours[i].kind == PLAN_ACT_SWITCH)
-            sJob.ev[i] -= IsBattlersFirstTurn(sJob.ours[i].user) ? CUSTOM_VGC_SWITCH_COST : CUSTOM_VGC_SWITCH_COST / 2;
+            sJob.ev[i] -= IsBattlersFirstTurn(sJob.ours[i].user) ? VW(switchCost) : VW(switchCost) / 2;
         if (sJob.partners[i].kind == PLAN_ACT_SWITCH)
-            sJob.ev[i] -= IsBattlersFirstTurn(sJob.partners[i].user) ? CUSTOM_VGC_SWITCH_COST : CUSTOM_VGC_SWITCH_COST / 2;
+            sJob.ev[i] -= IsBattlersFirstTurn(sJob.partners[i].user) ? VW(switchCost) : VW(switchCost) / 2;
     }
     for (i = 0; i < sJob.nOurs; i++)
     {
@@ -2993,6 +3048,25 @@ bool32 AI_VgcPlanBegin(enum BattlerId me)
     }
     sJob.rankSide = sJob.rankIdx = 0;
     sJob.bestSoFar = INT32_MIN;
+    {
+        u32 side = GetBattlerSide(me);
+        if (!(sVgcWeightsSet & (1u << side)))
+        {
+            DefaultEvalWeights(&sVgcWeights[side]);
+            sVgcWeightsSet |= 1u << side;
+        }
+        sJob.w = &sVgcWeights[side];
+    }
+    {
+        // Win condition del piano dell'allenatore (vgc_gameplans.h): pesano di più nella valutazione.
+        u16 trainerId = AI_TrainerIdOfBattler(me);
+        struct Pokemon *party = GetBattlerParty(me);
+        u32 i;
+        sJob.winconParty = 0;
+        for (i = 0; i < PARTY_SIZE; i++)
+            if (AI_VgcPlanIsWinCon(trainerId, GetMonData(&party[i], MON_DATA_SPECIES)))
+                sJob.winconParty |= 1u << i;
+    }
     sJob.phase = (sJob.nFoeCand[0] + sJob.nFoeCand[1] > 0) ? 3 : 2;
     sJob.worst = INT32_MAX;
     sJob.active = TRUE;
@@ -3093,7 +3167,7 @@ bool32 AI_VgcPlanStep(void)
 #endif
                 sJob.candVal[side][idx] = Evaluate(&st) - pen;
                 if (sJob.cand[side][idx].kind == PLAN_ACT_SWITCH)
-                    sJob.candVal[side][idx] -= IsBattlersFirstTurn(sJob.cand[side][idx].user) ? CUSTOM_VGC_SWITCH_COST : CUSTOM_VGC_SWITCH_COST / 2;
+                    sJob.candVal[side][idx] -= IsBattlersFirstTurn(sJob.cand[side][idx].user) ? VW(switchCost) : VW(switchCost) / 2;
 #if TESTING
                 sEvalDebug = FALSE;
 #endif
@@ -3281,8 +3355,10 @@ bool32 AI_VgcPlanApply(void)
         }
         return changed;
     }
-    // Al primo turno della lotta le lead restano (vedi BuildOurFirstActions): niente cambio deciso dalle regole.
-    if (gBattleTurnCounter == 0 && (gAiLogicData->shouldSwitch & (1u << me)))
+    // Il pianificatore ha scelto una mossa avendo simulato anche il cambio: un cambio deciso dalle regole non vale più
+    // (prima restava attivo quando la mossa coincideva con quella delle regole, e si cambiava comunque; al primo
+    // turno della lotta il cambio non è nemmeno tra le candidate: le lead restano).
+    if (gAiLogicData->shouldSwitch & (1u << me))
     {
         gAiLogicData->shouldSwitch &= ~(1u << me);
         changed = TRUE;
