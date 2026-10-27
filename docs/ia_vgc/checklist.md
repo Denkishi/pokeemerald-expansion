@@ -33,7 +33,7 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
 - ✅ Stallo del secondo slot (TIMEOUT nei test): uno stato rimasto dalla lotta precedente lo faceva aspettare per sempre. Ora il pianificatore si azzera a inizio turno
 - 🔧 Cache dei profili scout e degli attacchi imparabili (12 specie, EWRAM): niente più scansioni dei learnset a ogni simulazione
 - ⬜ Schermo blu: serve sapere quando succede / un salvataggio per riprodurlo
-- 🔧 Costo: da 500-1900 fotogrammi per decisione a 20-400 (la maggior parte 100-300, cioè 2-5 s a 100 righe/fotogramma). Cache di CanKoNextTurn per lavoro; probabilità di Protect/cambio del giocatore lette una volta; terzo turno ridotto con azioni scelte una volta per linea e giocato solo sulla linea migliore del turno 2; priorità e velocità calcolate una volta per passo (e priorità senza `GetBattleMovePriority`, che registrava Prankster come effetto collaterale); 10 coppie simulate per intero invece di 14. **Da fare**: scendere sotto i ~200 fotogrammi anche nei casi peggiori (407 nel test Simple Beam), ROM normale compilata (EWRAM 95,14%, IWRAM 53,2%), da provare in gioco
+- 🔧 Costo: da 500-1900 fotogrammi per decisione a 20-400 (la maggior parte 100-300, cioè 2-5 s a 100 righe/fotogramma). Cache di CanKoNextTurn per lavoro; probabilità di Protect/cambio del giocatore lette una volta; terzo turno ridotto con azioni scelte una volta per linea e giocato solo sulla linea migliore del turno 2; priorità e velocità calcolate una volta per passo (e priorità senza `GetBattleMovePriority`, che registrava Prankster come effetto collaterale); 10 coppie simulate per intero invece di 14. **Da fare**: scendere sotto i ~200 fotogrammi anche nei casi peggiori (407 nel test Simple Beam), ROM normale compilata (ultima: EWRAM 95,63%, IWRAM 66,5%, ROM 80,6%), da provare in gioco
 - 🔧 Costo dopo cache della stima dei danni, `Evaluate` e velocità in IWRAM (codice ARM, +4 KB: IWRAM 66%) e 8 coppie complete: mediana 113 fotogrammi, 90° percentile 181, massimo 239 (prima 445); al turno 2 si salta la combinazione delle seconde scelte di entrambi gli avversari. Profilo per funzione nei test: riga `VGCPROF` (righe di schermo in Evaluate, RunTurn, ApplyAction, CanKo, stima). **Da fare**: massimo sotto ~200
 - ✅ Misura dei frame di "pensiero" per decisione: riga `VGCCPU` nel log dei test (fotogrammi, simulazioni, chiamate a Evaluate/BuildActions/CanKo/stime/danni)
 
@@ -169,3 +169,10 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
 - ⬜ ROM di allenamento (senza animazioni), IA su entrambi i lati
 - ⬜ Benchmark: partite/ora con 1 e con ~28 istanze mGBA
 - ⬜ Taratura pesi, esplorazione, libro dei piani in ROM, strategia mista
+
+## Prossimi passi (al 27/10, dopo `83e27007a0`)
+1. KNOWN_FAILING rimasti in `ai_vgc_teams.c` (18, vedi [scenari.md](scenari.md)): Tailwind di Aerodactyl/Altaria (la simulazione preferisce un KO concentrato su Roaring Moon), Trick Room di Banette/Porygon2/Toedscruel, Grimmsnarl schermi, Lilligant After You/Sleep Powder, Smeargle che cambia, Hariyama Fake Out, Arcanine (Mega Charizard), Sableye (cambio), Amoonguss (pari punteggio Rage Powder/Spore nelle regole), più i test con il turno del giocatore incompleto (setup da rivedere)
+2. Costo: massimo 255 fotogrammi per decisione (mediana ~115): obiettivo ~200 nel caso peggiore
+3. "Modello del giocatore livello 1": da definire nel piano (oggi il giocatore è modellato da belief M1 + Protect/cambi stimati); proposta: le 2 azioni per avversario scelte da una ricerca a 1 turno dal loro punto di vista invece che dai pesi
+4. Provare la ROM in gioco (fluidità a 100 righe/fotogramma, IWRAM 66%)
+
