@@ -142,6 +142,8 @@ struct PlanMon
     u8 taunted;         // turni di Taunt rimasti (mosse di stato bloccate)
     u8 megaPct[4];      // Mega a inizio turno: statistiche Mega / forma base in % (Atk, Def, SpA, SpD)
     u8 megaNow;         // megaevolve in questo turno simulato: la tabella dei danni (forma base) non vale più
+    u8 subHp;           // PS del Sostituto (0 = nessuno)
+    u8 unburden;        // Unburden attivo (strumento consumato): Velocità x2
     s8 stage[PS_COUNT];     // stadi attuali nella simulazione (-6..+6)
     s8 stage0[PS_COUNT];    // stadi all'inizio (già compresi in velocità e danni della tabella dell'IA)
     u8 canAttack:1;         // ha mosse d'attacco (i boost offensivi servono a qualcosa)
@@ -364,6 +366,8 @@ static void LoadFieldMon(struct PlanMon *pm, enum BattlerId b)
     }
     pm->t1 = gBattleMons[b].types[0];
     pm->t2 = gBattleMons[b].types[1];
+    pm->subHp = gBattleMons[b].volatiles.substitute ? gBattleMons[b].volatiles.substituteHP : 0;
+    pm->unburden = gBattleMons[b].volatiles.unburdenActive;
     pm->ability = gAiLogicData->abilities[b];
     pm->holdEffect = gAiLogicData->holdEffects[b];
     pm->partyIdx = -1;
@@ -503,6 +507,8 @@ static void LoadPartyMon(struct PlanState *st, enum BattlerId b, u32 partyIdx)
     pm->partyIdx = partyIdx;
     pm->megaPct[0] = pm->megaPct[1] = pm->megaPct[2] = pm->megaPct[3] = 100;
     pm->megaNow = FALSE;
+    pm->subHp = 0;
+    pm->unburden = FALSE;
     pm->alive = pm->hp > 0;
     pm->asleep = (GetMonData(mon, MON_DATA_STATUS) & STATUS1_SLEEP) != 0;
     pm->sleepTurns = GetMonData(mon, MON_DATA_STATUS) & STATUS1_SLEEP;
@@ -669,6 +675,8 @@ PLAN_HOT static u32 EffSpeed(const struct PlanState *st, enum BattlerId b)
 
     if (pm->paralyzed && pm->ability != ABILITY_QUICK_FEET)
         s /= 2;
+    if (pm->unburden && pm->ability == ABILITY_UNBURDEN && !(pm->partyIdx < 0 && gBattleMons[b].volatiles.unburdenActive))
+        s *= 2;
 
     if (st->tailwind[GetBattlerSide(b)])
         s *= 2;
@@ -972,9 +980,36 @@ static void BatonPassInSim(struct PlanState *st, enum BattlerId u)
         if (idx == PARTY_SIZE)
             return;
     }
-    memcpy(stages, st->m[u].stage, sizeof(stages));
+    {
+        u8 sub = st->m[u].subHp;
+        memcpy(stages, st->m[u].stage, sizeof(stages));
+        LoadPartyMon(st, u, idx);
+        memcpy(st->m[u].stage, stages, sizeof(stages));
+        st->m[u].subHp = sub;
+    }
+}
+
+// U-turn, Volt Switch, Parting Shot: chi esce lascia il posto al Pokémon più adatto della panchina (scelto dal
+// motore), senza stadi. Solo per noi: la panchina del giocatore non si conosce abbastanza.
+static void SwitchOutInSim(struct PlanState *st, enum BattlerId u)
+{
+    struct Pokemon *party = GetBattlerParty(u);
+    enum BattlerId p = GetPartnerBattler(u);
+    u32 myIdx = (st->m[u].partyIdx >= 0) ? (u32)st->m[u].partyIdx : gBattlerPartyIndexes[u];
+    u32 pIdx = (st->m[p].partyIdx >= 0) ? (u32)st->m[p].partyIdx : gBattlerPartyIndexes[p];
+    u32 idx = gAiLogicData->mostSuitableMonId[u];
+
+    if (IsOnPlayerSide(u))
+        return;
+    if (!CanBatonPassTo(party, idx, myIdx, pIdx))
+    {
+        for (idx = 0; idx < PARTY_SIZE; idx++)
+            if (CanBatonPassTo(party, idx, myIdx, pIdx))
+                break;
+        if (idx == PARTY_SIZE)
+            return;
+    }
     LoadPartyMon(st, u, idx);
-    memcpy(st->m[u].stage, stages, sizeof(stages));
 }
 
 // Priorità con l'abilità che il Pokémon ha ORA nella simulazione (può cambiare a metà turno, es. Simple Beam).
@@ -1017,6 +1052,7 @@ static void TakeDamage(struct PlanMon *tm, s32 dmg)
     {
         dmg = tm->hp - 1;
         tm->berryUsed = TRUE;
+        tm->unburden = TRUE;
     }
     tm->hp -= dmg;
     if (dmg > 0)
@@ -1034,6 +1070,7 @@ static void TakeDamage(struct PlanMon *tm, s32 dmg)
         if (tm->hp > tm->maxHp)
             tm->hp = tm->maxHp;
         tm->berryUsed = TRUE;
+        tm->unburden = TRUE;
     }
 }
 
@@ -1151,6 +1188,25 @@ static void ApplyActionImpl(struct PlanState *st, const struct PlanAction *a)
         if (!st->tailwind[GetBattlerSide(u)])
             st->tailwind[GetBattlerSide(u)] = 4;
         return;
+    case EFFECT_SUBSTITUTE:
+        if (um->subHp == 0 && um->hp > um->maxHp / 4)
+        {
+            um->hp -= um->maxHp / 4;
+            um->subHp = max(1, um->maxHp / 4);
+        }
+        return;
+    case EFFECT_PARTING_SHOT:
+        {
+            struct PlanMon *tm = &st->m[a->target];
+            if (tm->alive && !tm->protecting && tm->subHp == 0 && tm->ability != ABILITY_CLEAR_BODY && tm->ability != ABILITY_WHITE_SMOKE
+             && tm->ability != ABILITY_FULL_METAL_BODY && tm->holdEffect != HOLD_EFFECT_CLEAR_AMULET)
+            {
+                tm->stage[PS_ATK] = max(-6, tm->stage[PS_ATK] - 1);
+                tm->stage[PS_SPA] = max(-6, tm->stage[PS_SPA] - 1);
+                SwitchOutInSim(st, u);
+            }
+        }
+        return;
     case EFFECT_TERRAIN:
         st->terrain = GetMoveTerrainType(a->move);
         st->terrainTurns = 5;
@@ -1179,7 +1235,8 @@ static void ApplyActionImpl(struct PlanState *st, const struct PlanAction *a)
     if (IsBattleMoveStatus(a->move))
     {
         struct PlanMon *tm = &st->m[a->target];
-        bool32 blocked = !tm->alive || (tm->protecting && !IsBattlerAlly(u, a->target));
+        bool32 blocked = !tm->alive || (tm->protecting && !IsBattlerAlly(u, a->target))
+                      || (tm->subHp > 0 && !IsBattlerAlly(u, a->target) && !IsSoundMove(a->move) && um->ability != ABILITY_INFILTRATOR);
 
         // Cambi d'abilità: valgono subito, anche per chi deve ancora muovere in questo turno
         // (es. Simple Beam sul compagno con Mycelium Might: la sua Spora non va più per ultima).
@@ -1225,7 +1282,7 @@ static void ApplyActionImpl(struct PlanState *st, const struct PlanAction *a)
             }
         }
         else if ((GetMoveNonVolatileStatus(a->move) == MOVE_EFFECT_BURN || GetMoveNonVolatileStatus(a->move) == MOVE_EFFECT_PARALYSIS)
-              && tm->alive && !tm->protecting && !tm->asleep && !tm->burned && !tm->paralyzed)
+              && !blocked && !tm->asleep && !tm->burned && !tm->paralyzed)
         {
             // Will-O-Wisp / Thunder Wave & co.: immunità di tipo (Fuoco alla scottatura, Elettro alla paralisi,
             // e il tipo della mossa: Thunder Wave non tocca i Terra).
@@ -1241,7 +1298,7 @@ static void ApplyActionImpl(struct PlanState *st, const struct PlanAction *a)
                     tm->paralyzed = TRUE;
             }
         }
-        else if (GetMoveNonVolatileStatus(a->move) == MOVE_EFFECT_SLEEP && tm->alive && !tm->protecting && !tm->asleep)
+        else if (GetMoveNonVolatileStatus(a->move) == MOVE_EFFECT_SLEEP && !blocked && !tm->asleep)
         {
             bool32 ok = TRUE;
             // Mycelium Might: le mosse di stato ignorano le abilità del bersaglio (non tipo e strumento).
@@ -1314,6 +1371,12 @@ static void ApplyActionImpl(struct PlanState *st, const struct PlanAction *a)
                 tm->stage[PS_ATK] = min(6, tm->stage[PS_ATK] + ((effect == EFFECT_BEAT_UP) ? min(CountUsablePartyMons(u) + 2, 4) : 1));
             if (dmg <= 0)
                 continue;
+            // Sostituto: assorbe il colpo (e il tentennamento) finché regge; i colpi sonori e Infiltrator lo superano.
+            if (tm->subHp > 0 && !IsBattlerAlly(u, t) && !IsSoundMove(a->move) && um->ability != ABILITY_INFILTRATOR)
+            {
+                tm->subHp = (dmg >= tm->subHp) ? 0 : tm->subHp - dmg;
+                continue;
+            }
             if (effect == EFFECT_FIRST_TURN_ONLY && st->firstTurn && IsBattlersFirstTurn(u) && tm->ability != ABILITY_INNER_FOCUS)
                 tm->flinched = TRUE;
             if (a->move == MOVE_ICY_WIND || a->move == MOVE_ELECTROWEB || a->move == MOVE_BULLDOZE)
@@ -1325,6 +1388,8 @@ static void ApplyActionImpl(struct PlanState *st, const struct PlanAction *a)
             um->hp = 0;
             um->alive = FALSE;
         }
+        if (effect == EFFECT_HIT_ESCAPE && um->alive)
+            SwitchOutInSim(st, u);
     }
 }
 
@@ -1498,7 +1563,7 @@ PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st)
             continue;
         }
         count[GetBattlerSide(b)]++;
-        v += side * (pm->hp * 100 / max(pm->maxHp, 1) + CUSTOM_VGC_EVAL_ALIVE);
+        v += side * ((pm->hp + pm->subHp / 2) * 100 / max(pm->maxHp, 1) + CUSTOM_VGC_EVAL_ALIVE);
         if (pm->asleep)
             v -= side * CUSTOM_VGC_EVAL_SLEEP;
         // Stato: la scottatura pesa sugli attaccanti fisici, la paralisi su tutti (Velocità dimezzata).
@@ -1712,6 +1777,7 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
             else if (eff == EFFECT_PROTECT && GetMoveProtectMethod(m) == PROTECT_WIDE_GUARD) w = 25;
             else if (GetMoveNonVolatileStatus(m) == MOVE_EFFECT_SLEEP) w = 60;
             else if (eff == EFFECT_TAUNT) w = 35;
+            else if (eff == EFFECT_SUBSTITUTE && bm->subHp == 0 && bm->hp > bm->maxHp / 4) w = 30;
             else if (GetMoveNonVolatileStatus(m) == MOVE_EFFECT_BURN || GetMoveNonVolatileStatus(m) == MOVE_EFFECT_PARALYSIS) w = 40;
             else if ((eff == EFFECT_REFLECT && !(st->screens[GetBattlerSide(b)] & 1))
                   || (eff == EFFECT_LIGHT_SCREEN && !(st->screens[GetBattlerSide(b)] & 2))

@@ -78,11 +78,11 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
 - ✅ Mega nel simulatore: chi megaevolve in questo turno (noi se possiamo; il giocatore se la specie la usa ≥80% nel belief e non l'ha usata) prende statistiche, tipi e abilità della Mega a inizio turno (meteo della Mega già attivo: Charizard Y + Solar Beam). Per i danni di una Mega si usa la stima, non la tabella della forma base. Test: Solar Beam al turno della Mega Y
 - ✅ Stima dei danni con le abilità e gli strumenti più comuni: Technician, Huge/Pure Power, Hustle, Solar Power, Adaptability, Transistor, Dragon's Maw, Steelworker, Water Bubble, Choice Band/Specs; in difesa Thick Fat, Heatproof, Ice Scales, Fur Coat, Filter/Solid Rock/Prism Armor, Purifying Salt
 - ✅ Terreni nel simulatore: dall'abilità d'ingresso (Surge, Hadron Engine) e dalle mosse, 5 turni; Elettro/Erba/Psico x1,3 a terra, Earthquake a metà sull'Erboso, Drago a metà sul Nebbioso, cura 1/16 sull'Erboso, niente sonno su Elettrico/Nebbioso, priorità fallita sugli avversari a terra sul Psichico (anche Prankster), Grassy Glide. Test: niente Fake Out sul Campo Psichico
-- ⬜ Sostituto
+- ✅ Sostituto (1/4 dei PS, assorbe colpi e mosse di stato tranne sonore/Infiltrator, passa con Baton Pass, vale metà dei suoi PS nella valutazione)
 - ✅ Cambi d'abilità a metà turno (Simple Beam, Worry Seed, Skill Swap, Gastro Acid, Entrainment)
 - ✅ Mycelium Might: mosse di stato per ultime nella fascia di priorità, ignorano le abilità del bersaglio
 - ✅ Justified: +1 Attacco per colpo Buio (Beat Up: un colpo per Pokémon della squadra)
-- ⬜ Unburden, Parting Shot, U-turn, Sostituto passato con Baton Pass
+- ✅ Unburden (strumento consumato: Sitrus/Focus Sash), Parting Shot (-1 Atk/SpA e uscita), U-turn/Volt Switch (uscita dopo il colpo) — per noi entra il Pokémon più adatto della panchina; il giocatore non esce nella simulazione
 - ⬜ Sostituzioni dopo un KO nel simulatore
 
 ## M3 — Valutazione della posizione
