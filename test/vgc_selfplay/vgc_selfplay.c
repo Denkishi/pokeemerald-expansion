@@ -1035,6 +1035,17 @@ static void CheckBattlerChoice(enum BattlerId b)
                 enum Move m = gBattleMons[b].moves[i];
                 if (!MoveUsable(b, i) || IsBattleMoveStatus(m))
                     continue;
+                // Non sono KO "garantiti": mosse che sacrificano chi le usa, priorità sul Campo Psichico contro chi è a
+                // terra, colpi a bersaglio singolo quando il compagno di `f` attira gli attacchi (Follow Me / Rage Powder).
+                if (GetMoveEffect(m) == EFFECT_FINAL_GAMBIT || IsExplosionMove(m))
+                    continue;
+                if (gFieldTimers.terrain == B_TERRAIN_PSYCHIC && GetBattleMovePriority(b, gAiLogicData->abilities[b], m) > 0
+                 && IsBattlerGrounded(f, gAiLogicData->abilities[f], gAiLogicData->holdEffects[f]))
+                    continue;
+                if (!IsSpreadMove(GetMoveTarget(m)) && IsBattlerAlive(GetPartnerBattler(f))
+                 && sVsp.choice[GetPartnerBattler(f)].kind == VSP_CHOICE_MOVE
+                 && GetMoveEffect(sVsp.choice[GetPartnerBattler(f)].move) == EFFECT_FOLLOW_ME)
+                    continue;
                 if (DmgMin(b, f, i) >= gBattleMons[f].hp && gAiLogicData->moveAccuracy[b][f][i] >= 100)
                 {
                     koIdx = i;

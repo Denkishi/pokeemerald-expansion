@@ -217,6 +217,7 @@ struct PlanJob
     u8 i, a, b, phase;
     s32 sum, wsum, worst;
     s32 ev[PLAN_MAX_PAIRS];
+    s32 bestSoFar;      // miglior valore di coppia già finito (potatura)
     struct PlanState s1;
     s32 missPen;        // quanto si perde, in media, per le azioni del turno 1 che possono mancare
     // livello 2 (turno dopo)
@@ -2144,6 +2145,10 @@ static u32 BuildOurFirstActions(enum BattlerId me, struct PlanAction *out, u32 c
             continue;
         if ((limits & (1u << i)) && !(i == chosenMove))
             continue;
+        // Fake Out & co. fuori dal primo turno in campo falliscono sempre: non sono candidate (a pari valore con le
+        // altre azioni, cioè quando l'azione conta poco, venivano scelte lo stesso).
+        if (GetMoveEffect(m) == EFFECT_FIRST_TURN_ONLY && !IsBattlersFirstTurn(me))
+            continue;
         kind = (GetMoveEffect(m) == EFFECT_PROTECT && GetMoveProtectMethod(m) == PROTECT_NORMAL) ? PLAN_ACT_PROTECT : PLAN_ACT_MOVE;
         tt = GetMoveTarget(m);
         if (tt == TARGET_SELECTED || tt == TARGET_SMART || tt == TARGET_OPPONENT || tt == TARGET_USER_OR_ALLY)
@@ -2585,7 +2590,17 @@ static s32 PairWeight(const struct PlanAction *x, const struct PlanAction *y)
 // Avanza gli indici di livello 1; TRUE se tutto è finito.
 static bool32 AdvanceLevel1(void)
 {
+    // Potatura: se la coppia, già sulle risposte avversarie più probabili, sta sotto la migliore trovata di molto,
+    // non vale la pena finire le altre (le coppie vanno in ordine di promessa: la migliore arriva presto). Il suo
+    // valore resta quello parziale, comunque peggiore.
+    bool32 prune = sJob.bestSoFar != INT32_MIN && sJob.wsum > 0
+                && (7 * (sJob.sum / sJob.wsum) + 3 * sJob.worst) / 10 < sJob.bestSoFar - CUSTOM_VGC_PLAN_PRUNE;
     sJob.b++;
+    if (prune)
+    {
+        sJob.b = sJob.nB;
+        sJob.a = sJob.nA - 1;
+    }
     if (sJob.b >= sJob.nB)
     {
         sJob.b = 0;
@@ -2594,6 +2609,8 @@ static bool32 AdvanceLevel1(void)
         {
             sJob.a = 0;
             sJob.ev[sJob.i] = (7 * (sJob.sum / max(sJob.wsum, 1)) + 3 * sJob.worst) / 10;
+            if (sJob.ev[sJob.i] > sJob.bestSoFar)
+                sJob.bestSoFar = sJob.ev[sJob.i];
             sJob.sum = sJob.wsum = 0;
             sJob.worst = INT32_MAX;
             sJob.i++;
@@ -2789,6 +2806,10 @@ u32 AI_VgcReplacementAfterKo(enum BattlerId battler, u32 defaultIdx)
         if (GetMonData(&party[i], MON_DATA_SPECIES) == SPECIES_NONE || GetMonData(&party[i], MON_DATA_IS_EGG)
          || GetMonData(&party[i], MON_DATA_HP) == 0 || i == gBattlerPartyIndexes[battler] || i == mate)
             continue;
+        // Già in arrivo nell'altro posto (U-turn, Baton Pass, rimpiazzo del compagno in corso): non due volte lo stesso.
+        if (i == gBattleStruct->monToSwitchIntoId[p] || i == gBattleStruct->AI_monToSwitchIntoId[p]
+         || (IsBattlerAlive(p) && i == gBattlerPartyIndexes[p]))
+            continue;
         // Riservato al Baton Pass di un compagno ancora in gioco (in campo o in panchina).
         for (j = 0; j < PARTY_SIZE; j++)
             if (j != i && graph.batonRecipient[j] == i && GetMonData(&party[j], MON_DATA_HP) > 0)
@@ -2971,6 +2992,7 @@ bool32 AI_VgcPlanBegin(enum BattlerId me)
             return FALSE;
     }
     sJob.rankSide = sJob.rankIdx = 0;
+    sJob.bestSoFar = INT32_MIN;
     sJob.phase = (sJob.nFoeCand[0] + sJob.nFoeCand[1] > 0) ? 3 : 2;
     sJob.worst = INT32_MAX;
     sJob.active = TRUE;

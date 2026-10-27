@@ -105,6 +105,7 @@
 #define CUSTOM_VGC_EVAL_THREAT_SLOW         20  // minaccia di KO al turno dopo, da chi si muove dopo
 #define CUSTOM_VGC_EVAL_MATERIAL            120 // differenza di Pokémon utilizzabili (campo + panchina), sul totale
 #define CUSTOM_VGC_EVAL_FAKE_OUT            25  // Fake Out pronto per il turno dopo (appena entrato)
+#define CUSTOM_VGC_PLAN_PRUNE               250 // una coppia peggiore della migliore di tanto non si finisce di simulare
 #define CUSTOM_VGC_SWITCH_COST              100 // costo di un cambio volontario al primo turno in campo (metà dopo)
 #define CUSTOM_VGC_EVAL_SASH                20  // Focus Sash intatto a PS pieni
 // Ritratto dell'allenatore + "penso..." quando hai già scelto e l'IA sta ancora calcolando.

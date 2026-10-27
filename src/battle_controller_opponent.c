@@ -709,6 +709,32 @@ static void OpponentHandleChoosePokemon(enum BattlerId battler)
         gBattleStruct->AI_monToSwitchIntoId[battler] = PARTY_SIZE;
         gBattleStruct->monToSwitchIntoId[battler] = chosenMonId;
     }
+    // IA VGC: mai lo stesso Pokémon in due posti (es. il compagno è appena uscito con U-turn e quello che entra al
+    // suo posto è stato scelto anche qui, o una scelta preparata prima non vale più): si prende il primo libero.
+    if (IsDoubleBattle() && gBattleResources->bufferA[battler][1] != PARTY_ACTION_CHOOSE_FAINTED_MON
+     && (gAiThinkingStruct->aiFlags[battler] & AI_FLAG_VGC_DOUBLES))
+    {
+        enum BattlerId b1 = GetBattlerAtPosition((enum BattlerPosition)GetBattlerSide(battler));
+        enum BattlerId b2 = GetBattlerAtPosition((enum BattlerPosition)(GetBattlerSide(battler) | BIT_FLANK));
+        enum BattlerId partner = GetPartnerBattler(battler);
+        bool32 bad = chosenMonId >= PARTY_SIZE || !IsValidForBattle(&gParties[GetBattlerTrainer(battler)][chosenMonId])
+                  || chosenMonId == gBattleStruct->monToSwitchIntoId[partner]
+                  || (IsBattlerAlive(partner) && chosenMonId == gBattlerPartyIndexes[partner]);
+        if (bad)
+        {
+            s32 id, lastId = GetAILastPartyIndex(battler);
+            for (id = 0; id < lastId; id++)
+            {
+                if (IsValidForBattle(&gParties[GetBattlerTrainer(battler)][id]) && !IsPartyMonOnFieldOrChosenToSwitch(battler, id, b1, b2)
+                 && id != gBattleStruct->monToSwitchIntoId[partner])
+                {
+                    chosenMonId = id;
+                    gBattleStruct->monToSwitchIntoId[battler] = chosenMonId;
+                    break;
+                }
+            }
+        }
+    }
     #if TESTING
     TestRunner_Battle_CheckSwitch(battler, chosenMonId);
     #endif // TESTING
