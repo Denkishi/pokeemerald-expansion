@@ -127,6 +127,7 @@ struct SeriesMonMemory
     u8 timesBrought;
     u8 timesLead;
     u8 kos;                     // quanti Pokémon dell'AI ha mandato KO
+    struct ScoutBeliefSnapshot belief; // Velocità ristretta, strumenti esclusi, abilità d'ingresso escluse
 };
 
 static EWRAM_DATA struct SeriesState sSeries = {0};
@@ -883,17 +884,6 @@ static bool32 SpeciesMayHaveAbility(u16 species, enum Ability ability)
     for (i = 0; i < NUM_ABILITY_SLOTS; i++)
     {
         if (gSpeciesInfo[species].abilities[i] == ability)
-            return TRUE;
-    }
-    return FALSE;
-}
-
-static bool32 PlayerMayHaveAbility(struct Pokemon *player, const u32 *slots, u32 n, enum Ability ability)
-{
-    u32 j;
-    for (j = 0; j < n; j++)
-    {
-        if (SpeciesMayHaveAbility(GetMonData(&player[slots[j]], MON_DATA_SPECIES), ability))
             return TRUE;
     }
     return FALSE;
@@ -2896,6 +2886,7 @@ void TeamPreview_SeriesCaptureAiKnowledge(void)
             SeriesRememberMove(mem, known->moves[i]);
         if (known->ability != ABILITY_NONE)
             mem->ability = known->ability;
+        Scout_BeliefExport(slot, &mem->belief); // belief dell'IA (M1): passa alla gara dopo
         if (known->heldEffect != HOLD_EFFECT_NONE)
         {
             u16 real = GetMonData(mon, MON_DATA_HELD_ITEM);
@@ -2947,6 +2938,7 @@ void TeamPreview_SeriesInjectAiKnowledge(void)
         }
         if (mem->timesBrought != 0)
             known->species = GetMonData(mon, MON_DATA_SPECIES);
+        Scout_BeliefImport(slot, &mem->belief);
 
         // Senza questo, la prima volta che il Pokémon entra in campo l'IA azzerava la sua storia
         // (lo considerava "mai visto") e le mosse ricordate dalla gara precedente andavano perse.

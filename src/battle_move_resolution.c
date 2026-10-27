@@ -4,6 +4,7 @@
 #include "battle_environment.h"
 #include "battle_hold_effects.h"
 #include "battle_ai_record.h"
+#include "battle_ai_scout.h"
 #include "battle_util.h"
 #include "battle_move_resolution.h"
 #include "battle_script_commands.h"
@@ -2669,6 +2670,7 @@ static enum CancelerResult CancelerDamageCalc(struct BattleCalcValues *cv)
 
         ctx.battlerDef = battlerDef;
         gBattleStruct->moveDamage[battlerDef] = CalculateMoveDamage(&ctx);
+        Scout_BeliefNoteDamage(&ctx, gBattleStruct->moveDamage[battlerDef]); // IA VGC: belief (strumenti dal danno)
     }
 
     if (gSpecialStatuses[cv->battlerAtk].gemBoost

@@ -15,6 +15,7 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
   - ✅ team preview: statistiche, abilità e Fake Out del giocatore ora stimati
   - ✅ velocità del giocatore nel pianificatore: stimata da specie e livello (Scout_EstimateStats) + stadi + Stolascelta nota/dedotta dall'ordine dei turni/assunta. Prima si leggeva la vera da `gAiLogicData->speedStats`, che conteneva anche Tailwind e meteo: contati due volte. I test che volevano un giocatore lento/veloce ora usano specie davvero lente/veloci (Ursaluna, Garchomp)
   - ⬜ `gAiLogicData->speedStats` resta vera nelle regole del codice base (battle_ai_vgc.c, battle_ai_util.c) e nella deduzione della Stolascelta
+  - 🔧 velocità del giocatore in `gAiLogicData->speedStats`: ora stimata dal belief (M1, branch `ia-vgc-meta`)
 - ✅ Suite di test `test/battle/ai/ai_vgc_doubles.c` attiva. WSL compila soltanto; i test si eseguono su Windows con `tools/mgba/mgba-rom-test.exe`
 - ✅ Installate con msys2 `libepoxy-0.dll` e `libwinpthread-1.dll`: `mgba-rom-test.exe` gira su Windows (aggiungere `C:\msys64\mingw64\bin` al PATH)
 - ✅ **Risultati: 13 PASS, 0 FAIL, 1 KNOWN_FAILING** (+1 test team preview, PASS) — il KNOWN_FAILING è l'ordine dei valori CM/BP con la squadra di Savarotto (vedi M3)
@@ -36,11 +37,26 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
 - ✅ Misura dei frame di "pensiero" per decisione: riga `VGCCPU` nel log dei test (fotogrammi, simulazioni, chiamate a Evaluate/BuildActions/CanKo/stime/danni)
 
 ## M1 — Belief del giocatore (esperienza da giocatore VGC)
-- ⬜ Base di conoscenza in ROM da statistiche Showdown: spread, ruoli, moveset, strumenti, abilità con frequenze
-- ⬜ Cambi d'abilità (Mega, forme, Skill Swap/Simple Beam), statistiche e tipi delle Mega
-- ⬜ Restringimento da osservazioni: velocità, danni (Choice, Assault Vest, Life Orb), Focus Sash
-- ⬜ Abilità d'ingresso non attivata → esclusa
-- ⬜ Memoria Bo3 collegata al belief
+Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 — Fonte dei dati".
+- 🔧 Base di conoscenza in ROM `src/data/vgc_meta.h` generata da `tools/vgc_meta/gen_vgc_meta.py` (statistiche Smogon/Showdown 2026-09: Champions Reg M-C con Mega, poi Reg M-B, Reg G, National Dex Doubles, Doubles OU): **310 specie** (tutte le 72 delle squadre VGC tranne Lickitung, senza dati), 3 spread, 10 mosse, 4 strumenti, 3 abilità, 2 Mega per specie, ~27 KB ROM
+- 🔧 API in `include/battle_ai_scout.h` (sezione M1): `Scout_GetMetaSpreads`, `Scout_StatsFromSpread`, `Scout_SpeciesSpeedRange`, `Scout_GetLikelyMoves`, `Scout_MoveChance`, `Scout_GetLikelyItems`, `Scout_GetMegaForms` (con abilità della Mega), `Scout_AbilityChance`, `Scout_LikelyAbility`
+- 🔧 Già collegate senza toccare il pianificatore: `Scout_EstimateStats` usa la spread più usata; `Scout_GuessItem` strumenti/Mega dalle statistiche; ruoli del profilo dalle mosse più usate (tabella a mano come minimo); `Scout_AssumedHoldEffect` usa il belief
+- 🔧 Belief in lotta (EWRAM 14 B x 6): ordine di turno → intervallo Velocità e Choice Scarf (ritirata se si dimostra più lento); danni → Choice Band/Specs, Assault Vest, Eviolite (Choice ritirata se cambia mossa); abilità d'ingresso non comparse → escluse. Agganci: `HandleAction_UseMove`, `CancelerDamageCalc`, `Ai_InitPartyStruct`, inizio turno IA
+- 🔧 `gAiLogicData->speedStats` del giocatore ora stimata (`Scout_BattlerBelievedSpeed`) invece della Velocità vera
+- 🔧 Memoria Bo3: `SeriesMonMemory.belief` (Velocità, strumenti esclusi, abilità escluse) esportata a fine gara e importata alla successiva
+- ✅ Build ROM normale compila (EWRAM 94,65%, IWRAM 53,2%, ROM 80,58%)
+- ✅ Tolta `PlayerMayHaveAbility` inutilizzata in `team_preview.c` (warning nato in M7, che ne aveva tolto le chiamate)
+- ❌ Prima build della ROM di test (`ai_vgc_scout.c`): errori `-Werror=enum-conversion` (passavo `B_POSITION_*` dove serve `enum BattlerId`). Corretto con `GetBattlerAtPosition(...)`, **ma non ricompilato né eseguito** (lavoro fermato su richiesta)
+- ⬜ **Prossimi passi (dopo il merge in `ia-vgc`):**
+  1. compilare ed eseguire `test/battle/ai/ai_vgc_scout.c` (14 test: 8 a funzione pura, 6 in lotta). Possibili correzioni: soglie dei test su Assault Vest / Choice Band se il tiro del danno o le statistiche di default dei test le mancano; il test "speed narrows" presume che l'IA usi Scratch a priorità 0
+  2. rieseguire `ai_vgc_doubles.c` e `ai_vgc_team_preview.c`: Velocità del giocatore stimata (`speedStats`) e spread meta in `Scout_EstimateStats` cambiano le stime; nei test con `Speed(x)` del giocatore la stima ora NON legge quel valore. Se servono, i test vanno adattati (o il belief va ristretto dall'ordine di turno visto)
+  3. **collegamento al pianificatore** (`battle_ai_vgc_plan.c`, da fare quando l'altro agente ha finito):
+     - riga ~241 (Pokémon del giocatore in campo): `Scout_EstimateStats(pm->species, level, ...)` → `Scout_EstimateBattlerStats(b, &hp, stats)` (Velocità dentro l'intervallo visto)
+     - riga ~359: `pm->ability = Scout_KnownAbility(species)` → per i Pokémon in campo `Scout_BattlerLikelyAbility(b, &p)` se `p >= 80`, altrimenti nessuna; in panchina `Scout_LikelyAbility(species, &p)` con la stessa soglia
+     - riga ~370 (`Scout_GuessItem`): prima `Scout_BattlerDeducedHoldEffect(b)`; scartare la stima se `Scout_BattlerHoldEffectExcluded(b, effetto)`; Assault Vest / Choice dedotti = niente Protect né mosse di stato nelle risposte del giocatore
+     - righe ~1042/1318 (`Scout_CollectLearnableAttacks`): prima le mosse di `Scout_GetLikelyMoves(species, ...)` pesate con `p` (o `Scout_BattlerMoveChance(b, mossa)` per il Pokémon in campo), poi il learnset come riserva
+     - Mega del giocatore: `Scout_GetMegaForms` (probabilità e abilità della Mega) al posto di `Scout_MegaTargetSpecies` dove serve la probabilità
+  4. team preview (`team_preview.c`, M7): stessi cambi per statistiche e mosse del giocatore (`Scout_GetLikelyMoves` invece delle sole mosse da learnset)
 
 ## M2 — Simulatore corretto
 - 🔧 Protect di fila: il secondo ora fallisce (prima riusciva sempre)
