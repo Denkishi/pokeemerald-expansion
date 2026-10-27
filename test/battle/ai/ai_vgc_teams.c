@@ -705,7 +705,6 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Gerozz - Gholdengo uses Make It Rain into two 
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Carletto - Amoonguss Rage Powder covers Snorlax's Belly Drum")
 {
-    KNOWN_FAILING; // Belly Drum e Recycle a pari punteggio (90): Recycle senza bacca consumata non è penalizzato
     // Iron Hands e Meganium (Mario) non hanno Fake Out: con Rage Powder che attira i colpi di Iron Hands
     // (Amoonguss resiste al Lotta), Snorlax fa Belly Drum (Sitrus + Recycle con Gluttony recuperano i PS).
     GIVEN {

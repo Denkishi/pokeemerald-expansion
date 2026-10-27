@@ -55,8 +55,8 @@
 #define PLAN_HOT ARM_FUNC __attribute__((section(".iwram.vgcplan"), noinline, long_call))
 
 #define PLAN_MAX_OURS        7   // azioni per ciascuno dei nostri Pokémon che entrano nelle coppie (le migliori a 1 turno)
-#define PLAN_ALL_OURS        14  // tutte le azioni legali di un nostro Pokémon (4 mosse x 3 bersagli + cambio)
-#define PLAN_MAX_PAIRS       8   // coppie (nostra azione, azione del partner) simulate per intero (albero a 3 turni)
+#define PLAN_ALL_OURS        15  // tutte le azioni legali di un nostro Pokémon (4 mosse x 3 bersagli + cambi)
+#define PLAN_MAX_PAIRS       10  // coppie (nostra azione, azione del partner) simulate per intero (albero a 3 turni)
 #define PLAN_FOE_PER         2   // azioni per avversario (primo turno)
 #define PLAN_FOE_CAND        5   // azioni plausibili per avversario valutate dal modello del giocatore (livello 1)
 #define PLAN_P2_OURS_PER     3   // azioni per chi pianifica al turno dopo (una corsia è per setup/Protect/velocità)
@@ -221,6 +221,7 @@ struct PlanJob
     s32 bestSoFar;      // miglior valore di coppia già finito (potatura)
     const struct VgcEvalWeights *w; // pesi della valutazione del lato di chi pensa
     u8 winconParty;     // bit per indice di squadra: le win condition del piano del nostro allenatore
+    u8 alpha;           // peso (decimi) della media contro il caso peggiore: dinamico, più rischio quando si è sotto
     struct PlanState s1;
     s32 missPen;        // quanto si perde, in media, per le azioni del turno 1 che possono mancare
     // livello 2 (turno dopo)
@@ -817,6 +818,42 @@ static s32 EstimateDamageImpl(const struct PlanState *st, const struct PlanMon *
 
     if (power == 0 || IsBattleMoveStatus(move))
         return 0;
+    // Potenza variabile delle mosse più comuni in VGC (peso, meteo, PS): con 60 fissi Heavy Slam su Gengar o
+    // Eruption a PS pieni erano sottostimate di metà.
+    switch (GetMoveEffect(move))
+    {
+    case EFFECT_HEAT_CRASH:
+    {
+        static const u8 sHeatCrash[] = {40, 40, 60, 80, 100, 120};
+        u32 wa = GetSpeciesWeight(atk->species), wd = max(GetSpeciesWeight(def->species), 1u);
+        if (atk->ability == ABILITY_HEAVY_METAL) wa *= 2;
+        if (atk->ability == ABILITY_LIGHT_METAL) wa /= 2;
+        if (def->ability == ABILITY_HEAVY_METAL) wd *= 2;
+        if (def->ability == ABILITY_LIGHT_METAL) wd = max(wd / 2, 1u);
+        power = sHeatCrash[min(wa / wd, 5u)];
+        break;
+    }
+    case EFFECT_LOW_KICK:
+    {
+        u32 wd = GetSpeciesWeight(def->species);
+        power = wd < 100 ? 20 : wd < 250 ? 40 : wd < 500 ? 60 : wd < 1000 ? 80 : wd < 2000 ? 100 : 120;
+        break;
+    }
+    case EFFECT_WEATHER_BALL:
+        if (st->weather != PW_NONE)
+        {
+            power *= 2;
+            type = st->weather == PW_SUN ? TYPE_FIRE : st->weather == PW_RAIN ? TYPE_WATER : st->weather == PW_SAND ? TYPE_ROCK : TYPE_ICE;
+        }
+        break;
+    case EFFECT_POWER_BASED_ON_USER_HP:
+        power = power * (u32)max(atk->hp, 0) / (u32)max(atk->maxHp, 1);
+        if (power < 2)
+            power = 2; // 1 vuol dire "potenza variabile" qui sotto
+        break;
+    default:
+        break;
+    }
     if (power == 1)
         power = 60;
     if (def->holdEffect == HOLD_EFFECT_ASSAULT_VEST && !physical)
@@ -873,6 +910,11 @@ static s32 EstimateDamageImpl(const struct PlanState *st, const struct PlanMon *
     }
     if (IsSpreadMove(GetMoveTarget(move)))
         dmg = dmg * 3 / 4;
+    // Colpi multipli: Dual Wingbeat & co. (numero fisso), 2-5 colpi (in media 3, 5 con Skill Link).
+    if (GetMoveStrikeCount(move) > 1)
+        dmg *= GetMoveStrikeCount(move);
+    else if (IsMultiHitMove(move))
+        dmg *= (atk->ability == ABILITY_SKILL_LINK) ? 5 : 3;
     return dmg * 92 / 100;
 }
 
@@ -1762,6 +1804,13 @@ PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st)
             if (chance > 0)
             {
                 s32 pen = (FASTER(o, b) ? VW(threatFast) : VW(threatSlow)) * (s32)chance / 100;
+                // La minaccia sulla nostra win condition pesa come il suo KO (stesso peso per ruolo).
+                if (!IsOnPlayerSide(b))
+                {
+                    u32 pIdx = (st->m[b].partyIdx >= 0) ? (u32)st->m[b].partyIdx : gBattlerPartyIndexes[b];
+                    if (pIdx < PARTY_SIZE && (sJob.winconParty & (1u << pIdx)))
+                        pen = pen * VW(wincon) / 100;
+                }
                 v += IsOnPlayerSide(b) ? pen : -pen;
             }
         }
@@ -2199,6 +2248,10 @@ static u32 BuildOurFirstActions(enum BattlerId me, struct PlanAction *out, u32 c
 {
     u32 n = 0, i, limits = gAiLogicData->moveLimitations[me];
     enum BattlerId t, p = GetPartnerBattler(me);
+    enum Move lastMove = gLastResultingMoves[me];
+    bool32 protectedLast = lastMove != MOVE_NONE && lastMove != MOVE_UNAVAILABLE
+                        && gBattleMoveEffects[GetMoveEffect(lastMove)].usesProtectCounter
+                        && gBattleMons[me].volatiles.consecutiveMoveUses > 0;
 
     for (i = 0; i < MAX_MON_MOVES; i++)
     {
@@ -2215,6 +2268,13 @@ static u32 BuildOurFirstActions(enum BattlerId me, struct PlanAction *out, u32 c
         // altre azioni, cioè quando l'azione conta poco, venivano scelte lo stesso).
         if (GetMoveEffect(m) == EFFECT_FIRST_TURN_ONLY && !IsBattlersFirstTurn(me))
             continue;
+        // Protect & co. subito dopo un Protect riuscito: il secondo fallisce (a pari valore con le azioni che contano
+        // poco veniva scelto lo stesso, come la mossa delle regole).
+        if (gBattleMoveEffects[GetMoveEffect(m)].usesProtectCounter && protectedLast)
+            continue;
+        // Tailwind con il nostro Tailwind ancora attivo non fa niente.
+        if (GetMoveEffect(m) == EFFECT_TAILWIND && (gSideStatuses[GetBattlerSide(me)] & SIDE_STATUS_TAILWIND))
+            continue;
         kind = (GetMoveEffect(m) == EFFECT_PROTECT && GetMoveProtectMethod(m) == PROTECT_NORMAL) ? PLAN_ACT_PROTECT : PLAN_ACT_MOVE;
         tt = GetMoveTarget(m);
         if (tt == TARGET_SELECTED || tt == TARGET_SMART || tt == TARGET_OPPONENT || tt == TARGET_USER_OR_ALLY)
@@ -2222,6 +2282,9 @@ static u32 BuildOurFirstActions(enum BattlerId me, struct PlanAction *out, u32 c
             for (t = 0; t < gBattlersCount; t++)
             {
                 if (t == me || !IsBattlerAlive(t) || !CanTargetBattler(me, t, m))
+                    continue;
+                // Attacco su un avversario immune noto (tipo, o abilità che l'IA conosce): non è una candidata.
+                if (!IsBattlerAlly(me, t) && !IsBattleMoveStatus(m) && gAiLogicData->effectiveness[me][t][i] == UQ_4_12(0.0))
                     continue;
                 // Sul compagno solo le mosse fatte per lui o che gli cambiano l'abilità; le combo che lo colpiscono
                 // (Beat Up -> Justified) le aggiunge il grafo della squadra.
@@ -2231,7 +2294,7 @@ static u32 BuildOurFirstActions(enum BattlerId me, struct PlanAction *out, u32 c
                                               || GetMoveEffect(m) == EFFECT_HELPING_HAND)))
                     continue;
                 w = gAiBattleData->finalScore[me][t][i];
-                AddCand(out, &n, PLAN_ALL_OURS - 1, kind, i, -1, m, me, t, w);
+                AddCand(out, &n, PLAN_ALL_OURS - 2, kind, i, -1, m, me, t, w);
             }
         }
         else
@@ -2249,18 +2312,33 @@ static u32 BuildOurFirstActions(enum BattlerId me, struct PlanAction *out, u32 c
             if (i == chosenMove)
                 t = (tt == TARGET_USER || tt == TARGET_ALLY) ? t : (IsBattlerAlive(chosenTarget) ? chosenTarget : t);
             w = gAiBattleData->finalScore[me][(t == me) ? GetBattlerLeftFoe(me) : t][i];
-            AddCand(out, &n, PLAN_ALL_OURS - 1, kind, i, -1, m, me, t, w);
+            AddCand(out, &n, PLAN_ALL_OURS - 2, kind, i, -1, m, me, t, w);
         }
     }
     // Il cambio è candidato solo se non siamo appena entrati con un cambio (freno ai cambi a ripetizione), e mai al
     // primo turno della lotta: le lead sono scelte dal team preview per fare il loro lavoro al turno 1.
-    if (gAiLogicData->mostSuitableMonId[me] != PARTY_SIZE && CountUsablePartyMons(me) > 0 && !AI_VgcJustSwitchedIn(me)
+    if (CountUsablePartyMons(me) > 0 && !AI_VgcJustSwitchedIn(me)
      && gBattleTurnCounter > 0)
     {
-        u32 idx = gAiLogicData->mostSuitableMonId[me];
-        if (idx < PARTY_SIZE && idx != gBattlerPartyIndexes[me] && !(IsBattlerAlive(p) && gBattlerPartyIndexes[p] == idx)
-         && gBattleStruct->AI_monToSwitchIntoId[p] != idx)
-            AddCand(out, &n, PLAN_ALL_OURS, PLAN_ACT_SWITCH, 0, (s8)idx, MOVE_NONE, me, me, 0);
+        // Ogni Pokémon in panchina (in VGC al massimo 2): chi entra lo sceglie la simulazione, che vede i colpi
+        // degli avversari sullo slot; prima c'era solo quello di GetMostSuitableMonToSwitchInto, scelto sul
+        // confronto con un solo avversario (Gholdengo dentro contro due Headlong Rush).
+        struct Pokemon *party = GetBattlerParty(me);
+        u32 k, idx, first = gAiLogicData->mostSuitableMonId[me];
+        for (k = 0; k <= PARTY_SIZE; k++)
+        {
+            // Prima quello suggerito dal motore (se c'è), poi gli altri.
+            idx = (k == 0) ? first : k - 1;
+            if (idx >= PARTY_SIZE || (k > 0 && idx == first))
+                continue;
+            if (idx == gBattlerPartyIndexes[me] || (IsBattlerAlive(p) && gBattlerPartyIndexes[p] == idx)
+             || gBattleStruct->AI_monToSwitchIntoId[p] == idx)
+                continue;
+            if (GetMonData(&party[idx], MON_DATA_HP) == 0 || GetMonData(&party[idx], MON_DATA_IS_EGG)
+             || GetMonData(&party[idx], MON_DATA_SPECIES_OR_EGG) == SPECIES_NONE)
+                continue;
+            AddCand(out, &n, PLAN_ALL_OURS, PLAN_ACT_SWITCH, 0, (s8)idx, MOVE_NONE, me, me, idx == first ? 1 : 0);
+        }
     }
     return n;
 }
@@ -2437,9 +2515,30 @@ static u32 TrimCands(u32 side, struct PlanAction *out, u8 origMove, enum Battler
             bestUtil = i;
         }
     }
+    // Un posto protetto anche per il miglior KO sicuro (danno minimo stimato, mossa precisa) su ciascun avversario:
+    // valutato a 1 turno contro la mossa delle regole del compagno poteva restare fuori, se il compagno colpiva
+    // già lo stesso bersaglio.
+    for (k = 0; k < 2; k++)
+    {
+        u32 bestKo = 0xFF;
+        for (i = 0; i < n; i++)
+        {
+            enum BattlerId t = c[i].target;
+            if (c[i].kind != PLAN_ACT_MOVE || c[i].moveIndex >= MAX_MON_MOVES || IsBattleMoveStatus(c[i].move)
+             || t >= MAX_BATTLERS_COUNT || IsBattlerAlly(c[i].user, t)
+             || (k == 0) != (t == GetBattlerLeftFoe(c[i].user)) || !IsBattlerAlive(t))
+                continue;
+            if (gAiLogicData->simulatedDmg[c[i].user][t][c[i].moveIndex].minimum >= gBattleMons[t].hp
+             && gAiLogicData->moveAccuracy[c[i].user][t][c[i].moveIndex] >= 100
+             && (bestKo == 0xFF || val[i] > val[bestKo]))
+                bestKo = i;
+        }
+        if (bestKo != 0xFF)
+            taken[bestKo] = 2; // segnato: entra con i protetti qui sotto
+    }
     for (i = 0; i < n && outN < PLAN_MAX_OURS; i++)
     {
-        if (IsOrigAction(&c[i], origMove, origTarget) || IsComboAction(&c[i]) || i == bestUtil || i == bestProtect)
+        if (IsOrigAction(&c[i], origMove, origTarget) || IsComboAction(&c[i]) || i == bestUtil || i == bestProtect || taken[i] == 2)
         {
             taken[i] = TRUE;
             out[outN] = c[i];
@@ -2660,7 +2759,7 @@ static bool32 AdvanceLevel1(void)
     // non vale la pena finire le altre (le coppie vanno in ordine di promessa: la migliore arriva presto). Il suo
     // valore resta quello parziale, comunque peggiore.
     bool32 prune = sJob.bestSoFar != INT32_MIN && sJob.wsum > 0
-                && (7 * (sJob.sum / sJob.wsum) + 3 * sJob.worst) / 10 < sJob.bestSoFar - CUSTOM_VGC_PLAN_PRUNE;
+                && (sJob.alpha * (sJob.sum / sJob.wsum) + (10 - sJob.alpha) * sJob.worst) / 10 < sJob.bestSoFar - CUSTOM_VGC_PLAN_PRUNE;
     sJob.b++;
     if (prune)
     {
@@ -2674,7 +2773,7 @@ static bool32 AdvanceLevel1(void)
         if (sJob.a >= sJob.nA)
         {
             sJob.a = 0;
-            sJob.ev[sJob.i] = (7 * (sJob.sum / max(sJob.wsum, 1)) + 3 * sJob.worst) / 10;
+            sJob.ev[sJob.i] = (sJob.alpha * (sJob.sum / max(sJob.wsum, 1)) + (10 - sJob.alpha) * sJob.worst) / 10;
             if (sJob.ev[sJob.i] > sJob.bestSoFar)
                 sJob.bestSoFar = sJob.ev[sJob.i];
             sJob.sum = sJob.wsum = 0;
@@ -2734,6 +2833,10 @@ static void FinishJob(void)
             sJob.ev[i] -= IsBattlersFirstTurn(sJob.ours[i].user) ? VW(switchCost) : VW(switchCost) / 2;
         if (sJob.partners[i].kind == PLAN_ACT_SWITCH)
             sJob.ev[i] -= IsBattlersFirstTurn(sJob.partners[i].user) ? VW(switchCost) : VW(switchCost) / 2;
+        // Doppio Protect: un turno regalato all'avversario (setup, velocità, cambi gratis) che i tre turni simulati
+        // vedono poco; costa come mezzo cambio.
+        if (sJob.ours[i].kind == PLAN_ACT_PROTECT && sJob.partners[i].kind == PLAN_ACT_PROTECT)
+            sJob.ev[i] -= VW(switchCost) / 2;
     }
     // Libro dei piani (M9): ai turni 1 e 2, bonus alle azioni congiunte del piano scelto in team preview.
     for (i = 0; i < sJob.nOurs; i++)
@@ -3084,6 +3187,19 @@ bool32 AI_VgcPlanBegin(enum BattlerId me)
             if (AI_VgcPlanIsWinCon(trainerId, GetMonData(&party[i], MON_DATA_SPECIES)))
                 sJob.winconParty |= 1u << i;
     }
+    {
+        // α dinamico: in svantaggio di Pokémon si gioca sulla media (serve un colpo di fortuna, il caso peggiore
+        // è già perso); in vantaggio si guarda di più il caso peggiore (non buttare via la partita).
+        s32 ours = CountUsablePartyMons(sJob.me), theirs = CountUsablePartyMons(GetBattlerLeftFoe(sJob.me));
+        enum BattlerId q;
+        for (q = 0; q < gBattlersCount; q++)
+            if (IsBattlerAlive(q))
+            {
+                if (IsBattlerAlly(q, sJob.me)) ours++;
+                else theirs++;
+            }
+        sJob.alpha = (ours < theirs) ? 8 : (ours > theirs) ? 6 : 7;
+    }
     sJob.phase = (sJob.nFoeCand[0] + sJob.nFoeCand[1] > 0) ? 3 : 2;
     sJob.worst = INT32_MAX;
     sJob.active = TRUE;
@@ -3110,6 +3226,15 @@ bool32 AI_VgcPlanStep(void)
         return TRUE;
     if (!sJob.finished)
         sJob.frames++;
+    // Nessun tetto al costo per scelta (la decisione giusta conta più di quella veloce: mentre l'IA pensa si vede
+    // l'allenatore con "Penso..."). CUSTOM_VGC_PLAN_MAX_FRAMES > 0 rimette un tetto; il limite di sicurezza vale
+    // solo contro cicli infiniti. Oltre, l'albero si chiude con le coppie già simulate per intero.
+    if (!sJob.finished && (sJob.phase == 0 || sJob.phase == 1) && sJob.i > 0
+     && ((CUSTOM_VGC_PLAN_MAX_FRAMES > 0 && sJob.frames >= CUSTOM_VGC_PLAN_MAX_FRAMES) || sJob.frames >= CUSTOM_VGC_PLAN_SAFETY_FRAMES))
+    {
+        sJob.nOurs = sJob.i;
+        FinishJob();
+    }
     while (budget > 0 && !sJob.finished && ScanlinesSince(start) < CUSTOM_VGC_PLAN_SCANLINES_PER_FRAME)
     {
         if (sJob.phase == 3)
@@ -3279,17 +3404,13 @@ bool32 AI_VgcPlanStep(void)
                 sJob.laWorst = v;
 
             sJob.b2++;
-            // Costo: al turno 2 si salta la combinazione delle seconde scelte di entrambi gli avversari (la meno
-            // probabile): 3 risposte loro invece di 4.
-            if (sJob.a2 == 1 && sJob.b2 == 1)
-                sJob.b2++;
             if (sJob.b2 >= sJob.nB2)
             {
                 sJob.b2 = 0;
                 sJob.a2++;
                 if (sJob.a2 >= sJob.nA2)
                 {
-                    s32 ev2 = (7 * (sJob.laSum / max(sJob.laWsum, 1)) + 3 * sJob.laWorst) / 10;
+                    s32 ev2 = (sJob.alpha * (sJob.laSum / max(sJob.laWsum, 1)) + (10 - sJob.alpha) * sJob.laWorst) / 10;
                     sJob.a2 = 0;
                     sJob.laSum = sJob.laWsum = 0;
                     sJob.laWorst = INT32_MAX;

@@ -600,6 +600,12 @@ def cmd_report(args=None):
     trainers = load_json(TRAINERS_JSON, []) or []
     names = {t['indice']: t['nome'] for t in trainers}
     REPORT.mkdir(parents=True, exist_ok=True)
+    # Le pagine per partita si rifanno da capo: quelle di campagne precedenti gonfiavano i conteggi.
+    for old in (REPORT / 'partite').glob('*.md'):
+        try:
+            old.unlink()
+        except OSError:
+            pass
     n = len(trainers) or (max([max(g['giocatore'], g['avversario']) for g in games], default=-1) + 1)
 
     cat_count, cat_doubt = {}, {}
@@ -792,7 +798,7 @@ def cmd_start(args):
               f"{sum(1 for j in state['partite'] if j['stato'] == 'finita')}/{len(state['partite'])} partite finite.")
     else:
         # Nuova campagna: via i risultati e i log della precedente (report e libro dei piani leggono solo questa).
-        for old in list(RESULTS.glob('*.json')) + list(LOGS.glob('*.log')):
+        for old in list(RESULTS.glob('*.json')) + list(LOGS.glob('*.log')) + list(LOGS.glob('*.raw.txt')):
             try:
                 old.unlink()
             except OSError:

@@ -464,6 +464,7 @@ static void ShowThinking(void)
     // lasciano stampanti allocate (perdita di memoria trovata dai test).
     DeactivateSingleTextPrinter(B_WIN_MSG, WINDOW_TEXT_PRINTER);
     BattlePutTextOnWindow(gStringVar4, B_WIN_MSG);
+    // In mezzo ai suoi due Pokémon: in doppio stanno a x 152 e 200 (sBattlerCoords), quindi al centro x 176.
     sThinkSpriteId = CreateTrainerPicSprite(GetTrainerPicFromId(TRAINER_BATTLE_PARAM.opponentA), TRUE, 176, 44, 0, THINK_PIC_PAL_TAG);
     sThinkSpriteActive = (sThinkSpriteId != 0xFFFF);
     if (sThinkSpriteActive)
@@ -526,7 +527,9 @@ static void OpponentThinkThenChooseAction(enum BattlerId battler)
         return;
     }
     AI_VgcPlanApply();
-    HideThinking();
+    // Se il compagno deve ancora pensare, il ritratto resta (toglierlo e rimetterlo lo faceva lampeggiare).
+    if (!(sThinkPending & ~(1u << battler)))
+        HideThinking();
     AI_TrySwitchOrUseItem(battler);
     BtlController_Complete(battler);
 }

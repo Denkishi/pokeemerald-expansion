@@ -1265,7 +1265,7 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
         }
         else
         {
-            ADJUST_SCORE(-2);
+            ADJUST_SCORE(threatened ? -4 : -2); // più veloce, ma il colpo arriva lo stesso: il setup non lo regge
         }
 
         // Ferrodifesa + Schiacciacorpo è un piano, non un ripiego.

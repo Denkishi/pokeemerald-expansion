@@ -187,6 +187,35 @@ static void PrintPartyMon(u32 side, u32 slot, struct Pokemon *mon)
         GetMonData(mon, MON_DATA_MOVE1), GetMonData(mon, MON_DATA_MOVE2), GetMonData(mon, MON_DATA_MOVE3), GetMonData(mon, MON_DATA_MOVE4));
 }
 
+// Controllo della memoria (indagine sullo schermo blu): percorre i blocchi dell'heap e segnala il primo con
+// l'intestazione rovinata, con il blocco prima (di solito è lui che ha scritto oltre la sua fine) e chi l'ha allocato.
+static void VgcSelfPlay_CheckHeap(const char *when)
+{
+    static EWRAM_DATA bool8 sReported = FALSE;
+    const struct MemBlock *head = HeapHead(), *b = head, *prev = NULL;
+    u32 n = 0;
+
+    if (sReported)
+        return;
+    do
+    {
+        if ((const u8 *)b < gHeap || (const u8 *)b >= gHeap + HEAP_SIZE || b->magic != MALLOC_SYSTEM_ID
+         || (b->allocated && (const u8 *)b->data + b->size > gHeap + HEAP_SIZE))
+        {
+            const char *loc = (prev != NULL && prev->allocated) ? MemBlockLocation(prev) : NULL;
+            sReported = TRUE;
+            Test_MgbaPrintf("VSP HEAP corrotto (%s, turno %d): blocco %d a %p", when, sVsp.turn + 1, n, b);
+            if (prev != NULL)
+                Test_MgbaPrintf("VSP HEAP blocco prima: %p dimensione %d allocato=%d da %s", prev, prev->size, prev->allocated,
+                                loc != NULL ? loc : "?");
+            return;
+        }
+        prev = b;
+        b = b->next;
+        n++;
+    } while (b != head && n < 2048);
+}
+
 static void PrintField(void)
 {
     const char *weather = "nessuno";
@@ -764,6 +793,7 @@ void VgcSelfPlay_OnTurnStart(void)
         Test_ExitWithResult(TEST_RESULT_TODO, SourceLine(0), "VSP limite di turni");
     }
     Test_MgbaPrintf("VSP TURNO %d", sVsp.turn + 1);
+    VgcSelfPlay_CheckHeap("inizio turno");
     PrintField();
     for (b = 0; b < gBattlersCount; b++)
         PrintBattler(b);
@@ -1058,8 +1088,13 @@ static void CheckBattlerChoice(enum BattlerId b)
         if (eff == EFFECT_TAILWIND && (gSideStatuses[GetBattlerSide(b)] & SIDE_STATUS_TAILWIND) && gSideTimers[GetBattlerSide(b)].tailwindTimer > 1)
             ReportMisplay(TRUE, "VELOCITA_SPRECATA", b, "Tailwind con il proprio Tailwind ancora attivo (%d turni)", gSideTimers[GetBattlerSide(b)].tailwindTimer);
         if (eff == EFFECT_TRICK_ROOM && (gFieldStatuses & STATUS_FIELD_TRICK_ROOM) && gFieldTimers.trickRoomTimer > 1)
-            ReportMisplay(AI_VgcTeamIsSlowerThanFoes(b, 1), "VELOCITA_SPRECATA", b, "Trick Room con Trick Room attivo (%d turni): lo chiude",
-                          gFieldTimers.trickRoomTimer);
+        {
+            // Chiudere un Trick Room quando si è più veloci è giusto: errore solo se la squadra è lenta (stessa soglia
+            // dell'IA, battle_ai_vgc.c: almeno 2 Pokémon più lenti degli avversari).
+            if (AI_VgcTeamIsSlowerThanFoes(b, 2))
+                ReportMisplay(TRUE, "VELOCITA_SPRECATA", b, "Trick Room con Trick Room attivo (%d turni): lo chiude",
+                              gFieldTimers.trickRoomTimer);
+        }
     }
 
     // 8. KO garantito disponibile e non preso.
@@ -1087,6 +1122,10 @@ static void CheckBattlerChoice(enum BattlerId b)
                 if (!IsSpreadMove(GetMoveTarget(m)) && IsBattlerAlive(GetPartnerBattler(f))
                  && sVsp.choice[GetPartnerBattler(f)].kind == VSP_CHOICE_MOVE
                  && GetMoveEffect(sVsp.choice[GetPartnerBattler(f)].move) == EFFECT_FOLLOW_ME)
+                    continue;
+                // Focus Sash / Sturdy (presunti) a PS pieni: non è un KO.
+                if (gBattleMons[f].hp == gBattleMons[f].maxHP
+                 && (gAiLogicData->holdEffects[f] == HOLD_EFFECT_FOCUS_SASH || gAiLogicData->abilities[f] == ABILITY_STURDY))
                     continue;
                 if (DmgMin(b, f, i) >= gBattleMons[f].hp && gAiLogicData->moveAccuracy[b][f][i] >= 100)
                 {
@@ -1130,7 +1169,7 @@ static void CheckBattlerChoice(enum BattlerId b)
     {
         struct VspPrev *ps = &sVsp.prevSwitch[b];
         if (ps->kind == VSP_CHOICE_SWITCH && sVsp.turn - ps->turn <= 2 && ps->partyIdx == gBattlerPartyIndexes[b] && ps->fromIdx == c->partyIdx)
-            ReportMisplay(TRUE, "CAMBI_RIPETUTI", b, "rientra %s uscito %d turni fa", A(GetSpeciesName(GetMonData(&GetBattlerParty(b)[c->partyIdx], MON_DATA_SPECIES))),
+            ReportMisplay(sVsp.turn - ps->turn <= 1, "CAMBI_RIPETUTI", b, "rientra %s uscito %d turni fa", A(GetSpeciesName(GetMonData(&GetBattlerParty(b)[c->partyIdx], MON_DATA_SPECIES))),
                           sVsp.turn - ps->turn);
         sVsp.prevSwitch2[b] = *ps;
         ps->kind = VSP_CHOICE_SWITCH;
@@ -1239,7 +1278,8 @@ void VgcSelfPlay_OnHP(enum BattlerId battler, u32 oldHP, u32 newHP)
         Test_MgbaPrintf("VSP KO b%d %S t%d", battler, GetSpeciesName(gBattleMons[battler].species), sVsp.turn + 1);
         // Cambio su chi va KO all'entrata (prima di agire).
         if (c->kind == VSP_CHOICE_SWITCH && gBattlerPartyIndexes[battler] == c->partyIdx)
-            ReportMisplay(TRUE, "CAMBIO_IN_KO", battler, "entrato con un cambio e KO nello stesso turno");
+            ReportMisplay(!gSpecialStatuses[battler].criticalHit, "CAMBIO_IN_KO", battler, "entrato con un cambio e KO nello stesso turno%s",
+                          gSpecialStatuses[battler].criticalHit ? " (colpo critico)" : "");
         // Win condition persa quando poteva proteggersi o uscire.
         if (info->valid && info->partyIdx == gBattlerPartyIndexes[battler] && info->isWinCon && !info->choseSafe
          && (info->couldProtect || info->couldSwitch))
@@ -1277,6 +1317,7 @@ void VgcSelfPlay_OnBattleEnd(void)
             if (GetMonData(&party[i], MON_DATA_SPECIES) != SPECIES_NONE && GetMonData(&party[i], MON_DATA_HP) > 0)
                 left[side]++;
     }
+    VgcSelfPlay_CheckHeap("fine partita");
     Test_MgbaPrintf("VSP FINE esito=%s turni=%d restantiG=%d restantiA=%d misplay=%d dubbi=%d", outcome, gBattleTurnCounter,
                     left[B_SIDE_PLAYER], left[B_SIDE_OPPONENT], sVsp.misplays, sVsp.doubts);
     // Si esce subito, come per il limite di turni: la chiusura della lotta del motore e il TearDown del runner
