@@ -71,3 +71,6 @@ vincenzo_features.patch
 # Harness di self-play VGC: allenatori generati da src/data/trainers.party
 test/vgc_selfplay/vgc_trainers.party
 test/vgc_selfplay/vgc_trainers.h
+
+# Pagine per partita del self-play: rigenerate da selfplay.py report (report.bat)
+docs/ia_vgc/report/partite/

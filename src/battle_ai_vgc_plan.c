@@ -59,8 +59,8 @@
 #define PLAN_MAX_PAIRS       10  // coppie (nostra azione, azione del partner) simulate per intero (albero a 3 turni)
 #define PLAN_FOE_PER         2   // azioni per avversario (primo turno)
 #define PLAN_FOE_CAND        5   // azioni plausibili per avversario valutate dal modello del giocatore (livello 1)
-#define PLAN_P2_OURS_PER     3   // azioni per chi pianifica al turno dopo (una corsia è per setup/Protect/velocità)
-#define PLAN_P2_PARTNER_PER  3   // azioni del partner al turno dopo (anche qui con la corsia)
+#define PLAN_P2_OURS_PER     4   // azioni per chi pianifica al turno dopo (una corsia è per setup/Protect/velocità)
+#define PLAN_P2_PARTNER_PER  4   // azioni del partner al turno dopo (anche qui con la corsia)
 #define PLAN_P2_FOE_PER      2   // azioni per avversario al turno dopo
 #define PLAN_OVERRIDE_MARGIN 1   // la simulazione decide: basta essere migliori (a pari valore resta la scelta delle regole)
 #define PLAN_CAND_MAX        12
@@ -1844,7 +1844,7 @@ static bool32 IsUtilityAction(const struct PlanAction *a)
     if (a->kind != PLAN_ACT_MOVE)
         return FALSE;
     eff = GetMoveEffect(a->move);
-    return eff == EFFECT_TRICK_ROOM || eff == EFFECT_TAILWIND || eff == EFFECT_BATON_PASS
+    return eff == EFFECT_TRICK_ROOM || eff == EFFECT_TAILWIND || eff == EFFECT_BATON_PASS || eff == EFFECT_FOLLOW_ME
         || (IsStatRaisingMove(a->move) && GetMoveTarget(a->move) == TARGET_USER);
 }
 
