@@ -1248,7 +1248,16 @@ static inline bool32 IsBattleIntroTrainerText(void)
          && gBattleStruct->eventState.battleIntro <= BATTLE_INTRO_STATE_WAIT_FOR_INTRO_TEXT);
 }
 
-#define BATTLE_AUTO_TEXT (CUSTOM_BATTLE_AUTO_TEXT && gMain.inBattle && !IsBattleIntroTrainerText())
+// Lo stesso per la chiusura di una lotta con allenatore: a esito deciso (gBattleOutcome impostato) la frase di
+// sconfitta/vittoria dell'allenatore e i messaggi finali (soldi, "hai perso"...) aspettano A, come la sfida iniziale.
+static inline bool32 IsBattleEndTrainerText(void)
+{
+    return (gMain.inBattle
+         && (gBattleTypeFlags & BATTLE_TYPE_TRAINER)
+         && gBattleOutcome != 0);
+}
+
+#define BATTLE_AUTO_TEXT (CUSTOM_BATTLE_AUTO_TEXT && gMain.inBattle && !IsBattleIntroTrainerText() && !IsBattleEndTrainerText())
 
 bool32 TextPrinterWaitAutoMode(struct TextPrinter *textPrinter)
 {

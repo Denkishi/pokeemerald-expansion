@@ -2518,9 +2518,9 @@ static u32 PickFoeActions(u32 side, struct PlanAction *out)
         for (i = 0; i < n; i++)
         {
             if (sJob.foeCand[side][i].kind == PLAN_ACT_SWITCH)
-                score[i] -= VW(switchCost);
+                score[i] -= VW(switchCost) * 3 / 2;
             else if (sJob.foeCand[side][i].kind == PLAN_ACT_PROTECT)
-                score[i] -= VW(switchCost) / 2;
+                score[i] -= VW(switchCost);
         }
     }
     if (CUSTOM_VGC_PLAN_FOE_SINGLE_SCALE)
@@ -3683,7 +3683,10 @@ bool32 AI_VgcPlanStep(void)
             budget--;
             if (sJob.refine)
             {
-                v = (v + (CUSTOM_VGC_PLAN_ROLLOUT_TURNS > 0 ? RolloutValue(&st) : GreedyValue(&st))) / 2;
+                if (CUSTOM_VGC_PLAN_ROLLOUT_TURNS > 0)
+                    v = (2 * v + RolloutValue(&st)) / 3;
+                else
+                    v = (v + GreedyValue(&st)) / 2;
                 budget--;
             }
             sJob.laSum += v * w;
