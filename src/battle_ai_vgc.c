@@ -1537,6 +1537,9 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
     {
         if (PartnerIsSettingUp(battlerAtk))
             ADJUST_SCORE(4);
+        // Il partner deve ancora scegliere ma ha Belly Drum: il redirect è la ragione della coppia.
+        else if (HasMoveWithEffect(partner, EFFECT_BELLY_DRUM))
+            ADJUST_SCORE(3);
         else if ((foeLAlive && CanTargetFaintAi(foeL, partner)) || (foeRAlive && CanTargetFaintAi(foeR, partner)))
             ADJUST_SCORE(2); // il partner è la minaccia che vogliono togliere
         if (hp * 100 / maxHp < 30)

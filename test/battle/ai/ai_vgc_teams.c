@@ -172,7 +172,6 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Simone - Rotom-Mow does not click Leaf Storm i
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Simone - Toedscruel sets Trick Room or redirects for Machamp against Enzo's fast lead")
 {
-    KNOWN_FAILING; // al turno 1 l'IA cambia Toedscruel invece di Trick Room / Rage Powder
     // Annihilape (Stolascelta) e Mega Aerodactyl sono molto più veloci di Machamp (base 55): la modalità di
     // riserva del piano è Trick Room, e Rage Powder protegge Machamp. Earth Power al turno 1 butta il setter.
     GIVEN {
@@ -277,15 +276,13 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Elia - Miltank does not use Helping Hand while
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Patatina - Armarouge uses Expanding Force on Psychic Terrain")
 {
-    KNOWN_FAILING; // TURN incompleto: una MOSSA del giocatore non viene eseguita (KO/flinch prima di agire), esito dell'IA non verificato: rivedere il setup
     // Con il Campo Psichico di Indeedee, Expanding Force colpisce entrambi a 1,5x: superefficace su Machamp e
     // buon danno su Arcanine (Intimidate non tocca un attaccante speciale). È il motivo della lead.
+    // Setup: il giocatore porta solo i due in campo, così un suo KO non chiede un cambio non previsto dal TURN.
     GIVEN {
         AI_FLAGS(VGC_TRAINER_AI_FLAGS);
         PLAYER(SPECIES_MACHAMP) { SIMONE_MACHAMP; }
         PLAYER(SPECIES_ARCANINE) { SIMONE_ARCANINE; }
-        PLAYER(SPECIES_ROTOM_MOW) { SIMONE_ROTOM_MOW; }
-        PLAYER(SPECIES_AGGRON) { SIMONE_AGGRON; }
         OPPONENT(SPECIES_INDEEDEE_F) { PATATINA_INDEEDEE; }
         OPPONENT(SPECIES_ARMAROUGE) { PATATINA_ARMAROUGE; }
         OPPONENT(SPECIES_CERULEDGE) { PATATINA_CERULEDGE; }
@@ -340,7 +337,6 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Patatina - Ceruledge finishes a weakened Genga
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Tony - Sableye stops Porygon2's Trick Room with Fake Out or Taunt")
 {
-    KNOWN_FAILING; // il pianificatore cambia Sableye con Slither Wing: Great Tusk (Booster Energy) manda KO Sableye e al turno 2 Close Combat vale più del Fake Out, anche col costo del cambio (vedi scenari.md)
     // Gerozz in modalità Trick Room (Porygon2 + Great Tusk): sotto la stanza la squadra veloce di Tony perde.
     // Sableye ha Fake Out e Taunt con Prankster: una delle due sul setter è la giocata. Sunny Day è inutile
     // (il sole arriva con la Mega di Charizard), Icy Wind non ferma la stanza.
@@ -361,15 +357,13 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Tony - Sableye stops Porygon2's Trick Room wit
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Tony - Charizard Mega Evolves on turn 1 and Heat Waves two Grass types")
 {
-    KNOWN_FAILING; // TURN incompleto: una MOSSA del giocatore non viene eseguita (KO/flinch prima di agire), esito dell'IA non verificato: rivedere il setup
     // Venusaur e Lilligant (Gigi Pinto) sono entrambi deboli al Fuoco: Mega Charizard Y porta il sole e Heat
     // Wave li colpisce tutti e due. Rimandare la Mega non ha senso (Siccità e AtkSp servono subito).
+    // Setup: il giocatore porta solo i due in campo, così un suo KO non chiede un cambio non previsto dal TURN.
     GIVEN {
         AI_FLAGS(VGC_TRAINER_AI_FLAGS);
         PLAYER(SPECIES_VENUSAUR) { GIGI_VENUSAUR; }
         PLAYER(SPECIES_LILLIGANT) { GIGI_LILLIGANT; }
-        PLAYER(SPECIES_TORKOAL) { GIGI_TORKOAL; }
-        PLAYER(SPECIES_HATTERENE) { GIGI_HATTERENE; }
         OPPONENT(SPECIES_CHARIZARD) { TONY_CHARIZARD; }
         OPPONENT(SPECIES_ROARING_MOON) { TONY_ROARING_MOON; }
         OPPONENT(SPECIES_SABLEYE) { TONY_SABLEYE; }
@@ -404,15 +398,13 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Tony - Slither Wing does not use Close Combat 
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Mario Lett - commanded Dondozo uses Earthquake into Arcanine + Aggron")
 {
-    KNOWN_FAILING; // TURN incompleto: una MOSSA del giocatore non viene eseguita (KO/flinch prima di agire), esito dell'IA non verificato: rivedere il setup
     // Tatsugiri entra in Dondozo (Commander: +2 a tutto, Tatsugiri non può essere colpito). Earthquake non tocca
     // il compagno nascosto ed è 2x su Arcanine e 4x su Mega Aggron: è il colpo che sfrutta la lead.
+    // Setup: il giocatore porta solo i due in campo, così un suo KO non chiede un cambio non previsto dal TURN.
     GIVEN {
         AI_FLAGS(VGC_TRAINER_AI_FLAGS);
         PLAYER(SPECIES_ARCANINE) { SIMONE_ARCANINE; }
         PLAYER(SPECIES_AGGRON) { SIMONE_AGGRON; }
-        PLAYER(SPECIES_MACHAMP) { SIMONE_MACHAMP; }
-        PLAYER(SPECIES_TOEDSCRUEL) { SIMONE_TOEDSCRUEL; }
         OPPONENT(SPECIES_DONDOZO) { LETT_DONDOZO; }
         OPPONENT(SPECIES_TATSUGIRI) { LETT_TATSUGIRI; }
         OPPONENT(SPECIES_SINISTCHA) { LETT_SINISTCHA; }
@@ -443,15 +435,13 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Mario Lett - Sinistcha sets Trick Room next to
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Mario Lett - Slaking keeps attacking under Neutralizing Gas")
 {
-    KNOWN_FAILING; // TURN incompleto: una MOSSA del giocatore non viene eseguita (KO/flinch prima di agire), esito dell'IA non verificato: rivedere il setup (turno 2)
     // Weezing-Galar spegne Truant: Slaking può attaccare ogni turno. Contro avversari che non lo minacciano
     // (qui non attaccano) Protect è un turno buttato, al primo come al secondo turno.
+    // Setup: il giocatore porta solo i due in campo, così un suo KO non chiede un cambio non previsto dal TURN.
     GIVEN {
         AI_FLAGS(VGC_TRAINER_AI_FLAGS);
         PLAYER(SPECIES_POLITOED) { MARIO_POLITOED; }
         PLAYER(SPECIES_GOLDUCK) { MARIO_GOLDUCK; }
-        PLAYER(SPECIES_HARIYAMA) { MARIO_HARIYAMA; }
-        PLAYER(SPECIES_ORANGURU) { MARIO_ORANGURU; }
         OPPONENT(SPECIES_SLAKING) { LETT_SLAKING; }
         OPPONENT(SPECIES_WEEZING_GALAR) { LETT_WEEZING_G; }
         OPPONENT(SPECIES_DONDOZO) { LETT_DONDOZO; }
@@ -612,7 +602,6 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Enzo - Aerodactyl sets Tailwind for Rillaboom 
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Enzo - Smeargle does not Spore two Grass types")
 {
-    KNOWN_FAILING; // Smeargle esce al turno 1 (SWITCH) invece di Fake Out / Follow Me
     // Venusaur e Lilligant (Gigi Pinto) sono d'Erba: immuni a Spore. Fake Out / Follow Me sono le giocate.
     GIVEN {
         AI_FLAGS(VGC_TRAINER_AI_FLAGS);
@@ -878,15 +867,13 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Savarotto - Incineroar uses Fake Out to cover 
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Savarotto - Chandelure Mega Evolves and Heat Waves two Grass types")
 {
-    KNOWN_FAILING; // TURN incompleto: una MOSSA del giocatore non viene eseguita (KO/flinch prima di agire), esito dell'IA non verificato: rivedere il setup
     // Venusaur e Lilligant sono deboli al Fuoco e il sole di Torkoal non c'è (Torkoal in panchina):
     // Heat Wave colpisce entrambi superefficace; la Mega va fatta subito.
+    // Setup: il giocatore porta solo i due in campo, così un suo KO non chiede un cambio non previsto dal TURN.
     GIVEN {
         AI_FLAGS(VGC_TRAINER_AI_FLAGS);
         PLAYER(SPECIES_VENUSAUR) { GIGI_VENUSAUR; }
         PLAYER(SPECIES_LILLIGANT) { GIGI_LILLIGANT; }
-        PLAYER(SPECIES_TORKOAL) { GIGI_TORKOAL; }
-        PLAYER(SPECIES_HATTERENE) { GIGI_HATTERENE; }
         OPPONENT(SPECIES_CHANDELURE) { SAVA_CHANDELURE; }
         OPPONENT(SPECIES_GALLADE) { SAVA_GALLADE; }
         OPPONENT(SPECIES_INCINEROAR) { SAVA_INCINEROAR; }

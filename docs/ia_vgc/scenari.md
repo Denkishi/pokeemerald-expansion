@@ -11,6 +11,13 @@ I KNOWN_FAILING marcati "setup" falliscono con "TURN incompleto": una mossa del 
 lasciare il giocatore su Protect/mosse che agiscono di sicuro, o controllare l'IA con `SCORE_*`. Tempo di
 esecuzione: oltre 10 minuti per i 36 test (il pianificatore simula ogni turno).
 
+## Aggiornamento del 27/10 mattina
+
+Stato: **57 PASS, 10 KNOWN_FAILING, 0 FAIL** su tutti i test VGC. Le lead non cambiano più al turno 1 (Toedscruel,
+Smeargle, Sableye passano); i 5 test "TURN incompleto" ora girano (il giocatore porta solo i due in campo). Restano:
+Amoonguss (ora Clear Smog invece di Rage Powder), Banette e Porygon2 (Trick Room), Aerodactyl e Altaria (Tailwind),
+Grimmsnarl (schermi), Lilligant, Hariyama (Fake Out), Arcanine (Extreme Speed sulla Mega Charizard), Scream Tail.
+
 ## Aggiornamento dopo il merge in `ia-vgc` (pianificatore con candidate complete, belief M1)
 
 Stato: **45 PASS, 20 KNOWN_FAILING, 0 FAIL** sui test VGC (doppi, team preview, scout/belief, squadre). Diventati

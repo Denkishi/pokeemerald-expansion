@@ -18,7 +18,10 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
   - 🔧 velocità del giocatore in `gAiLogicData->speedStats`: ora stimata dal belief (M1, branch `ia-vgc-meta`)
 - ✅ Suite di test `test/battle/ai/ai_vgc_doubles.c` attiva. WSL compila soltanto; i test si eseguono su Windows con `tools/mgba/mgba-rom-test.exe`
 - ✅ Installate con msys2 `libepoxy-0.dll` e `libwinpthread-1.dll`: `mgba-rom-test.exe` gira su Windows (aggiungere `C:\msys64\mingw64\bin` al PATH)
-- ✅ **Risultati (tutti i test VGC: doppi, team preview, scout/belief, squadre vere): 49 PASS, 0 FAIL, 18 KNOWN_FAILING** — i KNOWN_FAILING sono tutti in `ai_vgc_teams.c`, elencati e spiegati in [scenari.md](scenari.md)
+- ✅ **Risultati (tutti i test VGC: doppi, team preview, scout/belief, squadre vere): 57 PASS, 0 FAIL, 10 KNOWN_FAILING**
+- ✅ Lead mai cambiate al turno 1 della lotta (né dal pianificatore né dalle regole): Toedscruel, Smeargle, Sableye ora fanno il loro lavoro
+- ✅ Setup dei 5 test con il turno del giocatore incompleto: il giocatore porta solo i due in campo (un suo KO chiedeva un cambio non previsto dal TURN); ora girano
+- ✅ Regole: Rage Powder/Follow Me +3 se il compagno ha Belly Drum — i KNOWN_FAILING sono tutti in `ai_vgc_teams.c`, elencati e spiegati in [scenari.md](scenari.md)
   - ✅ Dopo un KO entra il compagno giusto (Gallade accanto a Whimsicott)
 - ℹ️ Controllo regressioni: `test/battle/ai/ai_doubles.c` dell'expansion ha 14 test che falliscono, **identici su `master`** (prima del lavoro sull'IA VGC): non li ho introdotti io, vengono dalle modifiche precedenti del fork
   - ✅ Fake Out al turno 1 per coprire un compagno Baton Passer

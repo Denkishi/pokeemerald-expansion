@@ -2148,8 +2148,10 @@ static u32 BuildOurFirstActions(enum BattlerId me, struct PlanAction *out, u32 c
             AddCand(out, &n, PLAN_ALL_OURS - 1, kind, i, -1, m, me, t, w);
         }
     }
-    // Il cambio è candidato solo se non siamo appena entrati con un cambio (freno ai cambi a ripetizione).
-    if (gAiLogicData->mostSuitableMonId[me] != PARTY_SIZE && CountUsablePartyMons(me) > 0 && !AI_VgcJustSwitchedIn(me))
+    // Il cambio è candidato solo se non siamo appena entrati con un cambio (freno ai cambi a ripetizione), e mai al
+    // primo turno della lotta: le lead sono scelte dal team preview per fare il loro lavoro al turno 1.
+    if (gAiLogicData->mostSuitableMonId[me] != PARTY_SIZE && CountUsablePartyMons(me) > 0 && !AI_VgcJustSwitchedIn(me)
+     && gBattleTurnCounter > 0)
     {
         u32 idx = gAiLogicData->mostSuitableMonId[me];
         if (idx < PARTY_SIZE && idx != gBattlerPartyIndexes[me] && !(IsBattlerAlive(p) && gBattlerPartyIndexes[p] == idx)
@@ -3095,6 +3097,12 @@ bool32 AI_VgcPlanApply(void)
             changed = TRUE;
         }
         return changed;
+    }
+    // Al primo turno della lotta le lead restano (vedi BuildOurFirstActions): niente cambio deciso dalle regole.
+    if (gBattleTurnCounter == 0 && (gAiLogicData->shouldSwitch & (1u << me)))
+    {
+        gAiLogicData->shouldSwitch &= ~(1u << me);
+        changed = TRUE;
     }
     if (sJob.resultMove != sJob.origMove || sJob.resultTarget != sJob.origTarget)
     {
