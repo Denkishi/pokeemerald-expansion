@@ -397,3 +397,43 @@ DOUBLE_BATTLE_TEST("Parting Shot: Flower Veil prevents stat drops and switches (
         EXPECT_EQ(playerLeft->species, SPECIES_PIKACHU);
     }
 }
+
+DOUBLE_BATTLE_TEST("Parting Shot: Magic Bounce bounces it in doubles and switches the bouncer out")
+{
+    GIVEN {
+        PLAYER(SPECIES_INCINEROAR) { Ability(ABILITY_INTIMIDATE); Moves(MOVE_PARTING_SHOT, MOVE_CELEBRATE); }
+        PLAYER(SPECIES_WOBBUFFET);
+        PLAYER(SPECIES_WYNAUT);
+        OPPONENT(SPECIES_HATTERENE) { Ability(ABILITY_MAGIC_BOUNCE); Moves(MOVE_TRICK_ROOM, MOVE_CELEBRATE); }
+        OPPONENT(SPECIES_WOBBUFFET);
+        OPPONENT(SPECIES_WYNAUT);
+    } WHEN {
+        TURN { MOVE(playerLeft, MOVE_PARTING_SHOT, target: opponentLeft); MOVE(opponentLeft, MOVE_TRICK_ROOM); SEND_OUT(opponentLeft, 2); }
+    } SCENE {
+        ABILITY_POPUP(opponentLeft, ABILITY_MAGIC_BOUNCE);
+    } THEN {
+        EXPECT_EQ(playerLeft->statStages[STAT_ATK], DEFAULT_STAT_STAGE - 1);
+        EXPECT_EQ(playerLeft->statStages[STAT_SPATK], DEFAULT_STAT_STAGE - 1);
+        EXPECT_EQ(opponentLeft->species, SPECIES_WYNAUT);
+    }
+}
+
+DOUBLE_BATTLE_TEST("Parting Shot: Magic Bounce bounces it in doubles when the bouncer has no replacement")
+{
+    GIVEN {
+        PLAYER(SPECIES_INCINEROAR) { Ability(ABILITY_INTIMIDATE); Moves(MOVE_PARTING_SHOT, MOVE_CELEBRATE); }
+        PLAYER(SPECIES_WOBBUFFET);
+        PLAYER(SPECIES_WYNAUT);
+        OPPONENT(SPECIES_HATTERENE) { Ability(ABILITY_MAGIC_BOUNCE); Moves(MOVE_TRICK_ROOM, MOVE_CELEBRATE); }
+        OPPONENT(SPECIES_WOBBUFFET);
+    } WHEN {
+        TURN { MOVE(playerLeft, MOVE_PARTING_SHOT, target: opponentLeft); MOVE(opponentLeft, MOVE_TRICK_ROOM); }
+        TURN { }
+    } SCENE {
+        ABILITY_POPUP(opponentLeft, ABILITY_MAGIC_BOUNCE);
+    } THEN {
+        EXPECT_EQ(playerLeft->statStages[STAT_ATK], DEFAULT_STAT_STAGE - 1);
+        EXPECT_EQ(playerLeft->statStages[STAT_SPATK], DEFAULT_STAT_STAGE - 1);
+        EXPECT_EQ(opponentLeft->species, SPECIES_HATTERENE);
+    }
+}

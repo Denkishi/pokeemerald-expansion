@@ -4790,6 +4790,15 @@ static bool32 CanPartingShotTrigger(enum BattlerId battlerAtk)
     return FALSE;
 }
 
+// Same checks as the start of BattleScript_MoveSwitchPursuitRet.
+static bool32 CanMoveSwitchUserOut(enum BattlerId battler)
+{
+    return !(gBattleTypeFlags & BATTLE_TYPE_ARENA)
+        && gBattleStruct->battlerState[battler].commanderSpecies == SPECIES_NONE
+        && gBattleMons[battler].volatiles.semiInvulnerable != STATE_COMMANDER
+        && CanBattlerSwitch(battler);
+}
+
 static enum MoveEndResult MoveEndHitEscape(struct BattleCalcValues *cv)
 {
     enum MoveEndResult result = MOVEEND_RESULT_CONTINUE;
@@ -4810,7 +4819,11 @@ static enum MoveEndResult MoveEndHitEscape(struct BattleCalcValues *cv)
         }
         break;
     case EFFECT_PARTING_SHOT:
-        if (CanPartingShotTrigger(cv->battlerAtk))
+        // BattleScript_MoveSwitchPursuitRet ends the whole move with `end` when the user can't switch out:
+        // the rest of moveend (MOVEEND_CLEAR_BITS included) would be skipped. With a bounced Parting Shot
+        // (Magic Bounce / Magic Coat) the bouncer has no replacement left, so the original attacker saved by
+        // MoveEndBouncedMove was never restored ("savedAttackerCount is greater than 0").
+        if (CanPartingShotTrigger(cv->battlerAtk) && CanMoveSwitchUserOut(cv->battlerAtk))
         {
             for (enum BattlerId battler = 0; battler < gBattlersCount; battler++)
                 gBattleMons[battler].volatiles.tryEjectPack = FALSE;
