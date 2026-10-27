@@ -20,6 +20,7 @@
 #include "battle_ai_perspective.h"
 #include "battle_ai_util.h"
 #include "battle_ai_vgc.h"
+#include "battle_ai_vgc_book.h"
 #include "battle_ai_vgc_graph.h"
 #include "battle_controllers.h"
 #include "battle_gimmick.h"
@@ -109,6 +110,7 @@ struct VspState
     struct VspPrev prevSwitch2[MAX_BATTLERS_COUNT];
     u16 misplays;
     u16 doubts;
+    bool8 previewExplored[NUM_BATTLE_SIDES];
 };
 
 static EWRAM_DATA struct VspState sVsp = {0};
@@ -457,7 +459,9 @@ static void SelectTeams(u8 *orderP, u8 *orderE, u32 *picksP, u32 *picksE)
     TRAINER_BATTLE_PARAM.opponentA = sVsp.playerId;
     Test_MgbaPrintf("VSP TP G");
     for (k = 0; k < 4; k++) orderP[k] = 0xFF;
+    gVgcTraining.previewSide = B_SIDE_PLAYER;
     TeamPreview_AiSelectEnemyTeam(4, TRUE, orderP);
+    sVsp.previewExplored[B_SIDE_PLAYER] = gVgcTraining.previewExplore;
     megaP = TeamPreview_GetMegaDesignateSpecies();
 
     // Lato avversario: squadre al loro posto.
@@ -466,7 +470,10 @@ static void SelectTeams(u8 *orderP, u8 *orderE, u32 *picksP, u32 *picksE)
     TRAINER_BATTLE_PARAM.opponentA = sVsp.enemyId;
     Test_MgbaPrintf("VSP TP A");
     for (k = 0; k < 4; k++) orderE[k] = 0xFF;
+    gVgcTraining.previewSide = B_SIDE_OPPONENT;
     TeamPreview_AiSelectEnemyTeam(4, TRUE, orderE);
+    sVsp.previewExplored[B_SIDE_OPPONENT] = gVgcTraining.previewExplore;
+    gVgcTraining.previewExplore = FALSE;
     AI_SetPlayerSideMegaDesignate(megaP);
     Free(backup);
 
@@ -477,6 +484,24 @@ static void SelectTeams(u8 *orderP, u8 *orderE, u32 *picksP, u32 *picksE)
         if (orderE[k] < PARTY_SIZE) (*picksE)++;
     }
     Test_MgbaPrintf("VSP MEGA G %S A %S", GetSpeciesName(megaP), GetSpeciesName(TeamPreview_GetMegaDesignateSpecies()));
+}
+
+// Chiave del libro dei piani (M9) per il lato `side`: hash della propria squadra, classe di quella avversaria (solo
+// specie, visibili in team preview), specie per slot, piano scelto dal libro e se la team preview ha esplorato.
+static void PrintBookKey(u32 side, struct Pokemon *ours, struct Pokemon *theirs)
+{
+    u16 so[PARTY_SIZE], st[PARTY_SIZE];
+    u32 i, no = 0, nt = 0;
+    for (i = 0; i < PARTY_SIZE; i++)
+    {
+        if (GetMonData(&ours[i], MON_DATA_SPECIES) != SPECIES_NONE)
+            so[no++] = GetMonData(&ours[i], MON_DATA_SPECIES);
+        if (GetMonData(&theirs[i], MON_DATA_SPECIES) != SPECIES_NONE)
+            st[nt++] = GetMonData(&theirs[i], MON_DATA_SPECIES);
+    }
+    Test_MgbaPrintf("VSP CHIAVE %s squadra=%d classe=%d piano=%d esplora=%d specie=%d,%d,%d,%d,%d,%d", SideName(side),
+                    VgcBook_TeamHash(so, no), VgcBook_OppClass(st, nt), (s32)(s16)AI_VgcBookPick(side), sVsp.previewExplored[side],
+                    no > 0 ? so[0] : 0, no > 1 ? so[1] : 0, no > 2 ? so[2] : 0, no > 3 ? so[3] : 0, no > 4 ? so[4] : 0, no > 5 ? so[5] : 0);
 }
 
 static void PrintOrder(u32 side, struct Pokemon *full, const u8 *order, u32 picks)
@@ -530,6 +555,13 @@ static void VgcSelfPlay_Run(void *data)
     TRAINER_BATTLE_PARAM.opponentB = TRAINER_NONE;
     gPartnerTrainerId = sVsp.playerId;
     gTestAiVsAiBattle = TRUE;
+    // Allenamento (M9): libro dei piani per lato, esplorazione, log silenzioso.
+    memset(&gVgcTraining, 0, sizeof(gVgcTraining));
+    gVgcTraining.bookOff = sVsp.args.bookOff;
+    gVgcTraining.exploreEps[B_SIDE_PLAYER] = sVsp.args.explorePct[0];
+    gVgcTraining.exploreEps[B_SIDE_OPPONENT] = sVsp.args.explorePct[1];
+    gTestMgbaQuiet = sVsp.args.quiet != 0;
+    AI_VgcBookReset();
 
     Test_MgbaPrintf("VSP INIZIO giocatore=%d:%S avversario=%d:%S seme=%d modo=%d maxturni=%d",
         sVsp.args.playerIdx, GetTrainerNameFromId(sVsp.playerId), sVsp.args.enemyIdx, GetTrainerNameFromId(sVsp.enemyId),
@@ -568,6 +600,8 @@ static void VgcSelfPlay_Run(void *data)
         SelectTeams(orderP, orderE, &picksP, &picksE);
     }
 
+    PrintBookKey(B_SIDE_PLAYER, gParties[B_TRAINER_PLAYER], gParties[B_TRAINER_OPPONENT_A]);
+    PrintBookKey(B_SIDE_OPPONENT, gParties[B_TRAINER_OPPONENT_A], gParties[B_TRAINER_PLAYER]);
     full = Alloc(sizeof(struct Pokemon) * PARTY_SIZE);
     memcpy(full, gParties[B_TRAINER_PLAYER], sizeof(struct Pokemon) * PARTY_SIZE);
     PrintOrder(B_SIDE_PLAYER, full, orderP, picksP);
@@ -587,9 +621,11 @@ static void VgcSelfPlay_Run(void *data)
     TRAINER_BATTLE_PARAM.opponentA = sVsp.enemyId;
     TRAINER_BATTLE_PARAM.opponentB = TRAINER_NONE;
     AI_VgcResetMemory();
-    // Taratura (M9): pesi del lato G dai parametri (reserved[0..6], % / 2; 0 = default), lato A ai default.
+    // Taratura (M9): pesi del lato weightSide dai parametri (reserved[0..6], % / 2; 0 = default), l'altro ai default.
     AI_VgcResetEvalWeights();
-    AI_VgcSetEvalWeightPct(B_SIDE_PLAYER, sVsp.args.reserved);
+    AI_VgcSetEvalWeightPct(sVsp.args.weightSide ? B_SIDE_OPPONENT : B_SIDE_PLAYER, sVsp.args.reserved);
+    Test_MgbaPrintf("VSP PESI lato=%s libro_spento=%d esplora=%d,%d", sVsp.args.weightSide ? "A" : "G", sVsp.args.bookOff,
+                    sVsp.args.explorePct[0], sVsp.args.explorePct[1]);
 
     sVsp.battleStarted = TRUE;
     gMain.savedCallback = CB2_TestRunner;
@@ -1112,6 +1148,10 @@ static void CheckBattlerChoice(enum BattlerId b)
 static void PrintChoice(enum BattlerId b)
 {
     struct VspChoice *c = &sVsp.choice[b];
+    // Forma compatta per il libro dei piani (M9): turno, battler, posto in squadra (0..3, nell'ordine della team
+    // preview), mossa (0 = cambio/niente).
+    if (sVsp.turn <= 1 && IsBattlerAlive(b))
+        Test_MgbaPrintf("VSP SCELTA t%d b%d p%d m%d", sVsp.turn + 1, b, gBattlerPartyIndexes[b], c->kind == VSP_CHOICE_MOVE ? c->move : 0);
     if (c->kind == VSP_CHOICE_MOVE)
     {
         const char *tgt = "";

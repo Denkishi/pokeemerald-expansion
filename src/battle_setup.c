@@ -4,6 +4,7 @@
 #include "data.h"
 #include "main.h"
 #include "battle.h"
+#include "battle_ai_vgc_book.h"
 #include "battle_frontier.h"
 #include "battle_pike.h"
 #include "battle_pyramid.h"
@@ -266,6 +267,7 @@ static void Task_BattleStart(u8 taskId)
         {
             PrepareForFollowerNPCBattle();
             CleanupOverworldWindowsAndTilemaps();
+            AI_VgcBookReset(); // libro dei piani VGC: nessun piano rimasto dalla lotta prima
             if (TeamPreview_ShouldRun())
                 SetMainCallback2(CB2_TeamPreview); // poi va da sola in CB2_InitBattle
             else

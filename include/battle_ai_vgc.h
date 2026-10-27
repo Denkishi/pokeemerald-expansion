@@ -57,16 +57,6 @@ void AI_VgcNoteSwitchIn(enum BattlerId battler);
 u32 AI_VgcReplacementAfterKo(enum BattlerId battler, u32 defaultIdx);
 bool32 AI_VgcPlanIsSetter(u16 trainerId, u16 species);
 bool32 AI_VgcPlanIsBack(u16 trainerId, u16 species);
-// Libro dei piani (M9, src/data/vgc_plan_book.h generato da tools/vgc_training/gen_plan_book.py): coppie di lead
-// giocate nel self-play con vittorie e partite.
-struct VgcPlanBookLead
-{
-    u16 trainerId;
-    u8 slotA, slotB;    // indici di squadra (slotA < slotB)
-    u16 wins, games;
-};
-// Bonus (team preview) alla coppia di lead (indici di squadra) secondo il libro, con un po' di rumore (strategia mista).
-s32 AI_VgcPlanBookLeadBonus(u16 trainerId, u32 slotA, u32 slotB);
 s32 AI_VgcPlanLeadBonus(u16 trainerId, u16 a, u16 b, bool32 trViable, bool32 twViable);
 s32 AI_VgcPlanBringBonus(u16 trainerId, u16 species, bool32 trViable, bool32 twViable);
 bool32 AI_VgcPlanModeActive(enum BattlerId battler);

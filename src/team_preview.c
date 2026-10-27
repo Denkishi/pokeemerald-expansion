@@ -29,6 +29,7 @@
 #include "script_pokemon_util.h"
 #include "battle_ai_main.h"
 #include "battle_ai_vgc.h"
+#include "battle_ai_vgc_book.h"
 #include "battle_ai_vgc_graph.h"
 #include "battle_ai_scout.h"
 #include "task.h"
@@ -1483,6 +1484,20 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
     if (nEnemy == 0)
         return;
 
+    // Libro dei piani (M9): piano scelto a caso tra quelli buoni per la nostra squadra e la classe dell'avversario
+    // (strategia mista). Bo3: le lead che hanno perso una gara della serie non si ripropongono dal libro.
+    if (SeriesIsBestOfThree())
+    {
+        u32 g;
+        for (g = 0; g < 3; g++)
+        {
+            const u8 *h = sSeries.history[g].enemyLead;
+            if (sSeries.history[g].valid && !sSeries.history[g].aiWon && h[0] < PARTY_SIZE && h[1] < PARTY_SIZE)
+                AI_VgcBookExcludeLeads(GetMonData(&enemy[h[0]], MON_DATA_SPECIES), GetMonData(&enemy[h[1]], MON_DATA_SPECIES));
+        }
+    }
+    AI_VgcBookBegin(enemy, enemySlots, nEnemy, player, playerSlots, nPlayer);
+
     // Piano di squadra: Trick Room conviene se il giocatore è più veloce della nostra media,
     // Tailwind se è più veloce ma lo supereremmo raddoppiando.
     {
@@ -1716,6 +1731,8 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                     score += sSeries.history[g].aiWon ? 30 : -70;
             }
         }
+        // Libro dei piani (gruppo del piano scelto) ed esplorazione del self-play.
+        score += AI_VgcBookGroupBonus(enemy, enemySlots, nEnemy, mask);
 #if TESTING
         {
             // Diagnostica (harness di self-play VGC): punteggio di ogni gruppo di 4, maschera sugli slot originali.
@@ -1770,8 +1787,9 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                     // Piano di squadra: coppie di lead preferite, chi sta dietro non leada.
                     s += AI_VgcPlanLeadBonus(trainerId, GetMonData(&enemy[enemySlots[ea]], MON_DATA_SPECIES),
                                              GetMonData(&enemy[enemySlots[eb]], MON_DATA_SPECIES), planTrViable, planTwViable);
-                    // Libro dei piani dal self-play (strategia mista).
-                    s += AI_VgcPlanBookLeadBonus(trainerId, enemySlots[ea], enemySlots[eb]);
+                    // Libro dei piani dal self-play (lead del piano scelto) ed esplorazione.
+                    s += AI_VgcBookLeadBonus(GetMonData(&enemy[enemySlots[ea]], MON_DATA_SPECIES),
+                                             GetMonData(&enemy[enemySlots[eb]], MON_DATA_SPECIES));
 
                     {
                         struct Pokemon *monA = &enemy[enemySlots[ea]];

@@ -21,6 +21,7 @@
 #include "battle_ai_main.h"
 #include "battle_ai_util.h"
 #include "battle_ai_vgc.h"
+#include "battle_ai_vgc_book.h"
 #include "battle_ai_scout.h"
 #include "battle_ai_vgc_graph.h"
 #include "battle_gimmick.h"
@@ -2734,6 +2735,10 @@ static void FinishJob(void)
         if (sJob.partners[i].kind == PLAN_ACT_SWITCH)
             sJob.ev[i] -= IsBattlersFirstTurn(sJob.partners[i].user) ? VW(switchCost) : VW(switchCost) / 2;
     }
+    // Libro dei piani (M9): ai turni 1 e 2, bonus alle azioni congiunte del piano scelto in team preview.
+    for (i = 0; i < sJob.nOurs; i++)
+        sJob.ev[i] += AI_VgcBookPairBonus(sJob.me, sJob.ours[i].kind <= PLAN_ACT_PROTECT ? sJob.ours[i].move : MOVE_NONE,
+                                          partner, sJob.partners[i].kind <= PLAN_ACT_PROTECT ? sJob.partners[i].move : MOVE_NONE);
     for (i = 0; i < sJob.nOurs; i++)
     {
         if (IsOrigAction(&sJob.ours[i], sJob.origMove, sJob.origTarget)
@@ -2751,6 +2756,8 @@ static void FinishJob(void)
     // A pari valore resta la coppia delle regole.
     if (chosenIdx != PLAN_MAX_PAIRS && bestEv < chosenEv + PLAN_OVERRIDE_MARGIN)
         bestIdx = chosenIdx;
+    // Esplorazione del self-play (M9, solo test): a volte una coppia vicina alla migliore.
+    bestIdx = AI_VgcExplorePick(sJob.me, bestIdx, sJob.ev, sJob.nOurs);
 #if TESTING
     {
         // Diagnostica nei test: valore di ogni coppia simulata (mossa/bersaglio nostra e del partner).

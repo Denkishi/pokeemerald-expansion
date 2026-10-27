@@ -33,7 +33,13 @@ struct VgcSelfPlayArgs
     u8 hpPercent[4];         // per battler (0 = PS pieni)
     s8 statStages[4][5];     // per battler: Atk, Def, Spe, SpA, SpD (-6..+6)
     u8 verbose;              // 1 = stampa anche i dati delle mosse a ogni scelta
-    u8 reserved[7];
+    u8 reserved[7];          // pesi della valutazione in % / 2 (0 = default), per il lato weightSide
+    // Allenamento (M9)
+    u8 weightSide;           // lato a cui vanno i pesi di reserved: 0 = G, 1 = A (l'altro resta ai default)
+    u8 bookOff;              // bit per lato (1 = G, 2 = A): libro dei piani spento
+    u8 explorePct[2];        // per lato: % di team preview esplorative e di scelte esplorative ai turni 1/2
+    u8 quiet;                // 1 = niente diagnostica dell'IA né messaggi della lotta nel log (partite più veloci)
+    u8 pad[3];
 };
 
 extern const struct VgcSelfPlayArgs gVgcSelfPlayArgs;

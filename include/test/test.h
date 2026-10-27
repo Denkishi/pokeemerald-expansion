@@ -113,6 +113,7 @@ void SetupRiggedRng(u32 sourceLine, enum RandomTag randomTag, u32 value);
 void ClearRiggedRng();
 
 s32 Test_MgbaPrintf(const char *fmt, ...);
+extern bool8 gTestMgbaQuiet;
 
 #define TEST(_name) \
     static void CAT(Test, __LINE__)(void); \
