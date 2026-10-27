@@ -889,17 +889,6 @@ static bool32 SpeciesMayHaveAbility(u16 species, enum Ability ability)
     return FALSE;
 }
 
-static bool32 PlayerMayHaveAbility(struct Pokemon *player, const u32 *slots, u32 n, enum Ability ability)
-{
-    u32 j;
-    for (j = 0; j < n; j++)
-    {
-        if (SpeciesMayHaveAbility(GetMonData(&player[slots[j]], MON_DATA_SPECIES), ability))
-            return TRUE;
-    }
-    return FALSE;
-}
-
 static bool32 MaskHasSpecies(struct Pokemon *enemy, const u32 *slots, u32 n, u32 mask, u16 species)
 {
     u32 i;

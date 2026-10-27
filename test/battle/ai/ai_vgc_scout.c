@@ -171,8 +171,8 @@ AI_DOUBLE_BATTLE_TEST("VGC belief: Choice Scarf deduced from turn order")
     } WHEN {
         TURN { MOVE(playerLeft, MOVE_SCRATCH, target: opponentLeft); MOVE(playerRight, MOVE_CELEBRATE); }
     } THEN {
-        EXPECT_EQ(Scout_BattlerDeducedHoldEffect(B_POSITION_PLAYER_LEFT), HOLD_EFFECT_CHOICE_SCARF);
-        EXPECT_EQ(Scout_BattlerDeducedHoldEffect(B_POSITION_PLAYER_RIGHT), HOLD_EFFECT_NONE);
+        EXPECT_EQ(Scout_BattlerDeducedHoldEffect(GetBattlerAtPosition(B_POSITION_PLAYER_LEFT)), HOLD_EFFECT_CHOICE_SCARF);
+        EXPECT_EQ(Scout_BattlerDeducedHoldEffect(GetBattlerAtPosition(B_POSITION_PLAYER_RIGHT)), HOLD_EFFECT_NONE);
     }
 }
 
@@ -189,12 +189,12 @@ AI_DOUBLE_BATTLE_TEST("VGC belief: turn order narrows the player's speed")
     } WHEN {
         TURN { MOVE(playerLeft, MOVE_SCRATCH, target: opponentLeft); MOVE(playerRight, MOVE_CELEBRATE); }
     } THEN {
-        EXPECT(Scout_BattlerSpeedRange(B_POSITION_PLAYER_LEFT, &lo, &hi));
+        EXPECT(Scout_BattlerSpeedRange(GetBattlerAtPosition(B_POSITION_PLAYER_LEFT), &lo, &hi));
         EXPECT_GE(lo, 120);
         EXPECT_LE(hi, 140);
         // Più lento di 140 con qualunque Velocità ancora possibile x1.5: niente Choice Scarf.
-        EXPECT(Scout_BattlerHoldEffectExcluded(B_POSITION_PLAYER_LEFT, HOLD_EFFECT_CHOICE_SCARF));
-        EXPECT_EQ(Scout_BattlerDeducedHoldEffect(B_POSITION_PLAYER_LEFT), HOLD_EFFECT_NONE);
+        EXPECT(Scout_BattlerHoldEffectExcluded(GetBattlerAtPosition(B_POSITION_PLAYER_LEFT), HOLD_EFFECT_CHOICE_SCARF));
+        EXPECT_EQ(Scout_BattlerDeducedHoldEffect(GetBattlerAtPosition(B_POSITION_PLAYER_LEFT)), HOLD_EFFECT_NONE);
     }
 }
 
@@ -211,10 +211,10 @@ AI_DOUBLE_BATTLE_TEST("VGC belief: Intimidate not activated means the other abil
     } WHEN {
         TURN { MOVE(playerLeft, MOVE_SCRATCH, target: opponentLeft); MOVE(playerRight, MOVE_SCRATCH, target: opponentLeft); }
     } THEN {
-        EXPECT_EQ(Scout_BattlerAbilityChance(B_POSITION_PLAYER_LEFT, ABILITY_INTIMIDATE), 0);
-        EXPECT_EQ(Scout_BattlerLikelyAbility(B_POSITION_PLAYER_LEFT, &chance), ABILITY_BLAZE);
+        EXPECT_EQ(Scout_BattlerAbilityChance(GetBattlerAtPosition(B_POSITION_PLAYER_LEFT), ABILITY_INTIMIDATE), 0);
+        EXPECT_EQ(Scout_BattlerLikelyAbility(GetBattlerAtPosition(B_POSITION_PLAYER_LEFT), &chance), ABILITY_BLAZE);
         EXPECT_EQ(chance, 100);
-        EXPECT_EQ(Scout_BattlerAbilityChance(B_POSITION_PLAYER_RIGHT, ABILITY_INTIMIDATE), 100);
+        EXPECT_EQ(Scout_BattlerAbilityChance(GetBattlerAtPosition(B_POSITION_PLAYER_RIGHT), ABILITY_INTIMIDATE), 100);
     }
 }
 
@@ -231,8 +231,8 @@ AI_DOUBLE_BATTLE_TEST("VGC belief: Assault Vest deduced from special damage take
     } WHEN {
         TURN { MOVE(playerLeft, MOVE_SCRATCH, target: opponentLeft); MOVE(playerRight, MOVE_SCRATCH, target: opponentLeft); }
     } THEN {
-        EXPECT_EQ(Scout_BattlerDeducedHoldEffect(B_POSITION_PLAYER_LEFT), HOLD_EFFECT_ASSAULT_VEST);
-        EXPECT_EQ(Scout_BattlerDeducedHoldEffect(B_POSITION_PLAYER_RIGHT), HOLD_EFFECT_ASSAULT_VEST);
+        EXPECT_EQ(Scout_BattlerDeducedHoldEffect(GetBattlerAtPosition(B_POSITION_PLAYER_LEFT)), HOLD_EFFECT_ASSAULT_VEST);
+        EXPECT_EQ(Scout_BattlerDeducedHoldEffect(GetBattlerAtPosition(B_POSITION_PLAYER_RIGHT)), HOLD_EFFECT_ASSAULT_VEST);
     }
 }
 
@@ -247,8 +247,8 @@ AI_DOUBLE_BATTLE_TEST("VGC belief: no Assault Vest deduced without it")
     } WHEN {
         TURN { MOVE(playerLeft, MOVE_SCRATCH, target: opponentLeft); MOVE(playerRight, MOVE_SCRATCH, target: opponentLeft); }
     } THEN {
-        EXPECT_EQ(Scout_BattlerDeducedHoldEffect(B_POSITION_PLAYER_LEFT), HOLD_EFFECT_NONE);
-        EXPECT_EQ(Scout_BattlerDeducedHoldEffect(B_POSITION_PLAYER_RIGHT), HOLD_EFFECT_NONE);
+        EXPECT_EQ(Scout_BattlerDeducedHoldEffect(GetBattlerAtPosition(B_POSITION_PLAYER_LEFT)), HOLD_EFFECT_NONE);
+        EXPECT_EQ(Scout_BattlerDeducedHoldEffect(GetBattlerAtPosition(B_POSITION_PLAYER_RIGHT)), HOLD_EFFECT_NONE);
     }
 }
 
@@ -265,6 +265,6 @@ AI_DOUBLE_BATTLE_TEST("VGC belief: Choice Band deduced from damage dealt")
     } WHEN {
         TURN { MOVE(playerLeft, MOVE_BODY_SLAM, target: opponentLeft); MOVE(playerRight, MOVE_CELEBRATE); }
     } THEN {
-        EXPECT_EQ(Scout_BattlerDeducedHoldEffect(B_POSITION_PLAYER_LEFT), HOLD_EFFECT_CHOICE_BAND);
+        EXPECT_EQ(Scout_BattlerDeducedHoldEffect(GetBattlerAtPosition(B_POSITION_PLAYER_LEFT)), HOLD_EFFECT_CHOICE_BAND);
     }
 }

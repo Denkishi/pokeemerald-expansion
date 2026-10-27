@@ -42,8 +42,18 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
 - 🔧 `gAiLogicData->speedStats` del giocatore ora stimata (`Scout_BattlerBelievedSpeed`) invece della Velocità vera
 - 🔧 Memoria Bo3: `SeriesMonMemory.belief` (Velocità, strumenti esclusi, abilità escluse) esportata a fine gara e importata alla successiva
 - ✅ Build ROM normale compila (EWRAM 94,65%, IWRAM 53,2%, ROM 80,58%)
-- ⬜ **Prossimo passo:** compilare ed eseguire `test/battle/ai/ai_vgc_scout.c` (nuovo, 14 test) e rieseguire `ai_vgc_doubles.c` / `ai_vgc_team_preview.c` per regressioni (la Velocità stimata del giocatore e le spread meta cambiano le stime del pianificatore); correggere i test che falliscono
-- ⬜ Pianificatore (altro agente): usare `Scout_EstimateBattlerStats` al posto di `Scout_EstimateStats` per i Pokémon in campo, `Scout_BattlerMoveChance` per le mosse non viste, `Scout_BattlerAbilityChance`/`Scout_BattlerLikelyAbility` al posto di `Scout_KnownAbility`, `Scout_BattlerDeducedHoldEffect` (Assault Vest → niente Protect previsto)
+- ✅ Tolta `PlayerMayHaveAbility` inutilizzata in `team_preview.c` (warning nato in M7, che ne aveva tolto le chiamate)
+- ❌ Prima build della ROM di test (`ai_vgc_scout.c`): errori `-Werror=enum-conversion` (passavo `B_POSITION_*` dove serve `enum BattlerId`). Corretto con `GetBattlerAtPosition(...)`, **ma non ricompilato né eseguito** (lavoro fermato su richiesta)
+- ⬜ **Prossimi passi (dopo il merge in `ia-vgc`):**
+  1. compilare ed eseguire `test/battle/ai/ai_vgc_scout.c` (14 test: 8 a funzione pura, 6 in lotta). Possibili correzioni: soglie dei test su Assault Vest / Choice Band se il tiro del danno o le statistiche di default dei test le mancano; il test "speed narrows" presume che l'IA usi Scratch a priorità 0
+  2. rieseguire `ai_vgc_doubles.c` e `ai_vgc_team_preview.c`: Velocità del giocatore stimata (`speedStats`) e spread meta in `Scout_EstimateStats` cambiano le stime; nei test con `Speed(x)` del giocatore la stima ora NON legge quel valore. Se servono, i test vanno adattati (o il belief va ristretto dall'ordine di turno visto)
+  3. **collegamento al pianificatore** (`battle_ai_vgc_plan.c`, da fare quando l'altro agente ha finito):
+     - riga ~241 (Pokémon del giocatore in campo): `Scout_EstimateStats(pm->species, level, ...)` → `Scout_EstimateBattlerStats(b, &hp, stats)` (Velocità dentro l'intervallo visto)
+     - riga ~359: `pm->ability = Scout_KnownAbility(species)` → per i Pokémon in campo `Scout_BattlerLikelyAbility(b, &p)` se `p >= 80`, altrimenti nessuna; in panchina `Scout_LikelyAbility(species, &p)` con la stessa soglia
+     - riga ~370 (`Scout_GuessItem`): prima `Scout_BattlerDeducedHoldEffect(b)`; scartare la stima se `Scout_BattlerHoldEffectExcluded(b, effetto)`; Assault Vest / Choice dedotti = niente Protect né mosse di stato nelle risposte del giocatore
+     - righe ~1042/1318 (`Scout_CollectLearnableAttacks`): prima le mosse di `Scout_GetLikelyMoves(species, ...)` pesate con `p` (o `Scout_BattlerMoveChance(b, mossa)` per il Pokémon in campo), poi il learnset come riserva
+     - Mega del giocatore: `Scout_GetMegaForms` (probabilità e abilità della Mega) al posto di `Scout_MegaTargetSpecies` dove serve la probabilità
+  4. team preview (`team_preview.c`, M7): stessi cambi per statistiche e mosse del giocatore (`Scout_GetLikelyMoves` invece delle sole mosse da learnset)
 
 ## M2 — Simulatore corretto
 - 🔧 Protect di fila: il secondo ora fallisce (prima riusciva sempre)
