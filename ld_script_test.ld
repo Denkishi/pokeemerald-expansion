@@ -57,6 +57,8 @@ SECTIONS {
         data/*.o(COMMON);
         test/*.o(COMMON);
         *libc.a:sbrkr.o(COMMON);
+        . = ALIGN(4);
+        __iwram_bss_end = .; /* misura dello stack (test/vgc_selfplay) */
     } > IWRAM
 
     /* .persistent starts at 0x3007F00 */

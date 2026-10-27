@@ -216,6 +216,33 @@ static void VgcSelfPlay_CheckHeap(const char *when)
     } while (b != head && n < 2048);
 }
 
+// Misura dello stack (indagine sullo schermo blu): all'inizio della partita la zona libera di IWRAM tra la fine
+// delle variabili (__iwram_bss_end, da ld_script_test.ld) e lo stack corrente si riempie con un valore noto; alla
+// fine la prima parola cambiata dal basso dice quanto in giù è arrivato lo stack (crt0.s: sp_sys = IWRAM_END - 0x1C0).
+#define VSP_STACK_TOP    (0x03008000 - 0x1C0)
+#define VSP_STACK_CANARY 0x5AC4C0DEu
+extern u32 __iwram_bss_end[];
+
+static NOINLINE void VgcSelfPlay_PaintStack(void)
+{
+    u32 here;
+    u32 *p = __iwram_bss_end;
+    u32 *top = (u32 *)((uintptr_t)&here & ~3u) - 64; // margine sotto il frame di questa funzione
+
+    while (p < top)
+        *p++ = VSP_STACK_CANARY;
+}
+
+static void VgcSelfPlay_ReportStack(void)
+{
+    const u32 *p = __iwram_bss_end;
+
+    while (p < (const u32 *)VSP_STACK_TOP && *p == VSP_STACK_CANARY)
+        p++;
+    Test_MgbaPrintf("VSP STACK usato_max=%d libero_min=%d (fine bss IWRAM %p)", VSP_STACK_TOP - (uintptr_t)p,
+                    (uintptr_t)p - (uintptr_t)__iwram_bss_end, __iwram_bss_end);
+}
+
 static void PrintField(void)
 {
     const char *weather = "nessuno";
@@ -592,6 +619,7 @@ static void VgcSelfPlay_Run(void *data)
     gTestMgbaQuiet = sVsp.args.quiet != 0;
     AI_VgcBookReset();
 
+    VgcSelfPlay_PaintStack();
     Test_MgbaPrintf("VSP INIZIO giocatore=%d:%S avversario=%d:%S seme=%d modo=%d maxturni=%d",
         sVsp.args.playerIdx, GetTrainerNameFromId(sVsp.playerId), sVsp.args.enemyIdx, GetTrainerNameFromId(sVsp.enemyId),
         sVsp.args.seed, sVsp.args.mode, sVsp.args.maxTurns);
@@ -788,6 +816,7 @@ void VgcSelfPlay_OnTurnStart(void)
                     left[GetBattlerSide(b)]++;
         }
         sVsp.ended = TRUE;
+        VgcSelfPlay_ReportStack();
         Test_MgbaPrintf("VSP FINE esito=LIMITE_TURNI turni=%d restantiG=%d restantiA=%d misplay=%d dubbi=%d",
                         sVsp.turn, left[B_SIDE_PLAYER], left[B_SIDE_OPPONENT], sVsp.misplays, sVsp.doubts);
         Test_ExitWithResult(TEST_RESULT_TODO, SourceLine(0), "VSP limite di turni");
@@ -1320,6 +1349,7 @@ void VgcSelfPlay_OnBattleEnd(void)
                 left[side]++;
     }
     VgcSelfPlay_CheckHeap("fine partita");
+    VgcSelfPlay_ReportStack();
     Test_MgbaPrintf("VSP FINE esito=%s turni=%d restantiG=%d restantiA=%d misplay=%d dubbi=%d", outcome, gBattleTurnCounter,
                     left[B_SIDE_PLAYER], left[B_SIDE_OPPONENT], sVsp.misplays, sVsp.doubts);
     // Si esce subito, come per il limite di turni: la chiusura della lotta del motore e il TearDown del runner

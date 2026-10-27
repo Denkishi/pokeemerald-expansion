@@ -4,6 +4,7 @@
 #include "battle_ai_util.h"
 #include "battle_ai_vgc.h"
 #include "battle_ai_perspective.h"
+#include "trainer.h"
 #include "trainer_pokemon_sprites.h"
 #include "config/custom.h"
 #include "constants/battle.h"
@@ -438,8 +439,6 @@ static EWRAM_DATA u8 sThinkTextShown = FALSE;
 static EWRAM_DATA u8 sThinkPlayerIdleFrames = 0;
 static EWRAM_DATA u8 sThinkPending = 0; // battler in attesa che il partner finisca di pianificare la coppia
 
-#define THINK_PIC_PAL_TAG 0x7A1C
-
 static const u8 sText_Thinking[] = _("{STR_VAR_1} sta pensando...");
 
 static bool32 PlayerSideIsIdle(void)
@@ -465,7 +464,11 @@ static void ShowThinking(void)
     DeactivateSingleTextPrinter(B_WIN_MSG, WINDOW_TEXT_PRINTER);
     BattlePutTextOnWindow(gStringVar4, B_WIN_MSG);
     // In mezzo ai suoi due Pokémon: in doppio stanno a x 152 e 200 (sBattlerCoords), quindi al centro x 176.
-    sThinkSpriteId = CreateTrainerPicSprite(GetTrainerPicFromId(TRAINER_BATTLE_PARAM.opponentA), TRUE, 176, 44, 0, THINK_PIC_PAL_TAG);
+    // Il tag della palette deve essere quello con cui CreateTrainerPicSprite la carica (GetTrainerPicTag):
+    // con un tag diverso lo sprite prendeva lo slot 15 (IndexOfSpritePaletteTag = 0xFF) e HideThinking
+    // liberava la palette di chiunque stesse nello slot 15, lasciando caricata quella del ritratto.
+    enum TrainerPicID pic = GetTrainerPicFromId(TRAINER_BATTLE_PARAM.opponentA);
+    sThinkSpriteId = CreateTrainerPicSprite(pic, TRUE, 176, 44, 0, GetTrainerPicTag(pic, TRUE));
     sThinkSpriteActive = (sThinkSpriteId != 0xFFFF);
     if (sThinkSpriteActive)
     {
