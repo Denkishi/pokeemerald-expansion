@@ -67,7 +67,7 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
 - 🔧 Fake Out fallisce del tutto dopo il primo turno in campo (prima faceva danno)
 - 🔧 Trick Room (5 turni) e Tailwind (4 turni) ora scadono; turni rimasti letti dal gioco
 - 🔧 Sonno con contatore: ci si sveglia (prima si dormiva per sempre)
-- ⬜ Cache danni reale (`AI_CalcDamage`) al posto della stima
+- ✅ Cache danni reale (`AI_CalcDamage`) al posto della stima — già così per i Pokémon in campo (`DamageOf` legge `simulatedDmg` del motore); la stima resta solo per panchina e Mega, ora con peso/meteo/PS/colpi multipli
 - ✅ Stadi separati Atk/Def/SpA/SpD/Spe, letti dal gioco a inizio turno; i danni della tabella dell'IA si riscalano per gli stadi cambiati nella simulazione; le mosse di potenziamento applicano gli stadi veri (Calm Mind +1 SpA/+1 SpD, Dragon Dance +1 Atk/+1 Spe...) invece di un "+2" generico
 - ✅ Speed Boost a fine turno
 - ✅ Baton Pass nella simulazione: entra il ricevente designato con tutti gli stadi
@@ -93,7 +93,7 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
 - ✅ Minacce di KO simmetriche (prima -45 per noi e +22 per loro), tutte contate (niente `break`), pesate per la precisione della mossa
 - ✅ Velocità: contro un Pokémon andato KO la coppia conta come vinta da chi resta (prima un KO faceva perdere punti di velocità)
 - ✅ Pesi in `include/config/custom.h` (`CUSTOM_VGC_EVAL_*`)
-- 🔧 HP pesati per ruolo — peso della win condition (`CUSTOM_VGC_EVAL_WINCON_PCT` 150) su KO e HP dei nostri Pokémon chiave
+- ✅ HP pesati per ruolo — peso della win condition (`CUSTOM_VGC_EVAL_WINCON_PCT` 150) su KO e HP dei nostri Pokémon chiave — anche la minaccia di KO sulla win condition ha lo stesso peso
 - ✅ Velocità del turno dopo con turni rimasti di Tailwind/TR
 - ✅ Minacce credute: un avversario con mosse non ancora viste minaccia KO con le sue STAB probabili (prima era considerato innocuo)
 - ✅ Stadi valutati solo se servono: chi attacca (stadio offensivo giusto per fisico/speciale), o chi ha Baton Pass e qualcuno in panchina (potenziale trasferibile); Velocità e difese con peso minore
@@ -122,13 +122,13 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
 - ✅ Niente attacchi sul proprio compagno tra le candidate (salvo combo e mosse fatte per l'alleato come Helping Hand)
 - ✅ Diagnostica nei test: il valore di ogni coppia simulata compare nel log (`VGCPLAN ...`)
 - ⬜ Risposte del giocatore su scala unica (attacchi, supporto, Protect, cambio)
-- ⬜ Urgenza della kill, α dinamico
+- ✅ Urgenza della kill, α dinamico — α dinamico: 0,8 media in svantaggio, 0,6 in vantaggio, 0,7 alla pari; KO sicuri con posto protetto in TrimCands
 
 ## M5 — Conoscenza della squadra generata in automatico
 - 🔧 Grafo della squadra in C (`src/battle_ai_vgc_graph.c`), calcolato a inizio lotta invece che con uno script a build time: stessi dati, accesso diretto a mosse/abilità/Mega del motore. Ruoli, coppie di lead, combo sul compagno (Beat Up→Justified, assorbimenti), rimozione abilità penalizzanti (Simple Beam→Mycelium Might), ricevente del Baton Pass e vincolo di panchina, meteo/Trick Room con chi li sfrutta — scritto, da collegare e testare
 - ✅ Grafo collegato al pianificatore (combo sul compagno)
 - ✅ Tolta la regola su Toedscruel/Machamp (Simple Beam): ora regola generica "non togliere al compagno un'abilità utile" + simulazione
-- ⬜ Collegare il grafo al team preview (M7)
+- ✅ Collegare il grafo al team preview (M7) — già collegato: `GraphGroupScore` in team_preview.c (ruoli, combo, requiredBack, coppie di lead)
 - ✅ **Tolti i blocchi Savarotto e Patatina** e tutti i controlli sulle specie nelle regole di battaglia: al loro posto regole per **ruolo** dal grafo, valide per qualunque squadra:
   - Fake Out al turno 1 per un compagno che fa setup
   - colpire il compagno per attivargli l'abilità (Beat Up → Justified)
@@ -179,7 +179,7 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
 ## M9 — Allenamento automatico (dopo M4)
 - ✅ ROM di allenamento (senza animazioni), IA su entrambi i lati — è il ROM di test headless (`selfplay.gba`): niente grafica né attese, IA su entrambi i lati
 - ✅ Benchmark: partite/ora con 1 e con ~28 istanze mGBA — 1 istanza: ~1.400 partite/ora (2,5 s a partita); 28 istanze: 432 partite in ~90 s, ~17.000 partite/ora
-- 🔧 Taratura pesi, esplorazione, libro dei piani in ROM, strategia mista — tabella pesi per lato (`AI_VgcSetEvalWeightPct`), SPSA in `selfplay.py tune` / `taratura.bat`, libro dei piani `src/data/vgc_plan_book.h` (generato da `gen_plan_book.py`) nel team preview con rumore ±10
+- ➡️ Taratura pesi, esplorazione, libro dei piani in ROM, strategia mista — tabella pesi per lato (`AI_VgcSetEvalWeightPct`), SPSA in `selfplay.py tune` / `taratura.bat`, libro dei piani `src/data/vgc_plan_book.h` (generato da `gen_plan_book.py`) nel team preview con rumore ±10 — **passato all'agente M9 (branch `ia-vgc-m9`)**
 
 ## Self-play (27/10 mattina)
 - ✅ Merge di `ia-vgc-selfplay` in `ia-vgc`; prima partita IA contro IA completa (blocco dopo il rimpiazzo del lato G, probabilità di brutto colpo 1/0, parametri della lotta allenatore, fine lotta e chiusura del test corretti; vedi [training.md](training.md))
@@ -189,7 +189,7 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
 - ✅ Ramo "colpo basso" nel pianificatore: un KO che riesce solo con il danno medio vale meno di uno sicuro (probabilità dal minimo della tabella dell'IA), anche per i KO degli avversari
 - ✅ Terza campagna: **144/144 complete (nessun timeout), G 71 / A 73, misplay certi 244, dubbi 483**. KO garantito non preso 83: molti sono falsi positivi del controllo (Sucker Punch/priorità sul Campo Psichico di Indeedee, Follow Me di Indeedee, stessa mossa su un altro bersaglio, Final Gambit, mosse ad area preferite); da rivedere il controllo prima di toccare il pianificatore
 - ✅ Quarta/quinta/sesta campagna: controllo dei KO garantiti senza falsi positivi (priorità sul Campo Psichico, Follow Me/Rage Powder del compagno, Final Gambit/Explosion); Fake Out mai candidata fuori dal primo turno; un Pokémon mai scelto per due posti (U-turn del compagno + rimpiazzo: assert in `getswitchedmondata`); potatura delle coppie molto peggiori della migliore (`CUSTOM_VGC_PLAN_PRUNE`). **Sesta campagna: 144/144 complete, G 69 / A 75, misplay certi 217** (prima 544 → 234 → 244 → 224 → 217)
-- 🔧 Costo con la potatura: mediana 71 fotogrammi, 90° percentile 179, massimo 250 (obiettivo ~200 nel caso peggiore non ancora raggiunto)
+- ✅ Costo con la potatura: mediana 71 fotogrammi, 90° percentile 179, massimo 250 (obiettivo ~200 nel caso peggiore non ancora raggiunto) — **superato (27/10, richiesta dell'utente): niente tetto, prima la qualità.** `CUSTOM_VGC_PLAN_MAX_FRAMES` 0, solo limite di sicurezza ~30 s; ripristinate 10 coppie e tutte le risposte avversarie al turno 2; mentre pensa si vede l'allenatore con "penso..."
 - ⬜ Misplay rimasti (sesta campagna): KO garantito non preso 73 (+346 dubbi), win condition persa 48, bersaglio già KO 26, cambio su chi va KO all'entrata 24, setup con KO in arrivo 18, Tailwind/Trick Room sprecati 14
 - ⬜ Misplay rimasti (seconda campagna): KO garantito non preso 70 (+350 dubbi), cambio su chi va KO all'entrata 37, win condition persa 31, bersaglio già KO 29, setup con KO in arrivo 20, Tailwind/Trick Room sprecati 18, cambi a ripetizione 13; 4 partite interrotte per timeout
 - ✅ Modello del giocatore livello 1 (fase 3 del pianificatore): fino a 5 azioni plausibili per avversario simulate a 1 turno dal suo punto di vista (solo belief), unite alla probabilità a priori; Protect e cambio restano sulla loro probabilità
@@ -206,3 +206,7 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
 - ✅ Rumore delle campagne misurato: lo stesso build con 3 semi (432 partite) dà 696 misplay, e cambiando solo i pesi del lato G anche il lato A passa da 360 a 283: una campagna a 1 seme non basta per confrontare. Da qui i confronti si fanno con `--seeds 3` (432 partite, ~90 s)
 - ✅ `start --new` cancella risultati e log della campagna precedente (prima report e libro dei piani mescolavano partite vecchie)
 - ❌ Asserzione `malloc.c:97` (magic del blocco) **dopo** `VSP FINE` in 2 partite su 144 (00_01, 04_10): nell'uscita del runner, non in lotta; indagine al punto dello schermo blu
+- ✅ Campagne 3 semi (432 partite, misplay certi G+A): 696 (base) → 508 (Expanding Force ad area, checker bersaglio già KO) → 442 (candidate filtrate, panchina intera, KO protetti) → 465 → 414 (stime di peso/meteo/colpi multipli, doppio Protect, setup)
+- ✅ Diagnosi per categoria (5 agenti in sola lettura, `scratchpad/swarm/*.md`): applicate le correzioni del checker (Trick Room con soglia 2, cambi ripetuti a 2 turni dubbi, cambio in KO da critico dubbio, Focus Sash/Sturdy) e del pianificatore (Protect di fila, Tailwind ripetuto, immuni, tutta la panchina candidata al cambio)
+- ✅ Controllo dell'heap a ogni turno nel self-play: 0 blocchi rovinati su 432 partite (le 2 asserzioni di malloc.c viste prima, dopo `VSP FINE`, non si sono ripresentate)
+- ⬜ Dugtrio-Alola Earthquake (ai_vgc_teams.c:645) ora sceglie Protect + Overheat (8 contro -6): effetto delle stime più giuste (Heavy Slam di Aggron da 120 su Dugtrio)
