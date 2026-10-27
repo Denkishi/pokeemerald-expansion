@@ -1,4 +1,5 @@
 # IA VGC — Checklist di sviluppo
+n> Per riprendere il lavoro: [ripartenza.md](ripartenza.md).
 
 Aggiornata a ogni passo. Piano completo: [piano_implementazione.md](piano_implementazione.md). Branch: `ia-vgc`.
 
