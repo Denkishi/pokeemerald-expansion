@@ -1012,6 +1012,16 @@ static EWRAM_DATA u8 sMissBattler = 0;
 
 // Precisione (0..100) dell'azione `a` sul suo bersaglio: dalla tabella dell'IA quando c'è (comprende
 // Compound Eyes, No Guard, meteo...), altrimenti quella della mossa. 100 = non può mancare.
+// Bersaglio della mossa nella simulazione: come GetBattlerMoveTargetType, ma col terreno simulato (Expanding Force
+// sul Campo Psichico colpisce entrambi gli avversari se chi la usa tocca terra).
+static enum MoveTarget SimMoveTarget(const struct PlanState *st, enum BattlerId u, u32 move)
+{
+    if (GetMoveEffect(move) == EFFECT_TERRAIN_BOOST && GetMoveTerrainBoost_HitsBothFoes(move)
+     && st->terrain == GetMoveTerrainBoost_Terrain(move) && IsGroundedInSim(&st->m[u]))
+        return TARGET_BOTH;
+    return GetMoveTarget(move);
+}
+
 static u32 ActionAccuracy(const struct PlanState *st, const struct PlanAction *a)
 {
     u32 acc;
@@ -1204,7 +1214,7 @@ static void ApplyActionImpl(struct PlanState *st, const struct PlanAction *a)
     }
 
     effect = GetMoveEffect(a->move);
-    tt = GetMoveTarget(a->move);
+    tt = SimMoveTarget(st, u, a->move);
     // Ramo "mancato": l'azione verso gli avversari non ha effetto (le mosse su sé stessi o sul compagno non mancano).
     if (u + 1 == sMissBattler && ActionAccuracy(st, a) < 100)
         return;

@@ -975,7 +975,10 @@ static void CheckBattlerChoice(enum BattlerId b)
          && AI_IsFaster(p, b, sVsp.choice[p].move, move, CONSIDER_PRIORITY))
         {
             enum BattlerId o = OtherFoe(b, t);
-            if (!IsBattlerAlive(o) || gAiLogicData->effectiveness[b][o][idx] == UQ_4_12(0.0))
+            // Sull'ultimo Pokémon avversario (nessun altro in campo né in panchina) raddoppiare è solo un'assicurazione:
+            // se il compagno lo manda KO la partita finisce, quindi non è un errore.
+            bool32 lastFoe = !IsBattlerAlive(o) && CountUsablePartyMons(t) == 0;
+            if (!lastFoe && (!IsBattlerAlive(o) || gAiLogicData->effectiveness[b][o][idx] == UQ_4_12(0.0)))
                 ReportMisplay(TRUE, "BERSAGLIO_GIA_KO", b, "%s su %s che il compagno manda KO prima; nessun redirect utile",
                               A(MoveName(move)), A(GetSpeciesName(gBattleMons[t].species)));
         }
