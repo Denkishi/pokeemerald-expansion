@@ -18,6 +18,7 @@
 #include "battle.h"
 #include "battle_ai_main.h"
 #include "battle_ai_perspective.h"
+#include "battle_ai_scout.h"
 #include "battle_ai_util.h"
 #include "battle_ai_vgc.h"
 #include "battle_ai_vgc_book.h"
@@ -489,6 +490,7 @@ static void SelectTeams(u8 *orderP, u8 *orderE, u32 *picksP, u32 *picksE)
     Test_MgbaPrintf("VSP TP G");
     for (k = 0; k < 4; k++) orderP[k] = 0xFF;
     gVgcTraining.previewSide = B_SIDE_PLAYER;
+    gScoutContextPreviewOff = (gScoutContextOffMask & (1u << B_SIDE_PLAYER)) != 0;
     TeamPreview_AiSelectEnemyTeam(4, TRUE, orderP);
     sVsp.previewExplored[B_SIDE_PLAYER] = gVgcTraining.previewExplore;
     megaP = TeamPreview_GetMegaDesignateSpecies();
@@ -500,7 +502,9 @@ static void SelectTeams(u8 *orderP, u8 *orderE, u32 *picksP, u32 *picksE)
     Test_MgbaPrintf("VSP TP A");
     for (k = 0; k < 4; k++) orderE[k] = 0xFF;
     gVgcTraining.previewSide = B_SIDE_OPPONENT;
+    gScoutContextPreviewOff = (gScoutContextOffMask & (1u << B_SIDE_OPPONENT)) != 0;
     TeamPreview_AiSelectEnemyTeam(4, TRUE, orderE);
+    gScoutContextPreviewOff = FALSE;
     sVsp.previewExplored[B_SIDE_OPPONENT] = gVgcTraining.previewExplore;
     gVgcTraining.previewExplore = FALSE;
     AI_SetPlayerSideMegaDesignate(megaP);
@@ -590,6 +594,7 @@ static void VgcSelfPlay_Run(void *data)
     gVgcTraining.exploreEps[B_SIDE_PLAYER] = sVsp.args.explorePct[0];
     gVgcTraining.exploreEps[B_SIDE_OPPONENT] = sVsp.args.explorePct[1];
     gTestMgbaQuiet = sVsp.args.quiet != 0;
+    gScoutContextOffMask = sVsp.args.contextOff & 3; // verifica del contesto della squadra: lato spento
     AI_VgcBookReset();
 
     Test_MgbaPrintf("VSP INIZIO giocatore=%d:%S avversario=%d:%S seme=%d modo=%d maxturni=%d",

@@ -328,7 +328,7 @@ static bool32 IsPlayerMon(struct Pokemon *mon)
 // scelta dell'IA, ritrovato per contenuto (anche dopo che la squadra è stata ridotta ai 4 portati).
 static const struct ScoutTeamContext *PlayerContext(void)
 {
-    return Scout_PartyContext(gPlayerParty);
+    return gScoutContextPreviewOff ? NULL : Scout_PartyContext(gPlayerParty);
 }
 
 // Statistica di un Pokémon: vera per i nostri, stimata da specie e livello per quelli del giocatore
@@ -1572,6 +1572,8 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
     AI_VgcBuildTeamGraph(enemy, &sTPGraph);
     // Contesto della squadra del giocatore: calcolato una volta dalle sue 6 specie, vale da qui a tutta la lotta.
     ctx = Scout_SetTeamContextFromParty(player);
+    if (gScoutContextPreviewOff)
+        ctx = NULL;
     for (i = 0; i < PARTY_SIZE; i++)
     {
         if (IsMonUsable(&enemy[i])) enemySlots[nEnemy++] = i;

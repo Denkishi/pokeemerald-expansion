@@ -39,7 +39,8 @@ struct VgcSelfPlayArgs
     u8 bookOff;              // bit per lato (1 = G, 2 = A): libro dei piani spento
     u8 explorePct[2];        // per lato: % di team preview esplorative e di scelte esplorative ai turni 1/2
     u8 quiet;                // 1 = niente diagnostica dell'IA né messaggi della lotta nel log (partite più veloci)
-    u8 pad[3];
+    u8 contextOff;           // bit per lato (1 = G, 2 = A): contesto della squadra avversaria spento (verifica)
+    u8 pad[2];
 };
 
 extern const struct VgcSelfPlayArgs gVgcSelfPlayArgs;

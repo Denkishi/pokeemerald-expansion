@@ -2042,6 +2042,8 @@ void Scout_BeliefImport(u32 partySlot, const struct ScoutBeliefSnapshot *in)
 #define CTX_SETTER_P        50  // ruolo abbastanza probabile da contare come setter
 #define CTX_FORCED_ABILITY  90  // probabilità dell'abilità che il contesto rende quasi certa
 
+EWRAM_DATA u8 gScoutContextOffMask = 0;
+EWRAM_DATA bool8 gScoutContextPreviewOff = FALSE;
 static EWRAM_DATA struct ScoutTeamContext sTeamCtx[2] = {0};
 static EWRAM_DATA u8 sTeamCtxNext = 0;
 static EWRAM_DATA s8 sTeamCtxSide[NUM_BATTLE_SIDES] = {0}; // indice+1 del contesto per lato (0 = da cercare)
@@ -2665,6 +2667,8 @@ const struct ScoutTeamContext *Scout_BattlerContext(enum BattlerId battler)
     if (battler >= gBattlersCount)
         return NULL;
     side = GetBattlerSide(battler);
+    if (gScoutContextOffMask & (1u << (side ^ 1))) // chi pensa a questo battler è l'altro lato
+        return NULL;
     if (sTeamCtxSide[side] > 0 && sTeamCtxSide[side] <= (s32)ARRAY_COUNT(sTeamCtx)
      && Scout_ContextSlot(&sTeamCtx[sTeamCtxSide[side] - 1], gBattleMons[battler].species) >= 0)
         return &sTeamCtx[sTeamCtxSide[side] - 1];

@@ -287,6 +287,11 @@ struct ScoutTeamContext
     u8 planP;           // sua forza (0..100)
 };
 
+// Verifica nel self-play: bit (1 << lato) = quel lato NON usa il contesto della squadra avversaria (in lotta);
+// gScoutContextPreviewOff = la team preview in corso non lo usa. Fuori dal self-play restano a 0.
+extern u8 gScoutContextOffMask;
+extern bool8 gScoutContextPreviewOff;
+
 // Pura (solo ROM): contesto delle specie date.
 void Scout_ComputeTeamContext(const u16 *species, u32 n, struct ScoutTeamContext *out);
 // Team preview: calcola e conserva il contesto della squadra (6 specie). Ritorna il contesto conservato.
