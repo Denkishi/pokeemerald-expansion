@@ -99,11 +99,13 @@
 #define CUSTOM_VGC_EVAL_SLEEP               60  // addormentato
 #define CUSTOM_VGC_EVAL_BURN                35  // scottato (attaccante fisico)
 #define CUSTOM_VGC_EVAL_PARALYSIS           20  // paralizzato
-#define CUSTOM_VGC_EVAL_SPEED_PAIR          12  // per coppia (nostro, loro): chi si muove prima al turno dopo
+#define CUSTOM_VGC_EVAL_SPEED_PAIR          10  // per coppia (nostro, loro) e per turno: chi si muove prima
+#define CUSTOM_VGC_EVAL_SPEED_TURNS         4   // turni futuri contati per l'ordine di velocità (Trick Room/Tailwind rimasti)
 #define CUSTOM_VGC_EVAL_THREAT_FAST         45  // minaccia di KO al turno dopo, da chi si muove prima
 #define CUSTOM_VGC_EVAL_THREAT_SLOW         20  // minaccia di KO al turno dopo, da chi si muove dopo
 #define CUSTOM_VGC_EVAL_MATERIAL            120 // differenza di Pokémon utilizzabili (campo + panchina), sul totale
 #define CUSTOM_VGC_EVAL_FAKE_OUT            25  // Fake Out pronto per il turno dopo (appena entrato)
+#define CUSTOM_VGC_SWITCH_COST              60  // costo di un cambio volontario al primo turno in campo (metà dopo)
 #define CUSTOM_VGC_EVAL_SASH                20  // Focus Sash intatto a PS pieni
 // Ritratto dell'allenatore + "penso..." quando hai già scelto e l'IA sta ancora calcolando.
 #define CUSTOM_VGC_THINKING_OVERLAY         TRUE

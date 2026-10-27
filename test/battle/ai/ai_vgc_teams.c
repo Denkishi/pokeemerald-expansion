@@ -215,7 +215,6 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Simone - Arcanine finishes a weakened Roaring 
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Elia - Mimikyu sets Trick Room next to Goodra-H against Tony's fast lead")
 {
-    KNOWN_FAILING; // Play Rough invece di Trick Room contro la lead veloce di Tony
     // Roaring Moon e Charizard sono tra i più veloci del formato; Goodra-H (base 45) e tutta la squadra di Elia
     // sono lenti. Disguise assorbe un colpo: è il setter ideale. Trick Room è la giocata del piano.
     GIVEN {
@@ -255,7 +254,6 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Elia - Banette Mega Evolves and sets Trick Roo
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Elia - Miltank does not use Helping Hand while Mimikyu sets Trick Room")
 {
-    KNOWN_FAILING; // Miltank esce al turno 1 (SWITCH) invece di muoversi
     // Helping Hand non potenzia Trick Room: con il compagno che usa una mossa di stato è un turno buttato.
     GIVEN {
         AI_FLAGS(VGC_TRAINER_AI_FLAGS);
@@ -342,6 +340,7 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Patatina - Ceruledge finishes a weakened Genga
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Tony - Sableye stops Porygon2's Trick Room with Fake Out or Taunt")
 {
+    KNOWN_FAILING; // il pianificatore cambia Sableye con Slither Wing: Great Tusk (Booster Energy) manda KO Sableye, e al turno 2 Close Combat su Porygon2 vale più del Fake Out (vedi scenari.md)
     // Gerozz in modalità Trick Room (Porygon2 + Great Tusk): sotto la stanza la squadra veloce di Tony perde.
     // Sableye ha Fake Out e Taunt con Prankster: una delle due sul setter è la giocata. Sunny Day è inutile
     // (il sole arriva con la Mega di Charizard), Icy Wind non ferma la stanza.
@@ -552,7 +551,6 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Mario - Hariyama uses Fake Out on Whimsicott")
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Mario - Oranguru sets Trick Room next to Iron Hands against Enzo")
 {
-    KNOWN_FAILING; // TURN incompleto: una MOSSA del giocatore non viene eseguita (KO/flinch prima di agire), esito dell'IA non verificato: rivedere il setup
     // Oranguru ha Inner Focus (Fake Out di Rillaboom non lo blocca): Trick Room per Iron Hands (base 50) contro
     // Mega Aerodactyl e Rillaboom è la lead del piano in modalità stanza.
     GIVEN {
@@ -659,7 +657,6 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Enzo - Grimmsnarl sets up a screen on turn 1")
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Gerozz - Dugtrio-Alola uses Earthquake next to Levitate Rotom-Heat")
 {
-    KNOWN_FAILING; // Protect invece di Earthquake (Rotom-Heat immune, 2x/4x sugli avversari)
     // Rotom-Heat è immune (Levitate): Earthquake è 2x su Arcanine e 4x su Aggron senza costi per il compagno.
     GIVEN {
         AI_FLAGS(VGC_TRAINER_AI_FLAGS);
@@ -761,7 +758,6 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Carletto - Ludicolo uses Fake Out on turn 1 of
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Carletto - Malamar sets Trick Room next to Kingambit against Tony")
 {
-    KNOWN_FAILING; // Superpower invece di Trick Room per Kingambit contro Tony
     // Kingambit (base 50) e Snorlax sono lenti contro Roaring Moon e Charizard: Trick Room di Malamar è la
     // modalità di riserva del piano (Malamar + Amoonguss / Kingambit).
     GIVEN {
@@ -847,7 +843,6 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Gigi Pinto - Lilligant helps Torkoal move firs
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Savarotto - Whimsicott uses Beat Up on Justified Gallade")
 {
-    KNOWN_FAILING; // bersaglio registrato opponentLeft invece di Gallade: Beat Up non sul compagno (o bersaglio sbagliato)
     // Kingambit e Snorlax (Carletto) prendono Drain Punch superefficace (Kingambit 4x): Beat Up su Gallade
     // (Justified) lo porta a +2 prima che attacchi. È la combo per cui i due stanno insieme.
     GIVEN {

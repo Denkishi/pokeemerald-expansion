@@ -224,9 +224,8 @@ AI_DOUBLE_BATTLE_TEST("VGC: real team (Savarotto) - Calm Mind now is worth more 
     // (Speed Boost) fa Calm Mind e passa i boost a Chandelure il turno dopo. Prima le regole filtravano le
     // candidate (solo le mosse vicine alla migliore delle regole) e il seguito "Baton Pass dopo il setup" non
     // entrava nella ricerca del turno 2: Baton Pass subito sembrava meglio. Si controlla l'ORDINE dei valori.
-    // KNOWN_FAILING: con le candidate complete e la corsia protetta, oggi Baton Pass subito vale -156 e
-    // Calm Mind -224 (Fake Out deciso giusto). Il seguito "CM ora, BP dopo" resta sottostimato: vedi checklist M3.
-    KNOWN_FAILING;
+    // Passa da quando Speed Boost conta già a fine turno, Focus Punch dei Machamp non è più una minaccia
+    // "probabile" e l'ordine di velocità vale per i turni rimasti.
     GIVEN {
         AI_FLAGS(VGC_AI_FLAGS);
         // Avversari forti ma che Espathra resiste (Lotta su Psico): il momento giusto per il setup.

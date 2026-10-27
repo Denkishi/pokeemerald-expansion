@@ -43,7 +43,8 @@ TEST("VGC scout: spreads are sorted by frequency and are legal")
             EXPECT_LE(s[i].ev[k], 252);
             evs += s[i].ev[k];
         }
-        EXPECT_LE(evs, 512);
+        // Champions: 66 punti statistica (1 punto ~ 8 EV) possono superare i 510 EV classici.
+        EXPECT_LE(evs, 66 * 8);
         EXPECT_LT(s[i].nature, NUM_NATURES);
         if (i > 0)
             EXPECT_LE(s[i].p, s[i - 1].p);

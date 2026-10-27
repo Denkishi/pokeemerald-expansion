@@ -132,6 +132,8 @@ struct PlanMon
     u8 redirect;
     u8 helping;
     u8 berryUsed;
+    u8 damaged;         // colpito in questo turno (Focus Punch fallisce)
+    u8 taunted;         // turni di Taunt rimasti (mosse di stato bloccate)
     s8 stage[PS_COUNT];     // stadi attuali nella simulazione (-6..+6)
     s8 stage0[PS_COUNT];    // stadi all'inizio (già compresi in velocità e danni della tabella dell'IA)
     u8 canAttack:1;         // ha mosse d'attacco (i boost offensivi servono a qualcosa)
@@ -150,6 +152,7 @@ struct PlanState
 };
 
 #define PLAN_KO_CACHE 64
+#define PLAN_LIKELY_MAX 4
 
 struct PlanKoCache
 {
@@ -195,6 +198,11 @@ struct PlanJob
     u8 bestI2, bestJ2, refine;  // linea migliore del turno 2; refine = secondo passaggio con il terzo turno
     struct PlanKoCache koCache[PLAN_KO_CACHE];
     u8 protectChance[MAX_BATTLERS_COUNT], switchChance[MAX_BATTLERS_COUNT]; // del giocatore, letti una volta a inizio lavoro
+    // Attacchi probabili ma non ancora visti dei Pokémon del giocatore in campo (belief M1: statistiche d'uso,
+    // mosse viste, Choice dedotta), con la probabilità. Letti una volta a inizio lavoro.
+    u16 likelyMove[MAX_BATTLERS_COUNT][PLAN_LIKELY_MAX];
+    u8 likelyP[MAX_BATTLERS_COUNT][PLAN_LIKELY_MAX];
+    u8 nLikely[MAX_BATTLERS_COUNT];
     // misura del costo (fotogrammi con lavoro, simulazioni fatte)
     u16 frames;
     u16 sims;
@@ -280,7 +288,7 @@ static u32 PlanFieldSpeed(enum BattlerId b)
     if (IsOnPlayerSide(b))
     {
         u16 hp, stats[NUM_STATS];
-        Scout_EstimateStats(gBattleMons[b].species, gBattleMons[b].level, &hp, stats);
+        Scout_EstimateBattlerStats(b, &hp, stats);
         s = stats[STAT_SPEED];
     }
     else
@@ -307,7 +315,7 @@ static void LoadFieldMon(struct PlanMon *pm, enum BattlerId b)
     {
         // Del giocatore si stimano le statistiche da specie e livello (le vere non si vedono).
         u16 hp, stats[NUM_STATS];
-        Scout_EstimateStats(pm->species, gBattleMons[b].level, &hp, stats);
+        Scout_EstimateBattlerStats(b, &hp, stats);
         pm->atk = stats[STAT_ATK];
         pm->spa = stats[STAT_SPATK];
         pm->def = stats[STAT_DEF];
@@ -425,7 +433,12 @@ static void LoadPartyMon(struct PlanState *st, enum BattlerId b, u32 partyIdx)
         pm->spa = stats[STAT_SPATK];
         pm->def = stats[STAT_DEF];
         pm->spd = stats[STAT_SPDEF];
-        pm->ability = Scout_KnownAbility(species);
+        {
+            u32 chance;
+            pm->ability = Scout_LikelyAbility(species, &chance);
+            if (chance < 60)
+                pm->ability = Scout_KnownAbility(species);
+        }
         if (pm->ability == ABILITY_NONE)
         {
             // Abilità incerta: se una delle possibili porta il meteo, si assume (chi lo porta lo usa).
@@ -529,11 +542,10 @@ static void NextTurn(struct PlanState *st)
     enum BattlerId b;
     for (b = 0; b < gBattlersCount; b++)
     {
-        // Speed Boost: +1 Velocità a fine turno.
-        if (st->m[b].alive && st->m[b].ability == ABILITY_SPEED_BOOST)
-            st->m[b].stage[PS_SPE] = min(6, st->m[b].stage[PS_SPE] + 1);
         st->m[b].protectedLast = st->m[b].protecting;
-        st->m[b].protecting = st->m[b].wideGuard = st->m[b].flinched = st->m[b].redirect = st->m[b].helping = 0;
+        if (st->m[b].taunted > 0)
+            st->m[b].taunted--;
+        st->m[b].protecting = st->m[b].wideGuard = st->m[b].flinched = st->m[b].redirect = st->m[b].helping = st->m[b].damaged = 0;
     }
     if (st->trickRoom > 0)
         st->trickRoom--;
@@ -621,6 +633,15 @@ static s32 EstimateDamage(const struct PlanState *st, const struct PlanMon *atk,
     if (IsSpreadMove(GetMoveTarget(move)))
         dmg = dmg * 3 / 4;
     return dmg * 92 / 100;
+}
+
+// Mosse d'attacco che come "mossa probabile" del giocatore ingannano: Focus Punch fallisce se chi la usa viene
+// colpito prima, le mosse a due turni colpiscono il turno dopo. Il simulatore le giocherebbe come colpi normali.
+static bool32 IsUnreliableGuess(enum Move move)
+{
+    enum BattleMoveEffects eff = GetMoveEffect(move);
+    return eff == EFFECT_FOCUS_PUNCH || eff == EFFECT_TWO_TURNS_ATTACK || eff == EFFECT_SOLAR_BEAM || eff == EFFECT_SKY_DROP
+        || eff == EFFECT_FIRST_TURN_ONLY || IsBattleMoveStatus(move) || GetMovePower(move) == 0;
 }
 
 // Immunità date dall'abilità del bersaglio (quella che ha ORA nella simulazione: può cambiare con Skill Swap
@@ -801,6 +822,8 @@ static void TakeDamage(struct PlanMon *tm, s32 dmg)
         tm->berryUsed = TRUE;
     }
     tm->hp -= dmg;
+    if (dmg > 0)
+        tm->damaged = TRUE;
     if (tm->hp <= 0)
     {
         tm->hp = 0;
@@ -855,8 +878,18 @@ static void ApplyAction(struct PlanState *st, const struct PlanAction *a)
     // Ramo "mancato": l'azione verso gli avversari non ha effetto (le mosse su sé stessi o sul compagno non mancano).
     if (u + 1 == sMissBattler && ActionAccuracy(st, a) < 100)
         return;
+    // Taunt: niente mosse di stato (Trick Room, Tailwind, setup, Spore...) finché dura.
+    if (um->taunted && IsBattleMoveStatus(a->move))
+        return;
     // Fake Out e simili falliscono del tutto dopo il primo turno in campo (niente danno).
     if (effect == EFFECT_FIRST_TURN_ONLY && !(st->firstTurn && IsBattlersFirstTurn(u)))
+        return;
+    // Focus Punch fallisce se chi la usa è già stato colpito nel turno; le mosse a due turni caricano (colpiscono
+    // il turno dopo, fuori dall'orizzonte): Solar Beam è immediata solo al sole, le altre con la Power Herb.
+    if (effect == EFFECT_FOCUS_PUNCH && um->damaged)
+        return;
+    if ((effect == EFFECT_SOLAR_BEAM && st->weather != PW_SUN && um->holdEffect != HOLD_EFFECT_POWER_HERB)
+     || ((effect == EFFECT_TWO_TURNS_ATTACK || effect == EFFECT_SKY_DROP) && um->holdEffect != HOLD_EFFECT_POWER_HERB))
         return;
     switch (effect)
     {
@@ -871,6 +904,15 @@ static void ApplyAction(struct PlanState *st, const struct PlanAction *a)
         return;
     case EFFECT_HELPING_HAND:
         st->m[GetPartnerBattler(u)].helping = TRUE;
+        return;
+    case EFFECT_TAUNT:
+        {
+            struct PlanMon *tm = &st->m[a->target];
+            // Oblivious, Aroma Veil e Magic Bounce la bloccano (Mold Breaker no: semplificato).
+            if (tm->alive && !tm->protecting && tm->ability != ABILITY_OBLIVIOUS && tm->ability != ABILITY_AROMA_VEIL
+             && tm->ability != ABILITY_MAGIC_BOUNCE && tm->holdEffect != HOLD_EFFECT_MENTAL_HERB)
+                tm->taunted = 3; // questo turno (se non ha ancora agito) e i 2 dopo
+        }
         return;
     case EFFECT_BATON_PASS:
         if (!IsOnPlayerSide(u))
@@ -1096,6 +1138,20 @@ static u32 CanKoNextTurnUncached(const struct PlanState *st, enum BattlerId atk,
         if (best >= 100 || !IsOnPlayerSide(atk) || seen >= MAX_MON_MOVES)
             return best;
     }
+    if (am->partyIdx < 0 && IsOnPlayerSide(atk) && sJob.nLikely[atk] > 0)
+    {
+        // Belief: le mosse probabili non viste, pesate per quanto sono probabili.
+        for (i = 0; i < sJob.nLikely[atk]; i++)
+        {
+            enum Move m = sJob.likelyMove[atk][i];
+            u32 acc = GetMoveAccuracy(m);
+            if (AbilityBlocksMove(am, dm, m, FALSE))
+                continue;
+            if (EstimateDamage(st, am, dm, m) >= dm->hp)
+                best = max(best, ((acc == 0 || acc > 100) ? 100 : acc) * sJob.likelyP[atk][i] / 100);
+        }
+        return best;
+    }
     {
         enum Move cand[16];
         u32 n = Scout_CollectLearnableAttacks(am->species, cand, ARRAY_COUNT(cand));
@@ -1103,6 +1159,8 @@ static u32 CanKoNextTurnUncached(const struct PlanState *st, enum BattlerId atk,
         {
             u32 acc = GetMoveAccuracy(cand[i]);
             if (GetMoveType(cand[i]) != am->t1 && GetMoveType(cand[i]) != am->t2)
+                continue;
+            if (IsUnreliableGuess(cand[i]))
                 continue;
             if (AbilityBlocksMove(am, dm, cand[i], FALSE))
                 continue;
@@ -1167,11 +1225,14 @@ static s32 Evaluate(const struct PlanState *st)
     enum BattlerId b, o;
     s32 v = 0;
     s32 count[NUM_BATTLE_SIDES] = {0};
-    u32 spd[MAX_BATTLERS_COUNT];
+    u32 spd[MAX_BATTLERS_COUNT], spdRaw[MAX_BATTLERS_COUNT];
 
-    // Velocità effettive una volta sola (servono a ogni confronto sotto).
+    // Velocità effettive una volta sola (servono a ogni confronto sotto); spdRaw senza Tailwind.
     for (b = 0; b < gBattlersCount; b++)
+    {
         spd[b] = st->m[b].alive ? EffSpeed(st, b) : 0;
+        spdRaw[b] = st->tailwind[GetBattlerSide(b)] ? spd[b] / 2 : spd[b];
+    }
 #define FASTER(x, y) (st->trickRoom ? spd[x] <= spd[y] : spd[x] > spd[y])
 
     for (b = 0; b < gBattlersCount; b++)
@@ -1222,9 +1283,10 @@ static s32 Evaluate(const struct PlanState *st)
     {
         extern s32 Test_MgbaPrintf(const char *fmt, ...);
         for (b = 0; b < gBattlersCount; b++)
-            Test_MgbaPrintf("  VGCMON b%d sp%d p%d hp%d/%d vivo%d st%d/%d/%d/%d/%d", b, st->m[b].species, st->m[b].partyIdx, st->m[b].hp,
-                            st->m[b].maxHp, st->m[b].alive, st->m[b].stage[PS_ATK], st->m[b].stage[PS_DEF], st->m[b].stage[PS_SPA],
-                            st->m[b].stage[PS_SPD], st->m[b].stage[PS_SPE]);
+            Test_MgbaPrintf("  VGCMON b%d sp%d p%d hp%d/%d vivo%d st%d/%d/%d/%d/%d atk%d def%d spa%d spd%d vel%d str%d ab%d", b, st->m[b].species,
+                            st->m[b].partyIdx, st->m[b].hp, st->m[b].maxHp, st->m[b].alive, st->m[b].stage[PS_ATK], st->m[b].stage[PS_DEF],
+                            st->m[b].stage[PS_SPA], st->m[b].stage[PS_SPD], st->m[b].stage[PS_SPE], st->m[b].atk, st->m[b].def, st->m[b].spa,
+                            st->m[b].spd, st->m[b].speed, st->m[b].holdEffect, st->m[b].ability);
     }
 #endif
     EVAL_DEBUG("pokemon", v);
@@ -1250,10 +1312,23 @@ static s32 Evaluate(const struct PlanState *st)
         {
             if (!IsOnPlayerSide(o) || st->m[o].species == SPECIES_NONE || (!st->m[b].alive && !st->m[o].alive))
                 continue;
-            if (!st->m[o].alive || (st->m[b].alive && FASTER(b, o)))
-                v += CUSTOM_VGC_EVAL_SPEED_PAIR;
-            else
-                v -= CUSTOM_VGC_EVAL_SPEED_PAIR;
+            if (!st->m[o].alive || !st->m[b].alive)
+            {
+                v += (st->m[b].alive ? 1 : -1) * CUSTOM_VGC_EVAL_SPEED_PAIR * CUSTOM_VGC_EVAL_SPEED_TURNS;
+                continue;
+            }
+            // Ordine nei prossimi CUSTOM_VGC_EVAL_SPEED_TURNS turni, con i turni rimasti di Trick Room e Tailwind:
+            // un Trick Room appena messo vale per i turni in cui dura, non solo per il prossimo.
+            {
+                u32 t, sb = spdRaw[b], so = spdRaw[o];
+                for (t = 1; t <= CUSTOM_VGC_EVAL_SPEED_TURNS; t++)
+                {
+                    u32 xb = (st->tailwind[GetBattlerSide(b)] > t) ? sb * 2 : sb;
+                    u32 xo = (st->tailwind[GetBattlerSide(o)] > t) ? so * 2 : so;
+                    bool32 ourFirst = (st->trickRoom > t) ? xb <= xo : xb > xo;
+                    v += ourFirst ? CUSTOM_VGC_EVAL_SPEED_PAIR : -CUSTOM_VGC_EVAL_SPEED_PAIR;
+                }
+            }
         }
     }
     EVAL_DEBUG("+velocita", v);
@@ -1385,6 +1460,7 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
             else if (eff == EFFECT_WEATHER) w = 40;
             else if (eff == EFFECT_PROTECT && GetMoveProtectMethod(m) == PROTECT_WIDE_GUARD) w = 25;
             else if (GetMoveNonVolatileStatus(m) == MOVE_EFFECT_SLEEP) w = 60;
+            else if (eff == EFFECT_TAUNT) w = 35;
             else if (GetMoveNonVolatileStatus(m) == MOVE_EFFECT_BURN || GetMoveNonVolatileStatus(m) == MOVE_EFFECT_PARALYSIS) w = 40;
             else if ((eff == EFFECT_REFLECT && !(st->screens[GetBattlerSide(b)] & 1))
                   || (eff == EFFECT_LIGHT_SCREEN && !(st->screens[GetBattlerSide(b)] & 2))
@@ -1394,7 +1470,13 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
             else if (IsStatRaisingMove(m) && GetMoveTarget(m) == TARGET_USER) w = 35;
             if (w == 0)
                 continue;
-            if (GetMoveNonVolatileStatus(m) == MOVE_EFFECT_SLEEP || GetMoveNonVolatileStatus(m) == MOVE_EFFECT_BURN
+            if (eff == EFFECT_TAUNT)
+            {
+                for (k = 0; k < 2; k++)
+                    if (st->m[targets[k]].alive && !st->m[targets[k]].taunted)
+                        AddCand(cand, &n, PLAN_CAND_MAX, PLAN_ACT_MOVE, idx, -1, m, b, targets[k], w);
+            }
+            else if (GetMoveNonVolatileStatus(m) == MOVE_EFFECT_SLEEP || GetMoveNonVolatileStatus(m) == MOVE_EFFECT_BURN
              || GetMoveNonVolatileStatus(m) == MOVE_EFFECT_PARALYSIS)
             {
                 for (k = 0; k < 2; k++)
@@ -1445,7 +1527,8 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
         for (i = 0; i < na; i++)
         {
             enum Type ty = GetMoveType(attacks[i]);
-            if ((ty == bm->t1 || ty == bm->t2) && GetMovePower(attacks[i]) > bestPow && !IsSpreadMove(GetMoveTarget(attacks[i])))
+            if ((ty == bm->t1 || ty == bm->t2) && GetMovePower(attacks[i]) > bestPow && !IsSpreadMove(GetMoveTarget(attacks[i]))
+             && !IsUnreliableGuess(attacks[i]))
             {
                 bestPow = GetMovePower(attacks[i]);
                 bestStab = attacks[i];
@@ -1454,7 +1537,33 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
         for (i = 0; i < nKnown; i++)
             if (!IsBattleMoveStatus(known[i]) && (GetMoveType(known[i]) == bm->t1 || GetMoveType(known[i]) == bm->t2))
                 seenStabAttack = TRUE;
-        if (bestStab != MOVE_NONE && !seenStabAttack)
+        if (bm->partyIdx < 0 && sJob.nLikely[b] > 0)
+        {
+            // Belief (M1): gli attacchi più usati della specie non ancora visti, con la loro probabilità.
+            for (i = 0; i < sJob.nLikely[b] && i < 2; i++)
+            {
+                enum Move m = sJob.likelyMove[b][i];
+                if (IsSpreadMove(GetMoveTarget(m)))
+                {
+                    struct PlanAction tmp = { PLAN_ACT_MOVE, 0xFF, -1, m, b, foeL, 0 };
+                    s32 w = 0;
+                    for (k = 0; k < 2; k++)
+                        if (st->m[targets[k]].alive)
+                            w += AttackWeight(st, &tmp, targets[k]);
+                    AddCand(cand, &n, PLAN_CAND_MAX, PLAN_ACT_MOVE, 0xFF, -1, m, b, foeL, w * sJob.likelyP[b][i] / 100);
+                    continue;
+                }
+                for (k = 0; k < 2; k++)
+                {
+                    struct PlanAction tmp = { PLAN_ACT_MOVE, 0xFF, -1, m, b, targets[k], 0 };
+                    if (!st->m[targets[k]].alive)
+                        continue;
+                    AddCand(cand, &n, PLAN_CAND_MAX, PLAN_ACT_MOVE, 0xFF, -1, m, b, targets[k],
+                            AttackWeight(st, &tmp, targets[k]) * sJob.likelyP[b][i] / 100);
+                }
+            }
+        }
+        else if (bestStab != MOVE_NONE && !seenStabAttack)
         {
             for (k = 0; k < 2; k++)
             {
@@ -1625,6 +1734,10 @@ static void RunTurn(struct PlanState *st, const struct PlanAction **acts, u32 n)
         }
         ApplyAction(st, acts[i]);
     }
+    // Fine turno. Speed Boost: +1 Velocità (qui e non in NextTurn: la valutazione di fine turno lo vede già).
+    for (i = 0; i < gBattlersCount; i++)
+        if (st->m[i].alive && st->m[i].ability == ABILITY_SPEED_BOOST)
+            st->m[i].stage[PS_SPE] = min(6, st->m[i].stage[PS_SPE] + 1);
 }
 
 // Terzo turno in forma ridotta: la nostra risposta migliore (una per Pokémon) contro la loro più probabile.
@@ -2059,6 +2172,16 @@ static void FinishJob(void)
     u32 chosenIdx = PLAN_MAX_PAIRS;
     enum BattlerId partner = GetPartnerBattler(sJob.me);
 
+    // Costo del cambio: il simulatore vede il Pokémon che entra al meglio (pieno di PS, con le sue mosse il turno
+    // dopo) ma non il tempo perso, né che il giocatore può punire chi entra. Pesa di più al primo turno della
+    // lead, portata per fare il suo lavoro.
+    for (i = 0; i < sJob.nOurs; i++)
+    {
+        if (sJob.ours[i].kind == PLAN_ACT_SWITCH)
+            sJob.ev[i] -= IsBattlersFirstTurn(sJob.ours[i].user) ? CUSTOM_VGC_SWITCH_COST : CUSTOM_VGC_SWITCH_COST / 2;
+        if (sJob.partners[i].kind == PLAN_ACT_SWITCH)
+            sJob.ev[i] -= IsBattlersFirstTurn(sJob.partners[i].user) ? CUSTOM_VGC_SWITCH_COST : CUSTOM_VGC_SWITCH_COST / 2;
+    }
     for (i = 0; i < sJob.nOurs; i++)
     {
         if (IsOrigAction(&sJob.ours[i], sJob.origMove, sJob.origTarget)
@@ -2094,6 +2217,12 @@ static void FinishJob(void)
                             DamageOf(&sJob.base, a, a->target), sJob.base.m[a->target].hp,
                             a->moveIndex < MAX_MON_MOVES ? gAiLogicData->effectiveness[a->user][a->target][a->moveIndex] : -1,
                             a->moveIndex < MAX_MON_MOVES ? gAiLogicData->simulatedDmg[a->user][a->target][a->moveIndex].median : -1);
+        }
+        for (i = 0; i < gBattlersCount; i++)
+        {
+            u32 k;
+            for (k = 0; k < sJob.nLikely[i]; k++)
+                Test_MgbaPrintf("VGCLIKELY b%d: m%d p%d", i, sJob.likelyMove[i][k], sJob.likelyP[i][k]);
         }
         Test_MgbaPrintf("VGCCPU b%d: fotogrammi=%d simulazioni=%d coppie=%d eval=%d build=%d ko=%d stima=%d danni=%d", sJob.me, sJob.frames,
                         sJob.sims, sJob.nOurs, sCntEval, sCntBuild, sCntKo, sCntEst, sCntDmg);
@@ -2241,6 +2370,49 @@ bool32 AI_VgcPlanIsBusy(enum BattlerId battler)
     return sJob.active && sJob.me != battler && sJob.turn == gBattleTurnCounter;
 }
 
+// Attacchi probabili non ancora visti di un Pokémon del giocatore in campo, dal belief (statistiche d'uso
+// ristrette da ciò che si è visto). Esclusi quelli che il simulatore non sa giocare (Focus Punch, a due turni).
+static void BuildLikelyAttacks(enum BattlerId b)
+{
+    struct ScoutMoveChance mc[12];
+    u32 n = Scout_GetLikelyMoves(gBattleMons[b].species, mc, ARRAY_COUNT(mc)), i, k;
+    enum Move *seen = GetMovesArray(b);
+
+    sJob.nLikely[b] = 0;
+    for (i = 0; i < n; i++)
+    {
+        enum Move m = mc[i].move;
+        u32 p;
+        bool32 dup = FALSE;
+        if (IsUnreliableGuess(m))
+            continue;
+        for (k = 0; k < MAX_MON_MOVES; k++)
+            if (seen[k] == m)
+                dup = TRUE;
+        if (dup)
+            continue;
+        p = Scout_BattlerMoveChance(b, m);
+        if (p < 15)
+            continue;
+        // Inserimento ordinato per probabilità.
+        for (k = sJob.nLikely[b]; k > 0 && sJob.likelyP[b][k - 1] < p; k--)
+        {
+            if (k < PLAN_LIKELY_MAX)
+            {
+                sJob.likelyMove[b][k] = sJob.likelyMove[b][k - 1];
+                sJob.likelyP[b][k] = sJob.likelyP[b][k - 1];
+            }
+        }
+        if (k < PLAN_LIKELY_MAX)
+        {
+            sJob.likelyMove[b][k] = m;
+            sJob.likelyP[b][k] = p;
+            if (sJob.nLikely[b] < PLAN_LIKELY_MAX)
+                sJob.nLikely[b]++;
+        }
+    }
+}
+
 bool32 AI_VgcPlanBegin(enum BattlerId me)
 {
     struct PlanAction none = { PLAN_ACT_NONE, 0, -1, MOVE_NONE, 0, 0, 100 };
@@ -2282,6 +2454,21 @@ bool32 AI_VgcPlanBegin(enum BattlerId me)
     sJob.protectChance[fR] = AI_VgcProtectChance(fR);
     sJob.switchChance[fL] = AI_VgcSwitchChance(fL);
     sJob.switchChance[fR] = AI_VgcSwitchChance(fR);
+    {
+        enum BattlerId foes[2] = { fL, fR };
+        u32 f;
+        for (f = 0; f < 2; f++)
+        {
+            enum BattlerId fb = foes[f];
+            enum HoldEffect he = gAiLogicData->holdEffects[fb];
+            if (!IsBattlerAlive(fb))
+                continue;
+            // Assault Vest o Choice (visti o dedotti): niente Protect.
+            if (he == HOLD_EFFECT_ASSAULT_VEST || he == HOLD_EFFECT_CHOICE_BAND || he == HOLD_EFFECT_CHOICE_SPECS || he == HOLD_EFFECT_CHOICE_SCARF)
+                sJob.protectChance[fb] = 0;
+            BuildLikelyAttacks(fb);
+        }
+    }
     InitState(&sJob.base);
     sJob.nA = BuildActions(&sJob.base, fL, sJob.foeA, PLAN_FOE_PER, FALSE, TRUE);
     sJob.nB = BuildActions(&sJob.base, fR, sJob.foeB, PLAN_FOE_PER, FALSE, TRUE);
@@ -2353,7 +2540,21 @@ bool32 AI_VgcPlanStep(void)
                 acts4[3] = acts[3] = &sJob.foeB[0];
                 RunTurn(&st, acts, 4);
                 budget -= 1 + MissPenalty(&sJob.base, &st, acts4, &pen);
+#if TESTING
+                // Diagnostica: lo stato dopo il turno 1 per le candidate Fake Out (confronto dei bersagli).
+                if (sJob.cand[side][idx].move == MOVE_FAKE_OUT)
+                {
+                    extern s32 Test_MgbaPrintf(const char *fmt, ...);
+                    Test_MgbaPrintf(" VGCCANDSTATE m%d t%d:", sJob.cand[side][idx].move, sJob.cand[side][idx].target);
+                    sEvalDebug = TRUE;
+                }
+#endif
                 sJob.candVal[side][idx] = Evaluate(&st) - pen;
+                if (sJob.cand[side][idx].kind == PLAN_ACT_SWITCH)
+                    sJob.candVal[side][idx] -= IsBattlersFirstTurn(sJob.cand[side][idx].user) ? CUSTOM_VGC_SWITCH_COST : CUSTOM_VGC_SWITCH_COST / 2;
+#if TESTING
+                sEvalDebug = FALSE;
+#endif
                 sJob.rankIdx++;
                 continue;
             }
@@ -2363,6 +2564,16 @@ bool32 AI_VgcPlanStep(void)
                 sJob.rankIdx = 0;
                 continue;
             }
+#if TESTING
+            {
+                extern s32 Test_MgbaPrintf(const char *fmt, ...);
+                u32 sd, ci;
+                for (sd = 0; sd < 2; sd++)
+                    for (ci = 0; ci < sJob.nCand[sd]; ci++)
+                        Test_MgbaPrintf("VGCCAND lato%d: k%d m%d t%d = %d", sd, sJob.cand[sd][ci].kind, sJob.cand[sd][ci].move,
+                                        sJob.cand[sd][ci].target, sJob.candVal[sd][ci]);
+            }
+#endif
             sJob.nOurs = BuildPairs(sJob.me, &sJob.base);
             sJob.phase = 0;
             if (sJob.nOurs == 0)

@@ -11,7 +11,26 @@ I KNOWN_FAILING marcati "setup" falliscono con "TURN incompleto": una mossa del 
 lasciare il giocatore su Protect/mosse che agiscono di sicuro, o controllare l'IA con `SCORE_*`. Tempo di
 esecuzione: oltre 10 minuti per i 36 test (il pianificatore simula ogni turno).
 
-## Errori dell'IA raggruppati
+## Aggiornamento dopo il merge in `ia-vgc` (pianificatore con candidate complete, belief M1)
+
+Stato: **45 PASS, 20 KNOWN_FAILING, 0 FAIL** sui test VGC (doppi, team preview, scout/belief, squadre). Diventati
+PASS: Mimikyu Trick Room, Miltank niente cambio, Malamar Trick Room, Oranguru Trick Room, Dugtrio-A Earthquake,
+Beat Up di Whimsicott su Gallade (era un falso bersaglio: lo sceglie bene il pianificatore), più Sinistcha e
+Dusclops che restano corretti. Cosa li ha corretti:
+- l'ordine di velocità in `Evaluate` conta i turni rimasti di Trick Room / Tailwind (`CUSTOM_VGC_EVAL_SPEED_TURNS`),
+  non solo il turno dopo: un Trick Room appena messo vale per 4 turni;
+- costo del cambio volontario (`CUSTOM_VGC_SWITCH_COST`, pieno al primo turno della lead);
+- Taunt nel simulatore (blocca le mosse di stato per 3 turni), Focus Punch che fallisce se colpiti, mosse a due
+  turni che caricano (Solar Beam solo al sole), Speed Boost a fine turno;
+- mosse probabili del giocatore dal belief (statistiche d'uso, niente Focus Punch / mosse a due turni come minaccia);
+- Recycle senza strumento consumato penalizzato nelle regole (il test di Snorlax ora inciampa su un pari
+  punteggio Rage Powder / Spore di Amoonguss: da rivedere con `TIE_BREAK_SCORE` o un'asserzione diversa).
+
+Nuovo KNOWN_FAILING: **Sableye** (Tony) cambia con Slither Wing invece di Fake Out / Taunt. Diagnosi: Great Tusk con
+Booster Energy (attivazione visibile) manda KO Sableye con Headlong Rush; il pianificatore preferisce far entrare
+Slither Wing e mandare KO Porygon2 al turno dopo con Close Combat. Discutibile ma non la giocata attesa.
+
+## Errori dell'IA raggruppati (stato del 27/10, prima del merge)
 
 1. **Controllo velocità non scelto al turno 1 contro lead veloci**: Mimikyu (Play Rough), Mega Banette
    (Protect), Altaria (Dragon Pulse), Aerodactyl (Rock Slide), Malamar (Superpower). Passano invece Dusclops,

@@ -1222,6 +1222,11 @@ s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Mov
         }
     }
 
+    // Recycle senza uno strumento consumato da recuperare (o con lo strumento ancora in mano) non fa niente.
+    if (effect == EFFECT_RECYCLE
+     && (GetBattlerPartyState(battlerAtk)->usedHeldItem == ITEM_NONE || gBattleMons[battlerAtk].item != ITEM_NONE))
+        ADJUST_SCORE(-10);
+
     if (effect == EFFECT_GRAVITY && !targetingPartner)
     {
         bool32 gravUp = (gFieldStatuses & STATUS_FIELD_GRAVITY) != 0;
