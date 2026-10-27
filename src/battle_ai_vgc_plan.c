@@ -2205,8 +2205,9 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
                     if ((s32)i == bm->partyIdx || gBattlerPartyIndexes[b] == i
                      || (st->m[partner].alive && (gBattlerPartyIndexes[partner] == i || st->m[partner].partyIdx == (s32)i)))
                         continue;
-                    bestIdx = i;
-                    break;
+                    // Panchina: il più probabile secondo la previsione della team preview (a parità, il primo).
+                    if (bestIdx < 0 || TeamPreview_BringPrior(known2->species) > TeamPreview_BringPrior(gAiPartyData->mons[GetBattlerSide(b)][bestIdx].species))
+                        bestIdx = i;
                 }
                 if (bestIdx >= 0)
                     AddCand(cand, &n, PLAN_CAND_MAX, PLAN_ACT_SWITCH, 0, (s8)bestIdx, MOVE_NONE, b, b, (s32)sp);

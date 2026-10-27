@@ -1171,6 +1171,24 @@ static EWRAM_DATA u16 sThreatSpecies[2][PARTY_SIZE] = {0};
 static EWRAM_DATA u8 sThreatVal[2][PARTY_SIZE] = {0};
 static EWRAM_DATA u8 sThreatNext = 0;
 
+// Previsione dei 4 che il giocatore porterà (e quindi dei 2 dietro), per specie: probabilità 0..100. Due squadre.
+static EWRAM_DATA u16 sBringSpecies[2][PARTY_SIZE] = {0};
+static EWRAM_DATA u8 sBringVal[2][PARTY_SIZE] = {0};
+static EWRAM_DATA u8 sBringNext = 0;
+
+u32 TeamPreview_BringPrior(u16 species)
+{
+    u32 k, i, e;
+    for (k = 0; k < 2; k++)
+    {
+        e = (sBringNext + 1 + k) % 2; // prima la più recente
+        for (i = 0; i < PARTY_SIZE; i++)
+            if (species != SPECIES_NONE && sBringSpecies[e][i] == species)
+                return sBringVal[e][i];
+    }
+    return 0;
+}
+
 u32 TeamPreview_ThreatPrior(u16 species)
 {
     u32 k, i, e;
@@ -1585,6 +1603,7 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
     u32 predJ[PRED_LEADS], predK[PRED_LEADS], nPred = 0;
     s32 predW[PRED_LEADS];
     u32 mainThreat[2], nMain = 0;
+    s32 bringP[PARTY_SIZE], leadShare[PARTY_SIZE];
     bool32 planTrViable = FALSE, planTwViable = FALSE;
     u16 trainerId = TRAINER_BATTLE_PARAM.opponentA;
     const struct ScoutTeamContext *ctx;
@@ -1722,6 +1741,104 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
         // Peso di ogni lead prevista rispetto all'ultima della lista.
         for (p = 0; p < nPred; p++)
             predW[p] = predS[p] - predS[nPred - 1] + 20;
+    }
+
+    // Previsione dei 4 che porterà il giocatore (contesto): punteggio per Pokémon (chi batte la nostra squadra, quota
+    // nelle sue lead probabili, pezzi del suo piano, uso nel meta), poi ogni gruppo di 4 con la coerenza del piano
+    // (setter senza chi ne approfitta, o viceversa, meno probabile); probabilità di ogni Pokémon = somma dei pesi dei
+    // gruppi che lo contengono. Serve (a) a pesare i duelli verso chi porterà davvero, (b) a valutare la lead anche
+    // contro chi può entrare dalla panchina, (c) come prior del pianificatore sulla panchina non vista.
+    for (j = 0; j < nPlayer; j++)
+    {
+        bringP[j] = 100;
+        leadShare[j] = 0;
+    }
+    if (ctx != NULL && nPlayer > picks && picks > 0)
+    {
+        s32 ps[PARTY_SIZE], wsum = 0, gBest = INT32_MIN, total = 0;
+        s32 gw[1 << PARTY_SIZE];
+        u32 pm, p;
+        u16 fl[PARTY_SIZE];
+        bool32 hasSetter = FALSE;
+
+        for (p = 0; p < nPred; p++)
+            wsum += predW[p];
+        for (j = 0; j < nPlayer; j++)
+        {
+            u16 sp = GetMonData(&player[playerSlots[j]], MON_DATA_SPECIES);
+            s32 slot = Scout_ContextSlot(ctx, sp), danger = 0;
+            fl[j] = slot >= 0 ? ctx->slot[slot].flags : 0;
+            for (i = 0; i < nEnemy; i++)
+                if (sMatch[i][j] < 0)
+                    danger -= sMatch[i][j];
+            for (p = 0; p < nPred; p++)
+                if (predJ[p] == j || predK[p] == j)
+                    leadShare[j] += predW[p] * 100 / max(wsum, 1);
+            ps[j] = danger / (s32)max(nEnemy, 1) + leadShare[j] / 2 + (s32)Scout_MetaUsage(sp) / 2;
+            if (ctx->archetype != 0 && (fl[j] & (SCOUT_CTX_TR_SETTER | SCOUT_CTX_TW_SETTER | SCOUT_CTX_WEATHER_SETTER
+                                                 | SCOUT_CTX_TERRAIN_SETTER | SCOUT_CTX_REDIRECTOR)))
+            {
+                ps[j] += 40;
+                hasSetter = TRUE;
+            }
+            if (fl[j] & (SCOUT_CTX_TR_ABUSER | SCOUT_CTX_SPEED_ABUSER | SCOUT_CTX_WEATHER_ABUSER | SCOUT_CTX_TERRAIN_ABUSER
+                       | SCOUT_CTX_SETUP_PARTNER))
+                ps[j] += 25;
+        }
+        for (pm = 0; pm < (1u << nPlayer); pm++)
+        {
+            s32 gs = 0;
+            u32 setters = 0, abusers = 0;
+            gw[pm] = INT32_MIN;
+            if (PopCount(pm) != picks)
+                continue;
+            for (j = 0; j < nPlayer; j++)
+            {
+                if (!(pm & (1u << j)))
+                    continue;
+                gs += ps[j];
+                if (fl[j] & (SCOUT_CTX_TR_SETTER | SCOUT_CTX_TW_SETTER | SCOUT_CTX_WEATHER_SETTER | SCOUT_CTX_REDIRECTOR))
+                    setters++;
+                if (fl[j] & (SCOUT_CTX_TR_ABUSER | SCOUT_CTX_SPEED_ABUSER | SCOUT_CTX_WEATHER_ABUSER | SCOUT_CTX_SETUP_PARTNER))
+                    abusers++;
+            }
+            if (setters > 0 && abusers == 0)
+                gs -= 30;
+            if (hasSetter && abusers > 0 && setters == 0)
+                gs -= 40;
+            gw[pm] = gs;
+            gBest = max(gBest, gs);
+        }
+        for (j = 0; j < nPlayer; j++)
+            bringP[j] = 0;
+        for (pm = 0; pm < (1u << nPlayer); pm++)
+        {
+            s32 w;
+            if (gw[pm] == INT32_MIN)
+                continue;
+            w = max(1, gw[pm] - (gBest - 150)); // i gruppi molto peggiori del migliore contano poco
+            w = w * w / 100 + 1;
+            total += w;
+            for (j = 0; j < nPlayer; j++)
+                if (pm & (1u << j))
+                    bringP[j] += w;
+        }
+        for (j = 0; j < nPlayer; j++)
+            bringP[j] = bringP[j] * 100 / max(total, 1);
+        // (a) i duelli contano per quanto è probabile che quel Pokémon venga portato.
+        for (j = 0; j < nPlayer; j++)
+            weight[j] = weight[j] * (30 + 70 * bringP[j] / 100) / 100;
+    }
+    {
+        u32 e = sBringNext;
+        sBringNext = (sBringNext + 1) % 2;
+        memset(sBringSpecies[e], 0, sizeof(sBringSpecies[e]));
+        memset(sBringVal[e], 0, sizeof(sBringVal[e]));
+        for (j = 0; j < nPlayer && ctx != NULL; j++)
+        {
+            sBringSpecies[e][j] = GetMonData(&player[playerSlots[j]], MON_DATA_SPECIES);
+            sBringVal[e][j] = min(bringP[j], 100);
+        }
     }
 
     // Minacce principali (contesto): i due Pokémon del giocatore che pesano di più (duelli persi con i set della sua
@@ -2069,6 +2186,18 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                     // Coerenza della coppia di lead dal grafo della squadra (sinergie, Commander, abilità
                     // penalizzanti, meteo, mosse ad area sul compagno).
                     s += GraphLeadScore(enemy, enemySlots[ea], enemySlots[eb]);
+                    // Panchina probabile del giocatore (portato ma non in lead): la nostra lead deve reggere anche chi
+                    // può entrare con un cambio.
+                    if (ctx != NULL)
+                    {
+                        s32 back = 0;
+                        for (j = 0; j < nPlayer; j++)
+                        {
+                            s32 bp = max(0, bringP[j] - leadShare[j] / 2);
+                            back += bp * max(sMatch[ea][j], sMatch[eb][j]);
+                        }
+                        s += back / 400;
+                    }
                     // Risposta immediata al piano dell'avversario (contesto), a metà peso rispetto al gruppo.
                     s += ContextAnswerScore(enemy, enemySlots, nEnemy, (1u << ea) | (1u << eb), ctx) / 2;
                 }
