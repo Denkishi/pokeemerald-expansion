@@ -235,7 +235,11 @@ static EWRAM_DATA struct PlanTestLog sTestLog = {0};
 // Contatori di chiamate per la misura del costo (VGCCPU).
 static EWRAM_DATA u32 sCntEval = 0, sCntBuild = 0, sCntKo = 0, sCntEst = 0, sCntDmg = 0;
 #define PLAN_COUNT(c) ((c)++)
+// Diagnostica: Evaluate stampa le sue parti (stato per stato) quando è acceso.
+static EWRAM_DATA u8 sEvalDebug = 0;
+#define EVAL_DEBUG(tag, val) do { if (sEvalDebug) { extern s32 Test_MgbaPrintf(const char *fmt, ...); Test_MgbaPrintf("  VGCEVAL %s=%d", tag, val); } } while (0)
 #else
+#define EVAL_DEBUG(tag, val)
 #define PLAN_COUNT(c)
 #endif
 
@@ -1213,6 +1217,17 @@ static s32 Evaluate(const struct PlanState *st)
             v += side * (40 * max(-4, min(4, off)) + 24 * max(-4, min(4, pm->stage[PS_SPE])) + 8 * max(-4, min(4, dfn)));
         }
     }
+#if TESTING
+    if (sEvalDebug)
+    {
+        extern s32 Test_MgbaPrintf(const char *fmt, ...);
+        for (b = 0; b < gBattlersCount; b++)
+            Test_MgbaPrintf("  VGCMON b%d sp%d p%d hp%d/%d vivo%d st%d/%d/%d/%d/%d", b, st->m[b].species, st->m[b].partyIdx, st->m[b].hp,
+                            st->m[b].maxHp, st->m[b].alive, st->m[b].stage[PS_ATK], st->m[b].stage[PS_DEF], st->m[b].stage[PS_SPA],
+                            st->m[b].stage[PS_SPD], st->m[b].stage[PS_SPE]);
+    }
+#endif
+    EVAL_DEBUG("pokemon", v);
     // Materiale: Pokémon utilizzabili per lato (in campo + panchina). Lo stesso KO vale di più quando cambia
     // l'equilibrio (2 contro 1 pesa più di 4 contro 3): la differenza si scala sul totale rimasto.
     {
@@ -1224,6 +1239,7 @@ static s32 Evaluate(const struct PlanState *st)
         else if (theirs == 0 && ours > 0)
             v += CUSTOM_VGC_EVAL_KO * 4;
     }
+    EVAL_DEBUG("+materiale", v);
     // Velocità al turno dopo, per ogni coppia (nostro, loro). Contro un Pokémon andato KO la coppia conta come
     // vinta da chi resta: mandare KO non fa mai perdere punti di velocità.
     for (b = 0; b < gBattlersCount; b++)
@@ -1240,6 +1256,7 @@ static s32 Evaluate(const struct PlanState *st)
                 v -= CUSTOM_VGC_EVAL_SPEED_PAIR;
         }
     }
+    EVAL_DEBUG("+velocita", v);
     // Minacce di KO al turno dopo, simmetriche e tutte contate (due Pokémon che minacciano lo stesso bersaglio
     // sono due minacce), pesate per la precisione della mossa che basta.
     for (b = 0; b < gBattlersCount; b++)
@@ -1259,6 +1276,7 @@ static s32 Evaluate(const struct PlanState *st)
             }
         }
     }
+    EVAL_DEBUG("+minacce", v);
 #undef FASTER
     return v;
 }
@@ -2389,7 +2407,22 @@ bool32 AI_VgcPlanStep(void)
             bool32 lineDone = FALSE;
 
             RunTurn(&st, acts, 4);
+#if TESTING
+            if (sJob.refine && sJob.a2 == 0 && sJob.b2 == 0 && sJob.a == 0 && sJob.b == 0)
+            {
+                extern s32 Test_MgbaPrintf(const char *fmt, ...);
+                Test_MgbaPrintf(" VGCLINE pair%d turno2: m%d t%d + m%d t%d contro m%d t%d + m%d t%d", sJob.i, acts[0]->move, acts[0]->target,
+                                acts[1]->move, acts[1]->target, acts[2]->move, acts[2]->target, acts[3]->move, acts[3]->target);
+                sEvalDebug = TRUE;
+                Test_MgbaPrintf(" VGCLINE dopo turno1:");
+                Evaluate(&sJob.s1);
+                Test_MgbaPrintf(" VGCLINE dopo turno2:");
+            }
+#endif
             v = Evaluate(&st);
+#if TESTING
+            sEvalDebug = FALSE;
+#endif
             budget--;
             if (sJob.refine)
             {
