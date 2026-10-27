@@ -7902,6 +7902,12 @@ static const u32 sGen2CriticalHitOdds[] = {17, 32, 64, 85, 128}; // X/256
 
 u32 GetCriticalHitOdds(u32 critChance)
 {
+    // Stadio fuori tabella (es. negativo da bonusCritStages): si limita, altrimenti si leggeva fuori dall'array e
+    // una probabilità 1/0 faceva fallire RandomChance (visto nel self-play VGC con Fake Out).
+    if ((s32)critChance < 0)
+        critChance = 0;
+    if (critChance >= ARRAY_COUNT(sGen7CriticalHitOdds))
+        critChance = ARRAY_COUNT(sGen7CriticalHitOdds) - 1;
     if (GetConfig(B_CRIT_CHANCE) >= GEN_7)
         return sGen7CriticalHitOdds[critChance];
     if (GetConfig(B_CRIT_CHANCE) == GEN_6)

@@ -581,7 +581,11 @@ static void VgcSelfPlay_Run(void *data)
     ApplyOrder(gParties[B_TRAINER_OPPONENT_A], orderE, picksE);
     CalculatePlayerPartyCount();
     CalculateEnemyPartyCount();
+    // Parametri della lotta allenatore azzerati: testi di sconfitta e script rimasti da prima puntavano a memoria a
+    // caso (alla vittoria del lato G il testo di sconfitta dell'allenatore mandava il codice fuori strada).
+    memset(&TRAINER_BATTLE_PARAM, 0, sizeof(TRAINER_BATTLE_PARAM));
     TRAINER_BATTLE_PARAM.opponentA = sVsp.enemyId;
+    TRAINER_BATTLE_PARAM.opponentB = TRAINER_NONE;
     AI_VgcResetMemory();
 
     sVsp.battleStarted = TRUE;
@@ -607,10 +611,8 @@ static void VgcSelfPlay_TearDown(void *data)
         gBattlerBattleController[i] = BATTLE_CONTROLLER_NONE;
         gBattlerPartyIndexes[i] = 0;
     }
-    FreeMonSpritesGfx();
-    FreeBattleSpritesData();
-    FreeBattleResources();
-    FreeAllWindowBuffers();
+    // Niente Free: ogni partita gira in un processo mGBA a sé e finisce qui. Liberare le risorse della lotta (già in
+    // parte liberate dal motore o da un'uscita a metà) faceva scattare l'assert di malloc.c e poi codice a caso.
     gMain.inBattle = FALSE;
     sVsp.battleStarted = FALSE;
 }
@@ -1142,6 +1144,10 @@ void VgcSelfPlay_OnMessage(const u8 *string)
         sVsp.progress++;
         Test_MgbaPrintf("VSP MSG %.*S", 150, string);
     }
+    // Esito deciso ("You defeated ...", "You were overwhelmed ..."): la partita finisce qui. Le scene di fine lotta
+    // (allenatore che rientra, testo di sconfitta, soldi) non servono e nel ROM dei test leggono dati assenti.
+    if (gBattleOutcome != 0 && !sVsp.ended)
+        VgcSelfPlay_OnBattleEnd();
 }
 
 void VgcSelfPlay_OnAbilityPopUp(enum BattlerId battler, enum Ability ability)
@@ -1204,4 +1210,7 @@ void VgcSelfPlay_OnBattleEnd(void)
     }
     Test_MgbaPrintf("VSP FINE esito=%s turni=%d restantiG=%d restantiA=%d misplay=%d dubbi=%d", outcome, gBattleTurnCounter,
                     left[B_SIDE_PLAYER], left[B_SIDE_OPPONENT], sVsp.misplays, sVsp.doubts);
+    // Si esce subito, come per il limite di turni: la chiusura della lotta del motore e il TearDown del runner
+    // liberavano due volte le stesse risorse (assert in malloc.c e poi codice a caso).
+    Test_ExitWithResult(TEST_RESULT_PASS, SourceLine(0), "VSP fine partita");
 }

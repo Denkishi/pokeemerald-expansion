@@ -191,7 +191,6 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Simone - Toedscruel sets Trick Room or redirec
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Simone - Arcanine finishes a weakened Roaring Moon with Extreme Speed")
 {
-    KNOWN_FAILING; // con la Mega Y di Charizard nel simulatore (sole, Heat Wave) l'IA preferisce Extreme Speed + Thunderbolt per mandare KO Charizard prima che colpisca; discutibile più che sbagliato (vedi scenari.md)
     // Roaring Moon (Tony) a pochi PS è più veloce di Arcanine e lo minaccia: Extreme Speed (+2) lo manda KO
     // prima che si muova. Play Rough farebbe più danno ma arriva dopo il suo attacco.
     GIVEN {

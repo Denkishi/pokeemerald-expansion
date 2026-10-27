@@ -1100,6 +1100,9 @@ u32 RandomUniformExcept(enum RandomTag tag, u32 lo, u32 hi, bool32 (*reject)(u32
 u32 RandomWeightedArray(enum RandomTag tag, u32 sum, u32 n, const u16 *weights)
 {
     void *caller = __builtin_extract_return_addr(__builtin_return_address(0));
+    // Diagnostica: pesi la cui somma supera u16 (sottrazione andata sotto zero nel chiamante).
+    if (sum > 0xFFFF)
+        Test_MgbaPrintf("RandomWeightedArray: somma %d con tag %d da %p", sum, tag, caller);
     if (gTestRunnerState.test->runner->randomWeightedArray)
         return gTestRunnerState.test->runner->randomWeightedArray(tag, sum, n, weights, caller);
     else

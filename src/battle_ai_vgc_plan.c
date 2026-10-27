@@ -57,6 +57,7 @@
 #define PLAN_ALL_OURS        14  // tutte le azioni legali di un nostro Pokémon (4 mosse x 3 bersagli + cambio)
 #define PLAN_MAX_PAIRS       8   // coppie (nostra azione, azione del partner) simulate per intero (albero a 3 turni)
 #define PLAN_FOE_PER         2   // azioni per avversario (primo turno)
+#define PLAN_FOE_CAND        5   // azioni plausibili per avversario valutate dal modello del giocatore (livello 1)
 #define PLAN_P2_OURS_PER     3   // azioni per chi pianifica al turno dopo (una corsia è per setup/Protect/velocità)
 #define PLAN_P2_PARTNER_PER  3   // azioni del partner al turno dopo (anche qui con la corsia)
 #define PLAN_P2_FOE_PER      2   // azioni per avversario al turno dopo
@@ -207,6 +208,11 @@ struct PlanJob
     struct PlanAction cand[2][PLAN_ALL_OURS];
     s32 candVal[2][PLAN_ALL_OURS];
     u8 nCand[2], rankSide, rankIdx;
+    // Modello del giocatore, livello 1 (fase 3): per ogni avversario le sue azioni plausibili, valutate con una
+    // simulazione a 1 turno dal SUO punto di vista; le due migliori diventano foeA/foeB.
+    struct PlanAction foeCand[2][PLAN_FOE_CAND];
+    s32 foeVal[2][PLAN_FOE_CAND];
+    u8 nFoeCand[2], pmSide, pmIdx;
     // livello 1
     u8 i, a, b, phase;
     s32 sum, wsum, worst;
@@ -2168,6 +2174,45 @@ static u32 BuildOurFirstActions(enum BattlerId me, struct PlanAction *out, u32 c
     return n;
 }
 
+// Modello del giocatore livello 1: le due azioni migliori per lui, unendo il valore a 1 turno dal suo punto di vista
+// (quanto peggiora la nostra posizione) e la probabilità a priori (mosse viste o probabili, Protect, cambio).
+// Il peso della coppia di risposte resta nel campo `weight` (usato da PairWeight).
+static u32 PickFoeActions(u32 side, struct PlanAction *out)
+{
+    u32 n = sJob.nFoeCand[side], i, k, outN = 0;
+    s32 score[PLAN_FOE_CAND], best = INT32_MIN;
+    bool8 taken[PLAN_FOE_CAND] = {0};
+
+    for (i = 0; i < n; i++)
+    {
+        // Per il giocatore conta il nostro valore cambiato di segno; la priorità a priori vale come in BuildActions.
+        score[i] = -sJob.foeVal[side][i] + sJob.foeCand[side][i].weight * 2;
+        if (sJob.foeCand[side][i].kind != PLAN_ACT_PROTECT && sJob.foeCand[side][i].kind != PLAN_ACT_SWITCH && score[i] > best)
+            best = score[i];
+    }
+    // Protect e cambio: a 1 turno sembrano sempre ottimi (salvano PS, il costo è il tempo perso, che un turno non
+    // vede). Restano con la loro probabilità a priori, sotto la migliore mossa vera.
+    for (i = 0; i < n; i++)
+        if (sJob.foeCand[side][i].kind == PLAN_ACT_PROTECT || sJob.foeCand[side][i].kind == PLAN_ACT_SWITCH)
+            score[i] = (best == INT32_MIN ? 0 : best) - 4 * (100 - min(sJob.foeCand[side][i].weight, 100));
+    if (best == INT32_MIN)
+        for (i = 0; i < n; i++)
+            best = max(best, score[i]);
+    while (outN < PLAN_FOE_PER && outN < n)
+    {
+        u32 bi = 0xFF;
+        for (k = 0; k < n; k++)
+            if (!taken[k] && (bi == 0xFF || score[k] > score[bi]))
+                bi = k;
+        taken[bi] = TRUE;
+        out[outN] = sJob.foeCand[side][bi];
+        // Peso: la migliore conta di più; una alternativa molto peggiore per lui resta, ma poco probabile.
+        out[outN].weight = max(8, 100 - (best - score[bi]) / 4);
+        outN++;
+    }
+    return outN;
+}
+
 // L'azione scelta dalle regole per `b`, come azione del simulatore (PLAN_ACT_NONE se non è una mossa nota).
 static struct PlanAction RulesAction(enum BattlerId b, u32 moveIdx, enum BattlerId target)
 {
@@ -2845,6 +2890,10 @@ bool32 AI_VgcPlanBegin(enum BattlerId me)
     sJob.nB = BuildActions(&sJob.base, fR, sJob.foeB, PLAN_FOE_PER, FALSE, TRUE);
     if (sJob.nA == 0) { sJob.foeA[0] = none; sJob.foeA[0].user = fL; sJob.nA = 1; }
     if (sJob.nB == 0) { sJob.foeB[0] = none; sJob.foeB[0].user = fR; sJob.nB = 1; }
+    // Modello del giocatore livello 1: più azioni plausibili per avversario, scelte poi dalla fase 3.
+    sJob.nFoeCand[0] = BuildActions(&sJob.base, fL, sJob.foeCand[0], PLAN_FOE_CAND, FALSE, TRUE);
+    sJob.nFoeCand[1] = BuildActions(&sJob.base, fR, sJob.foeCand[1], PLAN_FOE_CAND, FALSE, TRUE);
+    sJob.pmSide = sJob.pmIdx = 0;
     // Tutte le azioni legali dei due lati; il loro valore a 1 turno lo calcola la fase 2 (a pezzi, in Step).
     {
         enum BattlerId p = GetPartnerBattler(me);
@@ -2861,7 +2910,7 @@ bool32 AI_VgcPlanBegin(enum BattlerId me)
             return FALSE;
     }
     sJob.rankSide = sJob.rankIdx = 0;
-    sJob.phase = 2;
+    sJob.phase = (sJob.nFoeCand[0] + sJob.nFoeCand[1] > 0) ? 3 : 2;
     sJob.worst = INT32_MAX;
     sJob.active = TRUE;
     sJob.finished = FALSE;
@@ -2889,6 +2938,45 @@ bool32 AI_VgcPlanStep(void)
         sJob.frames++;
     while (budget > 0 && !sJob.finished && ScanlinesSince(start) < CUSTOM_VGC_PLAN_SCANLINES_PER_FRAME)
     {
+        if (sJob.phase == 3)
+        {
+            // Modello del giocatore livello 1: ogni sua azione plausibile contro le nostre azioni delle regole (le
+            // più probabili ai suoi occhi) e l'azione più probabile del suo compagno; vale per lui il nostro valore
+            // cambiato di segno. Solo informazione onesta: le sue mosse sono quelle del belief, non le vere.
+            u32 side = sJob.pmSide, idx = sJob.pmIdx;
+            if (idx < sJob.nFoeCand[side])
+            {
+                enum BattlerId p = GetPartnerBattler(sJob.me);
+                struct PlanAction ours = RulesAction(sJob.me, sJob.origMove, sJob.origTarget);
+                struct PlanAction partner = RulesAction(p, sJob.origPMove, sJob.origPTarget);
+                const struct PlanAction *acts[4];
+                struct PlanState st = sJob.base;
+
+                if (p == sJob.me)
+                    partner.kind = PLAN_ACT_NONE;
+                acts[0] = &ours;
+                acts[1] = &partner;
+                acts[2] = &sJob.foeCand[side][idx];
+                acts[3] = (side == 0) ? &sJob.foeB[0] : &sJob.foeA[0];
+                RunTurn(&st, acts, 4);
+                sJob.foeVal[side][idx] = Evaluate(&st);
+                budget--;
+                sJob.pmIdx++;
+                continue;
+            }
+            if (side == 0)
+            {
+                sJob.pmSide = 1;
+                sJob.pmIdx = 0;
+                continue;
+            }
+            if (sJob.nFoeCand[0] > 0)
+                sJob.nA = PickFoeActions(0, sJob.foeA);
+            if (sJob.nFoeCand[1] > 0)
+                sJob.nB = PickFoeActions(1, sJob.foeB);
+            sJob.phase = 2;
+            continue;
+        }
         if (sJob.phase == 2)
         {
             // Valore a 1 turno di ogni azione legale: con il compagno che fa la mossa delle regole e gli avversari

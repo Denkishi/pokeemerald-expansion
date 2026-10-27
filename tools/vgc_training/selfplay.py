@@ -56,6 +56,32 @@ MODE_LIST, MODE_PREVIEW, MODE_FIXED = 0, 1, 2
 
 DEFAULT_PARALLEL = 24
 GAME_TIMEOUT_S = 45 * 60
+MAX_RAW_LOG = 300 * 1024 * 1024  # un log che cresce oltre (es. codice impazzito che stampa in ciclo) ferma la partita
+
+
+def runaway(run):
+    try:
+        return (LOGS / f"{run['gid']}.raw.txt").stat().st_size > MAX_RAW_LOG
+    except OSError:
+        return False
+
+
+def game_over(run):
+    """La partita ha scritto VSP FINE: il risultato c'è, mGBA si può chiudere (dopo, la chiusura del test nel ROM
+    può inciampare nella heap e stampare codice illegale all'infinito)."""
+    path = LOGS / f"{run['gid']}.raw.txt"
+    try:
+        size = path.stat().st_size
+        pos = run.get('scan', 0)
+        if size <= pos:
+            return False
+        with open(path, 'rb') as f:
+            f.seek(max(0, pos - 64))
+            chunk = f.read(min(size - max(0, pos - 64), 8 * 1024 * 1024))
+        run['scan'] = size
+        return b'VSP FINE' in chunk
+    except OSError:
+        return False
 
 CATEGORIES = {
     'IMMUNE': 'Mossa su un immune noto',
@@ -239,6 +265,8 @@ def finish_game(run, killed=False):
             if line.startswith('VGCLEAF'):
                 leaf += 1
                 continue
+            if line.startswith('GBA: Illegal opcode'):
+                continue
             lines.append(line)
     (LOGS / f'{gid}.log').write_text('\n'.join(lines) + '\n', encoding='utf-8')
     raw_path.unlink()
@@ -256,11 +284,12 @@ def run_one(job):
     rom_bytes = ROM.read_bytes()
     off = find_args_offset(rom_bytes)
     run = start_game(job, rom_bytes, off)
-    try:
-        run['proc'].wait(timeout=GAME_TIMEOUT_S)
-    except subprocess.TimeoutExpired:
-        run['proc'].kill()
-        run['proc'].wait()
+    while run['proc'].poll() is None:
+        if time.time() - run['start'] > GAME_TIMEOUT_S or runaway(run) or game_over(run):
+            run['proc'].kill()
+            run['proc'].wait()
+            break
+        time.sleep(1)
     return finish_game(run)
 
 
@@ -714,7 +743,7 @@ def cmd_daemon(args):
         while True:
             # Partite finite
             for run in list(running):
-                timed_out = time.time() - run['start'] > GAME_TIMEOUT_S
+                timed_out = time.time() - run['start'] > GAME_TIMEOUT_S or runaway(run) or game_over(run)
                 if run['proc'].poll() is not None or timed_out:
                     if timed_out:
                         run['proc'].kill()

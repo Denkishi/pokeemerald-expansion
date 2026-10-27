@@ -38,6 +38,15 @@
 #include "constants/trainer_hill.h"
 #include "constants/weather.h"
 
+// IA contro IA (self-play VGC): il lato del giocatore usa il controller "partner", ma non c'è un allenatore
+// partner vero (nome, classe): per i messaggi conta come il giocatore. Senza, il messaggio di entrata dopo un KO
+// del lato G leggeva i dati di un partner inesistente e la lotta si bloccava.
+static bool32 MsgBattlerIsPlayer(enum BattlerId battler)
+{
+    return BattlerIsPlayer(battler)
+        || (BattlerIsPartner(battler) && IsAiVsAiBattle() && !(gBattleTypeFlags & BATTLE_TYPE_INGAME_PARTNER));
+}
+
 struct BattleWindowText
 {
     u8 fillValue;
@@ -2525,14 +2534,14 @@ void BufferStringBattle(enum StringID stringID, enum BattlerId battler)
             {
                 if (gBattleTypeFlags & BATTLE_TYPE_MULTI && (gBattleTypeFlags & BATTLE_TYPE_RECORDED_LINK || gBattleTypeFlags & BATTLE_TYPE_LINK))
                 {
-                    if (BattlerIsPlayer(battler))
+                    if (MsgBattlerIsPlayer(battler))
                         stringPtr = sText_LinkPartnerSentOutPkmn2GoPkmn; // Player is on left
                     else
                         stringPtr = sText_LinkPartnerSentOutPkmn1GoPkmn; // Link Partner on left
                 }
                 else if (gBattleTypeFlags & BATTLE_TYPE_INGAME_PARTNER)
                 {
-                    if (BattlerIsPlayer(battler) && (battler & BIT_FLANK) == B_FLANK_LEFT)
+                    if (MsgBattlerIsPlayer(battler) && (battler & BIT_FLANK) == B_FLANK_LEFT)
                         stringPtr = sText_InGamePartnerSentOutZGoN; // Player is on left
                     else
                         stringPtr = sText_InGamePartnerSentOutNGoZ; // Partner on left
@@ -2584,7 +2593,7 @@ void BufferStringBattle(enum StringID stringID, enum BattlerId battler)
     case STRINGID_RETURNMON: // sending poke to ball msg
         if ((GetBattlerPosition(battler) & BIT_FLANK) == B_FLANK_LEFT) // battler 0 and 1
         {
-            if (BattlerIsPlayer(battler) || BattlerIsWally(battler)) // Player
+            if (MsgBattlerIsPlayer(battler) || BattlerIsWally(battler)) // Player
             {
                 if (*(&gBattleStruct->hpScale) == 0)
                     stringPtr = sText_PkmnThatsEnough;
@@ -2614,7 +2623,7 @@ void BufferStringBattle(enum StringID stringID, enum BattlerId battler)
         }
         else // battler 2 and 3
         {
-            if (BattlerIsPlayer(battler)) // Player
+            if (MsgBattlerIsPlayer(battler)) // Player
             {
                 if (*(&gBattleStruct->hpScale) == 0)
                     stringPtr = sText_PkmnThatsEnough;
@@ -2653,7 +2662,7 @@ void BufferStringBattle(enum StringID stringID, enum BattlerId battler)
     case STRINGID_SWITCHINMON: // switch-in msg
         if ((GetBattlerPosition(gBattleScripting.battler) & BIT_FLANK) == B_FLANK_LEFT) // battler 0 and 1
         {
-            if (BattlerIsPlayer(gBattleScripting.battler)) // Player
+            if (MsgBattlerIsPlayer(gBattleScripting.battler)) // Player
             {
                 if (*(&gBattleStruct->hpScale) == 0)
                     stringPtr = sText_GoPkmn2;
@@ -2683,7 +2692,7 @@ void BufferStringBattle(enum StringID stringID, enum BattlerId battler)
         }
         else // battler 2 and 3
         {
-            if (BattlerIsPlayer(gBattleScripting.battler)) // Player
+            if (MsgBattlerIsPlayer(gBattleScripting.battler)) // Player
             {
                 if (*(&gBattleStruct->hpScale) == 0)
                     stringPtr = sText_GoPkmn2;
@@ -2732,7 +2741,7 @@ void BufferStringBattle(enum StringID stringID, enum BattlerId battler)
         if (gBattleTextBuff1[0] & B_OUTCOME_LINK_BATTLE_RAN)
         {
             gBattleTextBuff1[0] &= ~(B_OUTCOME_LINK_BATTLE_RAN);
-            if (!(BattlerIsPlayer(battler) || BattlerIsPlayer(GetPartnerBattler(battler))) && gBattleTextBuff1[0] != B_OUTCOME_DREW)
+            if (!(MsgBattlerIsPlayer(battler) || MsgBattlerIsPlayer(GetPartnerBattler(battler))) && gBattleTextBuff1[0] != B_OUTCOME_DREW)
                 gBattleTextBuff1[0] ^= (B_OUTCOME_LOST | B_OUTCOME_WON);
 
             if (gBattleTextBuff1[0] == B_OUTCOME_LOST || gBattleTextBuff1[0] == B_OUTCOME_DREW)
@@ -2744,7 +2753,7 @@ void BufferStringBattle(enum StringID stringID, enum BattlerId battler)
         }
         else
         {
-            if (!(BattlerIsPlayer(battler) || BattlerIsPlayer(GetPartnerBattler(battler))) && gBattleTextBuff1[0] != B_OUTCOME_DREW)
+            if (!(MsgBattlerIsPlayer(battler) || MsgBattlerIsPlayer(GetPartnerBattler(battler))) && gBattleTextBuff1[0] != B_OUTCOME_DREW)
                 gBattleTextBuff1[0] ^= (B_OUTCOME_LOST | B_OUTCOME_WON);
 
             if (gBattleTypeFlags & BATTLE_TYPE_MULTI)
