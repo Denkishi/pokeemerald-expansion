@@ -1022,8 +1022,13 @@ static void CheckBattlerChoice(enum BattlerId b)
         if (eff == EFFECT_TAILWIND && (gSideStatuses[GetBattlerSide(b)] & SIDE_STATUS_TAILWIND) && gSideTimers[GetBattlerSide(b)].tailwindTimer > 1)
             ReportMisplay(TRUE, "VELOCITA_SPRECATA", b, "Tailwind con il proprio Tailwind ancora attivo (%d turni)", gSideTimers[GetBattlerSide(b)].tailwindTimer);
         if (eff == EFFECT_TRICK_ROOM && (gFieldStatuses & STATUS_FIELD_TRICK_ROOM) && gFieldTimers.trickRoomTimer > 1)
-            ReportMisplay(AI_VgcTeamIsSlowerThanFoes(b, 1), "VELOCITA_SPRECATA", b, "Trick Room con Trick Room attivo (%d turni): lo chiude",
-                          gFieldTimers.trickRoomTimer);
+        {
+            // Chiudere un Trick Room quando si è più veloci è giusto: errore solo se la squadra è lenta (stessa soglia
+            // dell'IA, battle_ai_vgc.c: almeno 2 Pokémon più lenti degli avversari).
+            if (AI_VgcTeamIsSlowerThanFoes(b, 2))
+                ReportMisplay(TRUE, "VELOCITA_SPRECATA", b, "Trick Room con Trick Room attivo (%d turni): lo chiude",
+                              gFieldTimers.trickRoomTimer);
+        }
     }
 
     // 8. KO garantito disponibile e non preso.
@@ -1051,6 +1056,10 @@ static void CheckBattlerChoice(enum BattlerId b)
                 if (!IsSpreadMove(GetMoveTarget(m)) && IsBattlerAlive(GetPartnerBattler(f))
                  && sVsp.choice[GetPartnerBattler(f)].kind == VSP_CHOICE_MOVE
                  && GetMoveEffect(sVsp.choice[GetPartnerBattler(f)].move) == EFFECT_FOLLOW_ME)
+                    continue;
+                // Focus Sash / Sturdy (presunti) a PS pieni: non è un KO.
+                if (gBattleMons[f].hp == gBattleMons[f].maxHP
+                 && (gAiLogicData->holdEffects[f] == HOLD_EFFECT_FOCUS_SASH || gAiLogicData->abilities[f] == ABILITY_STURDY))
                     continue;
                 if (DmgMin(b, f, i) >= gBattleMons[f].hp && gAiLogicData->moveAccuracy[b][f][i] >= 100)
                 {
@@ -1094,7 +1103,7 @@ static void CheckBattlerChoice(enum BattlerId b)
     {
         struct VspPrev *ps = &sVsp.prevSwitch[b];
         if (ps->kind == VSP_CHOICE_SWITCH && sVsp.turn - ps->turn <= 2 && ps->partyIdx == gBattlerPartyIndexes[b] && ps->fromIdx == c->partyIdx)
-            ReportMisplay(TRUE, "CAMBI_RIPETUTI", b, "rientra %s uscito %d turni fa", A(GetSpeciesName(GetMonData(&GetBattlerParty(b)[c->partyIdx], MON_DATA_SPECIES))),
+            ReportMisplay(sVsp.turn - ps->turn <= 1, "CAMBI_RIPETUTI", b, "rientra %s uscito %d turni fa", A(GetSpeciesName(GetMonData(&GetBattlerParty(b)[c->partyIdx], MON_DATA_SPECIES))),
                           sVsp.turn - ps->turn);
         sVsp.prevSwitch2[b] = *ps;
         ps->kind = VSP_CHOICE_SWITCH;
@@ -1199,7 +1208,8 @@ void VgcSelfPlay_OnHP(enum BattlerId battler, u32 oldHP, u32 newHP)
         Test_MgbaPrintf("VSP KO b%d %S t%d", battler, GetSpeciesName(gBattleMons[battler].species), sVsp.turn + 1);
         // Cambio su chi va KO all'entrata (prima di agire).
         if (c->kind == VSP_CHOICE_SWITCH && gBattlerPartyIndexes[battler] == c->partyIdx)
-            ReportMisplay(TRUE, "CAMBIO_IN_KO", battler, "entrato con un cambio e KO nello stesso turno");
+            ReportMisplay(!gSpecialStatuses[battler].criticalHit, "CAMBIO_IN_KO", battler, "entrato con un cambio e KO nello stesso turno%s",
+                          gSpecialStatuses[battler].criticalHit ? " (colpo critico)" : "");
         // Win condition persa quando poteva proteggersi o uscire.
         if (info->valid && info->partyIdx == gBattlerPartyIndexes[battler] && info->isWinCon && !info->choseSafe
          && (info->couldProtect || info->couldSwitch))

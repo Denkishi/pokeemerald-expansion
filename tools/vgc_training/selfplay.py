@@ -126,7 +126,16 @@ def save_json(path, data):
     tmp = path.with_suffix(path.suffix + '.tmp')
     with open(tmp, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=1)
-    os.replace(tmp, path)
+    # Su Windows os.replace fallisce se un altro processo (status, uno script) ha il file aperto in lettura:
+    # si riprova per qualche secondo invece di far morire il demone.
+    for attempt in range(50):
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            if attempt == 49:
+                raise
+            time.sleep(0.1)
 
 
 def wsl_path(p):
@@ -524,6 +533,12 @@ def cmd_report(args=None):
     trainers = load_json(TRAINERS_JSON, []) or []
     names = {t['indice']: t['nome'] for t in trainers}
     REPORT.mkdir(parents=True, exist_ok=True)
+    # Le pagine per partita si rifanno da capo: quelle di campagne precedenti gonfiavano i conteggi.
+    for old in (REPORT / 'partite').glob('*.md'):
+        try:
+            old.unlink()
+        except OSError:
+            pass
     n = len(trainers) or (max([max(g['giocatore'], g['avversario']) for g in games], default=-1) + 1)
 
     cat_count, cat_doubt = {}, {}
