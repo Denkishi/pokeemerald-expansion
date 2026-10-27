@@ -345,6 +345,8 @@ def finish_game(run, killed=False):
             save_json(WORK / 'dati' / job['dati'] / f'{gid}.json', game)
         return game
     (LOGS / f'{gid}.log').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+    if job.get('tag') == 'bench':
+        return game  # benchmark con log completo: niente report né risultati della campagna
     save_json(RESULTS / f'{gid}.json', game)
     write_game_report(game, lines)
     return game
