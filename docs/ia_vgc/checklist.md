@@ -132,7 +132,7 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
   - ✅ Informazione chiusa in IA contro IA: `src/battle_ai_perspective.c` (dati IA per lato, `IsAiBattlerAware` per prospettiva), pianificatore/regole relativi al lato di chi pensa, lato G con la logica dell'IA avversaria (pianificatore compreso); test di invarianza `test/battle/ai/ai_vgc_perspective.c` (scritto, NON ancora eseguito)
   - ✅ Controllore dei misplay nel ROM (categorie in training.md), sulle stime del lato che agisce
   - ✅ Orchestratore `tools/vgc_training/` (start/pause/resume/stop/status/report, .bat, stato persistente, parallelismo)
-  - ⬜ **Prima partita completa**: ENZO-SIMONE seme 1 arriva al turno 1 a Lv50 con pianificatore su entrambi i lati, poi l'output si perde (stdout di mgba bufferizzato, processo fermato a mano). Da capire se è un blocco o solo lentezza
+  - ⬜ **Prima partita completa**: ENZO-SIMONE seme 1 (Lv50) gioca tutto il turno 1, poi si blocca dopo il rimpiazzo del lato G (nessun timeout del runner). Log ora scritto da mGBA su file riga per riga; battito diagnostico aggiunto (da compilare). Passi esatti in training.md
   - ⬜ 144 scontri, report, eseguire il test di invarianza e i test VGC esistenti, ricompilare il ROM normale
 
 ## M9 — Allenamento automatico (dopo M4)

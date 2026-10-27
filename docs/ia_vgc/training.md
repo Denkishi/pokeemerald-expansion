@@ -1,16 +1,29 @@
 # Self-play VGC: partite IA contro IA
 
-> **Stato (26/10, in pausa):** harness completo ma non ancora validato su una partita intera. Il ROM compila e la
-> prima partita (ENZO contro SIMONE, seme 1) arriva al turno 1 a Lv50 con il pianificatore su entrambi i lati; poi
-> l'output si perde perché lo stdout di `mgba-rom-test.exe` rediretto su file è bufferizzato e il processo è stato
-> fermato (pausa richiesta). Nessuna delle 144 partite è stata giocata. **Per riprendere:**
-> 1. `.\training.ps1 build` (il ROM in `work\` va rifatto dopo ogni modifica);
-> 2. `.\training.ps1 run-one 0 1 1` e lasciarla finire (limite 45 min): se finisce con `TIMEOUT`, il test runner ha
->    trovato un blocco (ora contano come avanzamento solo turni, scelte, PS e messaggi non vuoti) e le ultime righe
->    sono nel report della partita; se è solo lenta, misurare i secondi per turno prima di lanciare le 144;
-> 3. eseguire `TESTS='test/battle/ai/ai_vgc_perspective.c'` e `TESTS='test/battle/ai/ai_vgc_doubles.c'`, ricompilare
->    il ROM normale (`make`);
-> 4. `.\training.ps1 start` per le 144.
+> **Stato (27/10, fermo in attesa del pianificatore):** harness completo, nessuna partita ancora finita.
+> - Log: ora mGBA scrive direttamente su file (`-ClogToFile=1 -ClogFile=...`, riga per riga, si segue a partita in corso);
+>   prima lo stdout rediretto era bufferizzato e si perdeva uccidendo il processo.
+> - ENZO contro SIMONE, seme 1 (Lv50 verificato): il turno 1 si gioca tutto (Mega, KO di Toedscruel e Aerodactyl),
+>   poi la lotta **si blocca subito dopo il rimpiazzo del lato G** (`VSP RIMPIAZZO b2 -> Rillaboom`): nessuna riga per
+>   oltre 10 minuti con la CPU al 100%, e il timeout del test runner non scatta (anche con l'avanzamento contato solo su
+>   eventi veri). Ipotesi da verificare: il controller "partner" del lato G riceve un comando che non gestisce (es.
+>   `CONTROLLER_YESNOBOX` o altro `BtlController_Empty` che non completa), oppure il rimpiazzo del lato A va in ciclo
+>   in `GetMostSuitableMonToSwitchInto`/`AI_VgcReplacementAfterKo`; che il timeout non scatti fa pensare a un ciclo con
+>   interrupt spenti o dentro un callback di interrupt.
+> - Aggiunto (non ancora compilato) un battito in `VgcSelfPlay_CheckProgress`: ogni 60 s emulati senza avanzamento stampa
+>   `VSP BATTITO` con `gBattleMainFunc`, `gMain.callback2`, i controller dei 4 battler e `gBattleCommunication`
+>   (indirizzi da tradurre con `arm-none-eabi-nm build/vgc_selfplay/selfplay.elf`). Se il battito non compare, gli
+>   interrupt sono spenti.
+>
+> **Prossimi passi esatti:**
+> 1. `.\training.ps1 build` (compila anche il battito; il link del ROM dei test su /mnt/c richiede 10-20 min);
+> 2. `.\training.ps1 run-one 0 1 1`; seguire `tools\vgc_training\work\logs\00_01_s1.raw.txt` e cercare
+>    `VSP BATTITO`; tradurre gli indirizzi con nm e correggere il blocco (probabile `src/battle_controller_player_partner.c`
+>    in IA contro IA, o la scelta del rimpiazzo);
+> 3. quando una partita finisce: misurare i secondi per turno, eseguire `TESTS='test/battle/ai/ai_vgc_perspective.c'` e
+>    `TESTS='test/battle/ai/ai_vgc_doubles.c'`, ricompilare il ROM normale (`make`);
+> 4. un primo lotto (`start --matchups 0-1,1-0,...` 12-24 scontri), poi le 144 con `start --new`; committare
+>    `docs/ia_vgc/report/riepilogo.md` e qualche partita d'esempio.
 
 Harness per far giocare tra loro i 12 allenatori VGC (le squadre vere di `src/data/trainers.party`, linea AI con
 `Vgc Doubles`), in partite controllate e rigiocabili, con controllo dei misplay e report in italiano.

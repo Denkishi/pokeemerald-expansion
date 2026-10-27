@@ -619,6 +619,12 @@ static bool32 VgcSelfPlay_CheckProgress(void *data)
 {
     bool32 progress = sVsp.progress != sVsp.lastProgress;
     (void)data;
+    // Battito (ogni ~60 s emulati senza avanzamento): dove si trova la lotta, per diagnosticare i blocchi.
+    if (sVsp.battleStarted)
+        Test_MgbaPrintf("VSP BATTITO avanzamento=%d main=%p cb2=%p ctrl=%p,%p,%p,%p exec=%d com=%d,%d,%d,%d",
+                        progress, gBattleMainFunc, gMain.callback2, gBattlerControllerFuncs[0], gBattlerControllerFuncs[1],
+                        gBattlerControllerFuncs[2], gBattlerControllerFuncs[3], gBattleControllerExecFlags,
+                        gBattleCommunication[0], gBattleCommunication[1], gBattleCommunication[2], gBattleCommunication[3]);
     sVsp.lastProgress = sVsp.progress;
     return progress;
 }

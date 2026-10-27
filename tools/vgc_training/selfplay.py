@@ -206,9 +206,15 @@ def start_game(job, rom_bytes, args_offset):
     data[args_offset:args_offset + ARGS_SIZE] = packed
     rom_path = TMP / f'{gid}.gba'
     rom_path.write_bytes(bytes(data))
-    raw = open(LOGS / f'{gid}.raw.txt', 'wb')
+    raw_path = LOGS / f'{gid}.raw.txt'
+    if raw_path.exists():
+        raw_path.unlink()
+    # Log scritto da mGBA direttamente su file (logToFile): lo stdout rediretto è bufferizzato e si perde se il
+    # processo viene ucciso; il file invece cresce riga per riga e si può seguire mentre la partita gira.
+    raw = open(os.devnull, 'wb')
     flags = 0x08000000 if os.name == 'nt' else 0  # CREATE_NO_WINDOW
-    proc = subprocess.Popen([str(MGBA), '-l15', '-ClogLevel.gba.dma=16', '-Rr0', str(rom_path)],
+    proc = subprocess.Popen([str(MGBA), '-l15', '-ClogLevel.gba.dma=16', '-ClogToFile=1', f'-ClogFile={raw_path}',
+                             '-Rr0', str(rom_path)],
                             stdout=raw, stderr=subprocess.STDOUT, env=mgba_env(), creationflags=flags)
     return {'proc': proc, 'raw': raw, 'rom': rom_path, 'gid': gid, 'start': time.time(), 'job': job}
 
@@ -223,6 +229,8 @@ def finish_game(run, killed=False):
     raw_path = LOGS / f'{gid}.raw.txt'
     lines = []
     leaf = 0
+    if not raw_path.exists():
+        raw_path.write_text('')
     with open(raw_path, encoding='utf-8', errors='replace') as f:
         for line in f:
             line = line.rstrip('\r\n')
