@@ -152,7 +152,29 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
   - gruppo di 4: Baton Passer solo col suo ricevente; Truant & co. solo con Gas Reagente o chi cambia abilità; Commander solo con Dondozo; Gas Reagente non con Commander/Hospitality; sole contro attaccanti d'Acqua e pioggia contro attaccanti di Fuoco; Trick Room non con chi è veloce grazie al meteo; attaccante lento non senza il setter di Trick Room della squadra; una sola Mega; sinergie di coppia
   - lead: sinergia della coppia (Fake Out + setup, Beat Up + Justified, Simple Beam + Mycelium Might, meteo + chi lo sfrutta...), Commander, abilità penalizzanti, chi sfrutta il meteo accanto a chi lo porta, mosse ad area che colpiscono il compagno
 - ✅ Test `test/battle/ai/ai_vgc_team_preview.c`: Espathra portata solo con Chandelure, che resta in panchina (lead Espathra + Incineroar) — passa
-- ⬜ Regole ridotte a filtro di candidate, ogni regola con un test
+- 🟨 **Regole ridotte a filtro di candidate, ogni regola con un test** (branch `ia-vgc-regole`, 27/10, in corso)
+  - Fatto: `AI_VgcDoubles` (src/battle_ai_vgc.c) ora è solo **filtro** (`AI_VgcFilterAction`: illegale/senza PP/bloccata,
+    Fake Out dopo il turno 1, Protect ripetuto, priorità nel Campo Psichico, immunità note anche per le mosse ad area,
+    stato bloccato (polvere, Prankster sul Buio, tipo, stato già presente, terreno, Safeguard, abilità note), campo già
+    attivo (Tailwind, Gravity, meteo, terreno, schermi, Trick Room che chiude il nostro), senza effetto (Recycle, Baton
+    Pass senza panchina, Substitute/Belly Drum senza PS, mosse per il compagno senza compagno), bersaglio sbagliato
+    (attacco/stato sul compagno senza combo, cambio d'abilità utile, Instruct/After You sull'avversario)) + **spinta**
+    leggera (`AI_VgcActionPrior`, punti della valutazione: Gravity 30, Quick Guard 30, Instruct 40, After You 40/15,
+    meteo per la panchina 20, Contrary +30 / boost perso -20, Neutralizing Gas Protect 30). Tutte le altre regole a
+    punteggio tolte (le decide la simulazione).
+  - Pianificatore: stesso filtro sulle candidate del turno 1 e sull'azione delle regole (`RulesAction`), spinta nelle
+    candidate (fase 2) e nelle coppie (`FinishJob`), posto protetto per Fake Out al primo turno, After You/Instruct sul
+    compagno tra le candidate; `AI_VgcPlanTestPrior` per i test.
+  - Confronto a specchio: regole vecchie tenute solo nel ROM dei test (`src/battle_ai_vgc_legacy.h`, bit
+    `rulesLegacy` per lato nei parametri del self-play), comando `training.ps1 verifica-regole -- --seeds 3 --parallel 10`.
+  - Test: `test/battle/ai/ai_vgc_rules.c` (21 test, squadre vere Lv50; set spostati in `ai_vgc_sets.h`). Il controllo
+    "pari punteggio" del test runner è saltato per AI_FLAG_VGC_DOUBLES (decide il pianificatore).
+  - Stato test (filtro "VGC"): 82 PASS, 7 KNOWN_FAILING, 3 FAIL (prima 64/7/0). Da fare:
+    1. `ai_vgc_rules.c` "no Protect twice": TURN 2 incompleto (Dugtrio va KO prima di agire: cambiare le mosse del giocatore);
+    2. regressioni `ai_vgc_teams.c`: Carletto Ludicolo Fake Out turno 1 (Energy Ball) e Tony Charizard Heat Wave
+       (Protect): l'azione delle regole, ora senza bonus, è anche il riferimento del compagno (fase 2) e del modello del
+       giocatore (fase 3) del pianificatore; valutare un riferimento migliore (es. la migliore candidata a 1 turno);
+    3. campagna a specchio 432 coppie (`verifica-regole`, --parallel 10), ROM normale, commit finale e inventario.
 
 ## Test di scenario con le squadre vere (richiesta del 26/10)
 - ⬜ **Tutte le 144 combinazioni** squadra VGC contro squadra VGC (12 × 12, set completi da `trainers.party`), IA contro IA:
