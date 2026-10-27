@@ -4,6 +4,7 @@
 #include "battle_ai_util.h"
 #include "battle_ai_vgc.h"
 #include "battle_ai_perspective.h"
+#include "trainer.h"
 #include "trainer_pokemon_sprites.h"
 #include "config/custom.h"
 #include "constants/battle.h"
@@ -438,7 +439,6 @@ static EWRAM_DATA u8 sThinkTextShown = FALSE;
 static EWRAM_DATA u8 sThinkPlayerIdleFrames = 0;
 static EWRAM_DATA u8 sThinkPending = 0; // battler in attesa che il partner finisca di pianificare la coppia
 
-#define THINK_PIC_PAL_TAG 0x7A1C
 
 static const u8 sText_Thinking[] = _("{STR_VAR_1} sta pensando...");
 
@@ -463,9 +463,20 @@ static void ShowThinking(void)
     // Un solo testo alla volta nella finestra dei messaggi: due stampe sovrapposte si mescolano e
     // lasciano stampanti allocate (perdita di memoria trovata dai test).
     DeactivateSingleTextPrinter(B_WIN_MSG, WINDOW_TEXT_PRINTER);
+    // Dopo la scelta delle mosse BG0 resta scorso sul menu delle mosse (gBattle_BG0_Y = DISPLAY_HEIGHT): la
+    // finestra dei messaggi sta in cima al tilemap e il testo non si vedeva. Come ogni messaggio di lotta
+    // (BtlController_HandlePrintString), si riporta BG0 a 0.
+    gBattle_BG0_X = 0;
+    gBattle_BG0_Y = 0;
     BattlePutTextOnWindow(gStringVar4, B_WIN_MSG);
     // In mezzo ai suoi due Pokémon: in doppio stanno a x 152 e 200 (sBattlerCoords), quindi al centro x 176.
-    sThinkSpriteId = CreateTrainerPicSprite(GetTrainerPicFromId(TRAINER_BATTLE_PARAM.opponentA), TRUE, 176, 44, 0, THINK_PIC_PAL_TAG);
+    // Etichetta della palette: deve essere quella del ritratto (GetTrainerPicTag), perché CreatePicSprite carica
+    // la palette con quell'etichetta ma dà allo sprite quella passata. Con un'etichetta inventata lo sprite cercava
+    // una palette mai caricata e usciva tutto nero.
+    {
+        enum TrainerPicID pic = GetTrainerPicFromId(TRAINER_BATTLE_PARAM.opponentA);
+        sThinkSpriteId = CreateTrainerPicSprite(pic, TRUE, 176, 44, 0, GetTrainerPicTag(pic, TRUE));
+    }
     sThinkSpriteActive = (sThinkSpriteId != 0xFFFF);
     if (sThinkSpriteActive)
     {
