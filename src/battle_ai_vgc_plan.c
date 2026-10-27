@@ -225,6 +225,7 @@ struct PlanJob
     const struct VgcEvalWeights *w; // pesi della valutazione del lato di chi pensa
     u8 winconParty;     // bit per indice di squadra: le win condition del piano del nostro allenatore
     u8 repaired;        // seconda passata delle coppie già fatta
+    u32 speedAlt[MAX_BATTLERS_COUNT]; // Velocità alternativa (in campo) dei Pokémon del giocatore la cui stima è incerta, 0 = nessuna
     u8 alpha;           // peso (decimi) della media contro il caso peggiore: dinamico, più rischio quando si è sotto
     struct PlanState s1;
     s32 missPen;        // quanto si perde, in media, per le azioni del turno 1 che possono mancare
@@ -321,6 +322,8 @@ struct PlanPartnerDecision
 // a vicenda la metà già decisa per il partner.
 // Battler il cui colpo fa il danno minimo (ramo "colpo basso": un KO solo con la mediana non è sicuro), più 1.
 static EWRAM_DATA u8 sLowRollBattler = 0;
+// Ramo "velocità incerta": il battler del giocatore (più 1) gioca con la Velocità alternativa sJob.speedAlt.
+static EWRAM_DATA u8 sSpeedAltBattler = 0;
 
 static EWRAM_DATA struct PlanPartnerDecision sPartnerDecisionBySide[NUM_BATTLE_SIDES] = {0};
 
@@ -795,7 +798,8 @@ static void NextTurn(struct PlanState *st)
 PLAN_HOT static u32 EffSpeed(const struct PlanState *st, enum BattlerId b)
 {
     const struct PlanMon *pm = &st->m[b];
-    u32 s = StageRatio(pm->speed, pm->stage0[PS_SPE], pm->stage[PS_SPE]);
+    u32 raw = (b + 1 == sSpeedAltBattler && pm->partyIdx < 0) ? sJob.speedAlt[b] : pm->speed;
+    u32 s = StageRatio(raw, pm->stage0[PS_SPE], pm->stage[PS_SPE]);
 
     if (pm->paralyzed && pm->ability != ABILITY_QUICK_FEET)
         s /= 2;
@@ -2332,6 +2336,59 @@ static s32 GreedyValue(const struct PlanState *s2)
     return Evaluate(&st);
 }
 
+// Rollout alla foglia: dopo l'orizzonte si giocano fino a CUSTOM_VGC_PLAN_ROLLOUT_TURNS turni "avidi" senza rami:
+// ogni Pokémon usa il suo attacco migliore nello stato del momento (KO o più danno, dalla stessa lista ordinata
+// di BuildActions), con l'ordine di velocità dei Tailwind/Trick Room rimasti, schermi e stadi attivi. Così il valore
+// di velocità, schermi, setup e Baton Pass si vede nei turni in cui rende, senza termini fatti apposta.
+static void GreedyAttack(const struct PlanState *st, enum BattlerId b, struct PlanAction *out)
+{
+    struct PlanAction buf[6];
+    u32 n, k;
+
+    out->kind = PLAN_ACT_NONE;
+    out->user = out->target = b;
+    out->move = MOVE_NONE;
+    out->partyIdx = -1;
+    out->weight = 0;
+    if (!st->m[b].alive || st->m[b].species == SPECIES_NONE)
+        return;
+    n = BuildActions(st, b, buf, ARRAY_COUNT(buf), !IsOnPlayerSide(b), FALSE);
+    for (k = 0; k < n; k++)
+    {
+        if (buf[k].kind == PLAN_ACT_MOVE && !IsBattleMoveStatus(buf[k].move) && !IsUnreliableGuess(buf[k].move))
+        {
+            *out = buf[k];
+            return;
+        }
+    }
+}
+
+static s32 RolloutValue(const struct PlanState *s2)
+{
+    struct PlanState st = *s2;
+    struct PlanAction act[MAX_BATTLERS_COUNT];
+    const struct PlanAction *acts[MAX_BATTLERS_COUNT];
+    u32 t, b;
+
+    for (t = 0; t < CUSTOM_VGC_PLAN_ROLLOUT_TURNS; t++)
+    {
+        bool32 alive[NUM_BATTLE_SIDES] = {FALSE, FALSE};
+        for (b = 0; b < gBattlersCount; b++)
+            if (st.m[b].alive)
+                alive[GetBattlerSide(b)] = TRUE;
+        if (!alive[0] || !alive[1])
+            break;
+        NextTurn(&st);
+        for (b = 0; b < gBattlersCount; b++)
+        {
+            GreedyAttack(&st, b, &act[b]);
+            acts[b] = &act[b];
+        }
+        RunTurn(&st, acts, gBattlersCount);
+    }
+    return Evaluate(&st);
+}
+
 // ---------------------------------------------------------------------
 // Candidate nostre al primo turno e azione del partner
 // ---------------------------------------------------------------------
@@ -2452,11 +2509,28 @@ static u32 PickFoeActions(u32 side, struct PlanAction *out)
         if (sJob.foeCand[side][i].kind != PLAN_ACT_PROTECT && sJob.foeCand[side][i].kind != PLAN_ACT_SWITCH && score[i] > best)
             best = score[i];
     }
-    // Protect e cambio: a 1 turno sembrano sempre ottimi (salvano PS, il costo è il tempo perso, che un turno non
-    // vede). Restano con la loro probabilità a priori, sotto la migliore mossa vera.
-    for (i = 0; i < n; i++)
-        if (sJob.foeCand[side][i].kind == PLAN_ACT_PROTECT || sJob.foeCand[side][i].kind == PLAN_ACT_SWITCH)
-            score[i] = (best == INT32_MIN ? 0 : best) - 4 * (100 - min(sJob.foeCand[side][i].weight, 100));
+    // Protect e cambio sulla stessa scala delle mosse: valore a 1 turno dal suo punto di vista più la probabilità a
+    // priori, meno il costo del tempo perso, lo stesso che il pianificatore fa pagare ai nostri (cambio intero,
+    // Protect mezzo cambio): a 1 turno sembrano sempre ottimi perché salvano PS e il tempo perso non si vede.
+    if (CUSTOM_VGC_PLAN_FOE_SINGLE_SCALE)
+    {
+        for (i = 0; i < n; i++)
+        {
+            if (sJob.foeCand[side][i].kind == PLAN_ACT_SWITCH)
+                score[i] -= VW(switchCost);
+            else if (sJob.foeCand[side][i].kind == PLAN_ACT_PROTECT)
+                score[i] -= VW(switchCost) / 2;
+        }
+    }
+    if (CUSTOM_VGC_PLAN_FOE_SINGLE_SCALE)
+        for (i = 0; i < n; i++)
+            best = max(best, score[i]); // la migliore su tutta la scala (pesi delle risposte fino a 100)
+    else
+    {
+        for (i = 0; i < n; i++)
+            if (sJob.foeCand[side][i].kind == PLAN_ACT_PROTECT || sJob.foeCand[side][i].kind == PLAN_ACT_SWITCH)
+                score[i] = (best == INT32_MIN ? 0 : best) - 4 * (100 - min(sJob.foeCand[side][i].weight, 100));
+    }
     if (best == INT32_MIN)
         for (i = 0; i < n; i++)
             best = max(best, score[i]);
@@ -2846,6 +2920,27 @@ static u32 MissPenalty(const struct PlanState *base, const struct PlanState *hit
         sLowRollBattler = 0;
         eLow = Evaluate(&sm);
         *pen += (s32)fail * (eHit - eLow) / 100;
+        sims++;
+    }
+    // Velocità incerta: lo stesso turno con la Velocità alternativa dell'avversario, al 35% (un quarto opposto
+    // dell'intervallo, pesato meno della stima più usata).
+    for (k = 0; k < gBattlersCount; k++)
+    {
+        const struct PlanAction *acts[4];
+        struct PlanState sm;
+        s32 eAlt;
+
+        if (sJob.speedAlt[k] == 0)
+            continue;
+        if (sims == 0)
+            eHit = Evaluate(hit);
+        memcpy(acts, acts4, sizeof(acts));
+        sm = *base;
+        sSpeedAltBattler = k + 1;
+        RunTurn(&sm, acts, 4);
+        sSpeedAltBattler = 0;
+        eAlt = Evaluate(&sm);
+        *pen += CUSTOM_VGC_PLAN_SPEED_ALT_PCT * (eHit - eAlt) / 100;
         sims++;
     }
     return sims;
@@ -3294,6 +3389,40 @@ bool32 AI_VgcPlanBegin(enum BattlerId me)
         }
     }
     InitState(&sJob.base);
+    // Velocità incerta (onesta: solo l'intervallo pubblico della specie o quello del belief, mai la vera): se la
+    // stima di un avversario e una Velocità plausibile dall'altra parte dell'intervallo danno ordini diversi con
+    // uno dei nostri, il turno 1 si gioca anche con l'ordine rovesciato (ramo pesato in MissPenalty).
+    {
+        enum BattlerId f, q;
+        for (f = 0; f < MAX_BATTLERS_COUNT; f++)
+            sJob.speedAlt[f] = 0;
+        for (f = 0; f < gBattlersCount; f++)
+        {
+            u16 lo, hi, hp, est[NUM_STATS];
+            u32 alt;
+            const struct PlanMon *fm = &sJob.base.m[f];
+            if (!IsOnPlayerSide(f) || !fm->alive || fm->partyIdx >= 0)
+                continue;
+            Scout_BattlerSpeedRange(f, &lo, &hi);
+            Scout_EstimateBattlerStats(f, &hp, est);
+            if (hi <= lo || est[STAT_SPEED] == 0)
+                continue;
+            // L'alternativa sta nel quarto opposto dell'intervallo rispetto alla stima.
+            alt = (est[STAT_SPEED] * 2 >= (u32)lo + hi) ? lo + (hi - lo) / 4 : hi - (hi - lo) / 4;
+            alt = fm->speed * alt / est[STAT_SPEED];
+            for (q = 0; q < gBattlersCount; q++)
+            {
+                const struct PlanMon *qm = &sJob.base.m[q];
+                if (IsOnPlayerSide(q) || !qm->alive)
+                    continue;
+                if ((fm->speed > qm->speed) != (alt > qm->speed))
+                {
+                    sJob.speedAlt[f] = alt;
+                    break;
+                }
+            }
+        }
+    }
     sJob.nA = BuildActions(&sJob.base, fL, sJob.foeA, PLAN_FOE_PER, FALSE, TRUE);
     sJob.nB = BuildActions(&sJob.base, fR, sJob.foeB, PLAN_FOE_PER, FALSE, TRUE);
     if (sJob.nA == 0) { sJob.foeA[0] = none; sJob.foeA[0].user = fL; sJob.nA = 1; }
@@ -3547,7 +3676,7 @@ bool32 AI_VgcPlanStep(void)
             budget--;
             if (sJob.refine)
             {
-                v = (v + GreedyValue(&st)) / 2;
+                v = (v + (CUSTOM_VGC_PLAN_ROLLOUT_TURNS > 0 ? RolloutValue(&st) : GreedyValue(&st))) / 2;
                 budget--;
             }
             sJob.laSum += v * w;

@@ -644,8 +644,8 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Enzo - Grimmsnarl sets up a screen on turn 1")
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Gerozz - Dugtrio-Alola uses Earthquake next to Levitate Rotom-Heat")
 {
-    KNOWN_FAILING; // dal 27/10, con le stime giuste di Heavy Slam (peso) e dei colpi su Dugtrio: Protect + Will-O-Wisp
-                   // (110) batte Earthquake + Thunderbolt (-6); Flare Blitz e Heavy Slam lo minacciano davvero
+    // La Velocità di Arcanine non si conosce (stima 161 contro i 160 di Dugtrio): il ramo con la Velocità
+    // alternativa (CUSTOM_VGC_PLAN_SPEED_ALT_PCT) rende Earthquake di nuovo la scelta migliore.
     // Rotom-Heat è immune (Levitate): Earthquake è 2x su Arcanine e 4x su Aggron senza costi per il compagno.
     GIVEN {
         AI_FLAGS(VGC_TRAINER_AI_FLAGS);

@@ -269,3 +269,33 @@ AI_DOUBLE_BATTLE_TEST("VGC: no Fake Out into Psychic Terrain (Indeedee's Psychic
         TURN { NOT_EXPECT_MOVE(opponentLeft, MOVE_FAKE_OUT); }
     }
 }
+
+// Filtri delle candidate del pianificatore (ex regole): ognuno con il suo test.
+AI_DOUBLE_BATTLE_TEST("VGC filter: no Tailwind while our Tailwind is still up")
+{
+    // Il compagno ha solo Tailwind: al turno 2 il vento soffia già, un secondo Tailwind fallisce.
+    GIVEN {
+        AI_FLAGS(VGC_AI_FLAGS);
+        PLAYER(SPECIES_WOBBUFFET) { Speed(10); }
+        PLAYER(SPECIES_WOBBUFFET) { Speed(10); }
+        OPPONENT(SPECIES_PIDGEOT) { Moves(MOVE_TAILWIND, MOVE_SCRATCH); Speed(50); }
+        OPPONENT(SPECIES_WHIMSICOTT) { Moves(MOVE_TAILWIND); Speed(60); }
+    } WHEN {
+        TURN { }
+        TURN { NOT_EXPECT_MOVE(opponentLeft, MOVE_TAILWIND); }
+    }
+}
+
+AI_DOUBLE_BATTLE_TEST("VGC filter: no attack into a known type immunity")
+{
+    // Due Ghost: Scratch non li tocca; resta Ember.
+    GIVEN {
+        AI_FLAGS(VGC_AI_FLAGS);
+        PLAYER(SPECIES_GASTLY) { Speed(10); }
+        PLAYER(SPECIES_GASTLY) { Speed(10); }
+        OPPONENT(SPECIES_WOBBUFFET) { Moves(MOVE_SCRATCH, MOVE_EMBER); Speed(50); }
+        OPPONENT(SPECIES_WOBBUFFET) { Moves(MOVE_SPLASH); Speed(40); }
+    } WHEN {
+        TURN { EXPECT_MOVE(opponentLeft, MOVE_EMBER); }
+    }
+}

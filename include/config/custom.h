@@ -110,6 +110,9 @@
 #define CUSTOM_VGC_PLAN_SAFETY_FRAMES       1800 // solo sicurezza contro cicli infiniti (~30 s): oltre si chiude con le coppie finite
 #define CUSTOM_VGC_PLAN_REPLACE_KO          FALSE // sostituzioni dopo un KO nella simulazione: provate il 27/10, peggiorano (misplay 445 -> 515, costo x2)
 #define CUSTOM_VGC_PLAN_REPAIR_PAIRS        FALSE // seconda passata delle coppie (velocità/setup accanto al compagno della migliore): provata il 27/10, nessun KNOWN_FAILING risolto e Savarotto Beat Up rotto
+#define CUSTOM_VGC_PLAN_ROLLOUT_TURNS       0     // turni avidi giocati dopo l'orizzonte sulla linea migliore (0 = solo il terzo turno ridotto). Con 4 (27/10): nessun KNOWN_FAILING risolto, Savarotto Calm Mind e Carletto Fake Out rotti, misplay 356 -> 386
+#define CUSTOM_VGC_PLAN_SPEED_ALT_PCT       35    // peso del ramo con la Velocità alternativa di un avversario dalla stima incerta
+#define CUSTOM_VGC_PLAN_FOE_SINGLE_SCALE    FALSE // Protect/cambio del giocatore sulla stessa scala delle mosse (con il costo del tempo): provato il 27/10, prevede Protect quasi sempre (peso 100) e rompe 2 test
 #define CUSTOM_VGC_SWITCH_COST              100 // costo di un cambio volontario al primo turno in campo (metà dopo)
 #define CUSTOM_VGC_EVAL_WINCON_PCT          150 // peso (%) di PS e KO della win condition del piano dell'allenatore
 #define CUSTOM_VGC_EVAL_SASH                20  // Focus Sash intatto a PS pieni
