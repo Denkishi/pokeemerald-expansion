@@ -286,7 +286,15 @@ def finish_game(run, killed=False):
                 continue
             lines.append(line)
     (LOGS / f'{gid}.log').write_text('\n'.join(lines) + '\n', encoding='utf-8')
-    raw_path.unlink()
+    # mGBA appena chiuso può tenere ancora il file: si riprova, e se resta si lascia (lo pulisce la campagna dopo).
+    for attempt in range(20):
+        try:
+            raw_path.unlink()
+            break
+        except PermissionError:
+            time.sleep(0.1)
+        except FileNotFoundError:
+            break
     game = parse_game(lines, run['job'])
     game['vgcleaf_righe'] = leaf
     game['secondi'] = round(time.time() - run['start'], 1)
@@ -732,7 +740,7 @@ def cmd_start(args):
               f"{sum(1 for j in state['partite'] if j['stato'] == 'finita')}/{len(state['partite'])} partite finite.")
     else:
         # Nuova campagna: via i risultati e i log della precedente (report e libro dei piani leggono solo questa).
-        for old in list(RESULTS.glob('*.json')) + list(LOGS.glob('*.log')):
+        for old in list(RESULTS.glob('*.json')) + list(LOGS.glob('*.log')) + list(LOGS.glob('*.raw.txt')):
             try:
                 old.unlink()
             except OSError:

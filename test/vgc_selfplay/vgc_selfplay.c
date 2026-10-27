@@ -185,6 +185,35 @@ static void PrintPartyMon(u32 side, u32 slot, struct Pokemon *mon)
         GetMonData(mon, MON_DATA_MOVE1), GetMonData(mon, MON_DATA_MOVE2), GetMonData(mon, MON_DATA_MOVE3), GetMonData(mon, MON_DATA_MOVE4));
 }
 
+// Controllo della memoria (indagine sullo schermo blu): percorre i blocchi dell'heap e segnala il primo con
+// l'intestazione rovinata, con il blocco prima (di solito è lui che ha scritto oltre la sua fine) e chi l'ha allocato.
+static void VgcSelfPlay_CheckHeap(const char *when)
+{
+    static EWRAM_DATA bool8 sReported = FALSE;
+    const struct MemBlock *head = HeapHead(), *b = head, *prev = NULL;
+    u32 n = 0;
+
+    if (sReported)
+        return;
+    do
+    {
+        if ((const u8 *)b < gHeap || (const u8 *)b >= gHeap + HEAP_SIZE || b->magic != MALLOC_SYSTEM_ID
+         || (b->allocated && (const u8 *)b->data + b->size > gHeap + HEAP_SIZE))
+        {
+            const char *loc = (prev != NULL && prev->allocated) ? MemBlockLocation(prev) : NULL;
+            sReported = TRUE;
+            Test_MgbaPrintf("VSP HEAP corrotto (%s, turno %d): blocco %d a %p", when, sVsp.turn + 1, n, b);
+            if (prev != NULL)
+                Test_MgbaPrintf("VSP HEAP blocco prima: %p dimensione %d allocato=%d da %s", prev, prev->size, prev->allocated,
+                                loc != NULL ? loc : "?");
+            return;
+        }
+        prev = b;
+        b = b->next;
+        n++;
+    } while (b != head && n < 2048);
+}
+
 static void PrintField(void)
 {
     const char *weather = "nessuno";
@@ -728,6 +757,7 @@ void VgcSelfPlay_OnTurnStart(void)
         Test_ExitWithResult(TEST_RESULT_TODO, SourceLine(0), "VSP limite di turni");
     }
     Test_MgbaPrintf("VSP TURNO %d", sVsp.turn + 1);
+    VgcSelfPlay_CheckHeap("inizio turno");
     PrintField();
     for (b = 0; b < gBattlersCount; b++)
         PrintBattler(b);
@@ -1247,6 +1277,7 @@ void VgcSelfPlay_OnBattleEnd(void)
             if (GetMonData(&party[i], MON_DATA_SPECIES) != SPECIES_NONE && GetMonData(&party[i], MON_DATA_HP) > 0)
                 left[side]++;
     }
+    VgcSelfPlay_CheckHeap("fine partita");
     Test_MgbaPrintf("VSP FINE esito=%s turni=%d restantiG=%d restantiA=%d misplay=%d dubbi=%d", outcome, gBattleTurnCounter,
                     left[B_SIDE_PLAYER], left[B_SIDE_OPPONENT], sVsp.misplays, sVsp.doubts);
     // Si esce subito, come per il limite di turni: la chiusura della lotta del motore e il TearDown del runner
