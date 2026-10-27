@@ -2765,6 +2765,10 @@ bool32 AI_VgcPlanStep(void)
                 sJob.laWorst = v;
 
             sJob.b2++;
+            // Costo: al turno 2 si salta la combinazione delle seconde scelte di entrambi gli avversari (la meno
+            // probabile): 3 risposte loro invece di 4.
+            if (sJob.a2 == 1 && sJob.b2 == 1)
+                sJob.b2++;
             if (sJob.b2 >= sJob.nB2)
             {
                 sJob.b2 = 0;
