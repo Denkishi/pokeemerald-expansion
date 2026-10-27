@@ -32,7 +32,9 @@ ma per una ragione diversa: la simulazione trova un KO concentrato su Roaring Mo
 Bitter Blade; Rock Slide + compagno) che vale più del Tailwind, anche perché il giocatore può rispondere con il suo
 Tailwind. Discutibile più che sbagliato: da rivedere con il modello del giocatore (livello 1).
 
-Nuovo KNOWN_FAILING: **Sableye** (Tony) cambia con Slither Wing invece di Fake Out / Taunt. Diagnosi: Great Tusk con
+Poi tornati PASS anche **Sableye** (Fake Out/Taunt) e **Ceruledge** (Shadow Sneak su Gengar) con il partner a 3 azioni al turno 2 e le cache. Stato: **47 PASS, 18 KNOWN_FAILING, 0 FAIL**.
+
+Era KNOWN_FAILING: **Sableye** (Tony) cambia con Slither Wing invece di Fake Out / Taunt. Diagnosi: Great Tusk con
 Booster Energy (attivazione visibile) manda KO Sableye con Headlong Rush; il pianificatore preferisce far entrare
 Slither Wing e mandare KO Porygon2 al turno dopo con Close Combat. Discutibile ma non la giocata attesa.
 

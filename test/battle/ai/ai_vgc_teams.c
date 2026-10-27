@@ -316,7 +316,6 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Patatina - Altaria sets Tailwind for Ceruledge
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Patatina - Ceruledge finishes a weakened Gengar with Shadow Sneak")
 {
-    KNOWN_FAILING; // TURN incompleto: una MOSSA del giocatore non viene eseguita (KO/flinch prima di agire), esito dell'IA non verificato: rivedere il setup
     // Gengar (Enzo) a pochi PS è più veloce di Ceruledge: Shadow Sneak (priorità, superefficace) lo manda KO
     // prima che usi Hypnosis o Shadow Ball. Bitter Blade arriverebbe dopo.
     GIVEN {
@@ -340,7 +339,6 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Patatina - Ceruledge finishes a weakened Genga
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Tony - Sableye stops Porygon2's Trick Room with Fake Out or Taunt")
 {
-    KNOWN_FAILING; // il pianificatore cambia Sableye con Slither Wing: Great Tusk (Booster Energy) manda KO Sableye, e al turno 2 Close Combat su Porygon2 vale più del Fake Out (vedi scenari.md)
     // Gerozz in modalità Trick Room (Porygon2 + Great Tusk): sotto la stanza la squadra veloce di Tony perde.
     // Sableye ha Fake Out e Taunt con Prankster: una delle due sul setter è la giocata. Sunny Day è inutile
     // (il sole arriva con la Mega di Charizard), Icy Wind non ferma la stanza.

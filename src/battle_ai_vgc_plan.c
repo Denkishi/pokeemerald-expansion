@@ -43,11 +43,16 @@
 #define CUSTOM_VGC_PLAN_SIMS_PER_FRAME 24
 #endif
 
+// Le funzioni più chiamate dalla simulazione (valutazione, turno, danni, velocità) stanno in IWRAM come codice ARM:
+// lì il bus è a 32 bit senza attese, contro la ROM a 16 bit con attese. long_call: sono lontane dalla ROM.
+#define PLAN_HOT ARM_FUNC __attribute__((section(".iwram.vgcplan"), noinline, long_call))
+
 #define PLAN_MAX_OURS        7   // azioni per ciascuno dei nostri Pokémon che entrano nelle coppie (le migliori a 1 turno)
 #define PLAN_ALL_OURS        14  // tutte le azioni legali di un nostro Pokémon (4 mosse x 3 bersagli + cambio)
-#define PLAN_MAX_PAIRS       10  // coppie (nostra azione, azione del partner) simulate per intero (albero a 3 turni)
+#define PLAN_MAX_PAIRS       8   // coppie (nostra azione, azione del partner) simulate per intero (albero a 3 turni)
 #define PLAN_FOE_PER         2   // azioni per avversario (primo turno)
-#define PLAN_P2_OURS_PER     3   // azioni per nostro Pokémon al turno dopo (una corsia è per setup/Protect/velocità)
+#define PLAN_P2_OURS_PER     3   // azioni per chi pianifica al turno dopo (una corsia è per setup/Protect/velocità)
+#define PLAN_P2_PARTNER_PER  3   // azioni del partner al turno dopo (anche qui con la corsia)
 #define PLAN_P2_FOE_PER      2   // azioni per avversario al turno dopo
 #define PLAN_OVERRIDE_MARGIN 1   // la simulazione decide: basta essere migliori (a pari valore resta la scelta delle regole)
 #define PLAN_CAND_MAX        12
@@ -91,14 +96,14 @@ enum PlanStage
 };
 
 // Valore di una statistica allo stadio `s` (v = valore a stadio 0).
-static u32 ApplyStage(u32 v, s32 s)
+PLAN_HOT static u32 ApplyStage(u32 v, s32 s)
 {
     s = max(-6, min(6, s));
     return (s >= 0) ? v * (2 + s) / 2 : v * 2 / (2 - s);
 }
 
 // Da un valore già allo stadio `from` allo stesso valore allo stadio `to`.
-static u32 StageRatio(u32 v, s32 from, s32 to)
+PLAN_HOT static u32 StageRatio(u32 v, s32 from, s32 to)
 {
     from = max(-6, min(6, from));
     to = max(-6, min(6, to));
@@ -153,6 +158,13 @@ struct PlanState
 
 #define PLAN_KO_CACHE 64
 #define PLAN_LIKELY_MAX 4
+#define PLAN_EST_CACHE 64
+
+struct PlanEstCache
+{
+    u32 k1, k2;     // chiave (k1 = 0 = vuota)
+    s32 val;
+};
 
 struct PlanKoCache
 {
@@ -197,6 +209,7 @@ struct PlanJob
     s32 laBest, laSum, laWsum, laWorst;
     u8 bestI2, bestJ2, refine;  // linea migliore del turno 2; refine = secondo passaggio con il terzo turno
     struct PlanKoCache koCache[PLAN_KO_CACHE];
+    struct PlanEstCache estCache[PLAN_EST_CACHE];
     u8 protectChance[MAX_BATTLERS_COUNT], switchChance[MAX_BATTLERS_COUNT]; // del giocatore, letti una volta a inizio lavoro
     // Attacchi probabili ma non ancora visti dei Pokémon del giocatore in campo (belief M1: statistiche d'uso,
     // mosse viste, Choice dedotta), con la probabilità. Letti una volta a inizio lavoro.
@@ -242,6 +255,7 @@ struct PlanTestLog
 static EWRAM_DATA struct PlanTestLog sTestLog = {0};
 // Contatori di chiamate per la misura del costo (VGCCPU).
 static EWRAM_DATA u32 sCntEval = 0, sCntBuild = 0, sCntKo = 0, sCntEst = 0, sCntDmg = 0;
+static EWRAM_DATA u32 sProf[5] = {0}; // Evaluate, RunTurn, ApplyAction, CanKo (senza cache), EstimateDamage
 #define PLAN_COUNT(c) ((c)++)
 // Diagnostica: Evaluate stampa le sue parti (stato per stato) quando è acceso.
 static EWRAM_DATA u8 sEvalDebug = 0;
@@ -556,7 +570,7 @@ static void NextTurn(struct PlanState *st)
     st->firstTurn = FALSE;
 }
 
-static u32 EffSpeed(const struct PlanState *st, enum BattlerId b)
+PLAN_HOT static u32 EffSpeed(const struct PlanState *st, enum BattlerId b)
 {
     const struct PlanMon *pm = &st->m[b];
     u32 s = StageRatio(pm->speed, pm->stage0[PS_SPE], pm->stage[PS_SPE]);
@@ -593,7 +607,35 @@ static u32 WeatherFactor(u8 weather, enum Type type)
 }
 
 // Stima "da giocatore" per mosse o Pokémon fuori dalla tabella dei danni dell'IA.
+static s32 EstimateDamageImpl(const struct PlanState *st, const struct PlanMon *atk, const struct PlanMon *def, enum Move move);
+// Profilo (solo test): righe di schermo passate dentro la funzione, sommate (VGCPROF).
+// Cache della stima per il lavoro in corso: la chiave contiene tutto ciò che la stima legge (chi, quale mossa,
+// stadi, meteo, scottatura, strumento, abilità). Le stesse coppie attaccante/bersaglio tornano in ogni foglia.
 static s32 EstimateDamage(const struct PlanState *st, const struct PlanMon *atk, const struct PlanMon *def, enum Move move)
+{
+    u32 ai = atk - st->m, di = def - st->m;
+    u32 k1 = 0x80000000u | (u32)move | (ai << 16) | (di << 18) | (((u32)(atk->partyIdx + 1) & 7) << 20) | (((u32)(def->partyIdx + 1) & 7) << 23)
+           | ((st->weather & 7u) << 26) | ((u32)atk->burned0 << 29);
+    u32 k2 = (((u32)(atk->stage[PS_ATK] + 6) & 15)) | (((u32)(atk->stage[PS_SPA] + 6) & 15) << 4) | (((u32)(def->stage[PS_DEF] + 6) & 15) << 8)
+           | (((u32)(def->stage[PS_SPD] + 6) & 15) << 12) | (((u32)def->holdEffect & 0xFF) << 16) | (((u32)atk->holdEffect & 0xFF) << 24);
+    struct PlanEstCache *e = &sJob.estCache[(k1 * 2654435761u ^ k2 * 40503u) % PLAN_EST_CACHE];
+    s32 r;
+#if TESTING
+    u32 t0 = REG_VCOUNT;
+#endif
+    if (e->k1 == k1 && e->k2 == k2)
+        return e->val;
+    r = EstimateDamageImpl(st, atk, def, move);
+    e->k1 = k1;
+    e->k2 = k2;
+    e->val = r;
+#if TESTING
+    sProf[4] += (REG_VCOUNT + 228 - t0) % 228;
+#endif
+    return r;
+}
+
+static s32 EstimateDamageImpl(const struct PlanState *st, const struct PlanMon *atk, const struct PlanMon *def, enum Move move)
 {
     PLAN_COUNT(sCntEst);
     u32 power = GetMovePower(move);
@@ -840,7 +882,21 @@ static void TakeDamage(struct PlanMon *tm, s32 dmg)
     }
 }
 
+static void ApplyActionImpl(struct PlanState *st, const struct PlanAction *a);
+// Profilo (solo test): righe di schermo passate dentro la funzione, sommate (VGCPROF).
 static void ApplyAction(struct PlanState *st, const struct PlanAction *a)
+{
+#if TESTING
+    u32 t0 = REG_VCOUNT;
+    ApplyActionImpl(st, a);
+    sProf[2] += (REG_VCOUNT + 228 - t0) % 228;
+    return;
+#else
+    ApplyActionImpl(st, a);
+#endif
+}
+
+static void ApplyActionImpl(struct PlanState *st, const struct PlanAction *a)
 {
     enum BattlerId u = a->user;
     struct PlanMon *um = &st->m[u];
@@ -1112,7 +1168,21 @@ static void ApplyAction(struct PlanState *st, const struct PlanAction *a)
 // ---------------------------------------------------------------------
 // Probabilità (0..100) che `atk` mandi KO `def` al turno dopo con una sua mossa: la precisione della mossa
 // migliore che basta (0 = nessuna).
+static u32 CanKoNextTurnUncachedImpl(const struct PlanState *st, enum BattlerId atk, enum BattlerId def);
+// Profilo (solo test): righe di schermo passate dentro la funzione, sommate (VGCPROF).
 static u32 CanKoNextTurnUncached(const struct PlanState *st, enum BattlerId atk, enum BattlerId def)
+{
+#if TESTING
+    u32 t0 = REG_VCOUNT;
+    u32 r = CanKoNextTurnUncachedImpl(st, atk, def);
+    sProf[3] += (REG_VCOUNT + 228 - t0) % 228;
+    return r;
+#else
+    return CanKoNextTurnUncachedImpl(st, atk, def);
+#endif
+}
+
+static u32 CanKoNextTurnUncachedImpl(const struct PlanState *st, enum BattlerId atk, enum BattlerId def)
 {
     PLAN_COUNT(sCntKo);
     const struct PlanMon *am = &st->m[atk], *dm = &st->m[def];
@@ -1176,7 +1246,7 @@ static u32 CanKoNextTurnUncached(const struct PlanState *st, enum BattlerId atk,
 // Cache di CanKoNextTurn per il lavoro in corso: la stessa domanda (stessi Pokémon, PS del bersaglio, stadi,
 // abilità, meteo, schermi) torna in quasi ogni foglia dell'albero. La chiave contiene tutto ciò da cui dipende
 // il danno nella simulazione; a collisione si ricalcola e si sovrascrive.
-static u32 CanKoNextTurn(const struct PlanState *st, enum BattlerId atk, enum BattlerId def)
+PLAN_HOT static u32 CanKoNextTurn(const struct PlanState *st, enum BattlerId atk, enum BattlerId def)
 {
     const struct PlanMon *am = &st->m[atk], *dm = &st->m[def];
     struct PlanKoCache *e;
@@ -1219,7 +1289,21 @@ static bool32 FakeOutReady(const struct PlanState *st, enum BattlerId b)
 // Valore della posizione dal nostro punto di vista (positivo = meglio per noi). Pesi in include/config/custom.h
 // (CUSTOM_VGC_EVAL_*). Tutto è simmetrico: ciò che vale per un nostro Pokémon vale con il segno opposto per uno
 // del giocatore.
+PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st);
+// Profilo (solo test): righe di schermo passate dentro la funzione, sommate (VGCPROF).
 static s32 Evaluate(const struct PlanState *st)
+{
+#if TESTING
+    u32 t0 = REG_VCOUNT;
+    s32 r = EvaluateImpl(st);
+    sProf[0] += (REG_VCOUNT + 228 - t0) % 228;
+    return r;
+#else
+    return EvaluateImpl(st);
+#endif
+}
+
+PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st)
 {
     PLAN_COUNT(sCntEval);
     enum BattlerId b, o;
@@ -1673,7 +1757,7 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
             u32 best = 0;
             // Corsia protetta (nostre, almeno 3 posti): l'ultimo posto va alla migliore azione "utile" se
             // nessuna è già entrata (Calm Mind ora -> Baton Pass dopo, Protect, Tailwind, Trick Room).
-            bool32 lane = isOurs && maxOut >= 3 && outN == maxOut - 1 && !hasUtility;
+            bool32 lane = isOurs && maxOut >= 2 && outN == maxOut - 1 && !hasUtility;
             for (i = 0; lane && i < n; i++)
                 if (IsUtilityAction(&cand[i]) && (!IsUtilityAction(&cand[best]) || cand[i].weight > cand[best].weight))
                     best = i;
@@ -1696,7 +1780,21 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
 // ---------------------------------------------------------------------
 // Simulazione
 // ---------------------------------------------------------------------
+static void RunTurnImpl(struct PlanState *st, const struct PlanAction **acts, u32 n);
+// Profilo (solo test): righe di schermo passate dentro la funzione, sommate (VGCPROF).
 static void RunTurn(struct PlanState *st, const struct PlanAction **acts, u32 n)
+{
+#if TESTING
+    u32 t0 = REG_VCOUNT;
+    RunTurnImpl(st, acts, n);
+    sProf[1] += (REG_VCOUNT + 228 - t0) % 228;
+    return;
+#else
+    RunTurnImpl(st, acts, n);
+#endif
+}
+
+static void RunTurnImpl(struct PlanState *st, const struct PlanAction **acts, u32 n)
 {
     u32 i, j;
     for (i = 0; i < n; i++)
@@ -2162,7 +2260,7 @@ static void StartLookAhead(void)
     sJob.la = sJob.s1;
     NextTurn(&sJob.la);
     sJob.nM = BuildActions(&sJob.la, me, sJob.mine, PLAN_P2_OURS_PER, TRUE, TRUE);
-    sJob.nP = (partner != me) ? BuildActions(&sJob.la, partner, sJob.pa, PLAN_P2_OURS_PER, TRUE, FALSE) : 0;
+    sJob.nP = (partner != me) ? BuildActions(&sJob.la, partner, sJob.pa, PLAN_P2_PARTNER_PER, TRUE, FALSE) : 0;
     sJob.nA2 = BuildActions(&sJob.la, fL, sJob.fa, PLAN_P2_FOE_PER, FALSE, TRUE);
     sJob.nB2 = BuildActions(&sJob.la, fR, sJob.fb, PLAN_P2_FOE_PER, FALSE, FALSE);
     if (sJob.nM == 0) { sJob.mine[0] = none; sJob.mine[0].user = me; sJob.nM = 1; }
@@ -2243,6 +2341,7 @@ static void FinishJob(void)
             for (k = 0; k < sJob.nLikely[i]; k++)
                 Test_MgbaPrintf("VGCLIKELY b%d: m%d p%d", i, sJob.likelyMove[i][k], sJob.likelyP[i][k]);
         }
+        Test_MgbaPrintf("VGCPROF righe: eval=%d turno=%d azioni=%d ko=%d stima=%d", sProf[0], sProf[1], sProf[2], sProf[3], sProf[4]);
         Test_MgbaPrintf("VGCCPU b%d: fotogrammi=%d simulazioni=%d coppie=%d eval=%d build=%d ko=%d stima=%d danni=%d", sJob.me, sJob.frames,
                         sJob.sims, sJob.nOurs, sCntEval, sCntBuild, sCntKo, sCntEst, sCntDmg);
         for (i = 0; i < sJob.nA; i++)
@@ -2466,6 +2565,7 @@ bool32 AI_VgcPlanBegin(enum BattlerId me)
     AI_VgcBuildTeamGraph(GetBattlerParty(me), &sJob.graph);
 #if TESTING
     sCntEval = sCntBuild = sCntKo = sCntEst = sCntDmg = 0;
+    memset(sProf, 0, sizeof(sProf));
 #endif
     sJob.bench[GetBattlerSide(me)] = CountUsablePartyMons(me);
     sJob.bench[GetBattlerSide(fL)] = CountUsablePartyMons(fL);

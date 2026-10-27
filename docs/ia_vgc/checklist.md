@@ -18,7 +18,7 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
   - 🔧 velocità del giocatore in `gAiLogicData->speedStats`: ora stimata dal belief (M1, branch `ia-vgc-meta`)
 - ✅ Suite di test `test/battle/ai/ai_vgc_doubles.c` attiva. WSL compila soltanto; i test si eseguono su Windows con `tools/mgba/mgba-rom-test.exe`
 - ✅ Installate con msys2 `libepoxy-0.dll` e `libwinpthread-1.dll`: `mgba-rom-test.exe` gira su Windows (aggiungere `C:\msys64\mingw64\bin` al PATH)
-- ✅ **Risultati (tutti i test VGC: doppi, team preview, scout/belief, squadre vere): 45 PASS, 0 FAIL, 20 KNOWN_FAILING** — i KNOWN_FAILING sono tutti in `ai_vgc_teams.c`, elencati e spiegati in [scenari.md](scenari.md)
+- ✅ **Risultati (tutti i test VGC: doppi, team preview, scout/belief, squadre vere): 47 PASS, 0 FAIL, 18 KNOWN_FAILING** — i KNOWN_FAILING sono tutti in `ai_vgc_teams.c`, elencati e spiegati in [scenari.md](scenari.md)
   - ✅ Dopo un KO entra il compagno giusto (Gallade accanto a Whimsicott)
 - ℹ️ Controllo regressioni: `test/battle/ai/ai_doubles.c` dell'expansion ha 14 test che falliscono, **identici su `master`** (prima del lavoro sull'IA VGC): non li ho introdotti io, vengono dalle modifiche precedenti del fork
   - ✅ Fake Out al turno 1 per coprire un compagno Baton Passer
@@ -34,6 +34,7 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
 - 🔧 Cache dei profili scout e degli attacchi imparabili (12 specie, EWRAM): niente più scansioni dei learnset a ogni simulazione
 - ⬜ Schermo blu: serve sapere quando succede / un salvataggio per riprodurlo
 - 🔧 Costo: da 500-1900 fotogrammi per decisione a 20-400 (la maggior parte 100-300, cioè 2-5 s a 100 righe/fotogramma). Cache di CanKoNextTurn per lavoro; probabilità di Protect/cambio del giocatore lette una volta; terzo turno ridotto con azioni scelte una volta per linea e giocato solo sulla linea migliore del turno 2; priorità e velocità calcolate una volta per passo (e priorità senza `GetBattleMovePriority`, che registrava Prankster come effetto collaterale); 10 coppie simulate per intero invece di 14. **Da fare**: scendere sotto i ~200 fotogrammi anche nei casi peggiori (407 nel test Simple Beam), ROM normale compilata (EWRAM 95,14%, IWRAM 53,2%), da provare in gioco
+- 🔧 Costo dopo cache della stima dei danni, `Evaluate` e velocità in IWRAM (codice ARM, +4 KB: IWRAM 66%) e 8 coppie complete: mediana 139 fotogrammi, 90° percentile 225, massimo 326 (prima 445). Profilo per funzione nei test: riga `VGCPROF` (righe di schermo in Evaluate, RunTurn, ApplyAction, CanKo, stima). **Da fare**: massimo sotto ~200
 - ✅ Misura dei frame di "pensiero" per decisione: riga `VGCCPU` nel log dei test (fotogrammi, simulazioni, chiamate a Evaluate/BuildActions/CanKo/stime/danni)
 
 ## M1 — Belief del giocatore (esperienza da giocatore VGC)
