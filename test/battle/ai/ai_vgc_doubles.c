@@ -255,3 +255,17 @@ AI_DOUBLE_BATTLE_TEST("VGC: Mega Charizard Y's sun makes Solar Beam hit on the t
         TURN { EXPECT_MOVE(opponentLeft, MOVE_SOLAR_BEAM); }
     }
 }
+
+AI_DOUBLE_BATTLE_TEST("VGC: no Fake Out into Psychic Terrain (Indeedee's Psychic Surge)")
+{
+    // Sul Campo Psichico le mosse con priorità sugli avversari a terra falliscono: Fake Out è un turno perso.
+    GIVEN {
+        AI_FLAGS(VGC_AI_FLAGS);
+        PLAYER(SPECIES_INDEEDEE_F) { Ability(ABILITY_PSYCHIC_SURGE); Speed(85); }
+        PLAYER(SPECIES_URSALUNA) { Speed(50); }
+        OPPONENT(SPECIES_INCINEROAR) { Moves(MOVE_FAKE_OUT, MOVE_FLARE_BLITZ, MOVE_DARKEST_LARIAT); Speed(60); }
+        OPPONENT(SPECIES_WOBBUFFET) { Moves(MOVE_CELEBRATE); Speed(40); }
+    } WHEN {
+        TURN { NOT_EXPECT_MOVE(opponentLeft, MOVE_FAKE_OUT); }
+    }
+}

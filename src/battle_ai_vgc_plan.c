@@ -157,6 +157,9 @@ struct PlanState
     u8 screens[2];      // per lato: bit 0 Reflect, bit 1 Light Screen (Aurora Veil = entrambi)
     u8 screens0[2];     // schermi all'inizio (compresi nella tabella dei danni)
     u8 firstTurn;       // turno simulato = turno attuale (Fake Out vale)
+    u8 terrain;         // B_TERRAIN_* attuale nella simulazione
+    u8 terrain0;        // terreno all'inizio (compreso nella tabella dei danni)
+    u8 terrainTurns;    // turni rimasti (0 = senza scadenza nota)
 };
 
 #define PLAN_KO_CACHE 64
@@ -280,6 +283,18 @@ static u8 WeatherFromAbility(enum Ability ab)
     case ABILITY_SAND_STREAM: case ABILITY_SAND_SPIT: return PW_SAND;
     case ABILITY_SNOW_WARNING: return PW_SNOW;
     default: return PW_NONE;
+    }
+}
+
+static u8 TerrainFromAbility(enum Ability ab)
+{
+    switch (ab)
+    {
+    case ABILITY_GRASSY_SURGE: return B_TERRAIN_GRASSY;
+    case ABILITY_MISTY_SURGE: return B_TERRAIN_MISTY;
+    case ABILITY_ELECTRIC_SURGE: case ABILITY_HADRON_ENGINE: return B_TERRAIN_ELECTRIC;
+    case ABILITY_PSYCHIC_SURGE: return B_TERRAIN_PSYCHIC;
+    default: return B_TERRAIN_NONE;
     }
 }
 
@@ -512,6 +527,12 @@ static void LoadPartyMon(struct PlanState *st, enum BattlerId b, u32 partyIdx)
                 pm->canPass = TRUE;
         }
     }
+    // Terreno all'entrata (abilità).
+    if (TerrainFromAbility(pm->ability) != B_TERRAIN_NONE)
+    {
+        st->terrain = TerrainFromAbility(pm->ability);
+        st->terrainTurns = 5;
+    }
     // Meteo all'entrata (abilità).
     w = WeatherFromAbility(pm->ability);
     if (w != PW_NONE)
@@ -611,6 +632,8 @@ static void InitState(struct PlanState *st)
         }
     }
     st->firstTurn = TRUE;
+    st->terrain = st->terrain0 = gFieldTimers.terrain;
+    st->terrainTurns = gFieldTimers.terrainTimer;
     // Le Mega dopo il meteo di partenza: il meteo dell'abilità della Mega (Charizard Y) vale già in questo turno.
     for (b = 0; b < gBattlersCount; b++)
         LoadMega(st, b);
@@ -634,6 +657,8 @@ static void NextTurn(struct PlanState *st)
         st->tailwind[B_SIDE_PLAYER]--;
     if (st->tailwind[B_SIDE_OPPONENT] > 0)
         st->tailwind[B_SIDE_OPPONENT]--;
+    if (st->terrainTurns > 0 && --st->terrainTurns == 0)
+        st->terrain = B_TERRAIN_NONE;
     st->firstTurn = FALSE;
 }
 
@@ -811,6 +836,34 @@ static bool32 AbilityBlocksMove(const struct PlanMon *am, const struct PlanMon *
     }
 }
 
+// A terra (i terreni valgono solo per chi tocca il suolo).
+static bool32 IsGroundedInSim(const struct PlanMon *pm)
+{
+    return pm->t1 != TYPE_FLYING && pm->t2 != TYPE_FLYING && pm->ability != ABILITY_LEVITATE && pm->holdEffect != HOLD_EFFECT_AIR_BALLOON;
+}
+
+// Effetto del terreno sul danno, in %: Elettro/Erba/Psico x1,3 per chi attacca da terra; Earthquake & co. a metà
+// sull'Erboso, Drago a metà sul Nebbioso (bersaglio a terra).
+static u32 TerrainFactor(u8 terrain, const struct PlanMon *am, const struct PlanMon *dm, enum Move move)
+{
+    enum Type type = GetMoveType(move);
+    u32 f = 100;
+
+    if (terrain == B_TERRAIN_NONE)
+        return 100;
+    if (IsGroundedInSim(am) && ((terrain == B_TERRAIN_ELECTRIC && type == TYPE_ELECTRIC) || (terrain == B_TERRAIN_GRASSY && type == TYPE_GRASS)
+                              || (terrain == B_TERRAIN_PSYCHIC && type == TYPE_PSYCHIC)))
+        f = 130;
+    if (IsGroundedInSim(dm))
+    {
+        if (terrain == B_TERRAIN_GRASSY && (move == MOVE_EARTHQUAKE || move == MOVE_BULLDOZE || move == MOVE_MAGNITUDE))
+            f = f / 2;
+        if (terrain == B_TERRAIN_MISTY && type == TYPE_DRAGON)
+            f = f / 2;
+    }
+    return f;
+}
+
 static s32 DamageOf(const struct PlanState *st, const struct PlanAction *a, enum BattlerId t)
 {
     const struct PlanMon *am = &st->m[a->user], *dm = &st->m[t];
@@ -843,7 +896,11 @@ static s32 DamageOf(const struct PlanState *st, const struct PlanAction *a, enum
     else
     {
         dmg = EstimateDamage(st, am, dm, a->move);
+        dmg = dmg * TerrainFactor(st->terrain, am, dm, a->move) / 100;
     }
+    // Terreno cambiato nella simulazione: la tabella ha quello di partenza.
+    if (st->terrain != st->terrain0 && a->moveIndex != 0xFF && am->partyIdx < 0 && dm->partyIdx < 0 && !am->megaNow && !dm->megaNow)
+        dmg = dmg * TerrainFactor(st->terrain, am, dm, a->move) / max(TerrainFactor(st->terrain0, am, dm, a->move), 1);
     {
         // Scottatura e schermi comparsi durante la simulazione (quelli già presenti sono nella tabella o nella stima).
         bool32 physical = GetMoveCategory(a->move) == DAMAGE_CATEGORY_PHYSICAL;
@@ -942,7 +999,7 @@ static s32 ActionPriority(const struct PlanState *st, const struct PlanAction *a
         pr++;
     else if (um->ability == ABILITY_TRIAGE && IsHealingMove(a->move))
         pr += 3;
-    else if (GetMoveEffect(a->move) == EFFECT_GRASSY_GLIDE && gFieldTimers.terrain == B_TERRAIN_GRASSY)
+    else if (GetMoveEffect(a->move) == EFFECT_GRASSY_GLIDE && st->terrain == B_TERRAIN_GRASSY && IsGroundedInSim(um))
         pr++;
     return pr;
 }
@@ -1035,6 +1092,10 @@ static void ApplyActionImpl(struct PlanState *st, const struct PlanAction *a)
     // Taunt: niente mosse di stato (Trick Room, Tailwind, setup, Spore...) finché dura.
     if (um->taunted && IsBattleMoveStatus(a->move))
         return;
+    // Campo Psichico: una mossa con priorità (anche da Prankster) su un avversario a terra fallisce.
+    if (st->terrain == B_TERRAIN_PSYCHIC && !IsBattlerAlly(u, a->target) && IsGroundedInSim(&st->m[a->target])
+     && !IsSpreadMove(tt) && ActionPriority(st, a) > 0)
+        return;
     // Fake Out e simili falliscono del tutto dopo il primo turno in campo (niente danno).
     if (effect == EFFECT_FIRST_TURN_ONLY && !(st->firstTurn && IsBattlersFirstTurn(u)))
         return;
@@ -1089,6 +1150,10 @@ static void ApplyActionImpl(struct PlanState *st, const struct PlanAction *a)
     case EFFECT_TAILWIND:
         if (!st->tailwind[GetBattlerSide(u)])
             st->tailwind[GetBattlerSide(u)] = 4;
+        return;
+    case EFFECT_TERRAIN:
+        st->terrain = GetMoveTerrainType(a->move);
+        st->terrainTurns = 5;
         return;
     case EFFECT_WEATHER:
         switch (GetMoveWeatherType(a->move))
@@ -1183,6 +1248,8 @@ static void ApplyActionImpl(struct PlanState *st, const struct PlanAction *a)
             enum Ability defAbility = (um->ability == ABILITY_MYCELIUM_MIGHT) ? ABILITY_NONE : tm->ability;
             if (IsPowderMove(a->move) && (tm->t1 == TYPE_GRASS || tm->t2 == TYPE_GRASS || defAbility == ABILITY_OVERCOAT
                                         || tm->holdEffect == HOLD_EFFECT_SAFETY_GOGGLES))
+                ok = FALSE;
+            if ((st->terrain == B_TERRAIN_ELECTRIC || st->terrain == B_TERRAIN_MISTY) && IsGroundedInSim(tm))
                 ok = FALSE;
             if (defAbility == ABILITY_INSOMNIA || defAbility == ABILITY_VITAL_SPIRIT || defAbility == ABILITY_SWEET_VEIL
              || defAbility == ABILITY_GOOD_AS_GOLD || defAbility == ABILITY_MAGIC_BOUNCE || defAbility == ABILITY_PURIFYING_SALT
@@ -1350,7 +1417,8 @@ PLAN_HOT static u32 CanKoNextTurn(const struct PlanState *st, enum BattlerId atk
     struct PlanKoCache *e;
     u32 k1 = 0x80000000u | atk | (def << 2) | (((u32)(am->partyIdx + 1) & 7) << 4) | (((u32)(dm->partyIdx + 1) & 7) << 7)
            | ((st->weather & 7u) << 10) | ((st->screens[GetBattlerSide(def)] & 3u) << 13) | ((u32)am->burned << 15)
-           | ((u32)am->helping << 16) | ((u32)am->burned0 << 17) | ((u32)st->screens[GetBattlerSide(atk)] << 18);
+           | ((u32)am->helping << 16) | ((u32)am->burned0 << 17) | ((u32)st->screens[GetBattlerSide(atk)] << 18)
+           | ((st->terrain & 7u) << 20);
     u32 k2 = ((u32)dm->hp & 0xFFFF) | (((u32)(am->stage[PS_ATK] + 6) & 15) << 16) | (((u32)(am->stage[PS_SPA] + 6) & 15) << 20)
            | (((u32)(dm->stage[PS_DEF] + 6) & 15) << 24) | (((u32)(dm->stage[PS_SPD] + 6) & 15) << 28);
     u32 k3 = ((u32)am->ability & 0xFFFF) | ((u32)dm->ability << 16);
@@ -1640,6 +1708,7 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
             else if (eff == EFFECT_FOLLOW_ME) w = 45;
             else if (eff == EFFECT_HELPING_HAND) w = 30;
             else if (eff == EFFECT_WEATHER) w = 40;
+            else if (eff == EFFECT_TERRAIN && st->terrain != GetMoveTerrainType(m)) w = 40;
             else if (eff == EFFECT_PROTECT && GetMoveProtectMethod(m) == PROTECT_WIDE_GUARD) w = 25;
             else if (GetMoveNonVolatileStatus(m) == MOVE_EFFECT_SLEEP) w = 60;
             else if (eff == EFFECT_TAUNT) w = 35;
@@ -1932,8 +2001,13 @@ static void RunTurnImpl(struct PlanState *st, const struct PlanAction **acts, u3
     }
     // Fine turno. Speed Boost: +1 Velocità (qui e non in NextTurn: la valutazione di fine turno lo vede già).
     for (i = 0; i < gBattlersCount; i++)
+    {
         if (st->m[i].alive && st->m[i].ability == ABILITY_SPEED_BOOST)
             st->m[i].stage[PS_SPE] = min(6, st->m[i].stage[PS_SPE] + 1);
+        // Campo Erboso: 1/16 dei PS a chi è a terra.
+        if (st->m[i].alive && st->terrain == B_TERRAIN_GRASSY && IsGroundedInSim(&st->m[i]))
+            st->m[i].hp = min(st->m[i].maxHp, st->m[i].hp + st->m[i].maxHp / 16);
+    }
 }
 
 // Terzo turno in forma ridotta: la nostra risposta migliore (una per Pokémon) contro la loro più probabile.
