@@ -269,3 +269,171 @@ AI_DOUBLE_BATTLE_TEST("VGC belief: Choice Band deduced from damage dealt")
         EXPECT_EQ(Scout_BattlerDeducedHoldEffect(GetBattlerAtPosition(B_POSITION_PLAYER_LEFT)), HOLD_EFFECT_CHOICE_BAND);
     }
 }
+
+// --- Contesto della squadra (team preview): cosa si capisce già guardando i 6 ------------------------
+
+static const u16 sCtxTrickRoomTeam[] = { SPECIES_HATTERENE, SPECIES_DUSCLOPS, SPECIES_URSALUNA, SPECIES_TORKOAL, SPECIES_AMOONGUSS, SPECIES_INCINEROAR };
+static const u16 sCtxTailwindTeam[] = { SPECIES_WHIMSICOTT, SPECIES_KILOWATTREL, SPECIES_GARCHOMP, SPECIES_DRAGAPULT, SPECIES_URSALUNA, SPECIES_CHIEN_PAO };
+
+TEST("VGC context: a Trick Room team gives its slow mons the minimum Speed")
+{
+    struct ScoutTeamContext tr, tw;
+    u16 hp, stats[NUM_STATS], lo, hi;
+    u32 i;
+
+    Scout_ComputeTeamContext(sCtxTrickRoomTeam, ARRAY_COUNT(sCtxTrickRoomTeam), &tr);
+    Scout_ComputeTeamContext(sCtxTailwindTeam, ARRAY_COUNT(sCtxTailwindTeam), &tw);
+    EXPECT(tr.archetype & SCOUT_ARCH_TRICK_ROOM);
+    EXPECT_EQ(tr.plan, SCOUT_PLAN_TRICK_ROOM);
+    EXPECT(!(tw.archetype & SCOUT_ARCH_TRICK_ROOM));
+    // I lenti della squadra TR: Velocità minima possibile (natura -Vel, 0 EV, 0 IV).
+    for (i = 0; i < tr.n; i++)
+    {
+        u16 sp = tr.slot[i].species;
+        if (gSpeciesInfo[sp].baseSpeed > 60)
+            continue;
+        EXPECT_EQ(tr.slot[i].speedMode, SCOUT_SPEED_MIN);
+        Scout_EstimateStatsInTeam(&tr, sp, 50, &hp, stats);
+        Scout_SpeciesSpeedRange(sp, 50, &lo, &hi);
+        EXPECT_EQ(stats[STAT_SPEED], lo);
+    }
+    // Il setter della squadra TR ha Trick Room quasi certa.
+    EXPECT_GE(Scout_MoveChanceInTeam(&tr, SPECIES_DUSCLOPS, MOVE_TRICK_ROOM), 90);
+    // Lo stesso Ursaluna in una squadra Tailwind non è "da Trick Room".
+    {
+        u16 trStats[NUM_STATS], twStats[NUM_STATS];
+        Scout_EstimateStatsInTeam(&tr, SPECIES_URSALUNA, 50, &hp, trStats);
+        Scout_EstimateStatsInTeam(&tw, SPECIES_URSALUNA, 50, &hp, twStats);
+        EXPECT_LE(trStats[STAT_SPEED], twStats[STAT_SPEED]);
+    }
+}
+
+TEST("VGC context: a Tailwind team gives its attackers the maximum Speed")
+{
+    struct ScoutTeamContext tw;
+    u16 hp, stats[NUM_STATS], lo, hi;
+
+    Scout_ComputeTeamContext(sCtxTailwindTeam, ARRAY_COUNT(sCtxTailwindTeam), &tw);
+    EXPECT(tw.archetype & (SCOUT_ARCH_TAILWIND | SCOUT_ARCH_FAST));
+    EXPECT(tw.slot[2].flags & SCOUT_CTX_SPEED_ABUSER);
+    Scout_EstimateStatsInTeam(&tw, SPECIES_GARCHOMP, 50, &hp, stats);
+    Scout_SpeciesSpeedRange(SPECIES_GARCHOMP, 50, &lo, &hi);
+    EXPECT_EQ(stats[STAT_SPEED], hi);
+}
+
+TEST("VGC context: a rain team gives Swift Swim to its abuser")
+{
+    static const u16 rain[] = { SPECIES_PELIPPER, SPECIES_LUDICOLO, SPECIES_KINGDRA, SPECIES_INCINEROAR, SPECIES_AMOONGUSS, SPECIES_GARCHOMP };
+    static const u16 dry[] = { SPECIES_LUDICOLO, SPECIES_KINGDRA, SPECIES_INCINEROAR, SPECIES_AMOONGUSS, SPECIES_GARCHOMP, SPECIES_GHOLDENGO };
+    struct ScoutTeamContext ctx, noRain;
+
+    Scout_ComputeTeamContext(rain, ARRAY_COUNT(rain), &ctx);
+    Scout_ComputeTeamContext(dry, ARRAY_COUNT(dry), &noRain);
+    EXPECT(ctx.archetype & SCOUT_ARCH_WEATHER);
+    EXPECT_EQ(ctx.weather, SCOUT_WEATHER_RAIN);
+    EXPECT(ctx.slot[0].flags & SCOUT_CTX_WEATHER_SETTER);
+    EXPECT(ctx.slot[1].flags & SCOUT_CTX_WEATHER_ABUSER);
+    EXPECT_GE(Scout_AbilityChanceInTeam(&ctx, SPECIES_LUDICOLO, ABILITY_SWIFT_SWIM), 90);
+    EXPECT_GE(Scout_AbilityChanceInTeam(&ctx, SPECIES_KINGDRA, ABILITY_SWIFT_SWIM), 90);
+    EXPECT_EQ(Scout_LikelyAbilityInTeam(&ctx, SPECIES_LUDICOLO, NULL), ABILITY_SWIFT_SWIM);
+    EXPECT_GE(Scout_AbilityChanceInTeam(&ctx, SPECIES_PELIPPER, ABILITY_DRIZZLE), 90);
+    // Senza Drizzle in squadra resta la probabilità della specie.
+    EXPECT_EQ(Scout_AbilityChanceInTeam(&noRain, SPECIES_LUDICOLO, ABILITY_SWIFT_SWIM), Scout_AbilityChance(SPECIES_LUDICOLO, ABILITY_SWIFT_SWIM));
+    // Mosse da pioggia più probabili (Hurricane / Thunder / Weather Ball se le impara).
+    EXPECT_GE(Scout_MoveChanceInTeam(&ctx, SPECIES_PELIPPER, MOVE_HURRICANE), Scout_MoveChance(SPECIES_PELIPPER, MOVE_HURRICANE));
+}
+
+TEST("VGC context: only one likely Mega per team")
+{
+    static const u16 megas[] = { SPECIES_CHARIZARD, SPECIES_GENGAR, SPECIES_SALAMENCE, SPECIES_GARCHOMP, SPECIES_KANGASKHAN, SPECIES_METAGROSS };
+    struct ScoutTeamContext ctx;
+    u32 i, likely = 0, flagged = 0, possible = 0;
+
+    Scout_ComputeTeamContext(megas, ARRAY_COUNT(megas), &ctx);
+    for (i = 0; i < ctx.n; i++)
+    {
+        struct ScoutItemGuess g;
+        Scout_GuessItem(ctx.slot[i].species, &g);
+        if (g.megaSpecies != SPECIES_NONE && g.megaChance >= 50)
+            possible++;
+        if (ctx.slot[i].megaP >= 50)
+            likely++;
+        if (ctx.slot[i].flags & SCOUT_CTX_MEGA)
+            flagged++;
+    }
+    EXPECT_GE(possible, 2);   // da sole, più specie sembrerebbero Mega...
+    EXPECT_LE(likely, 1);     // ...nella squadra una sola
+    EXPECT_EQ(flagged, 1);
+}
+
+TEST("VGC context: item clause - the same item is not guessed twice in a team")
+{
+    static const u16 team[] = { SPECIES_SMEARGLE, SPECIES_CHATOT, SPECIES_DUGTRIO, SPECIES_KECLEON, SPECIES_INCINEROAR, SPECIES_AMOONGUSS };
+    struct ScoutTeamContext ctx;
+    u32 i, k;
+
+    Scout_ComputeTeamContext(team, ARRAY_COUNT(team), &ctx);
+    for (i = 0; i < ctx.n; i++)
+        for (k = i + 1; k < ctx.n; k++)
+            if (ctx.slot[i].heldEffect != HOLD_EFFECT_NONE)
+                EXPECT_NE(ctx.slot[i].heldEffect, ctx.slot[k].heldEffect);
+}
+
+TEST("VGC context: likely leads pair the Trick Room setter with a slow attacker or Fake Out")
+{
+    struct ScoutTeamContext ctx;
+    u8 pairs[3][2], p[3];
+    u32 n, i;
+    bool32 setterInTop = FALSE;
+
+    Scout_ComputeTeamContext(sCtxTrickRoomTeam, ARRAY_COUNT(sCtxTrickRoomTeam), &ctx);
+    n = Scout_ContextLikelyLeads(&ctx, pairs, p, 3);
+    EXPECT_EQ(n, 3);
+    for (i = 0; i < 2; i++)
+        if (ctx.slot[pairs[0][i]].flags & SCOUT_CTX_TR_SETTER)
+            setterInTop = TRUE;
+    EXPECT(setterInTop);
+    EXPECT_GE(p[0], p[1]);
+    // Due lenti senza setter: lead poco probabile.
+    EXPECT_LT(Scout_ContextLeadScore(&ctx, SPECIES_URSALUNA, SPECIES_TORKOAL), Scout_ContextLeadScore(&ctx, SPECIES_DUSCLOPS, SPECIES_URSALUNA));
+}
+
+AI_DOUBLE_BATTLE_TEST("VGC context: in battle the belief uses the team context (Trick Room team, slow Speed from turn 1)")
+{
+    u16 hp = 0, stats[NUM_STATS] = {0}, lo = 0, hi = 0;
+
+    GIVEN {
+        AI_FLAGS(VGC_AI_FLAGS);
+        PLAYER(SPECIES_DUSCLOPS) { Level(50); Moves(MOVE_TRICK_ROOM, MOVE_NIGHT_SHADE); }
+        PLAYER(SPECIES_URSALUNA) { Level(50); Moves(MOVE_FACADE, MOVE_PROTECT); }
+        PLAYER(SPECIES_TORKOAL) { Level(50); Moves(MOVE_ERUPTION); }
+        PLAYER(SPECIES_HATTERENE) { Level(50); Moves(MOVE_TRICK_ROOM); }
+        OPPONENT(SPECIES_WOBBUFFET) { Level(50); Moves(MOVE_CELEBRATE); }
+        OPPONENT(SPECIES_WOBBUFFET) { Level(50); Moves(MOVE_CELEBRATE); }
+    } WHEN {
+        TURN { MOVE(playerLeft, MOVE_NIGHT_SHADE, target: opponentLeft); MOVE(playerRight, MOVE_PROTECT); }
+    } THEN {
+        Scout_EstimateBattlerStats(GetBattlerAtPosition(B_POSITION_PLAYER_RIGHT), &hp, stats);
+        Scout_SpeciesSpeedRange(SPECIES_URSALUNA, 50, &lo, &hi);
+        EXPECT_EQ(stats[STAT_SPEED], lo);
+        EXPECT_GE(Scout_BattlerMoveChance(GetBattlerAtPosition(B_POSITION_PLAYER_LEFT), MOVE_TRICK_ROOM), 90);
+    }
+}
+
+// Contesto della squadra (team preview): lead ovvia Fake Out + setter di Trick Room di una squadra Trick Room.
+// Al turno 1 l'IA ferma il Trick Room (Provocazione col Prankster prima del setter) invece di attaccare.
+AI_DOUBLE_BATTLE_TEST("VGC context: turn 1 against Fake Out + Trick Room setter, the AI stops Trick Room")
+{
+    GIVEN {
+        AI_FLAGS(VGC_AI_FLAGS);
+        PLAYER(SPECIES_INCINEROAR) { Level(50); Ability(ABILITY_INTIMIDATE); Moves(MOVE_FAKE_OUT, MOVE_FLARE_BLITZ); }
+        PLAYER(SPECIES_PORYGON2) { Level(50); Ability(ABILITY_DOWNLOAD); Item(ITEM_EVIOLITE); Moves(MOVE_TRICK_ROOM, MOVE_TRI_ATTACK); }
+        PLAYER(SPECIES_URSALUNA) { Level(50); Moves(MOVE_FACADE); }
+        PLAYER(SPECIES_TORKOAL) { Level(50); Moves(MOVE_ERUPTION); }
+        OPPONENT(SPECIES_WHIMSICOTT) { Level(50); Ability(ABILITY_PRANKSTER); Moves(MOVE_TAUNT, MOVE_MOONBLAST, MOVE_PROTECT); }
+        OPPONENT(SPECIES_IRON_BUNDLE) { Level(50); Moves(MOVE_FREEZE_DRY, MOVE_HYDRO_PUMP, MOVE_PROTECT); }
+    } WHEN {
+        TURN { MOVE(playerLeft, MOVE_FAKE_OUT, target: opponentRight); MOVE(playerRight, MOVE_TRICK_ROOM);
+               EXPECT_MOVE(opponentLeft, MOVE_TAUNT, target: playerRight); }
+    }
+}

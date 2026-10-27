@@ -111,6 +111,7 @@ esperimento o campagna alla volta; **pausa / ripresa / stop / stato sono gli ste
 | Esplorazione per il libro dei piani | `esplora.bat` | `.\training.ps1 esplora -- --eps 30 --seeds 40` |
 | Rigenerare il libro dei piani (`src/data/vgc_plan_book.h`) | `libro.bat` | `.\training.ps1 libro`, poi `compila.bat` |
 | Verifica del libro (acceso contro spento, semi mai visti) | `verifica_libro.bat` | `.\training.ps1 verifica-libro -- --seeds 8` |
+| Verifica del contesto della squadra (acceso contro spento, a specchio) | | `.	raining.ps1 verifica-contesto -- --seeds 3` |
 | Pausa (le partite in corso finiscono) | `pausa.bat` | `.\training.ps1 pause` |
 | Ripresa (anche dopo stop, chiusura o riavvio del PC) | `riprendi.bat` | `.\training.ps1 resume` |
 | Stop immediato (le partite non finite tornano in coda) | `ferma.bat` | `.\training.ps1 stop` |

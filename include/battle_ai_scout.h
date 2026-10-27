@@ -200,4 +200,129 @@ struct ScoutBeliefSnapshot
 void Scout_BeliefExport(u32 partySlot, struct ScoutBeliefSnapshot *out);
 void Scout_BeliefImport(u32 partySlot, const struct ScoutBeliefSnapshot *in);
 
+
+// =============================================================================================
+// Contesto della squadra avversaria (team preview): "guardando i 6 si capisce già molto"
+// =============================================================================================
+// Calcolato UNA volta in team preview dalle 6 specie dell'avversario (solo ciò che si vede, più la conoscenza del
+// meta in src/data/vgc_meta.h: spread "da Trick Room" e "veloci" e compagni di squadra dalle statistiche Showdown).
+// Dice che squadra è (Trick Room, Tailwind/veloce, meteo, campo, redirect + setup), chi fa cosa e quindi:
+//   - Velocità: i lenti di una squadra Trick Room hanno la spread minima (natura -Vel, 0 EV, 0 IV), gli attaccanti di
+//     una squadra Tailwind/veloce la massima;
+//   - abilità: chi sfrutta il meteo della squadra ha l'abilità giusta (Swift Swim con Drizzle accanto);
+//   - mosse: Trick Room quasi certa sul setter di una squadra TR, mosse da meteo/campo, setup accanto al redirect,
+//     Helping Hand sui supporti;
+//   - strumenti: clausola degli strumenti (una copia per squadra: lo strumento probabile di uno si toglie agli altri),
+//     una sola Mega per squadra, Focus Sash sui veloci fragili, rocce del meteo sul setter, Choice Scarf più
+//     probabile senza controllo velocità;
+//   - lead probabili (coppie che hanno senso insieme) e piano di gioco più pericoloso.
+// Usato in team preview (src/team_preview.c), nel belief (Scout_EstimateBattlerStats, Scout_BattlerMoveChance,
+// Scout_BattlerAbilityChance, Scout_AssumedHoldEffect, Scout_BattlerRoleChance) e quindi dal primo turno nel
+// pianificatore. RAM: 2 contesti in EWRAM (uno per squadra: in IA contro IA servono entrambi), ~70 byte l'uno.
+struct Pokemon;
+
+enum ScoutSpeedMode
+{
+    SCOUT_SPEED_META,   // spread più usata della specie
+    SCOUT_SPEED_MIN,    // Trick Room: natura -Vel, 0 EV, 0 IV
+    SCOUT_SPEED_MAX,    // Tailwind / squadra veloce: natura +Vel, 252 EV
+};
+
+#define SCOUT_ARCH_TRICK_ROOM (1 << 0)
+#define SCOUT_ARCH_TAILWIND   (1 << 1)
+#define SCOUT_ARCH_FAST       (1 << 2)  // tanti attaccanti veloci senza Trick Room
+#define SCOUT_ARCH_WEATHER    (1 << 3)  // setter + chi lo sfrutta
+#define SCOUT_ARCH_TERRAIN    (1 << 4)
+#define SCOUT_ARCH_REDIRECT   (1 << 5)  // redirect + attaccanti con setup
+
+enum ScoutGamePlan
+{
+    SCOUT_PLAN_NONE,
+    SCOUT_PLAN_TRICK_ROOM,
+    SCOUT_PLAN_TAILWIND,
+    SCOUT_PLAN_WEATHER,
+    SCOUT_PLAN_TERRAIN,
+    SCOUT_PLAN_REDIRECT_SETUP,
+    SCOUT_PLAN_FAST_OFFENSE,
+};
+
+#define SCOUT_CTX_TR_SETTER      (1 << 0)
+#define SCOUT_CTX_TR_ABUSER      (1 << 1)   // lento che gioca sotto Trick Room
+#define SCOUT_CTX_TW_SETTER      (1 << 2)
+#define SCOUT_CTX_SPEED_ABUSER   (1 << 3)   // attaccante che vuole essere veloce (Tailwind / squadra veloce)
+#define SCOUT_CTX_WEATHER_SETTER (1 << 4)
+#define SCOUT_CTX_WEATHER_ABUSER (1 << 5)
+#define SCOUT_CTX_TERRAIN_SETTER (1 << 6)
+#define SCOUT_CTX_TERRAIN_ABUSER (1 << 7)
+#define SCOUT_CTX_REDIRECTOR     (1 << 8)
+#define SCOUT_CTX_SETUP_PARTNER  (1 << 9)   // attaccante con setup accanto a un redirect
+#define SCOUT_CTX_SUPPORT        (1 << 10)
+#define SCOUT_CTX_ATTACKER       (1 << 11)
+#define SCOUT_CTX_MEGA           (1 << 12)  // la Mega più probabile della squadra (una sola)
+#define SCOUT_CTX_FAKE_OUT       (1 << 13)
+
+struct ScoutSlotContext
+{
+    u16 species;
+    u16 flags;          // SCOUT_CTX_*
+    u8 heldEffect;      // strumento più probabile con la clausola (HOLD_EFFECT_NONE = nessuna idea)
+    u8 itemP;           // 0..100
+    u8 megaP;           // probabilità che sia LUI a megaevolvere (una sola Mega per squadra)
+    u8 speedMode;       // SCOUT_SPEED_*
+};
+
+struct ScoutTeamContext
+{
+    struct ScoutSlotContext slot[PARTY_SIZE];
+    u8 n;
+    u8 age;             // lotte iniziate da quando è stato calcolato (a 2 si scarta)
+    u8 archetype;       // SCOUT_ARCH_*
+    u8 weather;         // SCOUT_WEATHER_* del setter della squadra (anche senza chi lo sfrutta)
+    u8 terrain;         // SCOUT_TERRAIN_*
+    u8 trP;             // quanto è squadra Trick Room (0..100)
+    u8 twP;             // quanto è squadra Tailwind / veloce (0..100)
+    u8 weatherP;        // quanto è squadra meteo (setter + chi lo sfrutta)
+    u8 redirectP;       // redirect + setup
+    u8 plan;            // ScoutGamePlan più pericoloso
+    u8 planP;           // sua forza (0..100)
+};
+
+// Verifica nel self-play: bit (1 << lato) = quel lato NON usa il contesto della squadra avversaria (in lotta);
+// gScoutContextPreviewOff = la team preview in corso non lo usa. Fuori dal self-play restano a 0.
+extern u8 gScoutContextOffMask;
+extern bool8 gScoutContextPreviewOff;
+// Peso (%) delle risposte al piano avversario e delle minacce senza risposta in team preview (taratura nel self-play).
+extern u8 gScoutContextAnswerPct;
+
+// Pura (solo ROM): contesto delle specie date.
+void Scout_ComputeTeamContext(const u16 *species, u32 n, struct ScoutTeamContext *out);
+// Team preview: calcola e conserva il contesto della squadra (6 specie). Ritorna il contesto conservato.
+const struct ScoutTeamContext *Scout_SetTeamContextFromParty(struct Pokemon *party);
+// Contesto conservato che contiene tutte le specie della squadra (calcolato in team preview); se non c'è (test senza
+// team preview) si calcola dalla squadra. NULL se la squadra è vuota.
+const struct ScoutTeamContext *Scout_PartyContext(struct Pokemon *party);
+const struct ScoutTeamContext *Scout_BattlerContext(enum BattlerId battler);
+// Indice della specie nel contesto (le Mega e le forme di lotta valgono come la forma base), -1 se assente.
+s32 Scout_ContextSlot(const struct ScoutTeamContext *ctx, u16 species);
+// Versioni "nella squadra" delle funzioni per specie (ctx NULL = solo specie, come prima).
+void Scout_EstimateStatsInTeam(const struct ScoutTeamContext *ctx, u16 species, u32 level, u16 *hp, u16 stats[NUM_STATS]);
+u32 Scout_MoveChanceInTeam(const struct ScoutTeamContext *ctx, u16 species, enum Move move);
+u32 Scout_GetLikelyMovesInTeam(const struct ScoutTeamContext *ctx, u16 species, struct ScoutMoveChance *out, u32 max);
+u32 Scout_AbilityChanceInTeam(const struct ScoutTeamContext *ctx, u16 species, enum Ability ability);
+enum Ability Scout_LikelyAbilityInTeam(const struct ScoutTeamContext *ctx, u16 species, u32 *chance);
+void Scout_GuessItemInTeam(const struct ScoutTeamContext *ctx, u16 species, struct ScoutItemGuess *out);
+u32 Scout_MegaChanceInTeam(const struct ScoutTeamContext *ctx, u16 species);
+void Scout_GetProfileInTeam(const struct ScoutTeamContext *ctx, u16 species, struct ScoutProfile *out);
+// Quanto è sensata (probabile) la coppia di specie come lead della squadra del contesto (setter + chi ne approfitta,
+// Fake Out + setter, redirect + setup, meteo + chi lo sfrutta; meno: lento senza Trick Room, due setter insieme).
+s32 Scout_ContextLeadScore(const struct ScoutTeamContext *ctx, u16 speciesA, u16 speciesB);
+// Lead probabili della squadra: fino a `max` coppie (indici di slot del contesto) con probabilità (somma ~100).
+u32 Scout_ContextLikelyLeads(const struct ScoutTeamContext *ctx, u8 (*pairs)[2], u8 *p, u32 max);
+// Per un Pokémon in campo (o della squadra di `battler`): mosse probabili e profilo dei ruoli nella sua squadra.
+u32 Scout_BattlerLikelyMoves(enum BattlerId battler, struct ScoutMoveChance *out, u32 max);
+void Scout_GetPartyMonProfile(enum BattlerId battler, u16 species, struct ScoutProfile *out);
+// Bonus (0..100) alla probabilità a priori di `move` per il Pokémon del giocatore: il piano della sua squadra
+// (Trick Room dal setter di una squadra TR finché la stanza non c'è, Tailwind dal setter di una squadra Tailwind).
+u32 Scout_BattlerPlanMoveBonus(enum BattlerId battler, enum Move move);
+
 #endif // GUARD_BATTLE_AI_SCOUT_H

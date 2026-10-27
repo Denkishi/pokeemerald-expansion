@@ -337,6 +337,8 @@ static struct ScoutCacheEntry *ScoutCacheGet(u16 species)
 
 static void ComputeSpeciesProfile(u16 species, struct ScoutProfile *out);
 static u32 ComputeLearnableAttacks(u16 species, enum Move *out, u32 max);
+static void Scout_TeamContextNewBattle(void);
+static u32 AbilityChanceCtx(const struct ScoutTeamContext *ctx, u16 species, enum Ability ability, u32 excludedSlots);
 
 void Scout_GetSpeciesProfile(u16 species, struct ScoutProfile *out)
 {
@@ -573,7 +575,7 @@ u32 Scout_BattlerRoleChance(enum BattlerId battler, enum ScoutRole role)
     }
     if (seen >= MAX_MON_MOVES)
         return 0;
-    Scout_GetSpeciesProfile(gBattleMons[battler].species, &prof);
+    Scout_GetPartyMonProfile(battler, gBattleMons[battler].species, &prof); // contesto della squadra (team preview)
     // Ogni mossa vista che non è del ruolo lo rende un po' meno probabile.
     return prof.role[role] * (MAX_MON_MOVES - seen) / MAX_MON_MOVES;
 }
@@ -830,9 +832,19 @@ enum HoldEffect Scout_AssumedHoldEffect(enum BattlerId battler)
 
     if (Scout_BattlerDeducedHoldEffect(battler) != HOLD_EFFECT_NONE)
         return Scout_BattlerDeducedHoldEffect(battler);
-    Scout_GuessItem(gBattleMons[battler].species, &g);
+    Scout_GuessItemInTeam(Scout_BattlerContext(battler), gBattleMons[battler].species, &g);
     if (g.effect == HOLD_EFFECT_NONE || Scout_BattlerHoldEffectExcluded(battler, g.effect))
         return HOLD_EFFECT_NONE;
+    // Clausola degli strumenti: se un compagno ha già mostrato (o si è dedotto) lo stesso strumento, non è il suo.
+    if (gAiPartyData != NULL && IsOnPlayerSide(battler))
+    {
+        u32 i;
+        for (i = 0; i < PARTY_SIZE; i++)
+        {
+            if (i != gBattlerPartyIndexes[battler] && gAiPartyData->mons[B_TRAINER_PLAYER][i].heldEffect == g.effect)
+                return HOLD_EFFECT_NONE;
+        }
+    }
     // Assumere un Focus Sash che non c'è rende timidi: serve più certezza.
     threshold = (g.effect == HOLD_EFFECT_FOCUS_SASH) ? 60 : 50;
     if (g.chance < threshold)
@@ -1284,6 +1296,7 @@ static const struct ScoutBelief *BeliefPeek(enum BattlerId battler)
 void Scout_BeliefReset(void)
 {
     memset(sScoutBelief, 0, sizeof(sScoutBelief));
+    Scout_TeamContextNewBattle();
 }
 
 static struct AiPartyMon *KnownMon(enum BattlerId battler)
@@ -1864,7 +1877,8 @@ void Scout_EstimateBattlerStats(enum BattlerId battler, u16 *hp, u16 stats[NUM_S
     u32 level = gBattleMons[battler].level;
     u16 lo, hi;
 
-    Scout_EstimateStats(species, level, hp, stats);
+    // Spread nella squadra (contesto della team preview: Trick Room = Velocità minima, Tailwind = massima).
+    Scout_EstimateStatsInTeam(Scout_BattlerContext(battler), species, level, hp, stats);
     if (!Scout_BattlerSpeedRange(battler, &lo, &hi))
         return;
     if (stats[STAT_SPEED] < lo || stats[STAT_SPEED] > hi)
@@ -1925,7 +1939,7 @@ u32 Scout_BattlerAbilityChance(enum BattlerId battler, enum Ability ability)
     if (known != ABILITY_NONE)
         return known == ability ? 100 : 0;
     b = BeliefPeek(battler);
-    return AbilityChanceMasked(gBattleMons[battler].species, ability, b != NULL ? b->abilityExcluded : 0);
+    return AbilityChanceCtx(Scout_BattlerContext(battler), gBattleMons[battler].species, ability, b != NULL ? b->abilityExcluded : 0);
 }
 
 enum Ability Scout_BattlerLikelyAbility(enum BattlerId battler, u32 *chance)
@@ -1983,7 +1997,7 @@ u32 Scout_BattlerMoveChance(enum BattlerId battler, enum Move move)
     if (b != NULL && IsChoiceEffect(b->heldEffect) && b->lastMove != MOVE_NONE && b->lastMove != move
      && gAiPartyData != NULL && b->lastSwitchIn == KnownMon(battler)->switchInCount)
         return 0;
-    return Scout_MoveChance(gBattleMons[battler].species, move);
+    return Scout_MoveChanceInTeam(Scout_BattlerContext(battler), gBattleMons[battler].species, move);
 }
 
 // --- Bo3 ----------------------------------------------------------------------------------------
@@ -2019,4 +2033,1088 @@ void Scout_BeliefImport(u32 partySlot, const struct ScoutBeliefSnapshot *in)
     b->heldEffect = in->heldEffect;
     if (in->heldEffect != HOLD_EFFECT_NONE)
         b->flags |= SCOUT_BF_ITEM_DEDUCED;
+}
+
+// ---------------------------------------------------------------------
+// Contesto della squadra avversaria (team preview): vedi include/battle_ai_scout.h
+// ---------------------------------------------------------------------
+#define CTX_SLOW_SPEED      60  // Velocità base "da Trick Room"
+#define CTX_SETTER_P        50  // ruolo abbastanza probabile da contare come setter
+#define CTX_FORCED_ABILITY  90  // probabilità dell'abilità che il contesto rende quasi certa
+
+EWRAM_DATA u8 gScoutContextOffMask = 0;
+EWRAM_DATA bool8 gScoutContextPreviewOff = FALSE;
+EWRAM_DATA u8 gScoutContextAnswerPct = 0; // 0 = 100%
+static EWRAM_DATA struct ScoutTeamContext sTeamCtx[2] = {0};
+static EWRAM_DATA u8 sTeamCtxNext = 0;
+static EWRAM_DATA s8 sTeamCtxSide[NUM_BATTLE_SIDES] = {0}; // indice+1 del contesto per lato (0 = da cercare)
+
+// Stessa specie "di squadra": uguale, oppure una delle due è una forma di lotta (Mega, Primal...) dell'altra.
+static bool32 CtxSameSpecies(u16 a, u16 b)
+{
+    if (a == b)
+        return TRUE;
+    if (a == SPECIES_NONE || b == SPECIES_NONE || a >= NUM_SPECIES || b >= NUM_SPECIES)
+        return FALSE;
+    if (GET_BASE_SPECIES_ID(a) != GET_BASE_SPECIES_ID(b))
+        return FALSE;
+    return gSpeciesInfo[a].isMegaEvolution || gSpeciesInfo[b].isMegaEvolution
+        || gSpeciesInfo[a].isPrimalReversion || gSpeciesInfo[b].isPrimalReversion;
+}
+
+s32 Scout_ContextSlot(const struct ScoutTeamContext *ctx, u16 species)
+{
+    u32 i;
+
+    if (ctx == NULL || species == SPECIES_NONE)
+        return -1;
+    for (i = 0; i < ctx->n; i++)
+    {
+        if (ctx->slot[i].species == species)
+            return i;
+    }
+    for (i = 0; i < ctx->n; i++)
+    {
+        if (CtxSameSpecies(ctx->slot[i].species, species))
+            return i;
+    }
+    return -1;
+}
+
+static u32 CtxOffense(u16 species)
+{
+    return max(gSpeciesInfo[species].baseAttack, gSpeciesInfo[species].baseSpAttack);
+}
+
+static u32 CtxBulk(u16 species)
+{
+    return gSpeciesInfo[species].baseHP + gSpeciesInfo[species].baseDefense + gSpeciesInfo[species].baseSpDefense;
+}
+
+// Lento "da Trick Room": Velocità base bassa, oppure la specie usa spesso la spread minima / gioca con setter di TR.
+static bool32 CtxIsSlow(u16 species)
+{
+    const struct VgcMetaEntry *meta = MetaEntryFor(species);
+    u32 spe = gSpeciesInfo[species].baseSpeed;
+
+    if (spe <= CTX_SLOW_SPEED)
+        return TRUE;
+    if (meta != NULL && meta->trSpread.p >= 40 && spe <= 80)
+        return TRUE;
+    return meta != NULL && meta->trMate >= 70 && spe <= 70;
+}
+
+// Meteo che la specie porta all'entrata, anche con la sua Mega probabile (Charizard Y). *p = probabilità.
+static u32 CtxWeatherSetter(u16 species, const struct ScoutProfile *prof, u32 *p)
+{
+    struct ScoutMegaChance mc[VGC_META_MEGAS];
+    u32 i, n;
+
+    *p = 0;
+    if (prof->weather != SCOUT_WEATHER_NONE && prof->weatherP > 0)
+    {
+        *p = prof->weatherP;
+        return prof->weather;
+    }
+    n = Scout_GetMegaForms(species, mc, ARRAY_COUNT(mc));
+    for (i = 0; i < n; i++)
+    {
+        u32 w = SCOUT_WEATHER_NONE;
+        switch (mc[i].ability)
+        {
+        case ABILITY_DROUGHT: case ABILITY_DESOLATE_LAND: w = SCOUT_WEATHER_SUN; break;
+        case ABILITY_DRIZZLE: case ABILITY_PRIMORDIAL_SEA: w = SCOUT_WEATHER_RAIN; break;
+        case ABILITY_SAND_STREAM: case ABILITY_SAND_SPIT: w = SCOUT_WEATHER_SAND; break;
+        case ABILITY_SNOW_WARNING: w = SCOUT_WEATHER_SNOW; break;
+        default: break;
+        }
+        if (w != SCOUT_WEATHER_NONE && mc[i].p >= 40)
+        {
+            *p = mc[i].p;
+            return w;
+        }
+    }
+    return SCOUT_WEATHER_NONE;
+}
+
+static const u16 sCtxTerrainMove[] = { MOVE_NONE, MOVE_GRASSY_GLIDE, MOVE_RISING_VOLTAGE, MOVE_EXPANDING_FORCE, MOVE_MISTY_EXPLOSION };
+
+static bool32 CtxTerrainAbuser(u16 species, u32 terrain)
+{
+    if (terrain == SCOUT_TERRAIN_NONE || terrain >= ARRAY_COUNT(sCtxTerrainMove))
+        return FALSE;
+    if (terrain == SCOUT_TERRAIN_ELECTRIC && SpeciesMayHaveAbility(species, ABILITY_SURGE_SURFER))
+        return TRUE;
+    return Scout_MoveChance(species, sCtxTerrainMove[terrain]) >= 20;
+}
+
+// Abilità che il contesto rende quasi certa per lo slot (chi sfrutta il meteo: Swift Swim con Drizzle; il setter
+// del meteo; Surge Surfer con Electric Surge), ABILITY_NONE se nessuna.
+static enum Ability CtxForcedAbility(const struct ScoutTeamContext *ctx, s32 slot)
+{
+    static const enum Ability sAbuse[][4] =
+    {
+        [SCOUT_WEATHER_SUN]  = { ABILITY_CHLOROPHYLL, ABILITY_PROTOSYNTHESIS, ABILITY_SOLAR_POWER, ABILITY_FLOWER_GIFT },
+        [SCOUT_WEATHER_RAIN] = { ABILITY_SWIFT_SWIM, ABILITY_RAIN_DISH, ABILITY_DRY_SKIN, ABILITY_HYDRATION },
+        [SCOUT_WEATHER_SAND] = { ABILITY_SAND_RUSH, ABILITY_SAND_FORCE, ABILITY_NONE, ABILITY_NONE },
+        [SCOUT_WEATHER_SNOW] = { ABILITY_SLUSH_RUSH, ABILITY_ICE_BODY, ABILITY_NONE, ABILITY_NONE },
+    };
+    static const enum Ability sSet[][2] =
+    {
+        [SCOUT_WEATHER_SUN]  = { ABILITY_DROUGHT, ABILITY_ORICHALCUM_PULSE },
+        [SCOUT_WEATHER_RAIN] = { ABILITY_DRIZZLE, ABILITY_PRIMORDIAL_SEA },
+        [SCOUT_WEATHER_SAND] = { ABILITY_SAND_STREAM, ABILITY_SAND_SPIT },
+        [SCOUT_WEATHER_SNOW] = { ABILITY_SNOW_WARNING, ABILITY_NONE },
+    };
+    u16 species;
+    u32 k, w;
+
+    if (ctx == NULL || slot < 0)
+        return ABILITY_NONE;
+    species = ctx->slot[slot].species;
+    w = ctx->weather;
+    if (w != SCOUT_WEATHER_NONE && w <= SCOUT_WEATHER_SNOW)
+    {
+        if ((ctx->slot[slot].flags & SCOUT_CTX_WEATHER_ABUSER) && (ctx->archetype & SCOUT_ARCH_WEATHER))
+        {
+            for (k = 0; k < ARRAY_COUNT(sAbuse[0]); k++)
+                if (sAbuse[w][k] != ABILITY_NONE && SpeciesMayHaveAbility(species, sAbuse[w][k]))
+                    return sAbuse[w][k];
+        }
+        if (ctx->slot[slot].flags & SCOUT_CTX_WEATHER_SETTER)
+        {
+            for (k = 0; k < ARRAY_COUNT(sSet[0]); k++)
+                if (sSet[w][k] != ABILITY_NONE && SpeciesMayHaveAbility(species, sSet[w][k]))
+                    return sSet[w][k];
+        }
+    }
+    if ((ctx->slot[slot].flags & SCOUT_CTX_TERRAIN_ABUSER) && ctx->terrain == SCOUT_TERRAIN_ELECTRIC
+     && SpeciesMayHaveAbility(species, ABILITY_SURGE_SURFER))
+        return ABILITY_SURGE_SURFER;
+    return ABILITY_NONE;
+}
+
+// Candidati strumento di uno slot (effetto, probabilità), ordinati per probabilità.
+#define CTX_ITEM_CAND 6
+struct CtxItemCand { u8 effect; u8 p; };
+
+static void CtxAddItemCand(struct CtxItemCand *c, u32 *n, u32 effect, u32 p)
+{
+    u32 i;
+
+    if (effect == HOLD_EFFECT_NONE || effect == HOLD_EFFECT_MEGA_STONE || p == 0)
+        return;
+    for (i = 0; i < *n; i++)
+    {
+        if (c[i].effect == effect)
+        {
+            c[i].p = min(100u, max((u32)c[i].p, p));
+            return;
+        }
+    }
+    if (*n < CTX_ITEM_CAND)
+    {
+        c[*n].effect = effect;
+        c[*n].p = min(p, 100u);
+        (*n)++;
+    }
+}
+
+static u32 CtxItemCandidates(const struct ScoutTeamContext *ctx, u32 slot, u32 megaQuotaKept, struct CtxItemCand *c)
+{
+    u16 species = ctx->slot[slot].species;
+    const struct VgcMetaEntry *meta = MetaEntryFor(species);
+    u32 n = 0, i, k, flags = ctx->slot[slot].flags;
+    u32 keep = 100 - min(ctx->slot[slot].megaP, 95u); // quota dei set senza Mega
+
+    if (meta != NULL && meta->items[0] != ITEM_NONE)
+    {
+        // Probabilità sui set senza Mega della specie, poi sulla quota senza Mega in questa squadra.
+        u32 m, all = 0;
+        for (m = 0; m < VGC_META_MEGAS; m++)
+            all += meta->megaP[m];
+        all = min(all, 95u);
+        for (k = 0; k < VGC_META_ITEMS && meta->items[k] != ITEM_NONE; k++)
+        {
+            u32 eff = GetItemHoldEffect(meta->items[k]);
+            if (!Scout_PoolHasItem(meta->items[k]))
+                continue;
+            CtxAddItemCand(c, &n, eff, meta->itemP[k] * 100 / (100 - all) * keep / 100);
+        }
+    }
+    else
+    {
+        struct ScoutItemGuess g;
+        Scout_GuessItem(species, &g);
+        // Scout_GuessItem toglie il 60% se la specie può megaevolvere: qui la Mega è già decisa dal contesto.
+        if (g.megaSpecies != SPECIES_NONE && g.chance < 70)
+            g.chance = min(100u, g.chance * 100u / 40);
+        CtxAddItemCand(c, &n, g.effect, g.chance * keep / 100);
+    }
+    (void)megaQuotaKept;
+
+    // Regole di squadra.
+    if ((flags & SCOUT_CTX_WEATHER_SETTER) && !(flags & SCOUT_CTX_MEGA))
+    {
+        static const u16 sRock[] = { ITEM_NONE, ITEM_HEAT_ROCK, ITEM_DAMP_ROCK, ITEM_SMOOTH_ROCK, ITEM_ICY_ROCK };
+        if (ctx->weather < ARRAY_COUNT(sRock) && sRock[ctx->weather] != ITEM_NONE && Scout_PoolHasItem(sRock[ctx->weather]))
+            CtxAddItemCand(c, &n, GetItemHoldEffect(sRock[ctx->weather]), 30 * keep / 100);
+    }
+    if (gSpeciesInfo[species].baseSpeed >= 95 && CtxBulk(species) <= 230 && Scout_PoolHasItem(ITEM_FOCUS_SASH))
+        CtxAddItemCand(c, &n, HOLD_EFFECT_FOCUS_SASH, 30 * keep / 100);
+    if ((flags & SCOUT_CTX_SUPPORT) && Scout_PoolHasItem(ITEM_SITRUS_BERRY))
+        CtxAddItemCand(c, &n, HOLD_EFFECT_RESTORE_HP, 25 * keep / 100);
+    for (i = 0; i < n; i++)
+    {
+        // Choice Scarf: più probabile senza controllo velocità in squadra, quasi mai su chi gioca sotto Trick Room.
+        if (c[i].effect == HOLD_EFFECT_CHOICE_SCARF)
+        {
+            if (flags & SCOUT_CTX_TR_ABUSER)
+                c[i].p /= 3;
+            else if (!(ctx->archetype & (SCOUT_ARCH_TRICK_ROOM | SCOUT_ARCH_TAILWIND)))
+                c[i].p = min(100, c[i].p + 10);
+        }
+        // Focus Sash: chi resta lento sotto Trick Room non ne ha bisogno.
+        if (c[i].effect == HOLD_EFFECT_FOCUS_SASH && (flags & SCOUT_CTX_TR_ABUSER) && !(flags & SCOUT_CTX_TR_SETTER))
+            c[i].p /= 2;
+    }
+    // Ordine per probabilità.
+    for (i = 1; i < n; i++)
+    {
+        struct CtxItemCand t = c[i];
+        k = i;
+        while (k > 0 && c[k - 1].p < t.p)
+        {
+            c[k] = c[k - 1];
+            k--;
+        }
+        c[k] = t;
+    }
+    return n;
+}
+
+void Scout_ComputeTeamContext(const u16 *species, u32 n, struct ScoutTeamContext *out)
+{
+    struct ScoutProfile prof[PARTY_SIZE];
+    struct ScoutItemGuess guess[PARTY_SIZE];
+    u32 i, k, trBest = 0, twBest = 0, nSlow = 0, nTwAbuser = 0, nFast = 0, setterP = 0, terrP = 0, redirBest = 0;
+    s32 trIdx = -1, twIdx = -1, wIdx = -1, tIdx = -1, rIdx = -1, megaIdx = -1;
+    u32 weather = SCOUT_WEATHER_NONE, nAbuser = 0, nTerrAbuser = 0, nSetup = 0, nTrSetters = 0, megaBest = 0;
+
+    memset(out, 0, sizeof(*out));
+    for (i = 0; i < n && out->n < PARTY_SIZE; i++)
+    {
+        if (species[i] == SPECIES_NONE || species[i] >= NUM_SPECIES)
+            continue;
+        out->slot[out->n++].species = species[i];
+    }
+    n = out->n;
+    for (i = 0; i < n; i++)
+    {
+        u16 sp = out->slot[i].species;
+        u32 wp;
+        Scout_GetSpeciesProfile(sp, &prof[i]);
+        Scout_GuessItem(sp, &guess[i]);
+        if (prof[i].role[SCOUT_TRICK_ROOM] > trBest)
+        {
+            trBest = prof[i].role[SCOUT_TRICK_ROOM];
+            trIdx = i;
+        }
+        if (prof[i].role[SCOUT_TRICK_ROOM] >= 40)
+            nTrSetters++;
+        if (prof[i].role[SCOUT_TAILWIND] > twBest)
+        {
+            twBest = prof[i].role[SCOUT_TAILWIND];
+            twIdx = i;
+        }
+        if (prof[i].role[SCOUT_REDIRECT] > redirBest)
+        {
+            redirBest = prof[i].role[SCOUT_REDIRECT];
+            rIdx = i;
+        }
+        CtxWeatherSetter(sp, &prof[i], &wp);
+        if (wp > setterP)
+        {
+            setterP = wp;
+            wIdx = i;
+        }
+        if (prof[i].terrainP > terrP)
+        {
+            terrP = prof[i].terrainP;
+            tIdx = i;
+        }
+        if (prof[i].role[SCOUT_FAKE_OUT] >= CTX_SETTER_P)
+            out->slot[i].flags |= SCOUT_CTX_FAKE_OUT;
+        // Supporto o attaccante.
+        if (max(max(prof[i].role[SCOUT_FAKE_OUT], prof[i].role[SCOUT_REDIRECT]),
+                max(prof[i].role[SCOUT_TRICK_ROOM], prof[i].role[SCOUT_TAILWIND])) >= 60 && CtxOffense(sp) < 110)
+            out->slot[i].flags |= SCOUT_CTX_SUPPORT;
+        else if (CtxOffense(sp) >= 90)
+            out->slot[i].flags |= SCOUT_CTX_ATTACKER;
+    }
+
+    // --- Trick Room: setter probabile + almeno 2 lenti (oltre al setter) ---
+    for (i = 0; i < n; i++)
+        if ((s32)i != trIdx && CtxIsSlow(out->slot[i].species))
+            nSlow++;
+    if ((trBest >= CTX_SETTER_P && nSlow >= 2) || (trBest >= 30 && nSlow >= 3) || (nTrSetters >= 2 && nSlow >= 1))
+    {
+        out->archetype |= SCOUT_ARCH_TRICK_ROOM;
+        out->trP = min(100u, trBest * (2 + min(nSlow, 4u)) / 4);
+    }
+    else
+    {
+        out->trP = trBest * min(nSlow, 3u) / 6;
+    }
+
+    // --- Tailwind / squadra veloce ---
+    for (i = 0; i < n; i++)
+    {
+        u16 sp = out->slot[i].species;
+        u32 spe = gSpeciesInfo[sp].baseSpeed;
+        if ((s32)i != twIdx && spe >= 55 && spe <= 115 && CtxOffense(sp) >= 95 && !CtxIsSlow(sp))
+            nTwAbuser++;
+        if (spe >= 100 && CtxOffense(sp) >= 95)
+            nFast++;
+    }
+    if (twBest >= CTX_SETTER_P && nTwAbuser >= 2)
+    {
+        out->archetype |= SCOUT_ARCH_TAILWIND;
+        out->twP = min(100u, twBest * (2 + min(nTwAbuser, 4u)) / 4);
+    }
+    else
+    {
+        out->twP = twBest * min(nTwAbuser, 3u) / 6;
+    }
+    if (nFast >= 3 && !(out->archetype & SCOUT_ARCH_TRICK_ROOM))
+    {
+        out->archetype |= SCOUT_ARCH_FAST;
+        out->twP = max(out->twP, (u8)min(100u, 30 + nFast * 15));
+    }
+
+    // --- Meteo: setter (anche con la Mega) + chi lo sfrutta ---
+    if (wIdx >= 0 && setterP >= CTX_SETTER_P)
+    {
+        u32 p;
+        weather = CtxWeatherSetter(out->slot[wIdx].species, &prof[wIdx], &p);
+        out->weather = weather;
+        out->slot[wIdx].flags |= SCOUT_CTX_WEATHER_SETTER;
+        for (i = 0; i < n; i++)
+        {
+            if ((s32)i == wIdx)
+                continue;
+            if (prof[i].weatherAbuse == weather && weather != SCOUT_WEATHER_NONE)
+            {
+                out->slot[i].flags |= SCOUT_CTX_WEATHER_ABUSER;
+                nAbuser++;
+            }
+        }
+        if (nAbuser > 0)
+        {
+            out->archetype |= SCOUT_ARCH_WEATHER;
+            out->weatherP = min(100u, setterP * (2 + min(nAbuser, 2u)) / 4);
+        }
+        else
+        {
+            out->weatherP = setterP / 3;
+        }
+    }
+
+    // --- Campo ---
+    if (tIdx >= 0 && terrP >= CTX_SETTER_P)
+    {
+        out->terrain = prof[tIdx].terrain;
+        out->slot[tIdx].flags |= SCOUT_CTX_TERRAIN_SETTER;
+        for (i = 0; i < n; i++)
+        {
+            if (CtxTerrainAbuser(out->slot[i].species, out->terrain))
+            {
+                out->slot[i].flags |= SCOUT_CTX_TERRAIN_ABUSER;
+                nTerrAbuser++;
+            }
+        }
+        if (nTerrAbuser > 0)
+            out->archetype |= SCOUT_ARCH_TERRAIN;
+    }
+
+    // --- Redirect + setup ---
+    if (rIdx >= 0 && redirBest >= CTX_SETTER_P)
+    {
+        out->slot[rIdx].flags |= SCOUT_CTX_REDIRECTOR;
+        for (i = 0; i < n; i++)
+        {
+            if ((s32)i != rIdx && prof[i].role[SCOUT_SETUP] >= 20 && (out->slot[i].flags & SCOUT_CTX_ATTACKER))
+            {
+                out->slot[i].flags |= SCOUT_CTX_SETUP_PARTNER;
+                nSetup++;
+            }
+        }
+        if (nSetup > 0)
+        {
+            out->archetype |= SCOUT_ARCH_REDIRECT;
+            out->redirectP = min(100u, redirBest * (2 + min(nSetup, 2u)) / 4);
+        }
+    }
+
+    // --- Ruoli di velocità e spread ---
+    for (i = 0; i < n; i++)
+    {
+        u16 sp = out->slot[i].species;
+        struct ScoutSlotContext *sc = &out->slot[i];
+        if ((out->archetype & SCOUT_ARCH_TRICK_ROOM) && (prof[i].role[SCOUT_TRICK_ROOM] >= 40 || (s32)i == trIdx))
+            sc->flags |= SCOUT_CTX_TR_SETTER;
+        if ((out->archetype & SCOUT_ARCH_TAILWIND) && (s32)i == twIdx)
+            sc->flags |= SCOUT_CTX_TW_SETTER;
+        if ((out->archetype & SCOUT_ARCH_TRICK_ROOM) && CtxIsSlow(sp))
+        {
+            sc->flags |= SCOUT_CTX_TR_ABUSER;
+            sc->speedMode = SCOUT_SPEED_MIN;
+        }
+        else if ((out->archetype & (SCOUT_ARCH_TAILWIND | SCOUT_ARCH_FAST)) && !CtxIsSlow(sp)
+              && (sc->flags & SCOUT_CTX_ATTACKER) && gSpeciesInfo[sp].baseSpeed >= 55)
+        {
+            sc->flags |= SCOUT_CTX_SPEED_ABUSER;
+            sc->speedMode = SCOUT_SPEED_MAX;
+        }
+        // Chi sfrutta il meteo veloce (Swift Swim...) non vuole la spread minima nemmeno in una squadra TR.
+        if ((sc->flags & SCOUT_CTX_WEATHER_ABUSER) && sc->speedMode == SCOUT_SPEED_MIN && !CtxIsSlow(sp))
+            sc->speedMode = SCOUT_SPEED_META;
+    }
+
+    // --- Una sola Mega per squadra: la più probabile ---
+    for (i = 0; i < n; i++)
+    {
+        u32 mp = (guess[i].megaSpecies != SPECIES_NONE) ? guess[i].megaChance : 0;
+        u32 score = mp * 4 + Scout_MetaUsage(out->slot[i].species);
+        out->slot[i].megaP = mp;
+        if (mp > 0 && score > megaBest)
+        {
+            megaBest = score;
+            megaIdx = i;
+        }
+    }
+    for (i = 0; i < n; i++)
+    {
+        if ((s32)i == megaIdx)
+        {
+            out->slot[i].megaP = min(100, out->slot[i].megaP + 10);
+            out->slot[i].flags |= SCOUT_CTX_MEGA;
+        }
+        else
+        {
+            out->slot[i].megaP = out->slot[i].megaP * 20 / 100;
+        }
+    }
+
+    // --- Strumenti con la clausola (una copia per squadra): assegnazione golosa per probabilità ---
+    {
+        struct CtxItemCand cand[PARTY_SIZE][CTX_ITEM_CAND];
+        u8 nCand[PARTY_SIZE], next[PARTY_SIZE], done[PARTY_SIZE] = {0};
+        u8 taken[PARTY_SIZE];
+        u32 nTaken = 0, round;
+
+        for (i = 0; i < n; i++)
+        {
+            nCand[i] = CtxItemCandidates(out, i, 0, cand[i]);
+            next[i] = 0;
+        }
+        for (round = 0; round < n; round++)
+        {
+            s32 bi = -1;
+            u32 bp = 0;
+            for (i = 0; i < n; i++)
+            {
+                if (done[i])
+                    continue;
+                // Salta i candidati già presi da un altro (clausola).
+                while (next[i] < nCand[i])
+                {
+                    bool32 isTaken = FALSE;
+                    for (k = 0; k < nTaken; k++)
+                        if (taken[k] == cand[i][next[i]].effect)
+                            isTaken = TRUE;
+                    if (!isTaken)
+                        break;
+                    next[i]++;
+                }
+                if (next[i] < nCand[i] && cand[i][next[i]].p > bp)
+                {
+                    bp = cand[i][next[i]].p;
+                    bi = i;
+                }
+            }
+            if (bi < 0)
+                break;
+            out->slot[bi].heldEffect = cand[bi][next[bi]].effect;
+            out->slot[bi].itemP = cand[bi][next[bi]].p;
+            done[bi] = TRUE;
+            if (nTaken < PARTY_SIZE)
+                taken[nTaken++] = cand[bi][next[bi]].effect;
+        }
+        // La Mega designata tiene la pietra: lo strumento "normale" è poco probabile.
+        for (i = 0; i < n; i++)
+        {
+            if (out->slot[i].megaP >= 50 && out->slot[i].heldEffect != HOLD_EFFECT_NONE)
+                out->slot[i].itemP = out->slot[i].itemP * (100 - out->slot[i].megaP) / 100;
+        }
+    }
+
+    // --- Piano di gioco più pericoloso ---
+    {
+        u32 best = 0;
+        out->plan = SCOUT_PLAN_NONE;
+        if ((out->archetype & SCOUT_ARCH_TRICK_ROOM) && out->trP > best)
+            best = out->trP, out->plan = SCOUT_PLAN_TRICK_ROOM;
+        if ((out->archetype & SCOUT_ARCH_TAILWIND) && out->twP > best)
+            best = out->twP, out->plan = SCOUT_PLAN_TAILWIND;
+        if ((out->archetype & SCOUT_ARCH_WEATHER) && out->weatherP > best)
+            best = out->weatherP, out->plan = SCOUT_PLAN_WEATHER;
+        if ((out->archetype & SCOUT_ARCH_REDIRECT) && out->redirectP > best)
+            best = out->redirectP, out->plan = SCOUT_PLAN_REDIRECT_SETUP;
+        if ((out->archetype & SCOUT_ARCH_TERRAIN) && terrP * 3 / 4 > best)
+            best = terrP * 3 / 4, out->plan = SCOUT_PLAN_TERRAIN;
+        if ((out->archetype & SCOUT_ARCH_FAST) && !(out->archetype & SCOUT_ARCH_TAILWIND) && out->twP > best)
+            best = out->twP, out->plan = SCOUT_PLAN_FAST_OFFENSE;
+        out->planP = best;
+    }
+}
+
+static void CtxStore(const struct ScoutTeamContext *ctx, u32 age)
+{
+    struct ScoutTeamContext *dst = &sTeamCtx[sTeamCtxNext];
+    sTeamCtxNext = (sTeamCtxNext + 1) % ARRAY_COUNT(sTeamCtx);
+    *dst = *ctx;
+    dst->age = age;
+    sTeamCtxSide[0] = sTeamCtxSide[1] = 0;
+}
+
+static u32 PartySpecies(struct Pokemon *party, u16 *out)
+{
+    u32 i, n = 0;
+
+    if (party == NULL)
+        return 0;
+    for (i = 0; i < PARTY_SIZE; i++)
+    {
+        u16 sp = GetMonData(&party[i], MON_DATA_SPECIES);
+        if (sp == SPECIES_NONE || sp >= NUM_SPECIES || GetMonData(&party[i], MON_DATA_IS_EGG))
+            continue;
+        out[n++] = sp;
+    }
+    return n;
+}
+
+const struct ScoutTeamContext *Scout_SetTeamContextFromParty(struct Pokemon *party)
+{
+    u16 sp[PARTY_SIZE];
+    u32 n = PartySpecies(party, sp);
+    struct ScoutTeamContext ctx;
+    u32 i;
+
+    if (n == 0)
+        return NULL;
+    // Stessa squadra già calcolata (Bo3, o lo stesso Pokémon pensato da entrambe le parti): si aggiorna quella.
+    for (i = 0; i < ARRAY_COUNT(sTeamCtx); i++)
+    {
+        u32 k, hit = 0;
+        if (sTeamCtx[i].n != n)
+            continue;
+        for (k = 0; k < n; k++)
+            if (sTeamCtx[i].slot[k].species == sp[k])
+                hit++;
+        if (hit == n)
+        {
+            sTeamCtx[i].age = 0;
+            return &sTeamCtx[i];
+        }
+    }
+    Scout_ComputeTeamContext(sp, n, &ctx);
+    CtxStore(&ctx, 0);
+    return &sTeamCtx[(sTeamCtxNext + ARRAY_COUNT(sTeamCtx) - 1) % ARRAY_COUNT(sTeamCtx)];
+}
+
+const struct ScoutTeamContext *Scout_PartyContext(struct Pokemon *party)
+{
+    u16 sp[PARTY_SIZE];
+    u32 n = PartySpecies(party, sp), i, k;
+    s32 best = -1;
+    struct ScoutTeamContext ctx;
+
+    if (n == 0)
+        return NULL;
+    for (i = 0; i < ARRAY_COUNT(sTeamCtx); i++)
+    {
+        bool32 all = TRUE;
+        if (sTeamCtx[i].n == 0)
+            continue;
+        for (k = 0; k < n && all; k++)
+            all = Scout_ContextSlot(&sTeamCtx[i], sp[k]) >= 0;
+        if (all && (best < 0 || sTeamCtx[i].age < sTeamCtx[best].age))
+            best = i;
+    }
+    if (best >= 0)
+        return &sTeamCtx[best];
+    // Nessuna team preview (test, lotte senza anteprima): dalla squadra com'è.
+    Scout_ComputeTeamContext(sp, n, &ctx);
+    CtxStore(&ctx, 1);
+    return &sTeamCtx[(sTeamCtxNext + ARRAY_COUNT(sTeamCtx) - 1) % ARRAY_COUNT(sTeamCtx)];
+}
+
+const struct ScoutTeamContext *Scout_BattlerContext(enum BattlerId battler)
+{
+    u32 side;
+    const struct ScoutTeamContext *ctx;
+
+    if (battler >= gBattlersCount)
+        return NULL;
+    side = GetBattlerSide(battler);
+    if (gScoutContextOffMask & (1u << (side ^ 1))) // chi pensa a questo battler è l'altro lato
+        return NULL;
+    if (sTeamCtxSide[side] > 0 && sTeamCtxSide[side] <= (s32)ARRAY_COUNT(sTeamCtx)
+     && Scout_ContextSlot(&sTeamCtx[sTeamCtxSide[side] - 1], gBattleMons[battler].species) >= 0)
+        return &sTeamCtx[sTeamCtxSide[side] - 1];
+    ctx = Scout_PartyContext(GetBattlerParty(battler));
+    if (ctx != NULL)
+        sTeamCtxSide[side] = (ctx - sTeamCtx) + 1;
+    return ctx;
+}
+
+// Nuova lotta: i contesti della team preview appena fatta restano, quelli di lotte vecchie si scartano.
+static void Scout_TeamContextNewBattle(void)
+{
+    u32 i;
+    for (i = 0; i < ARRAY_COUNT(sTeamCtx); i++)
+    {
+        if (sTeamCtx[i].n == 0)
+            continue;
+        if (++sTeamCtx[i].age >= 2)
+            sTeamCtx[i].n = 0;
+    }
+    sTeamCtxSide[0] = sTeamCtxSide[1] = 0;
+}
+
+// --- Statistiche ---------------------------------------------------------------------------
+static void SpreadStats(u16 species, u32 level, const struct VgcMetaSpread *ms, u16 stats[NUM_STATS])
+{
+    struct ScoutSpread s;
+    u32 k;
+    s.nature = ms->nature;
+    s.p = ms->p;
+    for (k = 0; k < NUM_STATS; k++)
+        s.ev[sMetaStatOrder[k]] = min(ms->ev[k] * 4, 252);
+    Scout_StatsFromSpread(species, level, &s, stats);
+}
+
+void Scout_EstimateStatsInTeam(const struct ScoutTeamContext *ctx, u16 species, u32 level, u16 *hp, u16 stats[NUM_STATS])
+{
+    const struct VgcMetaEntry *meta;
+    s32 slot = Scout_ContextSlot(ctx, species);
+    u32 mode = SCOUT_SPEED_META, base;
+
+    Scout_EstimateStats(species, level, hp, stats);
+    if (slot >= 0)
+        mode = ctx->slot[slot].speedMode;
+    if (mode == SCOUT_SPEED_META)
+        return;
+    meta = gSpeciesInfo[species].isMegaEvolution ? NULL : MetaEntryFor(species);
+    base = ((2 * gSpeciesInfo[species].baseSpeed) * level) / 100 + 5;
+    if (mode == SCOUT_SPEED_MIN)
+    {
+        u16 minSpe = base * 90 / 100;
+        if (stats[STAT_SPEED] == minSpe)
+            return;
+        if (meta != NULL && meta->trSpread.p > 0)
+        {
+            u16 alt[NUM_STATS];
+            SpreadStats(species, level, &meta->trSpread, alt);
+            memcpy(stats, alt, sizeof(alt));
+            *hp = alt[STAT_HP];
+            return;
+        }
+        // Nessuna spread minima nelle statistiche: la stessa con la Velocità al minimo.
+        stats[STAT_SPEED] = minSpe;
+    }
+    else
+    {
+        u16 maxSpe = (((2 * gSpeciesInfo[species].baseSpeed + 31 + 63) * level) / 100 + 5) * 110 / 100;
+        if (stats[STAT_SPEED] >= maxSpe)
+            return;
+        if (meta != NULL && meta->fastSpread.p >= 5)
+        {
+            u16 alt[NUM_STATS];
+            SpreadStats(species, level, &meta->fastSpread, alt);
+            memcpy(stats, alt, sizeof(alt));
+            *hp = alt[STAT_HP];
+            return;
+        }
+        stats[STAT_SPEED] = maxSpe;
+    }
+}
+
+// --- Mosse ---------------------------------------------------------------------------------
+static bool32 IsWeatherMoveFor(u32 weather, enum Move move)
+{
+    switch (weather)
+    {
+    case SCOUT_WEATHER_RAIN: return move == MOVE_WEATHER_BALL || move == MOVE_HURRICANE || move == MOVE_THUNDER;
+    case SCOUT_WEATHER_SUN:  return move == MOVE_WEATHER_BALL || move == MOVE_SOLAR_BEAM || move == MOVE_SOLAR_BLADE;
+    case SCOUT_WEATHER_SNOW: return move == MOVE_WEATHER_BALL || move == MOVE_BLIZZARD || move == MOVE_AURORA_VEIL;
+    case SCOUT_WEATHER_SAND: return move == MOVE_WEATHER_BALL;
+    default: return FALSE;
+    }
+}
+
+u32 Scout_MoveChanceInTeam(const struct ScoutTeamContext *ctx, u16 species, enum Move move)
+{
+    u32 p = Scout_MoveChance(species, move), f, arch;
+    s32 slot;
+    enum BattleMoveEffects eff;
+
+    if (p == 0 || (slot = Scout_ContextSlot(ctx, species)) < 0)
+        return p;
+    f = ctx->slot[slot].flags;
+    arch = ctx->archetype;
+    eff = GetMoveEffect(move);
+    if (eff == EFFECT_TRICK_ROOM)
+    {
+        if (f & SCOUT_CTX_TR_SETTER)
+            p = max(p, 90u);
+        else if (arch & SCOUT_ARCH_TRICK_ROOM)
+            p = max(p, min(60u, p * 3 / 2));
+        else if (arch & (SCOUT_ARCH_TAILWIND | SCOUT_ARCH_FAST))
+            p = p * 2 / 3;
+    }
+    else if (eff == EFFECT_TAILWIND)
+    {
+        if (f & SCOUT_CTX_TW_SETTER)
+            p = max(p, 90u);
+        else if ((arch & SCOUT_ARCH_TRICK_ROOM) && !(arch & SCOUT_ARCH_TAILWIND))
+            p = p / 2;
+    }
+    else if (eff == EFFECT_HELPING_HAND)
+    {
+        if (f & SCOUT_CTX_SUPPORT)
+            p = min(90u, p + 20);
+    }
+    else if (Scout_MoveHasRole(move, SCOUT_SETUP))
+    {
+        if (f & SCOUT_CTX_SETUP_PARTNER)
+            p = min(95u, p * 3 / 2 + 5);
+    }
+    // Mosse da meteo: con il meteo della squadra salgono, la Solar Beam senza sole scende.
+    if (ctx->weather != SCOUT_WEATHER_NONE && IsWeatherMoveFor(ctx->weather, move))
+    {
+        if (move == MOVE_AURORA_VEIL)
+            p = (f & SCOUT_CTX_WEATHER_SETTER) ? max(p, 70u) : max(p, 30u);
+        else if (move == MOVE_WEATHER_BALL)
+            p = max(p, (f & (SCOUT_CTX_WEATHER_ABUSER | SCOUT_CTX_WEATHER_SETTER)) ? 40u : 20u);
+        else if (move == MOVE_SOLAR_BEAM || move == MOVE_SOLAR_BLADE)
+            p = max(p, (f & SCOUT_CTX_WEATHER_ABUSER) ? 45u : 25u);
+        else
+            p = max(p, min(95u, p + 25));
+    }
+    else if ((move == MOVE_SOLAR_BEAM || move == MOVE_SOLAR_BLADE) && ctx->weather != SCOUT_WEATHER_SUN)
+    {
+        p = p / 2;
+    }
+    // Mosse da campo.
+    if (ctx->terrain != SCOUT_TERRAIN_NONE && ctx->terrain < ARRAY_COUNT(sCtxTerrainMove) && move == sCtxTerrainMove[ctx->terrain])
+        p = max(p, (f & SCOUT_CTX_TERRAIN_ABUSER) ? 50u : 25u);
+    return p;
+}
+
+u32 Scout_GetLikelyMovesInTeam(const struct ScoutTeamContext *ctx, u16 species, struct ScoutMoveChance *out, u32 max)
+{
+    static const u16 sExtra[] = { MOVE_WEATHER_BALL, MOVE_HURRICANE, MOVE_THUNDER, MOVE_SOLAR_BEAM, MOVE_SOLAR_BLADE,
+                                  MOVE_BLIZZARD, MOVE_GRASSY_GLIDE, MOVE_RISING_VOLTAGE, MOVE_EXPANDING_FORCE };
+    u32 n = Scout_GetLikelyMoves(species, out, max), i, k;
+
+    if (Scout_ContextSlot(ctx, species) < 0)
+        return n;
+    for (i = 0; i < n; i++)
+        out[i].p = Scout_MoveChanceInTeam(ctx, species, out[i].move);
+    // Mosse che il contesto rende probabili anche se non sono tra le più usate della specie.
+    for (k = 0; k < ARRAY_COUNT(sExtra); k++)
+    {
+        u32 p;
+        bool32 dup = FALSE;
+        for (i = 0; i < n; i++)
+            if (out[i].move == sExtra[k])
+                dup = TRUE;
+        if (dup || !SpeciesCanLearnAny(species, sExtra[k]))
+            continue;
+        p = Scout_MoveChanceInTeam(ctx, species, sExtra[k]);
+        if (p < 15)
+            continue;
+        if (n < max)
+        {
+            out[n].move = sExtra[k];
+            out[n].p = p;
+            n++;
+        }
+        else if (n > 0 && out[n - 1].p < p)
+        {
+            out[n - 1].move = sExtra[k];
+            out[n - 1].p = p;
+        }
+    }
+    // Ordine per probabilità.
+    for (i = 1; i < n; i++)
+    {
+        struct ScoutMoveChance t = out[i];
+        k = i;
+        while (k > 0 && out[k - 1].p < t.p)
+        {
+            out[k] = out[k - 1];
+            k--;
+        }
+        out[k] = t;
+    }
+    return n;
+}
+
+// --- Abilità -------------------------------------------------------------------------------
+static u32 AbilityChanceCtx(const struct ScoutTeamContext *ctx, u16 species, enum Ability ability, u32 excludedSlots)
+{
+    u32 base = AbilityChanceMasked(species, ability, excludedSlots), fb;
+    s32 slot;
+    enum Ability forced;
+
+    if (gSpeciesInfo[species].isMegaEvolution || (slot = Scout_ContextSlot(ctx, species)) < 0)
+        return base;
+    forced = CtxForcedAbility(ctx, slot);
+    if (forced == ABILITY_NONE)
+        return base;
+    fb = AbilityChanceMasked(species, forced, excludedSlots);
+    if (fb == 0) // esclusa da ciò che si è visto
+        return base;
+    if (ability == forced)
+        return max(base, (u32)CTX_FORCED_ABILITY);
+    if (fb >= 100)
+        return base;
+    return base * (100 - max(fb, (u32)CTX_FORCED_ABILITY)) / (100 - fb);
+}
+
+u32 Scout_AbilityChanceInTeam(const struct ScoutTeamContext *ctx, u16 species, enum Ability ability)
+{
+    return AbilityChanceCtx(ctx, species, ability, 0);
+}
+
+enum Ability Scout_LikelyAbilityInTeam(const struct ScoutTeamContext *ctx, u16 species, u32 *chance)
+{
+    enum Ability list[NUM_ABILITY_SLOTS], best = ABILITY_NONE;
+    u8 slot[NUM_ABILITY_SLOTS];
+    u32 i, n = 0, bestP = 0;
+
+    if (species != SPECIES_NONE && species < NUM_SPECIES)
+        n = SpeciesAbilities(species, list, slot);
+    for (i = 0; i < n; i++)
+    {
+        u32 p = AbilityChanceCtx(ctx, species, list[i], 0);
+        if (p > bestP)
+        {
+            bestP = p;
+            best = list[i];
+        }
+    }
+    if (chance != NULL)
+        *chance = bestP;
+    return best;
+}
+
+// --- Strumenti e Mega ----------------------------------------------------------------------
+void Scout_GuessItemInTeam(const struct ScoutTeamContext *ctx, u16 species, struct ScoutItemGuess *out)
+{
+    s32 slot;
+
+    Scout_GuessItem(species, out);
+    if (gSpeciesInfo[species].isMegaEvolution || (slot = Scout_ContextSlot(ctx, species)) < 0)
+        return;
+    if (out->megaSpecies != SPECIES_NONE)
+        out->megaChance = ctx->slot[slot].megaP;
+    out->effect = ctx->slot[slot].heldEffect;
+    out->chance = ctx->slot[slot].itemP;
+}
+
+u32 Scout_MegaChanceInTeam(const struct ScoutTeamContext *ctx, u16 species)
+{
+    struct ScoutMegaChance mc[VGC_META_MEGAS];
+    s32 slot = Scout_ContextSlot(ctx, species);
+
+    if (slot >= 0)
+        return ctx->slot[slot].megaP;
+    if (Scout_GetMegaForms(species, mc, ARRAY_COUNT(mc)) == 0)
+        return 0;
+    return mc[0].p;
+}
+
+// --- Ruoli ---------------------------------------------------------------------------------
+void Scout_GetProfileInTeam(const struct ScoutTeamContext *ctx, u16 species, struct ScoutProfile *out)
+{
+    s32 slot;
+    u32 f, arch;
+
+    Scout_GetSpeciesProfile(species, out);
+    if ((slot = Scout_ContextSlot(ctx, species)) < 0)
+        return;
+    f = ctx->slot[slot].flags;
+    arch = ctx->archetype;
+    if (f & SCOUT_CTX_TR_SETTER)
+        out->role[SCOUT_TRICK_ROOM] = max(out->role[SCOUT_TRICK_ROOM], 90);
+    else if ((arch & (SCOUT_ARCH_TAILWIND | SCOUT_ARCH_FAST)) && !(arch & SCOUT_ARCH_TRICK_ROOM))
+        out->role[SCOUT_TRICK_ROOM] = out->role[SCOUT_TRICK_ROOM] * 2 / 3;
+    if (f & SCOUT_CTX_TW_SETTER)
+        out->role[SCOUT_TAILWIND] = max(out->role[SCOUT_TAILWIND], 90);
+    else if ((arch & SCOUT_ARCH_TRICK_ROOM) && !(arch & SCOUT_ARCH_TAILWIND))
+        out->role[SCOUT_TAILWIND] = out->role[SCOUT_TAILWIND] / 2;
+    if (f & SCOUT_CTX_SETUP_PARTNER)
+        out->role[SCOUT_SETUP] = min(95, out->role[SCOUT_SETUP] * 3 / 2 + 5);
+    if ((f & SCOUT_CTX_SUPPORT) && out->role[SCOUT_HELPING_HAND] > 0)
+        out->role[SCOUT_HELPING_HAND] = min(90, out->role[SCOUT_HELPING_HAND] + 20);
+    if (f & SCOUT_CTX_WEATHER_ABUSER)
+        out->weatherAbuse = ctx->weather;
+    if (f & SCOUT_CTX_WEATHER_SETTER)
+    {
+        u32 p;
+        u32 w = CtxWeatherSetter(species, out, &p);
+        if (w != SCOUT_WEATHER_NONE)
+        {
+            out->weather = w;
+            out->weatherP = (ctx->archetype & SCOUT_ARCH_WEATHER) ? max(p, (u32)CTX_FORCED_ABILITY) : p;
+        }
+    }
+}
+
+// --- Lead probabili ------------------------------------------------------------------------
+static s32 CtxLeadScoreSlots(const struct ScoutTeamContext *ctx, u32 a, u32 b)
+{
+    u32 fa = ctx->slot[a].flags, fb = ctx->slot[b].flags, k;
+    s32 s = 0;
+
+    for (k = 0; k < 2; k++)
+    {
+        u32 x = k == 0 ? fa : fb, y = k == 0 ? fb : fa;
+        if (x & SCOUT_CTX_TR_SETTER)
+        {
+            s += 30;
+            if ((y & SCOUT_CTX_TR_ABUSER) && !(y & SCOUT_CTX_TR_SETTER))
+                s += 25;
+            if (y & SCOUT_CTX_FAKE_OUT)
+                s += 20;    // Fake Out per far partire il Trick Room
+            if (y & SCOUT_CTX_REDIRECTOR)
+                s += 20;
+        }
+        if (x & SCOUT_CTX_TW_SETTER)
+        {
+            s += 20;
+            if (y & SCOUT_CTX_SPEED_ABUSER)
+                s += 15;
+            if (y & SCOUT_CTX_FAKE_OUT)
+                s += 10;
+        }
+        if ((x & SCOUT_CTX_WEATHER_SETTER) && (y & SCOUT_CTX_WEATHER_ABUSER))
+            s += 35;
+        if ((x & SCOUT_CTX_WEATHER_ABUSER) && !(y & SCOUT_CTX_WEATHER_SETTER) && (ctx->archetype & SCOUT_ARCH_WEATHER))
+            s -= 15;
+        if ((x & SCOUT_CTX_TERRAIN_SETTER) && (y & SCOUT_CTX_TERRAIN_ABUSER))
+            s += 25;
+        if ((x & SCOUT_CTX_REDIRECTOR) && (y & SCOUT_CTX_SETUP_PARTNER))
+            s += 30;
+        // Lento senza chi gli piazza il Trick Room accanto: di solito sta dietro.
+        if ((x & SCOUT_CTX_TR_ABUSER) && !(x & SCOUT_CTX_TR_SETTER) && !(y & SCOUT_CTX_TR_SETTER))
+            s -= 15;
+        if (x & SCOUT_CTX_FAKE_OUT)
+            s += 10;
+    }
+    if ((fa & fb & SCOUT_CTX_TR_SETTER) || (fa & fb & SCOUT_CTX_TW_SETTER))
+        s -= 25; // due setter insieme: poca pressione
+    if ((fa | fb) & SCOUT_CTX_MEGA)
+        s += 5;
+    return s;
+}
+
+s32 Scout_ContextLeadScore(const struct ScoutTeamContext *ctx, u16 speciesA, u16 speciesB)
+{
+    s32 a = Scout_ContextSlot(ctx, speciesA), b = Scout_ContextSlot(ctx, speciesB);
+    if (a < 0 || b < 0 || a == b)
+        return 0;
+    return CtxLeadScoreSlots(ctx, a, b);
+}
+
+u32 Scout_ContextLikelyLeads(const struct ScoutTeamContext *ctx, u8 (*pairs)[2], u8 *p, u32 max)
+{
+    s32 sc[PARTY_SIZE * (PARTY_SIZE - 1) / 2];
+    u8 pa[ARRAY_COUNT(sc)], pb[ARRAY_COUNT(sc)];
+    u32 i, j, n = 0, out = 0, sum = 0;
+    s32 lo = INT32_MAX;
+
+    if (ctx == NULL || ctx->n < 2 || max == 0)
+        return 0;
+    for (i = 0; i < ctx->n; i++)
+        for (j = i + 1; j < ctx->n; j++)
+        {
+            sc[n] = CtxLeadScoreSlots(ctx, i, j);
+            pa[n] = i;
+            pb[n] = j;
+            lo = min(lo, sc[n]);
+            n++;
+        }
+    // Peso = punteggio sopra il minimo + 10, poi le migliori `max` normalizzate a 100.
+    for (i = 0; i < n; i++)
+        sc[i] = sc[i] - lo + 10;
+    for (out = 0; out < max && out < n; out++)
+    {
+        u32 bi = out;
+        for (j = out + 1; j < n; j++)
+            if (sc[j] > sc[bi])
+                bi = j;
+        SWAP(sc[out], sc[bi], i);
+        SWAP(pa[out], pa[bi], i);
+        SWAP(pb[out], pb[bi], i);
+        sum += sc[out];
+    }
+    for (i = 0; i < out; i++)
+    {
+        pairs[i][0] = pa[i];
+        pairs[i][1] = pb[i];
+        p[i] = sum ? sc[i] * 100 / sum : 0;
+    }
+    return out;
+}
+
+// --- Per un Pokémon in lotta ---------------------------------------------------------------
+u32 Scout_BattlerLikelyMoves(enum BattlerId battler, struct ScoutMoveChance *out, u32 max)
+{
+    if (battler >= gBattlersCount)
+        return 0;
+    return Scout_GetLikelyMovesInTeam(Scout_BattlerContext(battler), gBattleMons[battler].species, out, max);
+}
+
+// Il giocatore esegue il piano di gioco della sua squadra: Trick Room dal setter di una squadra TR (se la stanza non
+// c'è), Tailwind dal setter di una squadra Tailwind (se il suo vento non soffia). 0..100, da sommare alla probabilità
+// a priori dell'azione nel modello del giocatore.
+u32 Scout_BattlerPlanMoveBonus(enum BattlerId battler, enum Move move)
+{
+    const struct ScoutTeamContext *ctx;
+    s32 slot;
+    enum BattleMoveEffects eff;
+
+    if (battler >= gBattlersCount || move == MOVE_NONE || move == MOVE_UNAVAILABLE)
+        return 0;
+    eff = GetMoveEffect(move);
+    if (eff != EFFECT_TRICK_ROOM && eff != EFFECT_TAILWIND)
+        return 0;
+    ctx = Scout_BattlerContext(battler);
+    if ((slot = Scout_ContextSlot(ctx, gBattleMons[battler].species)) < 0)
+        return 0;
+    if (eff == EFFECT_TRICK_ROOM && (ctx->slot[slot].flags & SCOUT_CTX_TR_SETTER) && !(gFieldStatuses & STATUS_FIELD_TRICK_ROOM))
+        return ctx->trP;
+    if (eff == EFFECT_TAILWIND && (ctx->slot[slot].flags & SCOUT_CTX_TW_SETTER) && !(gSideStatuses[GetBattlerSide(battler)] & SIDE_STATUS_TAILWIND))
+        return ctx->twP;
+    return 0;
+}
+
+void Scout_GetPartyMonProfile(enum BattlerId battler, u16 species, struct ScoutProfile *out)
+{
+    Scout_GetProfileInTeam(battler < gBattlersCount ? Scout_BattlerContext(battler) : NULL, species, out);
 }

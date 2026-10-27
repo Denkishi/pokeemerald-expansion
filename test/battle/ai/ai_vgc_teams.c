@@ -387,7 +387,9 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Tony - Slither Wing does not use Close Combat 
         OPPONENT(SPECIES_ROARING_MOON) { TONY_ROARING_MOON; }
         OPPONENT(SPECIES_SABLEYE) { TONY_SABLEYE; }
     } WHEN {
-        TURN { MOVE(playerLeft, MOVE_PROTECT); MOVE(playerRight, MOVE_GRASSY_GLIDE, target: opponentRight); NOT_EXPECT_MOVE(opponentLeft, MOVE_CLOSE_COMBAT); }
+        // Contesto della squadra (Aerodactyl Tailwind + attaccanti veloci): Rillaboom stimato con la spread veloce (4 PS, come il vero)
+        // va KO con Weather Ball al sole di Charizard: entra il terzo.
+        TURN { MOVE(playerLeft, MOVE_PROTECT); MOVE(playerRight, MOVE_GRASSY_GLIDE, target: opponentRight); NOT_EXPECT_MOVE(opponentLeft, MOVE_CLOSE_COMBAT); SEND_OUT(playerRight, 2); }
     }
 }
 
@@ -552,7 +554,9 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Mario - Oranguru sets Trick Room next to Iron 
         OPPONENT(SPECIES_HARIYAMA) { MARIO_HARIYAMA; }
         OPPONENT(SPECIES_MEGANIUM) { MARIO_MEGANIUM; }
     } WHEN {
-        TURN { MOVE(playerLeft, MOVE_GRASSY_GLIDE, target: opponentRight); MOVE(playerRight, MOVE_PROTECT); EXPECT_MOVE(opponentLeft, MOVE_TRICK_ROOM); }
+        // Contesto della squadra (squadra Tailwind): Rillaboom stimato con la spread veloce (4 PS, come il vero) va KO con
+        // Close Combat di Iron Hands: entra il terzo.
+        TURN { MOVE(playerLeft, MOVE_GRASSY_GLIDE, target: opponentRight); MOVE(playerRight, MOVE_PROTECT); EXPECT_MOVE(opponentLeft, MOVE_TRICK_ROOM); SEND_OUT(playerLeft, 2); }
     }
 }
 

@@ -229,8 +229,33 @@ def sp_to_ev(v, champions):
     return 0 if v <= 0 else min(252, v * 8 - 4)   # Champions: punti statistica 0..32 (1 punto ~ 8 EV)
 
 
+# Nature che abbassano / alzano la Velocità.
+NATURE_SPEED = {n: (n in ('brave', 'relaxed', 'quiet', 'sassy'), n in ('timid', 'hasty', 'jolly', 'naive'))
+                for n in ('hardy', 'lonely', 'brave', 'adamant', 'naughty', 'bold', 'docile', 'relaxed', 'impish', 'lax',
+                          'timid', 'hasty', 'serious', 'jolly', 'naive', 'modest', 'mild', 'quiet', 'bashful', 'rash',
+                          'calm', 'gentle', 'sassy', 'careful', 'quirky')}
+
+
 def ev_bucket(ev):
     return 0 if ev < 64 else (1 if ev < 188 else 2)
+
+
+def speed_setters(fmt_data):
+    """Per formato: specie (forma base, Mega comprese) -> quota dei set con Trick Room / Tailwind."""
+    cache = fmt_data.get('_setters')
+    if cache is not None:
+        return cache
+    tr, tw = {}, {}
+    for n, x in fmt_data['data'].items():
+        w = sum(x['Abilities'].values())
+        if w <= 0:
+            continue
+        base = mega_base(n) or n
+        mv = x['Moves']
+        tr[base] = max(tr.get(base, 0), mv.get('trickroom', 0) / w)
+        tw[base] = max(tw.get(base, 0), mv.get('tailwind', 0) / w)
+    fmt_data['_setters'] = (tr, tw)
+    return fmt_data['_setters']
 
 
 def build_entry(fmt_data, champions, base_name, consts):
@@ -331,6 +356,40 @@ def build_entry(fmt_data, champions, base_name, consts):
         if p < 1:
             break
         e['spreads'].append((cl['best'][0], cl['best'][1], p))
+    # Contesto di squadra (team preview): spread "da Trick Room" (natura -Vel, 0 EV in Velocità) e "veloce" (natura +Vel,
+    # Velocità al massimo) più usate, con la loro quota sul totale dei set; dai compagni di squadra ("Teammates"),
+    # quanto spesso la specie gioca con un setter di Trick Room / Tailwind (somma di P(compagno) x P(compagno ha la mossa)).
+    trs, fast = {}, {}
+    for k, v in spreads.items():
+        try:
+            nature, evs = k.split(':')
+            evs = [sp_to_ev(int(x), champions) for x in evs.split('/')]
+        except ValueError:
+            continue
+        nc = 'NATURE_' + nature.upper()
+        if nc not in consts.natures or len(evs) != 6:
+            continue
+        down, up = NATURE_SPEED.get(nature.lower(), (False, False))
+        if down and evs[5] < 64:
+            trs[(nc, tuple(evs))] = trs.get((nc, tuple(evs)), 0) + v
+        if up and evs[5] >= 188:
+            fast[(nc, tuple(evs))] = fast.get((nc, tuple(evs)), 0) + v
+    for name, table in (('trSpread', trs), ('fastSpread', fast)):
+        if table:
+            best = max(table.items(), key=lambda t: t[1])
+            share = round(100 * sum(table.values()) / total)
+            if share >= 1:
+                e[name] = (best[0][0], list(best[0][1]), min(100, share))
+    tr_set, tw_set = speed_setters(fmt_data)
+    mates = {}
+    for f in forms:
+        for k, v in data[f].get('Teammates', {}).items():
+            b = mega_base(k) or k
+            mates[b] = mates.get(b, 0) + v
+    trm = sum(min(1.0, v / total) * tr_set.get(k, 0) for k, v in mates.items() if k != base_name)
+    twm = sum(min(1.0, v / total) * tw_set.get(k, 0) for k, v in mates.items() if k != base_name)
+    e['trMate'] = min(100, round(100 * trm))
+    e['twMate'] = min(100, round(100 * twm))
     e['raw'] = raw
     return e
 
@@ -480,6 +539,10 @@ def write_header(path, month, chain, entries, missing, n_trainer):
     w('    u16 megas[VGC_META_MEGAS];')
     w('    u8 megaP[VGC_META_MEGAS];')
     w('    struct VgcMetaSpread spreads[VGC_META_SPREADS];')
+    w('    struct VgcMetaSpread trSpread;          // spread da Trick Room più usata (p = quota di tutte le spread -Vel/0 EV)')
+    w('    struct VgcMetaSpread fastSpread;        // spread veloce più usata (p = quota di tutte le spread +Vel/max Vel)')
+    w('    u8 trMate;                              // % compagni con Trick Room (dai "Teammates": P(compagno) x P(ha TR))')
+    w('    u8 twMate;                              // idem con Tailwind')
     w('};')
     w('')
     sources = []
@@ -514,6 +577,12 @@ def write_header(path, month, chain, entries, missing, n_trainer):
             for nat, evs, p in e['spreads']:
                 w(f'            {{ {nat}, {p}, {{ ' + ', '.join(str(x // 4) for x in evs) + ' } },')
             w('        },')
+        for name in ('trSpread', 'fastSpread'):
+            if name in e:
+                nat, evs, p = e[name]
+                w(f'        .{name} = {{ {nat}, {p}, {{ ' + ', '.join(str(x // 4) for x in evs) + ' } },')
+        if e.get('trMate') or e.get('twMate'):
+            w(f'        .trMate = {e["trMate"]}, .twMate = {e["twMate"]},')
         w('    },')
     w('};')
     w('')
