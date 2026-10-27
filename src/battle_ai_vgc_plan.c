@@ -1621,8 +1621,10 @@ PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st)
     // Materiale: Pokémon utilizzabili per lato (in campo + panchina). Lo stesso KO vale di più quando cambia
     // l'equilibrio (2 contro 1 pesa più di 4 contro 3): la differenza si scala sul totale rimasto.
     {
-        s32 ours = count[B_SIDE_OPPONENT] + sJob.bench[B_SIDE_OPPONENT];
-        s32 theirs = count[B_SIDE_PLAYER] + sJob.bench[B_SIDE_PLAYER];
+        // Lato di chi pensa (in IA contro IA può essere anche quello del giocatore).
+        u32 ourSide = GetBattlerSide(sJob.me), theirSide = ourSide ^ BIT_SIDE;
+        s32 ours = count[ourSide] + sJob.bench[ourSide];
+        s32 theirs = count[theirSide] + sJob.bench[theirSide];
         v += CUSTOM_VGC_EVAL_MATERIAL * 2 * (ours - theirs) / max(ours + theirs, 1);
         if (ours == 0 && theirs > 0)
             v -= CUSTOM_VGC_EVAL_KO * 4;

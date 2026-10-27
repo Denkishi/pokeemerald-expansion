@@ -1,29 +1,17 @@
 # Self-play VGC: partite IA contro IA
 
-> **Stato (27/10, fermo in attesa del pianificatore):** harness completo, nessuna partita ancora finita.
-> - Log: ora mGBA scrive direttamente su file (`-ClogToFile=1 -ClogFile=...`, riga per riga, si segue a partita in corso);
->   prima lo stdout rediretto era bufferizzato e si perdeva uccidendo il processo.
-> - ENZO contro SIMONE, seme 1 (Lv50 verificato): il turno 1 si gioca tutto (Mega, KO di Toedscruel e Aerodactyl),
->   poi la lotta **si blocca subito dopo il rimpiazzo del lato G** (`VSP RIMPIAZZO b2 -> Rillaboom`): nessuna riga per
->   oltre 10 minuti con la CPU al 100%, e il timeout del test runner non scatta (anche con l'avanzamento contato solo su
->   eventi veri). Ipotesi da verificare: il controller "partner" del lato G riceve un comando che non gestisce (es.
->   `CONTROLLER_YESNOBOX` o altro `BtlController_Empty` che non completa), oppure il rimpiazzo del lato A va in ciclo
->   in `GetMostSuitableMonToSwitchInto`/`AI_VgcReplacementAfterKo`; che il timeout non scatti fa pensare a un ciclo con
->   interrupt spenti o dentro un callback di interrupt.
-> - Aggiunto (non ancora compilato) un battito in `VgcSelfPlay_CheckProgress`: ogni 60 s emulati senza avanzamento stampa
->   `VSP BATTITO` con `gBattleMainFunc`, `gMain.callback2`, i controller dei 4 battler e `gBattleCommunication`
->   (indirizzi da tradurre con `arm-none-eabi-nm build/vgc_selfplay/selfplay.elf`). Se il battito non compare, gli
->   interrupt sono spenti.
+> **Stato (27/10 mattina, branch `ia-vgc`):** le partite IA contro IA arrivano alla fine.
+> Corretti: il blocco dopo il rimpiazzo del lato G (messaggio di entrata con un allenatore partner inesistente), una
+> probabilità di brutto colpo 1/0 (`GetCriticalHitOdds`), i parametri della lotta allenatore non azzerati, le scene di
+> fine lotta (la partita ora finisce al messaggio d'esito) e la chiusura del test (heap). L'orchestratore chiude
+> mGBA appena legge `VSP FINE` e ferma i log impazziti (oltre 300 MB). Una partita dura pochi secondi.
 >
-> **Prossimi passi esatti:**
-> 1. `.\training.ps1 build` (compila anche il battito; il link del ROM dei test su /mnt/c richiede 10-20 min);
-> 2. `.\training.ps1 run-one 0 1 1`; seguire `tools\vgc_training\work\logs\00_01_s1.raw.txt` e cercare
->    `VSP BATTITO`; tradurre gli indirizzi con nm e correggere il blocco (probabile `src/battle_controller_player_partner.c`
->    in IA contro IA, o la scelta del rimpiazzo);
-> 3. quando una partita finisce: misurare i secondi per turno, eseguire `TESTS='test/battle/ai/ai_vgc_perspective.c'` e
->    `TESTS='test/battle/ai/ai_vgc_doubles.c'`, ricompilare il ROM normale (`make`);
-> 4. un primo lotto (`start --matchups 0-1,1-0,...` 12-24 scontri), poi le 144 con `start --new`; committare
->    `docs/ia_vgc/report/riepilogo.md` e qualche partita d'esempio.
+> **Avvio rapido** (PowerShell, nella cartella `tools\vgc_training\`):
+> - compilare: `.\training.ps1 build` (o `compila.bat`), in WSL Ubuntu, 15-25 minuti sul disco Windows;
+> - una campagna di 144 scontri: `.\training.ps1 start -- --new --parallel 24` (o `avvia.bat`);
+> - pausa / ripresa / stop: `pausa.bat` / `riprendi.bat` / `ferma.bat` (o `.\training.ps1 pause|resume|stop`):
+>   la pausa lascia finire le partite in corso, lo stop le rimette in coda; `start` o `resume` ripartono da dove era;
+> - avanzamento: `stato.bat`; report: `report.bat`, che scrive `docs\ia_vgc\report\riepilogo.md` e una pagina per partita.
 
 Harness per far giocare tra loro i 12 allenatori VGC (le squadre vere di `src/data/trainers.party`, linea AI con
 `Vgc Doubles`), in partite controllate e rigiocabili, con controllo dei misplay e report in italiano.

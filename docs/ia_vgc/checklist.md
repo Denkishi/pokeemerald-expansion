@@ -18,7 +18,7 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
   - 🔧 velocità del giocatore in `gAiLogicData->speedStats`: ora stimata dal belief (M1, branch `ia-vgc-meta`)
 - ✅ Suite di test `test/battle/ai/ai_vgc_doubles.c` attiva. WSL compila soltanto; i test si eseguono su Windows con `tools/mgba/mgba-rom-test.exe`
 - ✅ Installate con msys2 `libepoxy-0.dll` e `libwinpthread-1.dll`: `mgba-rom-test.exe` gira su Windows (aggiungere `C:\msys64\mingw64\bin` al PATH)
-- ✅ **Risultati (tutti i test VGC: doppi, team preview, scout/belief, squadre vere): 57 PASS, 0 FAIL, 10 KNOWN_FAILING**
+- ✅ **Risultati (tutti i test VGC: doppi, team preview, scout/belief, prospettiva IA contro IA, squadre vere): 60 PASS, 0 FAIL, 9 KNOWN_FAILING**
 - ✅ Lead mai cambiate al turno 1 della lotta (né dal pianificatore né dalle regole): Toedscruel, Smeargle, Sableye ora fanno il loro lavoro
 - ✅ Setup dei 5 test con il turno del giocatore incompleto: il giocatore porta solo i due in campo (un suo KO chiedeva un cambio non previsto dal TURN); ora girano
 - ✅ Regole: Rage Powder/Follow Me +3 se il compagno ha Belly Drum — i KNOWN_FAILING sono tutti in `ai_vgc_teams.c`, elencati e spiegati in [scenari.md](scenari.md)
@@ -180,6 +180,13 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
 - ⬜ ROM di allenamento (senza animazioni), IA su entrambi i lati
 - ⬜ Benchmark: partite/ora con 1 e con ~28 istanze mGBA
 - ⬜ Taratura pesi, esplorazione, libro dei piani in ROM, strategia mista
+
+## Self-play (27/10 mattina)
+- ✅ Merge di `ia-vgc-selfplay` in `ia-vgc`; prima partita IA contro IA completa (blocco dopo il rimpiazzo del lato G, probabilità di brutto colpo 1/0, parametri della lotta allenatore, fine lotta e chiusura del test corretti; vedi [training.md](training.md))
+- ✅ Prima campagna dei 144 scontri (12×12, 1 seme, 24 istanze): ~5 minuti, 140 partite complete e 4 interrotte (timeout); esiti G 50 / A 90; 544 misplay certi e 930 dubbi. Categorie principali: Protect consecutivo 163 (quasi tutti del lato G), KO garantito non preso 109, mossa su immune 79
+- ✅ Asimmetria G/A trovata: il materiale in `Evaluate` usava il lato avversario fisso come "noi" (in IA contro IA il lato G si credeva in svantaggio e si chiudeva in Protect). Ora è il lato di chi pensa. Seconda campagna: **G 75 / A 65, misplay certi 544 → 234, dubbi 930 → 448**; Protect consecutivo 163 → 8, mossa su immune 79 → 4. Report: [report/riepilogo.md](report/riepilogo.md)
+- ⬜ Misplay rimasti (seconda campagna): KO garantito non preso 70 (+350 dubbi), cambio su chi va KO all'entrata 37, win condition persa 31, bersaglio già KO 29, setup con KO in arrivo 20, Tailwind/Trick Room sprecati 18, cambi a ripetizione 13; 4 partite interrotte per timeout
+- ✅ Modello del giocatore livello 1 (fase 3 del pianificatore): fino a 5 azioni plausibili per avversario simulate a 1 turno dal suo punto di vista (solo belief), unite alla probabilità a priori; Protect e cambio restano sulla loro probabilità
 
 ## Prossimi passi (al 27/10, dopo `83e27007a0`)
 1. KNOWN_FAILING rimasti in `ai_vgc_teams.c` (18, vedi [scenari.md](scenari.md)): Tailwind di Aerodactyl/Altaria (la simulazione preferisce un KO concentrato su Roaring Moon), Trick Room di Banette/Porygon2/Toedscruel, Grimmsnarl schermi, Lilligant After You/Sleep Powder, Smeargle che cambia, Hariyama Fake Out, Arcanine (Mega Charizard), Sableye (cambio), Amoonguss (pari punteggio Rage Powder/Spore nelle regole), più i test con il turno del giocatore incompleto (setup da rivedere)
