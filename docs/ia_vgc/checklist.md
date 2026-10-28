@@ -375,3 +375,19 @@ Falsi positivi del checker rimasti:
 - Attacco sul compagno con una mossa ad area forzata da Choice Scarf (Rotom Discharge, 3 casi) contato sul compagno che sta uscendo con un cambio.
 - Win condition: minaccia "prevedibile" senza guardare se la nostra mossa più veloce manda KO prima chi minaccia.
 - Cambio su chi va KO: i sacrifici voluti (chi esce sarebbe andato KO comunque e la coppia rimasta salva l'altro Pokémon) restano certi.
+
+### Terzo giro (28/10 sera, dopo il merge di `ia-vgc` ea86606a89)
+Nuova base (ROM di GitHub di `ia-vgc`, checker con Protect/immune nei finali bloccati, aree sul compagno che esce o bloccato da Choice, win condition non certa se la coppia manda KO prima chi minaccia): **303 misplay certi** (KO non preso 114, win condition 89, cambio su chi va KO 64, setup 22, bersaglio già KO 8, Protect di fila 5).
+
+- **Modello del giocatore (win condition)**: il livello 1 valuta ogni azione del giocatore solo contro l'azione delle regole dei nostri; se le regole mandano KO prima chi minaccia (o lo coprono), il suo attacco sulla win condition vale poco e sparisce dalle risposte previste. Provata la media con il turno contro di noi fermi (`CUSTOM_VGC_PLAN_FOE_VS_IDLE`):
+  - tutte le azioni, media 1/2: **303 → 285** (KO non preso 114 → 90, win condition 89 → 98, cambi 64 → 66), ma il test "Patatina - Altaria sets Tailwind" fallisce (Dragon Pulse + Shadow Sneak su Roaring Moon invece di Tailwind + Protect: il modello non prevede più il Protect del giocatore);
+  - solo gli attacchi: 4 test di squadra rotti; tutte le azioni con peso 1/3: Altaria rotto; solo le mosse (non Protect/cambio): Altaria rotto.
+  - ❌ Lasciato spento (CI verde prima di tutto). Da riprendere: decidere se il test di Altaria vale più del guadagno in campagna, o separare la previsione di Protect del giocatore dalla media.
+- (b) Choice Scarf: la deduzione onesta dall'ordine dei turni c'è già nel belief (M1); non toccata. (c) Peso sulla win condition: la valutazione del giocatore usa già il peso della nostra win condition (150%) quando la manda KO.
+- **KO garantito non preso rimasti (114)**: 38 con un KO avversario comunque nel turno, 3 con Fake Out subito, 2 con Protect del bersaglio. Nei casi col distacco più grande il KO non era possibile: chi attacca va KO prima di muoversi (Machamp a 1 PS o a 94 PS lento contro un avversario più veloce che lo manda KO: sceglie Bullet Punch, che ha priorità) o la coppia sceglie Helping Hand + KO sull'altro avversario. Nessun errore vero del pianificatore trovato; falsi positivi per il checker sotto.
+- KNOWN_FAILING: nessuno sbloccato.
+- Codice attivo invariato dal secondo giro: vale la verifica a specchio del secondo giro (52,3%, p = 0,084).
+
+Falsi positivi del checker rimasti:
+- KO non preso quando chi attacca va KO prima di agire (avversario più veloce col suo KO sicuro): la mossa del KO non parte, la priorità sì.
+- KO non preso quando il compagno usa Helping Hand e la coppia manda KO l'altro avversario (il danno di Helping Hand non entra nel KO combinato).

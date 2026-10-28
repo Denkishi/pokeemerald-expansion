@@ -120,7 +120,7 @@
 #define CUSTOM_VGC_EVAL_SPEED_RACE_CAP      200 // tetto (+/-) alla parte "corsa ai KO" dell'ordine di velocità nei turni futuri (0 = nessuno): un Trick Room appena messo valeva ~1100 punti, più di due KO
 #define CUSTOM_VGC_MIRROR_FIXES             FALSE // solo self-play: le correzioni dei misplay (PS in panchina, colpo alto, spareggio, tetto alla corsa) spente per il lato col bit di verifica-regole, regole M8 per tutti
 #define CUSTOM_VGC_PLAN_SWITCH_RISK         TRUE // cambio volontario: costo del KO di chi entra se una risposta plausibile degli avversari sul suo slot lo manda KO
-#define CUSTOM_VGC_PLAN_FOE_VS_IDLE         TRUE // modello del giocatore: ogni sua azione valutata anche contro di noi fermi (media), non solo contro l'azione delle regole
+#define CUSTOM_VGC_PLAN_FOE_VS_IDLE         FALSE // modello del giocatore: le sue mosse valutate anche contro di noi fermi (media). Provato il 28/10: misplay 303 -> 285 ma rompe il test Altaria Tailwind (in tutte e 3 le varianti)
 #define CUSTOM_VGC_PLAN_HIGH_ROLL           TRUE // ramo "colpo alto": un colpo che manda KO solo con un tiro alto (sopra la mediana) pesa per la sua probabilità
 // Ritratto dell'allenatore + "penso..." quando hai già scelto e l'IA sta ancora calcolando.
 #define CUSTOM_VGC_THINKING_OVERLAY         TRUE
