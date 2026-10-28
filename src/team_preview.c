@@ -701,6 +701,19 @@ static bool32 MonIsPureSupport(struct Pokemon *mon)
     return attacks <= 1;
 }
 
+// Supporto che rende solo dal turno 1 (schermi con Prankster/Light Clay, o supporto puro con schermi): dalla
+// panchina, entrato tardi, vale poco. Se viene portato deve partire in lead.
+static bool32 MonIsLeadOnlySupport(struct Pokemon *mon)
+{
+    bool32 screens = MonKnowsEffect(mon, EFFECT_REFLECT) || MonKnowsEffect(mon, EFFECT_LIGHT_SCREEN)
+                  || MonKnowsEffect(mon, EFFECT_AURORA_VEIL);
+    if (!screens)
+        return FALSE;
+    return GetMonAbility(mon) == ABILITY_PRANKSTER
+        || GetItemHoldEffect(GetMonData(mon, MON_DATA_HELD_ITEM)) == HOLD_EFFECT_LIGHT_CLAY
+        || MonIsPureSupport(mon);
+}
+
 static s32 PairSynergy(struct Pokemon *a, struct Pokemon *b)
 {
     s32 s = 0;
@@ -2186,6 +2199,15 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                     // Coerenza della coppia di lead dal grafo della squadra (sinergie, Commander, abilità
                     // penalizzanti, meteo, mosse ad area sul compagno).
                     s += GraphLeadScore(enemy, enemySlots[ea], enemySlots[eb]);
+                    // Supporto da turno 1 (schermi) portato ma lasciato in panchina: quasi inutile (prova in gioco:
+                    // Grimmsnarl portato come quarto).
+                    {
+                        u32 cb;
+                        for (cb = 0; cb < nChosen; cb++)
+                            if (chosen[cb] != ea && (leadCount < 2 || chosen[cb] != eb)
+                             && MonIsLeadOnlySupport(&enemy[enemySlots[chosen[cb]]]))
+                                s -= 700;
+                    }
                     // Panchina probabile del giocatore (portato ma non in lead): la nostra lead deve reggere anche chi
                     // può entrare con un cambio.
                     if (ctx != NULL)
