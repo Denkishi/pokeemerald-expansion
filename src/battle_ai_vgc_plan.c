@@ -2660,6 +2660,15 @@ static u32 PickFoeActions(u32 side, struct PlanAction *out)
 }
 
 // L'azione scelta dalle regole per `b`, come azione del simulatore (PLAN_ACT_NONE se non è una mossa nota).
+static u32 BestCandIdx(u32 side)
+{
+    u32 i, best = 0;
+    for (i = 1; i < sJob.nCand[side]; i++)
+        if (sJob.candVal[side][i] > sJob.candVal[side][best])
+            best = i;
+    return best;
+}
+
 static struct PlanAction RulesAction(enum BattlerId b, u32 moveIdx, enum BattlerId target)
 {
     struct PlanAction a = { PLAN_ACT_NONE, 0, -1, MOVE_NONE, b, b, 0 };
@@ -3753,12 +3762,19 @@ bool32 AI_VgcPlanStep(void)
         {
             // Valore a 1 turno di ogni azione legale: con il compagno che fa la mossa delle regole e gli avversari
             // la loro azione più probabile. Serve solo a ordinare le candidate (la scelta la fa l'albero).
-            u32 side = sJob.rankSide, idx = sJob.rankIdx;
+            // Riferimento del compagno: prima la mossa delle regole (lato 0), poi la migliore candidata dell'altro lato
+            // già ordinata (lato 1, e lato 0 una seconda volta come rankSide 2). Le regole M8 non danno più bonus, quindi
+            // da sole sono un riferimento povero (es. Charizard col compagno "fermo" non vede il valore di Heat Wave).
+            u32 side = (sJob.rankSide == 2) ? 0 : sJob.rankSide, idx = sJob.rankIdx;
             if (idx < sJob.nCand[side])
             {
                 enum BattlerId p = GetPartnerBattler(sJob.me);
-                struct PlanAction other = (side == 0) ? RulesAction(p, sJob.origPMove, sJob.origPTarget)
-                                                      : RulesAction(sJob.me, sJob.origMove, sJob.origTarget);
+                struct PlanAction other;
+                if (sJob.rankSide == 0 || sJob.nCand[side ^ 1] == 0)
+                    other = (side == 0) ? RulesAction(p, sJob.origPMove, sJob.origPTarget)
+                                        : RulesAction(sJob.me, sJob.origMove, sJob.origTarget);
+                else
+                    other = sJob.cand[side ^ 1][BestCandIdx(side ^ 1)];
                 const struct PlanAction *acts[4], *acts4[4];
                 struct PlanState st = sJob.base;
                 s32 pen;
@@ -3789,9 +3805,15 @@ bool32 AI_VgcPlanStep(void)
                 sJob.rankIdx++;
                 continue;
             }
-            if (side == 0 && sJob.nCand[1] > 0)
+            if (sJob.rankSide == 0 && sJob.nCand[1] > 0)
             {
                 sJob.rankSide = 1;
+                sJob.rankIdx = 0;
+                continue;
+            }
+            if (sJob.rankSide == 1 && sJob.nCand[0] > 0)
+            {
+                sJob.rankSide = 2; // di nuovo il lato 0, contro la migliore del lato 1
                 sJob.rankIdx = 0;
                 continue;
             }
