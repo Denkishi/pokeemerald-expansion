@@ -245,18 +245,20 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Tony - Slither Wing does not use Close Combat 
 {
     // Gengar è immune al Lotta, Rillaboom lo prende neutro; Flare Blitz (al sole della Mega Y) è 2x su
     // Rillaboom e High Horsepower 2x su Gengar. Close Combat è sempre la scelta peggiore.
+    // Il giocatore porta solo i due in campo: un KO (Heat Wave al sole su Rillaboom) non chiede un cambio non
+    // previsto dal TURN.
     GIVEN {
         AI_FLAGS(VGC_TRAINER_AI_FLAGS);
         PLAYER(SPECIES_GENGAR) { ENZO_GENGAR; }
         PLAYER(SPECIES_RILLABOOM) { ENZO_RILLABOOM; }
-        PLAYER(SPECIES_SMEARGLE) { ENZO_SMEARGLE; }
-        PLAYER(SPECIES_AERODACTYL) { ENZO_AERODACTYL; }
         OPPONENT(SPECIES_SLITHER_WING) { TONY_SLITHER_WING; }
         OPPONENT(SPECIES_CHARIZARD) { TONY_CHARIZARD; }
         OPPONENT(SPECIES_ROARING_MOON) { TONY_ROARING_MOON; }
         OPPONENT(SPECIES_SABLEYE) { TONY_SABLEYE; }
     } WHEN {
-        TURN { MOVE(playerLeft, MOVE_PROTECT); MOVE(playerRight, MOVE_GRASSY_GLIDE, target: opponentRight); NOT_EXPECT_MOVE(opponentLeft, MOVE_CLOSE_COMBAT); }
+        // Contesto della squadra (Aerodactyl Tailwind + attaccanti veloci): Rillaboom stimato con la spread veloce (4 PS, come il vero)
+        // va KO con Weather Ball al sole di Charizard: entra il terzo.
+        TURN { MOVE(playerLeft, MOVE_PROTECT); MOVE(playerRight, MOVE_GRASSY_GLIDE, target: opponentRight); NOT_EXPECT_MOVE(opponentLeft, MOVE_CLOSE_COMBAT); SEND_OUT(playerRight, 2); }
     }
 }
 
@@ -421,7 +423,9 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Mario - Oranguru sets Trick Room next to Iron 
         OPPONENT(SPECIES_HARIYAMA) { MARIO_HARIYAMA; }
         OPPONENT(SPECIES_MEGANIUM) { MARIO_MEGANIUM; }
     } WHEN {
-        TURN { MOVE(playerLeft, MOVE_GRASSY_GLIDE, target: opponentRight); MOVE(playerRight, MOVE_PROTECT); EXPECT_MOVE(opponentLeft, MOVE_TRICK_ROOM); }
+        // Contesto della squadra (squadra Tailwind): Rillaboom stimato con la spread veloce (4 PS, come il vero) va KO con
+        // Close Combat di Iron Hands: entra il terzo.
+        TURN { MOVE(playerLeft, MOVE_GRASSY_GLIDE, target: opponentRight); MOVE(playerRight, MOVE_PROTECT); EXPECT_MOVE(opponentLeft, MOVE_TRICK_ROOM); SEND_OUT(playerLeft, 2); }
     }
 }
 

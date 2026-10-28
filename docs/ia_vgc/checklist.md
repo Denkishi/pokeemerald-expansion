@@ -1,4 +1,5 @@
 # IA VGC — Checklist di sviluppo
+n> Per riprendere il lavoro: [ripartenza.md](ripartenza.md).
 
 Aggiornata a ogni passo. Piano completo: [piano_implementazione.md](piano_implementazione.md). Branch: `ia-vgc`.
 
@@ -35,7 +36,7 @@ Legenda: ✅ fatto e verificato · 🔧 fatto, da verificare (build/test) · ⏳
 - ✅ Perdita di memoria nel messaggio "penso..." dell'avversario: due testi sovrapposti nella finestra dei messaggi lasciavano memoria allocata (48 byte ogni volta, si accumulano partita dopo partita: possibile causa di crash). Corretta, il test non la segnala più
 - ✅ Stallo del secondo slot (TIMEOUT nei test): uno stato rimasto dalla lotta precedente lo faceva aspettare per sempre. Ora il pianificatore si azzera a inizio turno
 - 🔧 Cache dei profili scout e degli attacchi imparabili (12 specie, EWRAM): niente più scansioni dei learnset a ogni simulazione
-- 🔧 Schermo blu: non riprodotto. Controllo dell'heap a ogni turno nel self-play; 720 partite lunghe (5 semi, fino a 60 turni, massimo 43) + 3 campagne da 432: 0 blocchi rovinati, 0 asserzioni, 0 opcode illegali. ROM normale: EWRAM 95,83%, IWRAM 67,77%, ROM 80,63%. Serve un salvataggio o il momento esatto
+- ✅ Schermo blu: causa probabile trovata e corretta (28/10): assert del motore su Parting Shot rimbalzato da Magic Bounce senza rimpiazzi (`battle_move_resolution.c`, test in `parting_shot.c`); nella ROM normale un assert mostra proprio uno schermo blu con file e riga. Prima: non riprodotto. Controllo dell'heap a ogni turno nel self-play; 720 partite lunghe (5 semi, fino a 60 turni, massimo 43) + 3 campagne da 432: 0 blocchi rovinati, 0 asserzioni, 0 opcode illegali. ROM normale: EWRAM 95,83%, IWRAM 67,77%, ROM 80,63%. Serve un salvataggio o il momento esatto
 - 🔧 Costo: da 500-1900 fotogrammi per decisione a 20-400 (la maggior parte 100-300, cioè 2-5 s a 100 righe/fotogramma). Cache di CanKoNextTurn per lavoro; probabilità di Protect/cambio del giocatore lette una volta; terzo turno ridotto con azioni scelte una volta per linea e giocato solo sulla linea migliore del turno 2; priorità e velocità calcolate una volta per passo (e priorità senza `GetBattleMovePriority`, che registrava Prankster come effetto collaterale); 10 coppie simulate per intero invece di 14. **Da fare**: scendere sotto i ~200 fotogrammi anche nei casi peggiori (407 nel test Simple Beam), ROM normale compilata (ultima: EWRAM 95,77%, IWRAM 66,7%, ROM 80,6%), da provare in gioco
 - 🔧 Costo dopo cache della stima dei danni, `Evaluate` e velocità in IWRAM (codice ARM, +4 KB: IWRAM 66%) e 8 coppie complete: mediana 113 fotogrammi, 90° percentile 181, massimo 239 (prima 445); al turno 2 si salta la combinazione delle seconde scelte di entrambi gli avversari. Profilo per funzione nei test: riga `VGCPROF` (righe di schermo in Evaluate, RunTurn, ApplyAction, CanKo, stima). **Da fare**: massimo sotto ~200
 - ✅ Misura dei frame di "pensiero" per decisione: riga `VGCCPU` nel log dei test (fotogrammi, simulazioni, chiamate a Evaluate/BuildActions/CanKo/stime/danni)
@@ -62,6 +63,25 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
      - Mega del giocatore: `Scout_GetMegaForms` (probabilità e abilità della Mega) al posto di `Scout_MegaTargetSpecies` dove serve la probabilità
   4. team preview (`team_preview.c`, M7): stessi cambi per statistiche e mosse del giocatore (`Scout_GetLikelyMoves` invece delle sole mosse da learnset)
 
+### M1 — contesto squadra (branch `ia-vgc-contesto`, 27/10)
+- ✅ Contesto della squadra avversaria calcolato una volta in team preview dalle 6 specie (solo ciò che si vede + meta): `Scout_ComputeTeamContext` / `Scout_SetTeamContextFromParty` / `Scout_BattlerContext` in `src/battle_ai_scout.c` (API in `include/battle_ai_scout.h`). EWRAM: 2 contesti (~70 B l'uno, uno per squadra: in IA contro IA servono entrambi)
+- ✅ Archetipi: Trick Room (setter + ≥2 lenti → spread minima: natura -Vel, 0 EV, 0 IV), Tailwind/squadra veloce (attaccanti a Velocità massima), meteo (setter + chi lo sfrutta: Swift Swim/Chlorophyll/Sand Rush/Slush Rush quasi certe, Weather Ball/Hurricane/Thunder/Solar Beam/Blizzard, rocce sul setter), campo (Surge Surfer, Rising Voltage/Expanding Force/Grassy Glide), redirect + setup (setup più probabile accanto al redirect)
+- ✅ Strumenti: clausola degli strumenti (verificata su tutte le 12 squadre di `trainers.party`), assegnazione golosa per probabilità; una sola Mega per squadra; Focus Sash sui veloci fragili; Scarf più probabile senza controllo velocità, quasi mai su chi gioca sotto TR; Sitrus sui supporti; in lotta uno strumento visto/dedotto su un compagno non si assume su un altro
+- ✅ Ruoli: TR quasi certa sul setter di una squadra TR, Tailwind sul setter di una squadra TW, Helping Hand sui supporti; lead probabili (`Scout_ContextLeadScore`, `Scout_ContextLikelyLeads`) e piano di gioco più pericoloso (`plan`, `planP`)
+- ✅ Generatore `gen_vgc_meta.py`: dai dati Showdown anche `trSpread`/`fastSpread` (spread -Vel/0 EV e +Vel/max più usate con la quota) e `trMate`/`twMate` (compagni con Trick Room/Tailwind, dai "Teammates"). Le statistiche "chaos" non hanno set condizionati ai compagni: per il resto regole generali per ruolo
+- ✅ Usato: team preview (stime del giocatore, profili, Matchup con strumenti/Mega della squadra, lead probabili, `ContextAnswerScore` = risposte del nostro gruppo/lead al piano avversario); belief (`Scout_EstimateBattlerStats`, `Scout_BattlerMoveChance`, `Scout_BattlerAbilityChance`, `Scout_AssumedHoldEffect`, `Scout_BattlerRoleChance`); pianificatore con agganci di una riga (panchina del giocatore, Mega, mosse probabili, profilo delle risposte, `Scout_BattlerPlanMoveBonus` nel modello del giocatore: TR/Tailwind del setter della squadra)
+- ✅ Test: 9 nuovi (scout: TR → Velocità minima, Tailwind → massima, pioggia → Swift Swim, una sola Mega, clausola, lead probabili, belief in lotta, turno 1 Fake Out + setter TR → Taunt sul setter; team preview: scelta diversa contro TR e contro Tailwind). VGC: **71 PASS / 7 KNOWN_FAILING / 0 FAIL** (prima 62/7/0). Due test di `ai_vgc_teams.c` con `SEND_OUT`: Rillaboom di Enzo ora stimato con la spread veloce (4 PS, come il vero) va KO
+- ✅ ROM normale (dopo il merge di `ia-vgc`): EWRAM 95,94%, IWRAM 69,53%, ROM 80,70%
+- ✅ Campagna 432 (3 semi, 10 istanze): misplay certi 452 → 422 (rumore ±40), dubbi 1388 → 1481; mossa su immune 32 → 4, cambio in KO 98 → 80, setup con KO in arrivo 40 → 28; KO garantito non preso 136 → 158
+- ✅ Verifica a specchio (`training.ps1 verifica-contesto`, contesto acceso per un lato e spento per l'altro, 864 partite, 3 semi): **51,0%, IC 95% [48,4; 53,6], p = 0,45 → non significativo**. Seconda verifica con 5 semi (base 20001, dopo il merge di `ia-vgc`, 1.439 partite): **49,2%, IC [47,2; 51,3], p = 0,46**. Insieme (8 semi, 1.151 coppie): **~49,9%**, nessun peggioramento e nessun miglioramento dimostrato: sulle 12 squadre del gioco il contesto cambia poche decisioni (il beneficio atteso è contro squadre di archetipo netto: TR, pioggia, Tailwind)
+- ✅ Minacce esplicite (28/10): in team preview le 2 minacce principali del giocatore (duelli persi con i set del contesto); un gruppo senza nessuna risposta a una di loro paga. Per ogni nostro portato: minaccia 0..100 pesata per le lead probabili del giocatore → `TeamPreview_ThreatPrior`, prior del Protect del minacciato al turno 1 nel pianificatore (una riga)
+- ✅ Peso delle risposte tarabile (`gScoutContextAnswerPct`, `verifica-contesto --answer-pct`). Taratura a 2 semi (575 partite l'una): 50% → 48,1%, **100% → 48,8%**, 200% → 47,7%, tutte nel rumore: resta 100
+- ✅ Verifica finale a 8 semi (base 60001, 2.281 partite): **50,3%, IC 95% [48,7; 51,9], p = 0,73** → nessun peggioramento, nessun miglioramento dimostrato. Test VGC: 71 PASS / 7 KNOWN_FAILING / 0 FAIL. ROM: EWRAM 95,96%, IWRAM 69,53%, ROM 80,70%
+- ✅ Previsione dei 4 che porterà il giocatore (28/10, team preview): punteggio per Pokémon (chi batte la nostra squadra, quota nelle sue lead probabili, pezzi del suo piano dal contesto, uso nel meta), poi i 15 gruppi di 4 con la coerenza del piano (setter senza chi ne approfitta o viceversa meno probabili) → probabilità di essere portato per ognuno. Usata per (a) pesare i duelli nella scelta dei nostri 4 (30% + 70% x probabilità), (b) valutare la lead anche contro la panchina probabile del giocatore, (c) `TeamPreview_BringPrior`: nel pianificatore il cambio previsto del giocatore va verso il Pokémon di panchina più probabile
+- ✅ Verifica a 8 semi dopo la previsione (base 80001, 2.304 partite): **51,0%, IC 95% [49,3; 52,6], p = 0,27** (non significativo). Test VGC 71 PASS / 7 KNOWN_FAILING / 0 FAIL. ROM: EWRAM 95,97%, IWRAM 69,53%, ROM 80,71%. `test_veloci.ps1` qui ha dato uscite vuote (mGBA non partito dalle parti): test eseguiti con le 4 ROM per file
+- ⬜ Non fatti (motivo): posizionamento sinistra/destra — nei doppi ogni avversario è bersagliabile da entrambi i posti e le mosse ad area colpiscono comunque tutti, quindi il posto conta solo per il rimpiazzo dopo un KO, che il pianificatore già sceglie; lead probabili nel pianificatore al turno 1 — al turno 1 la lead avversaria è già in campo e visibile, servirebbero solo per i cambi verso la panchina non vista (da fare)
+- ⬜ Prossimi passi: (oggi implicite nei duelli 1v1 di team preview con set del contesto); verifica del libro dei piani dopo il contesto (`verifica-libro -- --seeds 3`), il libro è stato generato senza contesto; set condizionati veri (servirebbero dati per squadra, non i "chaos"); posizionamenti (chi sta a sinistra/destra) non modellati; usare `Scout_ContextLikelyLeads` anche nel pianificatore al turno 1 (oggi solo team preview); tarare i pesi di `ContextAnswerScore`
+
 ## M2 — Simulatore corretto
 - 🔧 Protect di fila: il secondo ora fallisce (prima riusciva sempre)
 - 🔧 Fake Out fallisce del tutto dopo il primo turno in campo (prima faceva danno)
@@ -86,7 +106,7 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
 - ✅ Mycelium Might: mosse di stato per ultime nella fascia di priorità, ignorano le abilità del bersaglio
 - ✅ Justified: +1 Attacco per colpo Buio (Beat Up: un colpo per Pokémon della squadra)
 - ✅ Unburden (strumento consumato: Sitrus/Focus Sash), Parting Shot (-1 Atk/SpA e uscita), U-turn/Volt Switch (uscita dopo il colpo) — per noi entra il Pokémon più adatto della panchina; il giocatore non esce nella simulazione
-- ⬜ Sostituzioni dopo un KO nel simulatore
+- ❌ Sostituzioni dopo un KO nel simulatore: provate, peggiorano (spente, `CUSTOM_VGC_PLAN_REPLACE_KO`)
 
 ## M3 — Valutazione della posizione
 - ✅ Materiale con panchina: Pokémon utilizzabili per lato (campo + panchina), la differenza scalata sul totale (un KO a 2 contro 2 pesa più che a 4 contro 4); squadra azzerata = partita persa/vinta
@@ -121,7 +141,7 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
 - ✅ Scelta delle coppie da simulare (max 14) a livelli: coppia delle regole, coppie con combo, la coppia migliore di ogni singola azione, poi il resto (prima le mosse "giuste" restavano fuori)
 - ✅ Niente attacchi sul proprio compagno tra le candidate (salvo combo e mosse fatte per l'alleato come Helping Hand)
 - ✅ Diagnostica nei test: il valore di ogni coppia simulata compare nel log (`VGCPLAN ...`)
-- ⬜ Risposte del giocatore su scala unica (attacchi, supporto, Protect, cambio)
+- ❌ Risposte del giocatore su scala unica: provate due volte, peggiorano (spente, `CUSTOM_VGC_PLAN_FOE_SINGLE_SCALE`)
 - ✅ Urgenza della kill, α dinamico — α dinamico: 0,8 media in svantaggio, 0,6 in vantaggio, 0,7 alla pari; KO sicuri con posto protetto in TrimCands
 
 ## M5 — Conoscenza della squadra generata in automatico
@@ -175,13 +195,14 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
        (Protect): l'azione delle regole, ora senza bonus, è anche il riferimento del compagno (fase 2) e del modello del
        giocatore (fase 3) del pianificatore; valutare un riferimento migliore (es. la migliore candidata a 1 turno);
     3. campagna a specchio 432 coppie (`verifica-regole`, --parallel 10), ROM normale, commit finale e inventario.
+- 🔧 Regole ridotte a filtro di candidate, ogni regola con un test — in corso sul branch `ia-vgc-regole` (WIP, da verificare)
 
 ## Test di scenario con le squadre vere (richiesta del 26/10)
-- ⬜ **Tutte le 144 combinazioni** squadra VGC contro squadra VGC (12 × 12, set completi da `trainers.party`), IA contro IA:
+- ✅ **Tutte le 144 combinazioni** squadra VGC contro squadra VGC (12 × 12, set completi da `trainers.party`), IA contro IA:
   ogni scontro deve finire senza crash né blocchi, senza errori evidenti (mosse fallite su immunità note, Protect consecutivi, Fake Out dopo il turno 1, cambi a ripetizione…), con log delle decisioni per rivedere le partite
-- ⬜ Infrastruttura: l'expansion ha già la modalità **IA contro IA** (`B_FLAG_AI_VS_AI_BATTLE`, `IsAiVsAiBattle()` in `src/battle_controllers.c`: il lato del giocatore lo comanda l'IA). Piano: ROM dedicata che per ogni coppia (X, Y) carica la squadra X come "giocatore", avvia la lotta contro l'allenatore Y con il flag attivo, registra esito/turni/decisioni nel log mGBA; script su Windows che lancia le 144 partite in parallelo con `mgba-rom-test.exe` (base anche per M9)
+- ✅ Infrastruttura: l'expansion ha già la modalità **IA contro IA** (`B_FLAG_AI_VS_AI_BATTLE`, `IsAiVsAiBattle()` in `src/battle_controllers.c`: il lato del giocatore lo comanda l'IA). Piano: ROM dedicata che per ogni coppia (X, Y) carica la squadra X come "giocatore", avvia la lotta contro l'allenatore Y con il flag attivo, registra esito/turni/decisioni nel log mGBA; script su Windows che lancia le 144 partite in parallelo con `mgba-rom-test.exe` (base anche per M9)
 - ✅ Per ogni allenatore: test sulle giocate chiave della sua linea di gioco — `test/battle/ai/ai_vgc_teams.c`, 36 test (3 per allenatore, set veri): **11 PASS, 25 KNOWN_FAILING** (16 errori dell'IA in 7 gruppi: controllo velocità non scelto, cambi della lead al turno 1, Fake Out non usato, supporto sottovalutato, Protect inutile, Recycle inutile, bersaglio delle mosse sul compagno; 9 da rivedere nel setup). Dettaglio: [scenari.md](scenari.md)
-- ⬜ **Partite controllate, non casuali** (richiesta del 26/10):
+- ✅ **Partite controllate, non casuali** (richiesta del 26/10):
   - **le lead le sceglie l'IA di entrambi i lati** con il team preview vero (4 su 6 + lead, in base alla squadra avversaria): si valuta anche come sceglie. Seed fissi per rigiocare ogni partita identica
   - controllo anche del team preview: Baton Passer senza ricevente, abilità penalizzante senza chi la spegne, lead che si danneggia da sola (meteo contro i propri attacchi, Earthquake sul compagno), lead chiaramente sconsigliata dal matchup; nel report lead scelta, alternative valutate con punteggio e motivo
   - lead fissate solo come strumento secondario, per provare una decisione di battaglia che la lead naturale non raggiunge
@@ -190,7 +211,7 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
   - ogni misplay confermato diventa un test della suite
   - report per ognuna delle 144 coppie: esito, errori per categoria, log leggibile turno per turno; i casi dubbi segnalati a parte per la revisione
 
-- 🟨 **Harness di self-play costruito (branch `ia-vgc-selfplay`, in pausa)** — guida `docs/ia_vgc/training.md`:
+- ✅ **Harness di self-play costruito (unito in `ia-vgc`)** — guida `docs/ia_vgc/training.md`:
   - ✅ ROM: test `test/vgc_selfplay/vgc_selfplay.c` con runner proprio; allenatori VGC estratti da `trainers.party` a ogni build; team preview IA per entrambi i lati; Lv50 (`ScalePartiesToBattleLevel` prima della preview, verificato liv50 in lotta); seme fisso; modalità lead fisse e posizioni preparate; log `VSP ...`
   - ✅ Informazione chiusa in IA contro IA: `src/battle_ai_perspective.c` (dati IA per lato, `IsAiBattlerAware` per prospettiva), pianificatore/regole relativi al lato di chi pensa, lato G con la logica dell'IA avversaria (pianificatore compreso); test di invarianza `test/battle/ai/ai_vgc_perspective.c` (scritto, NON ancora eseguito)
   - ✅ Controllore dei misplay nel ROM (categorie in training.md), sulle stime del lato che agisce
@@ -209,6 +230,13 @@ Branch `ia-vgc-m9` (27/10). Guida e numeri: [training.md](training.md#allenament
 - ✅ Verifica del libro su 8 semi mai visti, a specchio (2.303 partite): **52,7% per il lato con il libro, IC 95% [51,1; 54,3], p = 0,001**
 - ⬜ Da fare: validazione dei pesi con più semi (`--val-seeds 32`) o pesi nuovi (es. stati, Fake Out, Sash); libro rigenerato dopo ogni cambio importante dell'IA (`esplora.bat` → `libro.bat` → `compila.bat` → `verifica_libro.bat`); classi dell'avversario più fini quando ci saranno più squadre
 
+## Prova in gioco (27-28/10)
+- ✅ Overlay "penso...": palette e testo corretti; ⏳ rifatto con entrata da destra, sotto le barre dei PS, sequenza completa senza lampeggio
+- ✅ Fake Out sull'alleato escluso (`AI_VgcIsPartnerHitCombo`: attacco sul compagno solo se ne attiva abilità/strumento)
+- ✅ Messaggio di fine lotta aspetta A
+- ⚠️ Spore sulla minaccia maggiore: sonno pesato sulla minaccia, test ancora KNOWN_FAILING (serve il valore del sonno oltre l'orizzonte)
+- ⏳ Bug del pianificatore: mosse note del giocatore rinumerate in `BuildActions` (slot sbagliato per danni ed efficacia)
+
 ## Self-play (27/10 mattina)
 - ✅ Merge di `ia-vgc-selfplay` in `ia-vgc`; prima partita IA contro IA completa (blocco dopo il rimpiazzo del lato G, probabilità di brutto colpo 1/0, parametri della lotta allenatore, fine lotta e chiusura del test corretti; vedi [training.md](training.md))
 - ✅ Prima campagna dei 144 scontri (12×12, 1 seme, 24 istanze): ~5 minuti, 140 partite complete e 4 interrotte (timeout); esiti G 50 / A 90; 544 misplay certi e 930 dubbi. Categorie principali: Protect consecutivo 163 (quasi tutti del lato G), KO garantito non preso 109, mossa su immune 79
@@ -219,7 +247,7 @@ Branch `ia-vgc-m9` (27/10). Guida e numeri: [training.md](training.md#allenament
 - ✅ Quarta/quinta/sesta campagna: controllo dei KO garantiti senza falsi positivi (priorità sul Campo Psichico, Follow Me/Rage Powder del compagno, Final Gambit/Explosion); Fake Out mai candidata fuori dal primo turno; un Pokémon mai scelto per due posti (U-turn del compagno + rimpiazzo: assert in `getswitchedmondata`); potatura delle coppie molto peggiori della migliore (`CUSTOM_VGC_PLAN_PRUNE`). **Sesta campagna: 144/144 complete, G 69 / A 75, misplay certi 217** (prima 544 → 234 → 244 → 224 → 217)
 - ✅ Costo con la potatura: mediana 71 fotogrammi, 90° percentile 179, massimo 250 (obiettivo ~200 nel caso peggiore non ancora raggiunto) — **superato (27/10, richiesta dell'utente): niente tetto, prima la qualità.** `CUSTOM_VGC_PLAN_MAX_FRAMES` 0, solo limite di sicurezza ~30 s; ripristinate 10 coppie e tutte le risposte avversarie al turno 2; mentre pensa si vede l'allenatore con "penso..."
 - ⬜ Misplay rimasti (sesta campagna): KO garantito non preso 73 (+346 dubbi), win condition persa 48, bersaglio già KO 26, cambio su chi va KO all'entrata 24, setup con KO in arrivo 18, Tailwind/Trick Room sprecati 14
-- ⬜ Misplay rimasti (seconda campagna): KO garantito non preso 70 (+350 dubbi), cambio su chi va KO all'entrata 37, win condition persa 31, bersaglio già KO 29, setup con KO in arrivo 20, Tailwind/Trick Room sprecati 18, cambi a ripetizione 13; 4 partite interrotte per timeout
+- ✅ (superato) Misplay rimasti (seconda campagna): KO garantito non preso 70 (+350 dubbi), cambio su chi va KO all'entrata 37, win condition persa 31, bersaglio già KO 29, setup con KO in arrivo 20, Tailwind/Trick Room sprecati 18, cambi a ripetizione 13; 4 partite interrotte per timeout
 - ✅ Modello del giocatore livello 1 (fase 3 del pianificatore): fino a 5 azioni plausibili per avversario simulate a 1 turno dal suo punto di vista (solo belief), unite alla probabilità a priori; Protect e cambio restano sulla loro probabilità
 
 ## Prossimi passi (al 27/10, dopo `83e27007a0`)
@@ -257,3 +285,6 @@ Branch `ia-vgc-m9` (27/10). Guida e numeri: [training.md](training.md#allenament
 - ❌ Risposte del giocatore su scala unica (`CUSTOM_VGC_PLAN_FOE_SINGLE_SCALE`): implementate e spente. Protect/cambio con il costo del tempo restano a 1 turno sopra gli attacchi: il modello prevede Protect quasi sempre (peso 100), rotti 2 test, misplay peggiori
 - ✅ Filtri delle candidate con un test ciascuno: Fake Out dopo il primo turno (c'era), Tailwind con Tailwind attivo, attacco su un immune noto (nuovi in ai_vgc_doubles.c). Protect di fila: filtro attivo, test non scritto (non si può forzare il primo Protect dell'IA)
 - ✅ Stato: 63 PASS / 7 KNOWN_FAILING / 0 FAIL; campagna 432: partite con misplay 378 (base 356, rumore ±20-30), G/A 243/245 certi; costo mediana 176 fotogrammi, massimo 1006
+- ❌ Seconda prova (27/10 sera): scala unica con costo del tempo più alto (Protect = un cambio, cambio = 1,5) e rollout più leggero (2 turni, peso 1/3): 4 test rotti (Slaking, Arcanine Extreme Speed, mossa precisa, Savarotto). Restano spenti; il codice delle due varianti è in battle_ai_vgc_plan.c dietro i flag
+- ✅ Merge di `ia-vgc-m9` (libro dei piani validato) in ia-vgc: 64 PASS / 7 KNOWN_FAILING / 0 FAIL, campagna 373 partite con misplay (rumore come prima)
+- ➡️ Assert savedAttackerCount (Parting Shot rimbalzato da Magic Bounce, Chatot su Hatterene): diagnosi passata all'agente `ia-vgc-bug` — Magic Bounce salva l'attaccante (battle_move_resolution.c:3962), chi rimbalza esce con BattleScript_PartingShotEscape e il ripristino in MoveEndClearBits (5190) non arriva; nel gioco senza assert il contatore a 4 bit cresce e scrive fuori da savedBattlerAttacker

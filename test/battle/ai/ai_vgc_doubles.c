@@ -2,6 +2,7 @@
 #include "test/battle.h"
 #include "battle_ai_util.h"
 #include "battle_ai_vgc.h"
+#include "battle_ai_vgc_graph.h"
 
 // Suite dell'IA per i doppi VGC (AI_FLAG_VGC_DOUBLES): una posizione = una risposta attesa.
 // Piano e lista delle posizioni: docs/ia_vgc/piano_implementazione.md (sezione 4).
@@ -297,5 +298,46 @@ AI_DOUBLE_BATTLE_TEST("VGC filter: no attack into a known type immunity")
         OPPONENT(SPECIES_WOBBUFFET) { Moves(MOVE_SPLASH); Speed(40); }
     } WHEN {
         TURN { EXPECT_MOVE(opponentLeft, MOVE_EMBER); }
+    }
+}
+
+AI_DOUBLE_BATTLE_TEST("VGC: Spore goes on the bigger threat (Mega Tyranitar, not Dugtrio)")
+{
+    // Prova in gioco: Amoonguss addormentava Dugtrio accanto a un Tyranitar Mega. Il valore del sonno cresce con la
+    // minaccia del bersaglio (danno atteso sul nostro lato, KO possibili, Mega, boost), non è uguale per tutti.
+    // KNOWN_FAILING: con il valore del sonno scalato dalla minaccia (Dugtrio 52 -> Tyranitar Mega 63 nel primo
+    // tentativo) Spore su Tyranitar (-463) resta sotto Spore su Dugtrio (-424), e sopra a tutto vince Sludge Bomb
+    // + Flare Blitz su Dugtrio (-197, KO in due). La simulazione a 2-3 turni non vede abbastanza il danno evitato
+    // dal sonno nei turni dopo: serve una stima del danno risparmiato per turno di sonno, non solo un termine fisso.
+    KNOWN_FAILING;
+    GIVEN {
+        AI_FLAGS(VGC_AI_FLAGS);
+        PLAYER(SPECIES_DUGTRIO) { Ability(ABILITY_ARENA_TRAP); Moves(MOVE_EARTHQUAKE, MOVE_ROCK_SLIDE, MOVE_SUCKER_PUNCH, MOVE_PROTECT); }
+        PLAYER(SPECIES_TYRANITAR_MEGA) { Ability(ABILITY_SAND_STREAM); Moves(MOVE_ROCK_SLIDE, MOVE_KNOCK_OFF, MOVE_LOW_KICK, MOVE_PROTECT); }
+        OPPONENT(SPECIES_AMOONGUSS) { Ability(ABILITY_REGENERATOR); Moves(MOVE_SPORE, MOVE_RAGE_POWDER, MOVE_SLUDGE_BOMB, MOVE_PROTECT); }
+        OPPONENT(SPECIES_INCINEROAR) { Ability(ABILITY_INTIMIDATE); Moves(MOVE_FLARE_BLITZ, MOVE_DARKEST_LARIAT); }
+    } WHEN {
+        TURN { MOVE(playerLeft, MOVE_PROTECT); MOVE(playerRight, MOVE_PROTECT); EXPECT_MOVE(opponentLeft, MOVE_SPORE, target: playerRight); }
+    }
+}
+
+AI_DOUBLE_BATTLE_TEST("VGC filter: no Fake Out on the partner (real team Savarotto: Incineroar next to Flash Fire Chandelure)")
+{
+    // Prova in gioco: Incineroar usava Fake Out sul proprio Chandelure. Il grafo vede la combo Flare Blitz -> Flash
+    // Fire, ma un attacco sul compagno passa solo se è la mossa che gli attiva l'abilità: Fake Out non lo è mai.
+    GIVEN {
+        AI_FLAGS(VGC_AI_FLAGS);
+        PLAYER(SPECIES_WOBBUFFET) { Moves(MOVE_CELEBRATE); Speed(20); }
+        PLAYER(SPECIES_WOBBUFFET) { Moves(MOVE_CELEBRATE); Speed(20); }
+        OPPONENT(SPECIES_INCINEROAR) { Ability(ABILITY_INTIMIDATE); Item(ITEM_SITRUS_BERRY); Moves(MOVE_FAKE_OUT, MOVE_FLARE_BLITZ, MOVE_PARTING_SHOT, MOVE_DARKEST_LARIAT); Speed(60); }
+        OPPONENT(SPECIES_CHANDELURE) { Ability(ABILITY_FLASH_FIRE); Moves(MOVE_SHADOW_BALL, MOVE_PROTECT, MOVE_HEAT_WAVE, MOVE_ENERGY_BALL); Speed(80); }
+    } WHEN {
+        TURN { }
+    } THEN {
+        enum BattlerId incineroar = GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT);
+        enum BattlerId chandelure = GetBattlerAtPosition(B_POSITION_OPPONENT_RIGHT);
+        EXPECT(!AI_VgcIsPartnerHitCombo(MOVE_FAKE_OUT, incineroar, chandelure));
+        EXPECT(AI_VgcIsPartnerHitCombo(MOVE_FLARE_BLITZ, incineroar, chandelure));
+        EXPECT(!(gChosenMoveByBattler[incineroar] == MOVE_FAKE_OUT && gBattleStruct->moveTarget[incineroar] == chandelure));
     }
 }

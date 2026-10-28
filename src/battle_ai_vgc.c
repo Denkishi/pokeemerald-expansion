@@ -841,8 +841,10 @@ enum VgcFilter AI_VgcFilterAction(enum BattlerId battler, u32 moveIndex, enum Ba
                 return VGC_FILTER_IMMUNE;
         }
         // Attacco sul compagno: solo se il grafo della squadra ci vede una combo (Beat Up -> Justified...) o se lo cura.
+        // La mossa deve attivare davvero l'abilità/strumento del compagno: Fake Out accanto a un Flash Fire non è una combo.
         if (onPartner && effect != EFFECT_HIT_ENEMY_HEAL_ALLY
-         && sVgcTeamGraph.hitPartner[gBattlerPartyIndexes[battler]] != gBattlerPartyIndexes[partner])
+         && (sVgcTeamGraph.hitPartner[gBattlerPartyIndexes[battler]] != gBattlerPartyIndexes[partner]
+          || !AI_VgcIsPartnerHitCombo(move, battler, partner)))
             return VGC_FILTER_WRONG_TARGET;
         return VGC_FILTER_NONE;
     }
@@ -1016,6 +1018,23 @@ s32 AI_VgcActionPrior(enum BattlerId battler, enum Move move, enum BattlerId tar
     if (partnerMove == MOVE_UNAVAILABLE)
         partnerMove = MOVE_NONE;
 
+    // Sonno e paralisi valgono quanto la minaccia del bersaglio (prova in gioco: Spore su Dugtrio accanto a un Tyranitar
+    // Mega). Solo dati leciti: KO stimati dall'IA, forma in campo, stadi visibili.
+    if (target != battler && target != partner && IsBattlerAlive(target) && gBattleMons[target].status1 == STATUS1_NONE
+     && (GetMoveNonVolatileStatus(move) == MOVE_EFFECT_SLEEP || GetMoveNonVolatileStatus(move) == MOVE_EFFECT_PARALYSIS))
+    {
+        s32 threat = 0;
+        if (CanTargetFaintAi(target, battler))
+            threat += 2;
+        if (hasPartner && CanTargetFaintAi(target, partner))
+            threat += 2;
+        if (IsBattlerMegaEvolved(target))
+            threat += 1;
+        if (gBattleMons[target].statStages[STAT_ATK] > DEFAULT_STAT_STAGE
+         || gBattleMons[target].statStages[STAT_SPATK] > DEFAULT_STAT_STAGE)
+            threat += 1;
+        prior += min(threat, 4) * VGC_PRIOR_SCORE_DIV;
+    }
     switch (effect)
     {
     case EFFECT_GRAVITY:
