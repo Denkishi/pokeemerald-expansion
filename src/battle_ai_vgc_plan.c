@@ -3577,6 +3577,54 @@ static u32 TieBreakScore(const struct PlanAction *a)
     return 1;
 }
 
+// Rischio di un cambio volontario: chi entra contro le risposte plausibili degli avversari (tutte le candidate del modello
+// del giocatore, non solo le due previste), dirette sul suo slot, con il tiro alto. Un avversario che da solo lo manda
+// KO: 30%; i due insieme: 15%. Il costo è il suo KO (pesato per la win condition). La simulazione vede solo le risposte
+// previste contro chi era in campo: i cambi finivano in KO quando l'avversario colpiva lo slot con un'altra mossa.
+static s32 SwitchKoRisk(const struct PlanAction *sw)
+{
+    struct PlanState tmp;
+    enum BattlerId u = sw->user;
+    s32 dmg[2] = {0}, hp, pct, roleW = 100;
+    u32 side, i;
+
+    if (sw->kind != PLAN_ACT_SWITCH || sw->partyIdx < 0 || u >= MAX_BATTLERS_COUNT)
+        return 0;
+    tmp = sJob.base;
+    LoadPartyMon(&tmp, u, (u32)sw->partyIdx);
+    hp = tmp.m[u].hp;
+    if (hp <= 0)
+        return 0;
+    for (side = 0; side < 2; side++)
+    {
+        for (i = 0; i < sJob.nFoeCand[side]; i++)
+        {
+            struct PlanAction a = sJob.foeCand[side][i];
+            enum MoveTarget tt;
+            s32 d;
+            if (a.kind != PLAN_ACT_MOVE || IsBattleMoveStatus(a.move) || !tmp.m[a.user].alive)
+                continue;
+            tt = SimMoveTarget(&tmp, a.user, a.move);
+            if (tt != TARGET_SELECTED && tt != TARGET_SMART && tt != TARGET_BOTH && tt != TARGET_FOES_AND_ALLY && tt != TARGET_OPPONENT)
+                continue;
+            a.target = u;
+            d = DamageOf(&tmp, &a, u) * 108 / 100;
+            if (tt == TARGET_BOTH || tt == TARGET_FOES_AND_ALLY)
+                d = d * 3 / 4;
+            dmg[side] = max(dmg[side], d);
+        }
+    }
+    if (dmg[0] >= hp || dmg[1] >= hp)
+        pct = 30;
+    else if (dmg[0] + dmg[1] >= hp)
+        pct = 15;
+    else
+        return 0;
+    if (!IsOnPlayerSide(u) && (sJob.winconParty & (1u << (u32)sw->partyIdx)))
+        roleW = VW(wincon);
+    return pct * (VW(ko) + VW(alive) + 100) * roleW / 10000;
+}
+
 static void FinishJob(void)
 {
     s32 bestEv = INT32_MIN, chosenEv = INT32_MIN;
@@ -3594,6 +3642,8 @@ static void FinishJob(void)
             sJob.ev[i] -= IsBattlersFirstTurn(sJob.ours[i].user) ? VW(switchCost) : VW(switchCost) / 2;
         if (sJob.partners[i].kind == PLAN_ACT_SWITCH)
             sJob.ev[i] -= IsBattlersFirstTurn(sJob.partners[i].user) ? VW(switchCost) : VW(switchCost) / 2;
+        if (CUSTOM_VGC_PLAN_SWITCH_RISK && MisplayFixesOn())
+            sJob.ev[i] -= SwitchKoRisk(&sJob.ours[i]) + SwitchKoRisk(&sJob.partners[i]);
         // Doppio Protect: un turno regalato all'avversario (setup, velocità, cambi gratis) che i tre turni simulati
         // vedono poco; costa come mezzo cambio.
         if (sJob.ours[i].kind == PLAN_ACT_PROTECT && sJob.partners[i].kind == PLAN_ACT_PROTECT)
