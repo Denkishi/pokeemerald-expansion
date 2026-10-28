@@ -130,7 +130,7 @@
 #define CUSTOM_VGC_PLAN_KO_CALIB_FAKE_OUT   80    // Fake Out su chi attacca: idem
 #define CUSTOM_VGC_PLAN_KO_PAIRS            TRUE  // la coppia migliore di ogni azione con un KO garantito è sempre simulata
 #define CUSTOM_VGC_PLAN_LOW_ROLL_EXACT      TRUE  // ramo "colpo basso" con il rapporto esatto minimo/mediana (un KO sicuro non perde PS per arrotondamento)
-#define CUSTOM_VGC_MIRROR_KO                FALSE // solo self-play: correzioni dei KO sicuri spente per il lato col bit di verifica-regole (regole M8 per tutti)
+#define CUSTOM_VGC_MIRROR_KO                TRUE  // solo self-play: correzioni dei KO sicuri spente per il lato col bit di verifica-regole (regole M8 per tutti)
 // ---- fine KO sicuri ----
 // Ritratto dell'allenatore + "penso..." quando hai già scelto e l'IA sta ancora calcolando.
 #define CUSTOM_VGC_THINKING_OVERLAY         TRUE
