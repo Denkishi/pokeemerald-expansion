@@ -60,3 +60,33 @@ jobs:
         with:
           name: pokeemerald-rom
           path: pokeemerald.gba
+
+  # Test dell'IA VGC (stessi file di tools/vgc_training/test_veloci.ps1), in parallelo con mgba-rom-test-hydra.
+  test-vgc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install binutils
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            -o Acquire::Retries=3 -o Acquire::http::Timeout="20" \
+            binutils-arm-none-eabi gcc-arm-none-eabi libnewlib-arm-none-eabi libpng-dev python3
+
+      - name: Test VGC
+        env:
+          GAME_VERSION: EMERALD
+          TEST: 1
+        run: |
+          chmod +x tools/mgba/mgba-rom-test
+          fail=0
+          for t in test/battle/ai/ai_vgc_doubles.c test/battle/ai/ai_vgc_team_preview.c test/battle/ai/ai_vgc_scout.c \
+                   test/battle/ai/ai_vgc_teams.c test/battle/ai/ai_vgc_rules.c test/battle/move_effect/parting_shot.c; do
+            [ -f "$t" ] || continue
+            echo "::group::$t"
+            make -j$(nproc) check TESTS="$t" || fail=1
+            echo "::endgroup::"
+          done
+          exit $fail
