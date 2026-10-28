@@ -1021,13 +1021,25 @@ static void CheckBattlerChoice(enum BattlerId b)
         if (eff == EFFECT_FIRST_TURN_ONLY && !IsBattlersFirstTurn(b))
             ReportMisplay(TRUE, "FAKE_OUT_TARDIVO", b, "%s non al primo turno in campo (fallisce)", A(MoveName(move)));
 
-        // 3. Mossa su un immune noto.
+        // 3. Mossa su un immune noto. Non è un errore certo se nessuna mossa usabile colpisce un avversario in campo
+        // (finale bloccato: es. Mimikyu con le sole mosse Spettro contro Lickitung).
         if (damaging && !spread && t < MAX_BATTLERS_COUNT && !IsBattlerAlly(b, t) && IsBattlerAlive(t)
          && gAiLogicData->effectiveness[b][t][idx] == UQ_4_12(0.0))
         {
             enum BattlerId o = OtherFoe(b, t);
             bool32 redirectUseful = pAlive && ChoiceKOs(p, t) && IsBattlerAlive(o) && gAiLogicData->effectiveness[b][o][idx] != UQ_4_12(0.0);
-            ReportMisplay(!redirectUseful, "IMMUNE", b, "%s su %s (immune%s)", A(MoveName(move)), A(GetSpeciesName(gBattleMons[t].species)),
+            bool32 anyHit = FALSE;
+            u32 k;
+            for (k = 0; k < MAX_MON_MOVES && !anyHit; k++)
+            {
+                enum BattlerId f;
+                if (!MoveUsable(b, k) || IsBattleMoveStatus(gBattleMons[b].moves[k]))
+                    continue;
+                for (f = 0; f < gBattlersCount; f++)
+                    if (!IsBattlerAlly(b, f) && IsBattlerAlive(f) && gAiLogicData->effectiveness[b][f][k] != UQ_4_12(0.0))
+                        anyHit = TRUE;
+            }
+            ReportMisplay(!redirectUseful && anyHit, "IMMUNE", b, "%s su %s (immune%s)", A(MoveName(move)), A(GetSpeciesName(gBattleMons[t].species)),
                           redirectUseful ? ", ma il compagno lo manda KO prima e la mossa passa sull'altro" : "");
         }
         else if (!damaging && t < MAX_BATTLERS_COUNT && !IsBattlerAlly(b, t) && IsBattlerAlive(t) && StatusMoveBlocked(b, t, move))
