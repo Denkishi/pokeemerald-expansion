@@ -118,7 +118,7 @@
 #define CUSTOM_VGC_EVAL_SASH                20  // Focus Sash intatto a PS pieni
 #define CUSTOM_VGC_EVAL_BENCH_HP_PCT        100 // peso (%) dei PS portati in panchina da chi esce con un cambio (e lasciati da chi entra)
 #define CUSTOM_VGC_EVAL_SPEED_RACE_CAP      200 // tetto (+/-) alla parte "corsa ai KO" dell'ordine di velocità nei turni futuri (0 = nessuno): un Trick Room appena messo valeva ~1100 punti, più di due KO
-#define CUSTOM_VGC_MIRROR_FIXES             FALSE // solo self-play: le correzioni dei misplay (PS in panchina, colpo alto, spareggio, tetto alla corsa) spente per il lato col bit di verifica-regole, regole M8 per tutti
+#define CUSTOM_VGC_MIRROR_FIXES             TRUE // solo self-play: le correzioni dei misplay (PS in panchina, colpo alto, spareggio, tetto alla corsa) spente per il lato col bit di verifica-regole, regole M8 per tutti
 #define CUSTOM_VGC_PLAN_HIGH_ROLL           TRUE // ramo "colpo alto": un colpo che manda KO solo con un tiro alto (sopra la mediana) pesa per la sua probabilità
 // Ritratto dell'allenatore + "penso..." quando hai già scelto e l'IA sta ancora calcolando.
 #define CUSTOM_VGC_THINKING_OVERLAY         TRUE
