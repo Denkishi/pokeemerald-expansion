@@ -73,7 +73,7 @@ Slither Wing e mandare KO Porygon2 al turno dopo con Close Combat. Discutibile m
 | Simone | Toedscruel Trick Room / Rage Powder per Machamp contro Enzo | TR o Rage Powder | KF: al turno 1 cambia Toedscruel |
 | Simone | Arcanine Extreme Speed su Roaring Moon a pochi PS | Extreme Speed → Roaring Moon | PASS |
 | Elia | Mimikyu Trick Room accanto a Goodra-H contro Tony | Trick Room | KF: Play Rough invece di Trick Room |
-| Elia | Mega Banette + Trick Room contro Patatina | Trick Room + Mega | KF: Protect invece di Trick Room |
+| Elia | Mega Banette + Trick Room contro Patatina | Trick Room + Mega | KF (difendibile): Protect + Muddy Water; Banette va KO prima di Trick Room sotto Bitter Blade + Armor Cannon |
 | Elia | Miltank niente Helping Hand mentre Mimikyu fa TR | NOT Helping Hand | KF: Miltank esce al turno 1 |
 | Patatina | Armarouge Expanding Force sul Campo Psichico | Expanding Force | KF (setup): TURN incompleto, una mossa del giocatore non viene eseguita; esito IA da verificare |
 | Patatina | Altaria Tailwind per Ceruledge contro Tony | Tailwind | KF: Dragon Pulse invece di Tailwind |
@@ -86,13 +86,13 @@ Slither Wing e mandare KO Porygon2 al turno dopo con Close Combat. Discutibile m
 | Mario Lett | Slaking con Gas Reagente attacca (turni 1 e 2) | NOT Protect x2 | KF (setup): TURN incompleto, una mossa del giocatore non viene eseguita; esito IA da verificare (turno 2) |
 | Tatore | Kecleon non usa Taunt su Hatterene (Magic Bounce) | NOT Taunt | PASS |
 | Tatore | Dusclops Trick Room accanto a Lapras contro Patatina | Trick Room | PASS |
-| Tatore | Scream Tail Encore su Espathra dopo Calm Mind | Encore → Espathra (turno 2) | KF: Encore con bersaglio opponentLeft invece di Espathra (da verificare) |
+| Tatore | Scream Tail Encore su Espathra dopo Calm Mind | Encore → Espathra (turno 2) | KF (difendibile): Helping Hand + Rock Slide (KO Incineroar sotto Trick Room); il bersaglio `opponentRight` era quello di Helping Hand |
 | Mario | Hariyama Fake Out su Whimsicott | Fake Out → Whimsicott | KF: Heavy Slam invece di Fake Out |
 | Mario | Oranguru Trick Room accanto a Iron Hands contro Enzo | Trick Room | KF (setup): TURN incompleto, una mossa del giocatore non viene eseguita; esito IA da verificare |
 | Mario | Golduck in pioggia Hydro Pump sui Fuoco | Hydro Pump | PASS |
-| Enzo | Aerodactyl Tailwind per Rillaboom contro Tony | Tailwind | KF: Rock Slide invece di Tailwind |
+| Enzo | Aerodactyl Tailwind per Rillaboom contro Tony | Tailwind | KF (difendibile): Rock Slide (KO Charizard Y 4x) + Fake Out su Roaring Moon |
 | Enzo | Smeargle non usa Spore su due Erba | NOT Spore | KF: Smeargle esce al turno 1 |
-| Enzo | Grimmsnarl schermo al turno 1 | Reflect o Light Screen | KF: Spirit Break invece degli schermi |
+| Enzo | Grimmsnarl schermo al turno 1 | Reflect o Light Screen | KF (difendibile): Spirit Break 4x manda KO Roaring Moon (Roseli Berry nascosta) |
 | Gerozz | Dugtrio-A Earthquake accanto a Rotom-Heat (Levitate) | Earthquake | KF: Protect invece di Earthquake |
 | Gerozz | Porygon2 Trick Room accanto a Great Tusk contro Enzo | Trick Room | KF: Porygon2 esce al turno 1 |
 | Gerozz | Gholdengo Make It Rain su due Folletto | Make It Rain | PASS |
@@ -100,8 +100,8 @@ Slither Wing e mandare KO Porygon2 al turno dopo con Close Combat. Discutibile m
 | Carletto | Ludicolo Fake Out al turno 1 | Fake Out | KF: Scald invece di Fake Out |
 | Carletto | Malamar Trick Room accanto a Kingambit contro Tony | Trick Room | KF: Superpower invece di Trick Room |
 | Gigi Pinto | Torkoal Eruption a PS pieni nel sole | Eruption | PASS |
-| Gigi Pinto | Hatterene Trick Room accanto a Torkoal contro Tony | Trick Room | PASS |
-| Gigi Pinto | Lilligant After You su Torkoal o Sleep Powder su Great Tusk | After You o Sleep Powder | KF: Energy Ball invece di After You / Sleep Powder |
+| Gigi Pinto | Hatterene Trick Room accanto a Torkoal contro Tony | Trick Room | KF (difendibile): Protect + Eruption; Hatterene va KO prima di Trick Room nel ramo più probabile |
+| Gigi Pinto | Lilligant After You su Torkoal o Sleep Powder su Great Tusk | After You o Sleep Powder | PASS (After You simulato) |
 | Savarotto | Whimsicott Beat Up su Gallade (Justified) | Beat Up → Gallade | KF: bersaglio registrato opponentLeft invece di Gallade (da verificare) |
 | Savarotto | Incineroar Fake Out per coprire Espathra | Fake Out | PASS |
 | Savarotto | Mega Chandelure + Heat Wave su due Erba | Heat Wave + Mega | KF (setup): TURN incompleto, una mossa del giocatore non viene eseguita; esito IA da verificare |

@@ -172,6 +172,7 @@ struct PlanState
     u8 weather;         // PW_*
     u8 screens[2];      // per lato: bit 0 Reflect, bit 1 Light Screen (Aurora Veil = entrambi)
     u8 screens0[2];     // schermi all'inizio (compresi nella tabella dei danni)
+    u8 screenClay[2];   // per lato: schermo nuovo messo con Light Clay (8 turni invece di 5)
     u8 firstTurn;       // turno simulato = turno attuale (Fake Out vale)
     u8 terrain;         // B_TERRAIN_* attuale nella simulazione
     u8 terrain0;        // terreno all'inizio (compreso nella tabella dei danni)
@@ -1486,13 +1487,21 @@ static void ApplyActionImpl(struct PlanState *st, const struct PlanAction *a)
         return;
     case EFFECT_REFLECT:
         st->screens[GetBattlerSide(u)] |= 1;
+        if (um->holdEffect == HOLD_EFFECT_LIGHT_CLAY)
+            st->screenClay[GetBattlerSide(u)] = TRUE;
         return;
     case EFFECT_LIGHT_SCREEN:
         st->screens[GetBattlerSide(u)] |= 2;
+        if (um->holdEffect == HOLD_EFFECT_LIGHT_CLAY)
+            st->screenClay[GetBattlerSide(u)] = TRUE;
         return;
     case EFFECT_AURORA_VEIL:
         if (st->weather == PW_SNOW)
+        {
             st->screens[GetBattlerSide(u)] |= 3;
+            if (um->holdEffect == HOLD_EFFECT_LIGHT_CLAY)
+                st->screenClay[GetBattlerSide(u)] = TRUE;
+        }
         return;
     case EFFECT_TRICK_ROOM:
         // Dura 5 turni compreso questo (NextTurn toglie il primo a fine turno).
@@ -2083,9 +2092,9 @@ PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st)
             }
         }
     }
-    // Schermi messi nella simulazione: valgono anche nei turni dopo l'orizzonte (5 turni in tutto; i 2-3 simulati
-    // li vedono solo in parte). Per ogni schermo nuovo, per ogni avversario vivo che attacca con quella categoria,
-    // un terzo del danno evitato nei turni rimasti, stimato come una coppia di velocità per turno.
+    // Schermi messi nella simulazione: valgono anche nei turni dopo l'orizzonte (5 turni in tutto, 8 con Light Clay;
+    // i 2-3 simulati li vedono solo in parte). Per ogni schermo nuovo, per ogni avversario vivo che attacca con quella
+    // categoria, un terzo del danno evitato nei turni rimasti, stimato come una coppia di velocità per turno.
     {
         u32 side;
         for (side = 0; side < NUM_BATTLE_SIDES; side++)
@@ -2100,9 +2109,9 @@ PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st)
                     if ((phys && (fresh & 1)) || (!phys && (fresh & 2)))
                         foes++;
                 }
-            // 3 turni oltre l'orizzonte
+            // 3 turni oltre l'orizzonte (6 con Light Clay)
             {
-                s32 val = (s32)foes * VW(speedPair) * 3;
+                s32 val = (s32)foes * VW(speedPair) * (st->screenClay[side] ? 6 : 3);
                 bool32 oursSide = (side == GetBattlerSide(sJob.me));
                 v += oursSide ? val : -val;
             }

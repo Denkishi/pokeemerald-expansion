@@ -130,6 +130,28 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
 - ⬜ Prossimi lavori già decisi (dopo il punto sopra): costo nel caso peggiore sotto ~200 fotogrammi (oggi 411 nel test Simple Beam); velocità stimata del giocatore anche nelle regole (`SetBattlerAiData` in battle_ai_main.c: `speedStats` del giocatore dalla stima di Scout invece della statistica vera, e `VgcInferChoiceScarf` in battle_ai_vgc.c); test della velocità stimata; altri test con i set veri delle 12 squadre
 - ⚠️ Nota: lo scratchpad condiviso `out.txt` viene scritto anche da altri agenti; i test di questo branch vanno eseguiti con un file di uscita proprio (`out_iavgc.txt`)
 - ⚠️ Punto aperto: il valore del setup su più turni (Calm Mind ora, Baton Pass dopo) è ancora sottostimato rispetto a far entrare subito l'attaccante. In alcuni casi è giusto (avversari innocui o non minacciosi), ma va misurato meglio: minacce credute degli avversari (M1), Intimidate e danni reali (M2), pressione del turno dopo (M3). Diagnostica nei test: `VGCLEAF` (valore dopo il turno 1 e miglior seguito al turno 2)
+- 🔧 Valore del setup (branch `ia-vgc-setup`, 28/10). Diagnostica accesa sui 6 test di setup in `ai_vgc_teams.c`, letta
+  su GitHub (run 40675466841). Cause trovate e corrette nel simulatore, non con spinte:
+  - **After You non simulato**: il compagno lento agiva comunque dopo gli avversari, quindi After You + Eruption valeva
+    -418 (Torkoal KO prima di muovere). Ora `RunTurn` mette l'azione del compagno subito dopo After You; tolta la spinta
+    delle regole (40/15) che ne faceva le veci. Il test di Lilligant passa.
+  - **Yawn trattato come sonno immediato** (la mossa ha `nonVolatileStatus` = sonno): Protect + Yawn addormentava
+    Ceruledge all'istante e il Trick Room del turno dopo sembrava sicuro (1146). Ora sonnolenza: si addormenta a fine del
+    turno dopo; nella valutazione vale metà del sonno.
+  - **Encore non simulato** (mossa senza effetto): ora blocca il bersaglio sull'ultima mossa per 3 turni; bloccato su una
+    mossa che non attacca vale come chi dorme oltre l'orizzonte, senza boost offensivi né minacce di KO.
+  - Schermi con **Light Clay**: 6 turni oltre l'orizzonte invece di 3.
+  - Taunt, Yawn ed Encore azzerati per chi entra dalla panchina.
+- ✅ Verificato e lasciato com'è: la saturazione delle foglie (968 = due avversari in campo KO: 600 Pokémon + 80
+  materiale + 288 velocità, perché la coppia con un KO conta come vinta) colpisce allo stesso modo le linee con e senza
+  setup (es. Tailwind 803-902 contro Rock Slide 968): il setup non perde lì ma al turno 1. Il bonus `theirs == 0`
+  (±640) non scatta nei test (la panchina conta). Media/peggiore (alpha 6-8): con la sola media o il solo caso peggiore l'ordine non cambia, tranne Hatterene che con la sola media va in parità (Trick Room -120 contro Protect -116). Il termine di
+  velocità di un Trick Room fresco arriva a ~1100 (4 coppie x 4 turni x corsa ai KO): resta un punto da misurare nel
+  self-play, non toccato per non rompere i test di Trick Room che passano.
+- KNOWN_FAILING rimessi, con la giocata dell'IA difendibile: Aerodactyl (Rock Slide KO su Charizard Y + Fake Out su
+  Roaring Moon), Grimmsnarl (Spirit Break 4x KO su Roaring Moon, Roseli nascosta), Hatterene e Mega Banette (il setter va
+  KO prima di Trick Room sotto il fuoco concentrato previsto), Scream Tail (Helping Hand + Rock Slide manda KO Incineroar
+  sotto Trick Room; il bersaglio `opponentRight` della diagnostica era quello di Helping Hand, non di Encore).
 
 ## M4 — Ricerca congiunta dei due slot
 - 🔧 Un solo calcolo per lato e per turno: il primo slot pianifica la **coppia**, il secondo aspetta e applica la sua metà già decisa (prima il secondo slot non pianificava mai)
@@ -179,7 +201,7 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
     attivo (Tailwind, Gravity, meteo, terreno, schermi, Trick Room che chiude il nostro), senza effetto (Recycle, Baton
     Pass senza panchina, Substitute/Belly Drum senza PS, mosse per il compagno senza compagno), bersaglio sbagliato
     (attacco/stato sul compagno senza combo, cambio d'abilità utile, Instruct/After You sull'avversario)) + **spinta**
-    leggera (`AI_VgcActionPrior`, punti della valutazione: Gravity 30, Quick Guard 30, Instruct 40, After You 40/15,
+    leggera (`AI_VgcActionPrior`, punti della valutazione: Gravity 30, Quick Guard 30, Instruct 40, After You 40/15 (tolta il 28/10: ora simulato),
     meteo per la panchina 20, Contrary +30 / boost perso -20, Neutralizing Gas Protect 30). Tutte le altre regole a
     punteggio tolte (le decide la simulazione).
   - Pianificatore: stesso filtro sulle candidate del turno 1 e sull'azione delle regole (`RulesAction`), spinta nelle
