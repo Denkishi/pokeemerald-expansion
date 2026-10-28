@@ -1996,6 +1996,42 @@ static bool32 FoeHistoryOn(void)
     return CUSTOM_VGC_PLAN_FOE_HISTORY && MisplayFixesOn();
 }
 
+// Quinto giro (setup sotto KO, spinta sulla minaccia): verifica a specchio con CUSTOM_VGC_MIRROR_ROUND5.
+static bool32 Round5On(void)
+{
+#if TESTING
+    if (CUSTOM_VGC_MIRROR_ROUND5)
+        return !((gVgcTraining.rulesLegacy >> GetBattlerSide(sJob.me)) & 1);
+#endif
+    return MisplayFixesOn();
+}
+
+// In campo c'è chi è al primo turno con una mossa da primo turno (Fake Out & co.): la previsione dei bersagli dipende da
+// quella, e la spinta sulla minaccia sbagliava il bersaglio del Fake Out (Hariyama su Whimsicott).
+static bool32 FirstTurnMoveInPlay(void)
+{
+    enum BattlerId b;
+    u32 i;
+    for (b = 0; b < gBattlersCount; b++)
+    {
+        enum Move *moves;
+        if (!IsBattlerAlive(b) || !IsBattlersFirstTurn(b))
+            continue;
+        moves = GetMovesArray(b);
+        for (i = 0; i < MAX_MON_MOVES; i++)
+            if (moves[i] != MOVE_NONE && moves[i] != MOVE_UNAVAILABLE && GetMoveEffect(moves[i]) == EFFECT_FIRST_TURN_ONLY)
+                return TRUE;
+        if (IsOnPlayerSide(b))
+        {
+            struct ScoutProfile prof;
+            Scout_GetPartyMonProfile(b, gBattleMons[b].species, &prof);
+            if (prof.role[SCOUT_FAKE_OUT] >= 50)
+                return TRUE;
+        }
+    }
+    return FALSE;
+}
+
 // PS di chi è uscito e di chi è entrato con un cambio (o un pivot) nella simulazione. Il valore della posizione conta
 // solo i PS in campo: uscire con un Pokémon al 30% per far prendere il KO a uno al 100% non costava niente (stesso KO in
 // campo, stesso materiale), e il pianificatore sacrificava i Pokémon sani al posto di quelli già consumati. Chi esce
@@ -2974,7 +3010,7 @@ static u32 PickFoeActions(u32 side, struct PlanAction *out)
                 score[i] += AI_VgcFoeTargetBias(sJob.foeCand[side][i].user, sJob.foeCand[side][i].target);
     // Il giocatore colpisce chi lo minaccia di più: tra i nostri due in campo, l'attacco sul più pericoloso per lui
     // (ThreatPct a inizio lavoro: danno in % e KO possibili sul suo lato) è più probabile.
-    if (CUSTOM_VGC_PLAN_FOE_THREAT_FOCUS > 0 && FoeHistoryOn())
+    if (CUSTOM_VGC_PLAN_FOE_THREAT_FOCUS > 0 && Round5On() && !FirstTurnMoveInPlay())
         for (i = 0; i < n; i++)
         {
             const struct PlanAction *c = &sJob.foeCand[side][i];
@@ -3666,6 +3702,38 @@ static s32 SwitchKoRisk(const struct PlanAction *sw)
     return pct * (VW(ko) + VW(alive) + 100) * roleW / 10000;
 }
 
+// Setup (mossa di stato che alza le statistiche) di chi un avversario manda KO di sicuro con una mossa vista (danno
+// minimo della tabella, precisione piena), senza che il compagno lo copra (Follow Me/Rage Powder, Fake Out su chi lo
+// minaccia). La simulazione dava valore ai boost nei rami in cui l'avversario colpiva altrove; il giocatore che vede un
+// setup sotto il suo KO lo punisce quasi sempre.
+static s32 SetupUnderKoPenalty(const struct PlanAction *a, const struct PlanAction *partner)
+{
+    enum BattlerId u = a->user, f;
+    u32 i;
+
+    if (a->kind != PLAN_ACT_MOVE || !IsBattleMoveStatus(a->move) || !IsStatRaisingMove(a->move) || u >= gBattlersCount)
+        return 0;
+    if (partner->kind == PLAN_ACT_MOVE && GetMoveEffect(partner->move) == EFFECT_FOLLOW_ME)
+        return 0;
+    for (f = 0; f < gBattlersCount; f++)
+    {
+        enum Move *moves;
+        if (!IsBattlerAlive(f) || !IsOnPlayerSide(f) || sJob.base.m[f].asleep)
+            continue;
+        if (partner->kind == PLAN_ACT_MOVE && GetMoveEffect(partner->move) == EFFECT_FIRST_TURN_ONLY && partner->target == f)
+            continue;
+        moves = GetMovesArray(f);
+        for (i = 0; i < MAX_MON_MOVES; i++)
+        {
+            if (moves[i] == MOVE_NONE || moves[i] == MOVE_UNAVAILABLE || IsBattleMoveStatus(moves[i]))
+                continue;
+            if (gAiLogicData->simulatedDmg[f][u][i].minimum >= gBattleMons[u].hp && gAiLogicData->moveAccuracy[f][u][i] >= 100)
+                return CUSTOM_VGC_PLAN_SETUP_KO_PENALTY;
+        }
+    }
+    return 0;
+}
+
 static void FinishJob(void)
 {
     s32 bestEv = INT32_MIN, chosenEv = INT32_MIN;
@@ -3685,6 +3753,8 @@ static void FinishJob(void)
             sJob.ev[i] -= IsBattlersFirstTurn(sJob.partners[i].user) ? VW(switchCost) : VW(switchCost) / 2;
         if (CUSTOM_VGC_PLAN_SWITCH_RISK && MisplayFixesOn())
             sJob.ev[i] -= SwitchKoRisk(&sJob.ours[i]) + SwitchKoRisk(&sJob.partners[i]);
+        if (CUSTOM_VGC_PLAN_SETUP_KO_PENALTY > 0 && Round5On())
+            sJob.ev[i] -= SetupUnderKoPenalty(&sJob.ours[i], &sJob.partners[i]) + SetupUnderKoPenalty(&sJob.partners[i], &sJob.ours[i]);
         // Doppio Protect: un turno regalato all'avversario (setup, velocità, cambi gratis) che i tre turni simulati
         // vedono poco; costa come mezzo cambio.
         if (sJob.ours[i].kind == PLAN_ACT_PROTECT && sJob.partners[i].kind == PLAN_ACT_PROTECT)

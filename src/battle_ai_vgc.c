@@ -1195,7 +1195,7 @@ static s32 AI_VgcDoublesLegacy(enum BattlerId battlerAtk, enum BattlerId battler
 bool32 AI_VgcRulesLegacy(enum BattlerId battler)
 {
     // Verifica a specchio delle correzioni dei misplay: il bit spegne quelle, le regole restano M8 per entrambi.
-    if (CUSTOM_VGC_MIRROR_FIXES || CUSTOM_VGC_MIRROR_FOE_IDLE || CUSTOM_VGC_MIRROR_FOE_HISTORY)
+    if (CUSTOM_VGC_MIRROR_FIXES || CUSTOM_VGC_MIRROR_FOE_IDLE || CUSTOM_VGC_MIRROR_FOE_HISTORY || CUSTOM_VGC_MIRROR_ROUND5)
         return FALSE;
     return (gVgcTraining.rulesLegacy >> GetBattlerSide(battler)) & 1;
 }
