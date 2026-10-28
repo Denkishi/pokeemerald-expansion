@@ -1152,8 +1152,11 @@ s32 AI_VgcActionPrior(enum BattlerId battler, enum Move move, enum BattlerId tar
             prior += VGC_PRIOR_GAS_PROTECT;
         break;
     case EFFECT_INSTRUCT:
-        // Il compagno ripete il suo attacco: serve che attacchi e che si muova prima di noi.
+        // Il compagno ripete il suo attacco: serve che attacchi, che si muova prima di noi e che l'attacco valga la pena
+        // (ad area o potente). Mai le mosse da primo turno: Fake Out ripetuto a fine turno non fa tentennare nessuno.
         if (hasPartner && target == partner && partnerMove != MOVE_NONE && !IsBattleMoveStatus(partnerMove)
+         && GetMoveEffect(partnerMove) != EFFECT_FIRST_TURN_ONLY
+         && (IsSpreadMove(GetMoveTarget(partnerMove)) || GetMovePower(partnerMove) >= 80)
          && !IsMoveInstructBanned(partnerMove) && AI_IsFaster(partner, battler, partnerMove, move, CONSIDER_PRIORITY))
             prior += VGC_PRIOR_INSTRUCT;
         break;
