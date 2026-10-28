@@ -662,8 +662,6 @@ static s32 VgcMaterialEdge(enum BattlerId battlerAtk)
 #define VGC_PRIOR_GRAVITY       30  // Gravity: la simulazione non la modella (precisione, mosse Terra sui Volanti)
 #define VGC_PRIOR_QUICK_GUARD   30  // Quick Guard: la simulazione non blocca le priorità (Fake Out compreso)
 #define VGC_PRIOR_INSTRUCT      40  // Instruct sul compagno che attacca prima di noi: il secondo colpo non è simulato
-#define VGC_PRIOR_AFTER_YOU_HP  40  // After You al compagno lento con Eruption & co. a PS alti: l'ordine non è simulato
-#define VGC_PRIOR_AFTER_YOU     15  // After You al compagno lento che attacca
 #define VGC_PRIOR_WEATHER_BENCH 20  // meteo per chi lo sfrutta ed è in panchina (la simulazione vede solo chi è in campo)
 #define VGC_PRIOR_CONTRARY      30  // mossa che cala le statistiche di chi la usa, con Contrary: le alza (non simulato)
 #define VGC_PRIOR_LOSE_BOOST    20  // (malus) la stessa mossa senza Contrary butta via un potenziamento già preso
@@ -951,18 +949,6 @@ static u32 SelfLoweredOffense(enum Move move)
     return mask;
 }
 
-// Il compagno agisce dopo almeno un avversario in campo (ordine di questo turno, Trick Room compreso).
-static bool32 PartnerMovesAfterAFoe(enum BattlerId battler, enum BattlerId partner, enum Move partnerMove)
-{
-    enum BattlerId foes[2] = { GetBattlerLeftFoe(battler), GetBattlerRightFoe(battler) };
-    u32 k;
-
-    for (k = 0; k < 2; k++)
-        if (IsBattlerAlive(foes[k]) && AI_IsSlower(partner, foes[k], partnerMove, MOVE_NONE, CONSIDER_PRIORITY))
-            return TRUE;
-    return FALSE;
-}
-
 // Un Pokémon dell'IA in panchina (non in campo) sfrutta il meteo di questa mossa.
 static bool32 BenchHasWeatherAbuser(enum BattlerId battler, enum Move move)
 {
@@ -982,7 +968,7 @@ static bool32 BenchHasWeatherAbuser(enum BattlerId battler, enum Move move)
     return FALSE;
 }
 
-// L'attacco che il compagno userebbe più volentieri con Instruct / After You, quando non si sa ancora cosa farà: una mossa
+// L'attacco che il compagno userebbe più volentieri con Instruct, quando non si sa ancora cosa farà: una mossa
 // che rende di più a PS pieni (Eruption & co.), altrimenti la più potente.
 static enum Move GuessPartnerAttack(enum BattlerId partner)
 {
@@ -1016,7 +1002,7 @@ s32 AI_VgcActionPrior(enum BattlerId battler, enum Move move, enum BattlerId tar
         return 0;
     effect = GetMoveEffect(move);
     // partnerMove: MOVE_NONE = non si sa (si stima), MOVE_UNAVAILABLE = il compagno non attacca.
-    if (partnerMove == MOVE_NONE && hasPartner && (effect == EFFECT_INSTRUCT || effect == EFFECT_AFTER_YOU))
+    if (partnerMove == MOVE_NONE && hasPartner && effect == EFFECT_INSTRUCT)
         partnerMove = GuessPartnerAttack(partner);
     if (partnerMove == MOVE_UNAVAILABLE)
         partnerMove = MOVE_NONE;
@@ -1089,18 +1075,7 @@ s32 AI_VgcActionPrior(enum BattlerId battler, enum Move move, enum BattlerId tar
          && !IsMoveInstructBanned(partnerMove) && AI_IsFaster(partner, battler, partnerMove, move, CONSIDER_PRIORITY))
             prior += VGC_PRIOR_INSTRUCT;
         break;
-    case EFFECT_AFTER_YOU:
-        // Il compagno lento attacca subito dopo di noi invece che dopo un avversario.
-        if (hasPartner && target == partner && partnerMove != MOVE_NONE && !IsBattleMoveStatus(partnerMove)
-         && PartnerMovesAfterAFoe(battler, partner, partnerMove) && AI_IsFaster(battler, partner, move, partnerMove, CONSIDER_PRIORITY))
-        {
-            if (GetMoveEffect(partnerMove) == EFFECT_POWER_BASED_ON_USER_HP
-             && gBattleMons[partner].hp * 100 / max(gBattleMons[partner].maxHP, 1) >= 70)
-                prior += VGC_PRIOR_AFTER_YOU_HP;
-            else
-                prior += VGC_PRIOR_AFTER_YOU;
-        }
-        break;
+    // After You: niente spinta, l'ordine del turno dopo After You è simulato (battle_ai_vgc_plan.c, RunTurn).
     case EFFECT_FIRST_TURN_ONLY:
         // Solo sull'avversario che può tentennare (Inner Focus e Shield Dust noti lo impediscono; i Spettro li toglie il filtro).
         if (IsBattlersFirstTurn(battler) && target != battler && target != partner && target < gBattlersCount && IsBattlerAlive(target)

@@ -150,7 +150,10 @@ struct PlanMon
     u8 berryUsed;
     u8 damaged;         // colpito in questo turno (Focus Punch fallisce)
     u8 taunted;         // turni di Taunt rimasti (mosse di stato bloccate)
-    u8 megaPct[4];      // Mega a inizio turno: statistiche Mega / forma base in % (Atk, Def, SpA, SpD)
+    u8 drowsy;          // Yawn: a fine turno scende; arrivato a 0 si addormenta (2 = colpito in questo turno)
+    u8 encored;         // turni di Encore rimasti (questo compreso): ripete lastMove
+    u16 lastMove;       // ultima mossa usata (Encore la blocca)
+    u8 megaPct[4];     // Mega a inizio turno: statistiche Mega / forma base in % (Atk, Def, SpA, SpD)
     u8 megaNow;         // megaevolve in questo turno simulato: la tabella dei danni (forma base) non vale più
     u8 subHp;           // PS del Sostituto (0 = nessuno)
     u8 unburden;        // Unburden attivo (strumento consumato): Velocità x2
@@ -169,6 +172,7 @@ struct PlanState
     u8 weather;         // PW_*
     u8 screens[2];      // per lato: bit 0 Reflect, bit 1 Light Screen (Aurora Veil = entrambi)
     u8 screens0[2];     // schermi all'inizio (compresi nella tabella dei danni)
+    u8 screenClay[2];   // per lato: schermo nuovo messo con Light Clay (8 turni invece di 5)
     u8 firstTurn;       // turno simulato = turno attuale (Fake Out vale)
     u8 terrain;         // B_TERRAIN_* attuale nella simulazione
     u8 terrain0;        // terreno all'inizio (compreso nella tabella dei danni)
@@ -474,6 +478,12 @@ static void LoadFieldMon(struct PlanMon *pm, enum BattlerId b)
     pm->sleepTurns = gBattleMons[b].status1 & STATUS1_SLEEP;
     pm->burned = pm->burned0 = (gBattleMons[b].status1 & STATUS1_BURN) != 0;
     pm->paralyzed = (gBattleMons[b].status1 & STATUS1_PARALYSIS) != 0;
+    // Yawn ed Encore già in corso (visibili a entrambi: messaggi in lotta) e ultima mossa usata.
+    pm->drowsy = gBattleMons[b].volatiles.yawn;
+    pm->encored = (gBattleMons[b].volatiles.encoredMove != MOVE_NONE) ? gBattleMons[b].volatiles.encoreTimer : 0;
+    pm->lastMove = (gLastMoves[b] == MOVE_UNAVAILABLE) ? MOVE_NONE : gLastMoves[b];
+    if (pm->encored)
+        pm->lastMove = gBattleMons[b].volatiles.encoredMove;
     {
         enum Move last = gLastResultingMoves[b];
         pm->protectedLast = last != MOVE_NONE && last != MOVE_UNAVAILABLE
@@ -614,6 +624,8 @@ static void LoadPartyMon(struct PlanState *st, enum BattlerId b, u32 partyIdx)
     pm->burned = pm->burned0 = (GetMonData(mon, MON_DATA_STATUS) & STATUS1_BURN) != 0;
     pm->paralyzed = (GetMonData(mon, MON_DATA_STATUS) & STATUS1_PARALYSIS) != 0;
     pm->protecting = pm->protectedLast = pm->wideGuard = pm->flinched = pm->redirect = pm->helping = 0;
+    pm->taunted = pm->drowsy = pm->encored = 0;
+    pm->lastMove = MOVE_NONE;
     pm->berryUsed = FALSE;
     memset(pm->stage, 0, sizeof(pm->stage));
     memset(pm->stage0, 0, sizeof(pm->stage0));
@@ -807,6 +819,8 @@ static void NextTurn(struct PlanState *st)
         st->m[b].protectedLast = st->m[b].protecting;
         if (st->m[b].taunted > 0)
             st->m[b].taunted--;
+        if (st->m[b].encored > 0)
+            st->m[b].encored--;
         st->m[b].protecting = st->m[b].wideGuard = st->m[b].flinched = st->m[b].redirect = st->m[b].helping = st->m[b].damaged = 0;
     }
     if (CUSTOM_VGC_PLAN_REPLACE_KO)
@@ -1137,6 +1151,8 @@ static s32 DamageOf(const struct PlanState *st, const struct PlanAction *a, enum
 
 // Battler la cui azione manca il bersaglio nella simulazione in corso (ramo "mancato"), più 1; 0 = nessuno.
 static EWRAM_DATA u8 sMissBattler = 0;
+// After You riuscito nell'azione appena applicata: il compagno (più 1) che deve agire subito dopo; 0 = nessuno.
+static EWRAM_DATA u8 sAfterYou = 0;
 
 
 // Precisione (0..100) dell'azione `a` sul suo bersaglio: dalla tabella dell'IA quando c'è (comprende
@@ -1295,6 +1311,51 @@ static void TakeDamage(struct PlanMon *tm, s32 dmg)
     }
 }
 
+// Il sonno (mossa `move` di `um`, MOVE_NONE = Yawn che scatta a fine turno) non prende `tm`: Erba e Overcoat contro le
+// polveri, terreni Elettrico e Nebbioso, abilità. Mycelium Might: le mosse di stato ignorano le abilità del bersaglio.
+static bool32 SimSleepBlocked(const struct PlanState *st, const struct PlanMon *um, const struct PlanMon *tm, enum Move move)
+{
+    enum Ability defAbility = (um->ability == ABILITY_MYCELIUM_MIGHT && um != tm) ? ABILITY_NONE : tm->ability;
+    if (move != MOVE_NONE && IsPowderMove(move) && (tm->t1 == TYPE_GRASS || tm->t2 == TYPE_GRASS || defAbility == ABILITY_OVERCOAT
+                                                 || tm->holdEffect == HOLD_EFFECT_SAFETY_GOGGLES))
+        return TRUE;
+    if ((st->terrain == B_TERRAIN_ELECTRIC || st->terrain == B_TERRAIN_MISTY) && IsGroundedInSim(tm))
+        return TRUE;
+    return defAbility == ABILITY_INSOMNIA || defAbility == ABILITY_VITAL_SPIRIT || defAbility == ABILITY_SWEET_VEIL
+        || defAbility == ABILITY_GOOD_AS_GOLD || defAbility == ABILITY_MAGIC_BOUNCE || defAbility == ABILITY_PURIFYING_SALT
+        || defAbility == ABILITY_COMATOSE;
+}
+
+// Azione di chi è sotto Encore: l'ultima mossa usata, sul bersaglio scelto se è un avversario (altrimenti il primo
+// avversario vivo), con lo slot vero se la mossa è nota (tabella dei danni).
+static const struct PlanAction *EncoredAction(const struct PlanState *st, const struct PlanAction *a, struct PlanAction *out)
+{
+    enum BattlerId u = a->user;
+    enum Move m = st->m[u].lastMove;
+    enum MoveTarget tt = GetMoveTarget(m);
+    u32 i;
+
+    *out = *a;
+    out->move = m;
+    out->moveIndex = 0xFF;
+    out->kind = (GetMoveEffect(m) == EFFECT_PROTECT && GetMoveProtectMethod(m) == PROTECT_NORMAL) ? PLAN_ACT_PROTECT : PLAN_ACT_MOVE;
+    if (st->m[u].partyIdx < 0)
+    {
+        enum Move *moves = GetMovesArray(u);
+        for (i = 0; i < MAX_MON_MOVES; i++)
+            if (moves[i] == m)
+                out->moveIndex = i;
+    }
+    if (tt == TARGET_USER || tt == TARGET_USER_AND_ALLY || tt == TARGET_FIELD || tt == TARGET_OPPONENTS_FIELD
+     || tt == TARGET_ALL_BATTLERS || out->kind == PLAN_ACT_PROTECT)
+        out->target = u;
+    else if (tt == TARGET_ALLY || tt == TARGET_USER_OR_ALLY)
+        out->target = GetPartnerBattler(u);
+    else if (a->target >= gBattlersCount || IsBattlerAlly(u, a->target))
+        out->target = st->m[GetBattlerLeftFoe(u)].alive ? GetBattlerLeftFoe(u) : GetBattlerRightFoe(u);
+    return out;
+}
+
 static void ApplyActionImpl(struct PlanState *st, const struct PlanAction *a);
 // Profilo (solo test): righe di schermo passate dentro la funzione, sommate (VGCPROF).
 static void ApplyAction(struct PlanState *st, const struct PlanAction *a)
@@ -1315,6 +1376,7 @@ static void ApplyActionImpl(struct PlanState *st, const struct PlanAction *a)
     struct PlanMon *um = &st->m[u];
     enum BattleMoveEffects effect;
     enum MoveTarget tt;
+    struct PlanAction enc;
 
     if (a->kind == PLAN_ACT_NONE)
         return;
@@ -1335,10 +1397,14 @@ static void ApplyActionImpl(struct PlanState *st, const struct PlanAction *a)
             return;
         um->asleep = FALSE;
     }
+    // Encore: chi ne è colpito ripete l'ultima mossa, qualunque azione avesse scelto (il cambio resta libero).
+    if (um->encored && um->lastMove != MOVE_NONE && a->move != um->lastMove)
+        a = EncoredAction(st, a, &enc);
     if (a->kind == PLAN_ACT_PROTECT)
     {
         // Un secondo Protect di fila riesce solo 1 volta su 3: nel simulatore si considera fallito.
         um->protecting = !um->protectedLast;
+        um->lastMove = a->move;
         return;
     }
 
@@ -1346,10 +1412,14 @@ static void ApplyActionImpl(struct PlanState *st, const struct PlanAction *a)
     tt = SimMoveTarget(st, u, a->move);
     // Ramo "mancato": l'azione verso gli avversari non ha effetto (le mosse su sé stessi o sul compagno non mancano).
     if (u + 1 == sMissBattler && ActionAccuracy(st, a) < 100)
+    {
+        um->lastMove = a->move;
         return;
+    }
     // Taunt: niente mosse di stato (Trick Room, Tailwind, setup, Spore...) finché dura.
     if (um->taunted && IsBattleMoveStatus(a->move))
         return;
+    um->lastMove = a->move;
     // Campo Psichico: una mossa con priorità (anche da Prankster) su un avversario a terra fallisce.
     if (st->terrain == B_TERRAIN_PSYCHIC && !IsBattlerAlly(u, a->target) && IsGroundedInSim(&st->m[a->target])
      && !IsSpreadMove(tt) && ActionPriority(st, a) > 0)
@@ -1387,19 +1457,51 @@ static void ApplyActionImpl(struct PlanState *st, const struct PlanAction *a)
                 tm->taunted = 3; // questo turno (se non ha ancora agito) e i 2 dopo
         }
         return;
+    case EFFECT_ENCORE:
+        {
+            // Blocca il bersaglio sulla sua ultima mossa per 3 turni (questo compreso, se non ha ancora agito).
+            struct PlanMon *tm = &st->m[a->target];
+            if (tm->alive && !tm->protecting && !tm->encored && !IsBattlerAlly(u, a->target)
+             && tm->lastMove != MOVE_NONE && !IsMoveEncoreBanned(tm->lastMove)
+             && tm->ability != ABILITY_AROMA_VEIL && tm->ability != ABILITY_MAGIC_BOUNCE && tm->holdEffect != HOLD_EFFECT_MENTAL_HERB)
+                tm->encored = 3;
+        }
+        return;
+    case EFFECT_AFTER_YOU:
+        // Il compagno agisce subito dopo (RunTurn sposta la sua azione), se non ha già agito.
+        if (a->target < gBattlersCount && a->target != u && IsBattlerAlly(u, a->target) && st->m[a->target].alive)
+            sAfterYou = a->target + 1;
+        return;
+    case EFFECT_YAWN:
+        {
+            // Sonnolenza: si addormenta a fine del turno DOPO (non subito, come faceva quando passava per il sonno).
+            struct PlanMon *tm = &st->m[a->target];
+            if (tm->alive && !tm->protecting && tm->subHp == 0 && !tm->asleep && !tm->burned && !tm->paralyzed && !tm->drowsy
+             && !SimSleepBlocked(st, um, tm, a->move))
+                tm->drowsy = 2;
+        }
+        return;
     case EFFECT_BATON_PASS:
         if (!IsOnPlayerSide(u))
             BatonPassInSim(st, u);
         return;
     case EFFECT_REFLECT:
         st->screens[GetBattlerSide(u)] |= 1;
+        if (um->holdEffect == HOLD_EFFECT_LIGHT_CLAY)
+            st->screenClay[GetBattlerSide(u)] = TRUE;
         return;
     case EFFECT_LIGHT_SCREEN:
         st->screens[GetBattlerSide(u)] |= 2;
+        if (um->holdEffect == HOLD_EFFECT_LIGHT_CLAY)
+            st->screenClay[GetBattlerSide(u)] = TRUE;
         return;
     case EFFECT_AURORA_VEIL:
         if (st->weather == PW_SNOW)
+        {
             st->screens[GetBattlerSide(u)] |= 3;
+            if (um->holdEffect == HOLD_EFFECT_LIGHT_CLAY)
+                st->screenClay[GetBattlerSide(u)] = TRUE;
+        }
         return;
     case EFFECT_TRICK_ROOM:
         // Dura 5 turni compreso questo (NextTurn toglie il primo a fine turno).
@@ -1521,19 +1623,7 @@ static void ApplyActionImpl(struct PlanState *st, const struct PlanAction *a)
         }
         else if (GetMoveNonVolatileStatus(a->move) == MOVE_EFFECT_SLEEP && !blocked && !tm->asleep)
         {
-            bool32 ok = TRUE;
-            // Mycelium Might: le mosse di stato ignorano le abilità del bersaglio (non tipo e strumento).
-            enum Ability defAbility = (um->ability == ABILITY_MYCELIUM_MIGHT) ? ABILITY_NONE : tm->ability;
-            if (IsPowderMove(a->move) && (tm->t1 == TYPE_GRASS || tm->t2 == TYPE_GRASS || defAbility == ABILITY_OVERCOAT
-                                        || tm->holdEffect == HOLD_EFFECT_SAFETY_GOGGLES))
-                ok = FALSE;
-            if ((st->terrain == B_TERRAIN_ELECTRIC || st->terrain == B_TERRAIN_MISTY) && IsGroundedInSim(tm))
-                ok = FALSE;
-            if (defAbility == ABILITY_INSOMNIA || defAbility == ABILITY_VITAL_SPIRIT || defAbility == ABILITY_SWEET_VEIL
-             || defAbility == ABILITY_GOOD_AS_GOLD || defAbility == ABILITY_MAGIC_BOUNCE || defAbility == ABILITY_PURIFYING_SALT
-             || defAbility == ABILITY_COMATOSE)
-                ok = FALSE;
-            if (ok)
+            if (!SimSleepBlocked(st, um, tm, a->move))
             {
                 tm->asleep = TRUE;
                 tm->sleepTurns = 2; // 1-3 turni: si usa il valore medio
@@ -1836,6 +1926,13 @@ static s32 SleepValue(const struct PlanState *st, enum BattlerId b)
     return w;
 }
 
+// Encore su una mossa che non attacca, ancora attivo il turno dopo (a fine turno simulato encored conta anche quello
+// appena giocato).
+static bool32 LockedIntoStatus(const struct PlanMon *pm)
+{
+    return pm->encored > 1 && pm->lastMove != MOVE_NONE && IsBattleMoveStatus(pm->lastMove);
+}
+
 PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st);
 // Profilo (solo test): righe di schermo passate dentro la funzione, sommate (VGCPROF).
 static s32 Evaluate(const struct PlanState *st)
@@ -1888,6 +1985,13 @@ PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st)
         // Il sonno vale quanto la minaccia di chi dorme (Tyranitar Mega addormentato vale più di Dugtrio).
         if (pm->asleep)
             v -= side * SleepValue(st, b);
+        // Yawn: si addormenta a fine del turno dopo, oltre l'orizzonte (può ancora cambiare: metà).
+        else if (pm->drowsy)
+            v -= side * SleepValue(st, b) / 2;
+        // Encore su una mossa che non attacca (Calm Mind, Protect, Tailwind già messo...): nei turni rimasti il Pokémon
+        // non fa niente di utile, come chi dorme (resta il cambio, che costa un turno). Fino a 2 turni oltre l'orizzonte.
+        if (LockedIntoStatus(pm))
+            v -= side * SleepValue(st, b) * min(pm->encored - 1, 2) / 2;
         // Stato: la scottatura pesa sugli attaccanti fisici, la paralisi su tutti (Velocità dimezzata).
         if (pm->burned && pm->atk > pm->spa && pm->ability != ABILITY_GUTS)
             v -= side * CUSTOM_VGC_EVAL_BURN;
@@ -1900,7 +2004,13 @@ PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st)
             v += side * CUSTOM_VGC_EVAL_FAKE_OUT;
         // (Mega non ancora usata: il simulatore non la modella, sarebbe uguale in ogni ramo.)
         // Stadi: valgono se servono a qualcosa (chi attacca, o chi li passa con Baton Pass a qualcuno in panchina).
-        if (pm->canAttack)
+        if (LockedIntoStatus(pm))
+        {
+            // Bloccato da Encore: i boost offensivi e di Velocità non servono finché dura (resta la difesa).
+            s32 dfn = (pm->stage[PS_DEF] + pm->stage[PS_SPD]) / 2;
+            v += side * 6 * max(-4, min(4, dfn));
+        }
+        else if (pm->canAttack)
         {
             s32 off = (pm->atk >= pm->spa) ? pm->stage[PS_ATK] : pm->stage[PS_SPA];
             s32 dfn = (pm->stage[PS_DEF] + pm->stage[PS_SPD]) / 2;
@@ -1982,9 +2092,9 @@ PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st)
             }
         }
     }
-    // Schermi messi nella simulazione: valgono anche nei turni dopo l'orizzonte (5 turni in tutto; i 2-3 simulati
-    // li vedono solo in parte). Per ogni schermo nuovo, per ogni avversario vivo che attacca con quella categoria,
-    // un terzo del danno evitato nei turni rimasti, stimato come una coppia di velocità per turno.
+    // Schermi messi nella simulazione: valgono anche nei turni dopo l'orizzonte (5 turni in tutto, 8 con Light Clay;
+    // i 2-3 simulati li vedono solo in parte). Per ogni schermo nuovo, per ogni avversario vivo che attacca con quella
+    // categoria, un terzo del danno evitato nei turni rimasti, stimato come una coppia di velocità per turno.
     {
         u32 side;
         for (side = 0; side < NUM_BATTLE_SIDES; side++)
@@ -1999,9 +2109,9 @@ PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st)
                     if ((phys && (fresh & 1)) || (!phys && (fresh & 2)))
                         foes++;
                 }
-            // 3 turni oltre l'orizzonte
+            // 3 turni oltre l'orizzonte (6 con Light Clay)
             {
-                s32 val = (s32)foes * VW(speedPair) * 3;
+                s32 val = (s32)foes * VW(speedPair) * (st->screenClay[side] ? 6 : 3);
                 bool32 oursSide = (side == GetBattlerSide(sJob.me));
                 v += oursSide ? val : -val;
             }
@@ -2017,7 +2127,7 @@ PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st)
         for (o = 0; o < gBattlersCount; o++)
         {
             u32 chance;
-            if (!st->m[o].alive || IsBattlerAlly(b, o) || st->m[o].asleep || st->m[o].species == SPECIES_NONE)
+            if (!st->m[o].alive || IsBattlerAlly(b, o) || st->m[o].asleep || LockedIntoStatus(&st->m[o]) || st->m[o].species == SPECIES_NONE)
                 continue;
             chance = CanKoNextTurn(st, o, b);
             if (chance > 0)
@@ -2445,7 +2555,7 @@ static void RunTurn(struct PlanState *st, const struct PlanAction **acts, u32 n)
 
 static void RunTurnImpl(struct PlanState *st, const struct PlanAction **acts, u32 n)
 {
-    u32 i, j;
+    u32 i, j, forced = n;
     for (i = 0; i < n; i++)
     {
         // Priorità e velocità ricalcolate a ogni passo (possono cambiare a metà turno: Simple Beam, Icy Wind,
@@ -2455,6 +2565,12 @@ static void RunTurnImpl(struct PlanState *st, const struct PlanAction **acts, u3
         bool8 last[MAX_BATTLERS_COUNT];
         u32 first = i;
 
+        // After You: l'azione del compagno è già stata messa qui, salta l'ordinamento.
+        if (i == forced)
+        {
+            ApplyAction(st, acts[i]);
+            continue;
+        }
         for (j = i; j < n; j++)
         {
             pr[j] = ActionPriority(st, acts[j]);
@@ -2479,11 +2595,33 @@ static void RunTurnImpl(struct PlanState *st, const struct PlanAction **acts, u3
         {
             const struct PlanAction *t = acts[i]; acts[i] = acts[first]; acts[first] = t;
         }
+        sAfterYou = 0;
         ApplyAction(st, acts[i]);
+        if (sAfterYou)
+        {
+            // After You riuscito: il compagno, se deve ancora agire, agisce subito dopo (prima degli avversari più veloci).
+            for (j = i + 1; j < n; j++)
+            {
+                if (acts[j]->user == sAfterYou - 1 && acts[j]->kind != PLAN_ACT_SWITCH && acts[j]->kind != PLAN_ACT_NONE)
+                {
+                    const struct PlanAction *t = acts[i + 1]; acts[i + 1] = acts[j]; acts[j] = t;
+                    forced = i + 1;
+                    break;
+                }
+            }
+            sAfterYou = 0;
+        }
     }
     // Fine turno. Speed Boost: +1 Velocità (qui e non in NextTurn: la valutazione di fine turno lo vede già).
     for (i = 0; i < gBattlersCount; i++)
     {
+        // Yawn: chi è insonnolito da un turno si addormenta ora (se nel frattempo non ha preso un altro stato).
+        if (st->m[i].alive && st->m[i].drowsy > 0 && --st->m[i].drowsy == 0 && !st->m[i].asleep && !st->m[i].burned
+         && !st->m[i].paralyzed && !SimSleepBlocked(st, &st->m[i], &st->m[i], MOVE_NONE))
+        {
+            st->m[i].asleep = TRUE;
+            st->m[i].sleepTurns = 2;
+        }
         if (st->m[i].alive && st->m[i].ability == ABILITY_SPEED_BOOST)
             st->m[i].stage[PS_SPE] = min(6, st->m[i].stage[PS_SPE] + 1);
         // Campo Erboso: 1/16 dei PS a chi è a terra.
