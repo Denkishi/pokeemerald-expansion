@@ -338,6 +338,8 @@ struct PlanPartnerDecision
 // a vicenda la metà già decisa per il partner.
 // Battler il cui colpo fa il danno minimo (ramo "colpo basso": un KO solo con la mediana non è sicuro), più 1.
 static EWRAM_DATA u8 sLowRollBattler = 0;
+// Battler il cui colpo fa il danno massimo (ramo "colpo alto": un KO che arriva solo con un tiro sopra la mediana), più 1.
+static EWRAM_DATA u8 sHighRollBattler = 0;
 // Ramo "velocità incerta": il battler del giocatore (più 1) gioca con la Velocità alternativa sJob.speedAlt.
 static EWRAM_DATA u8 sSpeedAltBattler = 0;
 
@@ -1094,6 +1096,19 @@ static u32 LowRollPct(const struct PlanState *st, const struct PlanAction *a, en
     return 87;
 }
 
+// Danno massimo rispetto alla mediana, in %: dalla tabella dell'IA quando c'è, altrimenti il tiro massimo (la stima è
+// la mediana: 100 / 92,5).
+static u32 HighRollPct(const struct PlanState *st, const struct PlanAction *a, enum BattlerId t)
+{
+    if (a->moveIndex < MAX_MON_MOVES && st->m[a->user].partyIdx < 0 && st->m[t].partyIdx < 0)
+    {
+        const struct SimulatedDamage *sd = &gAiLogicData->simulatedDmg[a->user][t][a->moveIndex];
+        if (sd->median > 0)
+            return sd->maximum * 100 / sd->median;
+    }
+    return 108;
+}
+
 static s32 DamageOf(const struct PlanState *st, const struct PlanAction *a, enum BattlerId t)
 {
     const struct PlanMon *am = &st->m[a->user], *dm = &st->m[t];
@@ -1144,6 +1159,8 @@ static s32 DamageOf(const struct PlanState *st, const struct PlanAction *a, enum
         dmg = dmg * 3 / 2;
     if (a->user + 1 == sLowRollBattler)
         dmg = dmg * LowRollPct(st, a, t) / 100;
+    else if (a->user + 1 == sHighRollBattler)
+        dmg = dmg * HighRollPct(st, a, t) / 100;
     // Niente precisione qui: il danno è quello di un colpo andato a segno. La probabilità di mancare la
     // conta il pianificatore a parte (ramo "mancato", vedi ActionAccuracy e MissPenalty).
     return dmg;
@@ -1933,6 +1950,45 @@ static bool32 LockedIntoStatus(const struct PlanMon *pm)
     return pm->encored > 1 && pm->lastMove != MOVE_NONE && IsBattleMoveStatus(pm->lastMove);
 }
 
+// PS di chi è uscito e di chi è entrato con un cambio (o un pivot) nella simulazione. Il valore della posizione conta
+// solo i PS in campo: uscire con un Pokémon al 30% per far prendere il KO a uno al 100% non costava niente (stesso KO in
+// campo, stesso materiale), e il pianificatore sacrificava i Pokémon sani al posto di quelli già consumati. Chi esce
+// porta in panchina i suoi PS di inizio turno; chi entra lascia in panchina quelli che aveva.
+static s32 BenchSwapValue(const struct PlanState *st)
+{
+    enum BattlerId b;
+    s32 v = 0;
+
+    for (b = 0; b < gBattlersCount; b++)
+    {
+        const struct PlanMon *pm = &st->m[b], *pm0 = &sJob.base.m[b];
+        s32 side = IsOnPlayerSide(b) ? -1 : 1;
+        struct Pokemon *party;
+        u32 inIdx, outIdx;
+        s32 inPct, outPct, inW = 100, outW = 100, inMax;
+
+        if (pm->partyIdx < 0 || pm->species == SPECIES_NONE || !pm0->alive || pm0->species == SPECIES_NONE)
+            continue;
+        inIdx = (u32)pm->partyIdx;
+        outIdx = gBattlerPartyIndexes[b];
+        if (inIdx == outIdx || inIdx >= PARTY_SIZE)
+            continue;
+        party = GetBattlerParty(b);
+        inMax = GetMonData(&party[inIdx], MON_DATA_MAX_HP);
+        inPct = (inMax > 0) ? (s32)GetMonData(&party[inIdx], MON_DATA_HP) * 100 / inMax : 0;
+        outPct = pm0->hp * 100 / max(pm0->maxHp, 1);
+        if (side > 0)
+        {
+            if (sJob.winconParty & (1u << inIdx))
+                inW = VW(wincon);
+            if (outIdx < PARTY_SIZE && (sJob.winconParty & (1u << outIdx)))
+                outW = VW(wincon);
+        }
+        v += side * (outPct * outW - inPct * inW) / 100 * CUSTOM_VGC_EVAL_BENCH_HP_PCT / 100;
+    }
+    return v;
+}
+
 PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st);
 // Profilo (solo test): righe di schermo passate dentro la funzione, sommate (VGCPROF).
 static s32 Evaluate(const struct PlanState *st)
@@ -2036,6 +2092,7 @@ PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st)
                             st->m[b].spd, st->m[b].speed, st->m[b].holdEffect, st->m[b].ability);
     }
 #endif
+    v += BenchSwapValue(st);
     EVAL_DEBUG("pokemon", v);
     // Materiale: Pokémon utilizzabili per lato (in campo + panchina). Lo stesso KO vale di più quando cambia
     // l'equilibrio (2 contro 1 pesa più di 4 contro 3): la differenza si scala sul totale rimasto.
@@ -3233,6 +3290,27 @@ static u32 LowRollFailChance(const struct PlanState *st, const struct PlanAction
     return (u32)(50 * (hp - lo) / max(med - lo, 1));
 }
 
+// Probabilità (0..50) che un colpo che NON manda KO con il danno medio lo faccia con un tiro alto (tra la mediana e il
+// massimo); 0 se nemmeno il massimo basta. Il simmetrico di LowRollFailChance: senza, un Pokémon che restava a pochi PS
+// con la mediana era "salvo" (cambi su chi va KO all'entrata, win condition lasciate a un tiro alto dal KO).
+static u32 HighRollKoChance(const struct PlanState *st, const struct PlanAction *a)
+{
+    enum BattlerId t = a->target;
+    s32 med, hi, hp;
+
+    if (a->kind != PLAN_ACT_MOVE || IsBattleMoveStatus(a->move) || t >= MAX_BATTLERS_COUNT || IsBattlerAlly(a->user, t)
+     || !st->m[t].alive)
+        return 0;
+    med = DamageOf(st, a, t);
+    hp = st->m[t].hp + st->m[t].subHp;
+    if (med <= 0 || med >= hp || st->m[t].subHp > 0)
+        return 0;
+    hi = med * (s32)HighRollPct(st, a, t) / 100;
+    if (hi < hp)
+        return 0;
+    return (u32)(50 * (hi - hp + 1) / max(hi - med, 1));
+}
+
 static u32 MissPenalty(const struct PlanState *base, const struct PlanState *hit, const struct PlanAction *const *acts4, s32 *pen)
 {
     u32 k, sims = 0;
@@ -3280,6 +3358,28 @@ static u32 MissPenalty(const struct PlanState *base, const struct PlanState *hit
         sLowRollBattler = 0;
         eLow = Evaluate(&sm);
         *pen += (s32)fail * (eHit - eLow) / 100;
+        sims++;
+    }
+    // Danno: un colpo che manda KO solo con un tiro alto. Ramo "colpo alto" pesato per la probabilità del tiro, per
+    // entrambi i lati (un nostro KO possibile vale un po', un loro KO possibile costa un po').
+    for (k = 0; k < 4 && CUSTOM_VGC_PLAN_HIGH_ROLL; k++)
+    {
+        u32 chance = HighRollKoChance(base, acts4[k]);
+        const struct PlanAction *acts[4];
+        struct PlanState sm;
+        s32 eHigh;
+
+        if (chance == 0)
+            continue;
+        if (sims == 0)
+            eHit = Evaluate(hit);
+        memcpy(acts, acts4, sizeof(acts));
+        sm = *base;
+        sHighRollBattler = acts4[k]->user + 1;
+        RunTurn(&sm, acts, 4);
+        sHighRollBattler = 0;
+        eHigh = Evaluate(&sm);
+        *pen += (s32)chance * (eHit - eHigh) / 100;
         sims++;
     }
     // Velocità incerta: lo stesso turno con la Velocità alternativa dell'avversario, al 35% (un quarto opposto
@@ -3428,6 +3528,20 @@ static void StartLookAhead(void)
     sJob.phase = 1;
 }
 
+// Spareggio tra coppie di valore identico: 3 = attacco che manda KO di sicuro (danno minimo della tabella, precisione
+// piena), 1 = attacco su un avversario, 0 = il resto.
+static u32 TieBreakScore(const struct PlanAction *a)
+{
+    enum BattlerId t = a->target;
+    if (a->kind != PLAN_ACT_MOVE || IsBattleMoveStatus(a->move) || t >= MAX_BATTLERS_COUNT || IsBattlerAlly(a->user, t)
+     || !IsBattlerAlive(t))
+        return 0;
+    if (a->moveIndex < MAX_MON_MOVES && gAiLogicData->simulatedDmg[a->user][t][a->moveIndex].minimum >= gBattleMons[t].hp
+     && gAiLogicData->moveAccuracy[a->user][t][a->moveIndex] >= 100)
+        return 3;
+    return 1;
+}
+
 static void FinishJob(void)
 {
     s32 bestEv = INT32_MIN, chosenEv = INT32_MIN;
@@ -3474,6 +3588,24 @@ static void FinishJob(void)
     // A pari valore resta la coppia delle regole.
     if (chosenIdx != PLAN_ALL_PAIRS && bestEv < chosenEv + PLAN_OVERRIDE_MARGIN)
         bestIdx = chosenIdx;
+    // ...ma tra coppie di valore identico (azione indifferente nella simulazione: chi la usa va KO prima o subisce Fake
+    // Out) vince chi attacca, e prima chi manda KO di sicuro: se la previsione sbaglia, il colpo serve; un setup o un
+    // Iron Defense di chi sta per cadere no.
+    {
+        u32 bestTie = TieBreakScore(&sJob.ours[bestIdx]) + TieBreakScore(&sJob.partners[bestIdx]);
+        for (i = 0; i < sJob.nOurs; i++)
+        {
+            u32 t;
+            if (sJob.ev[i] != sJob.ev[bestIdx])
+                continue;
+            t = TieBreakScore(&sJob.ours[i]) + TieBreakScore(&sJob.partners[i]);
+            if (t > bestTie)
+            {
+                bestTie = t;
+                bestIdx = i;
+            }
+        }
+    }
     // Esplorazione del self-play (M9, solo test): a volte una coppia vicina alla migliore.
     bestIdx = AI_VgcExplorePick(sJob.me, bestIdx, sJob.ev, sJob.nOurs);
 #if TESTING

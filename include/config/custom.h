@@ -116,6 +116,8 @@
 #define CUSTOM_VGC_SWITCH_COST              100 // costo di un cambio volontario al primo turno in campo (metà dopo)
 #define CUSTOM_VGC_EVAL_WINCON_PCT          150 // peso (%) di PS e KO della win condition del piano dell'allenatore
 #define CUSTOM_VGC_EVAL_SASH                20  // Focus Sash intatto a PS pieni
+#define CUSTOM_VGC_EVAL_BENCH_HP_PCT        100 // peso (%) dei PS portati in panchina da chi esce con un cambio (e lasciati da chi entra)
+#define CUSTOM_VGC_PLAN_HIGH_ROLL           TRUE // ramo "colpo alto": un colpo che manda KO solo con un tiro alto (sopra la mediana) pesa per la sua probabilità
 // Ritratto dell'allenatore + "penso..." quando hai già scelto e l'IA sta ancora calcolando.
 #define CUSTOM_VGC_THINKING_OVERLAY         TRUE
 #define CUSTOM_VGC_THINKING_SLIDE_FRAMES    24      // fotogrammi dell'entrata (da destra) e dell'uscita (verso destra) del ritratto
