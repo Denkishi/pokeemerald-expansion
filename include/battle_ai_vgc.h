@@ -2,9 +2,36 @@
 #define GUARD_BATTLE_AI_VGC_H
 
 // IA per le lotte in doppio stile VGC (AI_FLAG_VGC_DOUBLES).
-// Valutazione aggiuntiva di ogni mossa: aperture (Fake Out, Trick Room, Tailwind),
-// setup sicuro, Protect "safe", fuoco concentrato con il partner, redirect e supporto.
+// Punteggio del motore per ogni mossa (= azione delle regole): solo il filtro e la spinta qui sotto (M8); la scelta
+// la fa il pianificatore.
 s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Move move, s32 score);
+
+// Filtro delle candidate (M8): perché un'azione (mossa `moveIndex` di `battler` su `target`) è illegale o certamente
+// inutile. Lo usano allo stesso modo il pianificatore (candidate e azione delle regole) e il punteggio del motore.
+enum VgcFilter
+{
+    VGC_FILTER_NONE,              // azione buona da valutare
+    VGC_FILTER_ILLEGAL,           // senza PP, bloccata (Choice, Taunt, Disable, Encore, Assault Vest...)
+    VGC_FILTER_FIRST_TURN_ONLY,   // Fake Out & co. fuori dal primo turno in campo
+    VGC_FILTER_PROTECT_REPEAT,    // Protect & co. dopo un Protect riuscito al turno prima
+    VGC_FILTER_PSYCHIC_TERRAIN,   // priorità (anche da Prankster / Gale Wings) su un avversario a terra nel Campo Psichico
+    VGC_FILTER_IMMUNE,            // attacco su un'immunità nota (o su avversari tutti immuni, per le mosse ad area)
+    VGC_FILTER_STATUS_BLOCKED,    // mossa di stato che fallisce sul bersaglio (polvere, Prankster sul Buio, tipo, stato...)
+    VGC_FILTER_FIELD_ACTIVE,      // Tailwind/Gravity/meteo/terreno/schermi già attivi, Trick Room che chiude il nostro
+    VGC_FILTER_NO_EFFECT,         // Recycle senza niente, Baton Pass senza panchina, Substitute/Belly Drum senza PS...
+    VGC_FILTER_WRONG_TARGET,      // attacco o stato sul compagno senza combo, Instruct / After You su un avversario
+};
+enum VgcFilter AI_VgcFilterAction(enum BattlerId battler, u32 moveIndex, enum BattlerId target);
+// Spinta leggera (M8), in punti della valutazione del pianificatore, per gli effetti che la simulazione non modella
+// (Gravity, Quick Guard, Instruct, After You, meteo per la panchina, Contrary, Neutralizing Gas). partnerMove:
+// la mossa del compagno nella stessa coppia (MOVE_NONE se non si sa, MOVE_UNAVAILABLE se non attacca).
+s32 AI_VgcActionPrior(enum BattlerId battler, enum Move move, enum BattlerId target, enum Move partnerMove);
+// Self-play (verifica-regole): il lato di `battler` usa le regole di prima di M8 (solo nel ROM dei test).
+#if TESTING
+bool32 AI_VgcRulesLegacy(enum BattlerId battler);
+#else
+#define AI_VgcRulesLegacy(battler) FALSE
+#endif
 
 // Vero se la squadra dell'AI (campo + panchina) ha almeno `minCount` Pokémon vivi più lenti
 // di entrambi gli avversari in campo (= Trick Room le conviene).
@@ -47,6 +74,8 @@ void AI_VgcResetEvalWeights(void);
 #if TESTING
 // Test: miglior valore simulato, nella prima decisione del turno 0, di una coppia in cui `battler` usa `move`.
 s32 AI_VgcPlanTestValue(enum BattlerId battler, enum Move move);
+// Test: spinta delle regole (M8) data a una candidata di `battler` con `move` nella prima decisione del turno 0.
+s32 AI_VgcPlanTestPrior(enum BattlerId battler, enum Move move);
 #endif
 // Chi entra quando `battler` usa Baton Pass: il ricevente designato dal grafo della squadra (PARTY_SIZE = nessuno).
 u32 AI_VgcBatonRecipient(enum BattlerId battler);

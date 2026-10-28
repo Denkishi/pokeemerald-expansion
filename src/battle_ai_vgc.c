@@ -1,24 +1,11 @@
-// IA per le lotte in doppio stile VGC (AI_FLAG_VGC_DOUBLES).
+// IA per le lotte in doppio stile VGC (AI_FLAG_VGC_DOUBLES): regole, letture e piano di squadra.
 //
-// Si aggiunge alle valutazioni standard (Check Bad Move, Try To Faint, Check Viability,
-// Double Battle...): non le sostituisce, le corregge nei punti in cui in VGC si ragiona
-// diversamente. Tutto parte da ciò che l'IA sa degli avversari (con Omniscient sa tutto,
-// altrimenti solo le mosse/abilità/strumenti già visti).
-//
-// Blocchi:
-//   1. Apertura        Fake Out sul setter / sulla minaccia, Trick Room e Tailwind quando
-//                      la SQUADRA (campo + panchina) ne beneficia davvero.
-//   2. Setup sicuro    Danza di Spada, Ferrodifesa + Schiacciacorpo, Nasty Plot, Bellyrumble...
-//                      solo quando nessuno ci manda KO questo turno (o il partner reindirizza).
-//   3. Protect "safe"  Protect quando un avversario ci manda KO e il partner lo toglie di mezzo,
-//                      quando rischiamo il doppio bersaglio, per far scorrere il Trick Room
-//                      avversario; mai per sprecare i turni del NOSTRO Tailwind / Trick Room.
-//   4. Fuoco concentrato  Se la mossa del partner + la nostra mandano KO lo stesso bersaglio
-//                      è un ottimo turno; se il partner lo manda KO da solo e prima, non si spreca
-//                      il colpo (a meno che il bersaglio conosca Protect).
-//   5. Supporto        Segui Me / Polverabbia quando il partner fa setup o è la minaccia;
-//                      Aiuto quando trasforma un 2HKO in OHKO.
-//   6. Meteo           Giornodisole / Pioggia ecc. valgono di più se in panchina c'è chi le sfrutta.
+// La scelta del turno la fa il pianificatore (battle_ai_vgc_plan.c), che simula le coppie di azioni. Qui:
+//   - filtro delle candidate (AI_VgcFilterAction) e spinta leggera (AI_VgcActionPrior): sono tutto ciò che resta
+//     delle regole a punteggi (M8), applicati allo stesso modo al pianificatore e al punteggio del motore;
+//   - lettura dell'avversario senza imbrogli (probabilità di Protect e di cambio, memoria del Bo3);
+//   - piano di squadra (vgc_gameplans.h) per la team preview, velocità della squadra, Mega.
+// Tutto parte da ciò che l'IA sa degli avversari (mosse/abilità/strumenti visti o presunti), mai dai dati nascosti.
 #include "global.h"
 #include "battle.h"
 #include "battle_ai_main.h"
@@ -27,6 +14,7 @@
 #include "team_preview.h"
 #include "battle_ai_scout.h"
 #include "battle_ai_vgc_graph.h"
+#include "battle_ai_vgc_book.h"
 #include "battle_gimmick.h"
 #include "battle_main.h"
 #include "battle_setup.h"
@@ -165,40 +153,6 @@ s32 AI_VgcPlanBringBonus(u16 trainerId, u16 species, bool32 trViable, bool32 twV
     return bonus;
 }
 
-// Quanto il piano vuole questa mossa (controllo velocità / meteo) adesso.
-static s32 PlanMoveBonus(const struct VgcGameplan *plan, enum BattlerId battlerAtk, enum Move move)
-{
-    enum BattleMoveEffects effect = GetMoveEffect(move);
-    u8 want = VGC_PLAN_BALANCE;
-
-    if (plan == NULL)
-        return 0;
-    switch (effect)
-    {
-    case EFFECT_TRICK_ROOM: want = VGC_PLAN_TRICK_ROOM; break;
-    case EFFECT_TAILWIND:   want = VGC_PLAN_TAILWIND; break;
-    case EFFECT_GRAVITY:    want = VGC_PLAN_GRAVITY; break;
-    case EFFECT_WEATHER:
-        switch (GetMoveWeatherType(move))
-        {
-        case BATTLE_WEATHER_SUN:       want = VGC_PLAN_SUN; break;
-        case BATTLE_WEATHER_RAIN:      want = VGC_PLAN_RAIN; break;
-        case BATTLE_WEATHER_SANDSTORM: want = VGC_PLAN_SAND; break;
-        default: break;
-        }
-        break;
-    default:
-        break;
-    }
-    if (want == VGC_PLAN_BALANCE)
-        return 0;
-    if (want == plan->modeA)
-        return 3;
-    if (want == plan->modeB)
-        return 2;
-    return 0;
-}
-
 // La modalità del piano è attiva in campo adesso (per decidere i cambi verso la win condition).
 bool32 AI_VgcPlanModeActive(enum BattlerId battler)
 {
@@ -241,25 +195,6 @@ bool32 AI_VgcPlanModeActive(enum BattlerId battler)
         default:
             break;
         }
-    }
-    return FALSE;
-}
-
-// Mossa ad area dannosa nota di un avversario (per Wide Guard).
-static bool32 FoeHasKnownSpreadMove(enum BattlerId foe)
-{
-    enum Move *moves;
-    u32 i;
-
-    if (!IsBattlerAlive(foe))
-        return FALSE;
-    moves = GetMovesArray(foe);
-    for (i = 0; i < MAX_MON_MOVES; i++)
-    {
-        if (moves[i] == MOVE_NONE || moves[i] == MOVE_UNAVAILABLE || IsBattleMoveStatus(moves[i]))
-            continue;
-        if (IsSpreadMove(AI_GetBattlerMoveTargetType(foe, moves[i])))
-            return TRUE;
     }
     return FALSE;
 }
@@ -360,6 +295,29 @@ bool32 AI_VgcTeamBenefitsFromTailwind(enum BattlerId battler, u32 minCount)
     return n >= minCount;
 }
 
+// Abilità che sfrutta il meteo portato da questa mossa (Chlorophyll e Protosynthesis al sole, Swift Swim alla pioggia...).
+static bool32 MonAbusesWeather(enum Ability ability, enum Move move)
+{
+    switch (GetMoveWeatherType(move))
+    {
+    case BATTLE_WEATHER_SUN:
+        return ability == ABILITY_CHLOROPHYLL || ability == ABILITY_SOLAR_POWER || ability == ABILITY_PROTOSYNTHESIS
+            || ability == ABILITY_LEAF_GUARD || ability == ABILITY_ORICHALCUM_PULSE;
+    case BATTLE_WEATHER_RAIN:
+        return ability == ABILITY_SWIFT_SWIM || ability == ABILITY_RAIN_DISH || ability == ABILITY_DRY_SKIN
+            || ability == ABILITY_HYDRATION;
+    case BATTLE_WEATHER_SANDSTORM:
+        return ability == ABILITY_SAND_RUSH || ability == ABILITY_SAND_FORCE || ability == ABILITY_SAND_VEIL;
+    case BATTLE_WEATHER_HAIL:
+    case BATTLE_WEATHER_SNOW:
+        return ability == ABILITY_SLUSH_RUSH || ability == ABILITY_ICE_BODY || ability == ABILITY_SNOW_CLOAK;
+    default:
+        return FALSE;
+    }
+}
+
+#if TESTING
+// (Solo le regole di prima di M8, battle_ai_vgc_legacy.h.)
 static bool32 TeamHasWeatherAbuser(enum BattlerId battler, enum Move move)
 {
     struct Pokemon *party = GetBattlerParty(battler);
@@ -367,37 +325,14 @@ static bool32 TeamHasWeatherAbuser(enum BattlerId battler, enum Move move)
 
     for (i = 0; i < PARTY_SIZE; i++)
     {
-        enum Ability ability;
         if (GetMonData(&party[i], MON_DATA_SPECIES) == SPECIES_NONE || GetMonData(&party[i], MON_DATA_HP) == 0)
             continue;
-        ability = GetMonAbility(&party[i]);
-        switch (GetMoveWeatherType(move))
-        {
-        case BATTLE_WEATHER_SUN:
-            if (ability == ABILITY_CHLOROPHYLL || ability == ABILITY_SOLAR_POWER || ability == ABILITY_PROTOSYNTHESIS
-             || ability == ABILITY_LEAF_GUARD || ability == ABILITY_ORICHALCUM_PULSE)
-                return TRUE;
-            break;
-        case BATTLE_WEATHER_RAIN:
-            if (ability == ABILITY_SWIFT_SWIM || ability == ABILITY_RAIN_DISH || ability == ABILITY_DRY_SKIN
-             || ability == ABILITY_HYDRATION)
-                return TRUE;
-            break;
-        case BATTLE_WEATHER_SANDSTORM:
-            if (ability == ABILITY_SAND_RUSH || ability == ABILITY_SAND_FORCE || ability == ABILITY_SAND_VEIL)
-                return TRUE;
-            break;
-        case BATTLE_WEATHER_HAIL:
-        case BATTLE_WEATHER_SNOW:
-            if (ability == ABILITY_SLUSH_RUSH || ability == ABILITY_ICE_BODY || ability == ABILITY_SNOW_CLOAK)
-                return TRUE;
-            break;
-        default:
-            break;
-        }
+        if (MonAbusesWeather(GetMonAbility(&party[i]), move))
+            return TRUE;
     }
     return FALSE;
 }
+#endif
 
 bool32 AI_VgcOwnSpeedControlActive(enum BattlerId battler)
 {
@@ -409,150 +344,6 @@ bool32 AI_VgcOwnSpeedControlActive(enum BattlerId battler)
      && AI_VgcTeamIsSlowerThanFoes(battler, 1))
         return TRUE;
     return FALSE;
-}
-
-// Il Trick Room attivo è dell'avversario (noi siamo il lato veloce).
-static bool32 FoeTrickRoomActive(enum BattlerId battler)
-{
-    return (gFieldStatuses & STATUS_FIELD_TRICK_ROOM) && gFieldTimers.trickRoomTimer > 1
-        && !AI_VgcTeamIsSlowerThanFoes(battler, 1);
-}
-
-// Mossa "di setup" nel senso VGC: alza statistiche, controllo velocità, meteo, schermi, redirect.
-static bool32 IsVgcSetupMove(enum Move move)
-{
-    switch (GetMoveEffect(move))
-    {
-    case EFFECT_TRICK_ROOM:
-    case EFFECT_TAILWIND:
-    case EFFECT_WEATHER:
-    case EFFECT_TERRAIN:
-    case EFFECT_LIGHT_SCREEN:
-    case EFFECT_REFLECT:
-    case EFFECT_AURORA_VEIL:
-    case EFFECT_BELLY_DRUM:
-    case EFFECT_FOLLOW_ME:
-        return TRUE;
-    default:
-        return IsStatRaisingMove(move) && IsBattleMoveStatus(move);
-    }
-}
-
-// Solo mosse NOTE: per i Pokémon del giocatore GetMovesArray restituisce le mosse viste
-// (niente sbirciate al set), per i propri quelle vere.
-static bool32 BattlerHasVgcSetupMove(enum BattlerId battler)
-{
-    u32 i;
-    enum Move *moves = GetMovesArray(battler);
-    for (i = 0; i < MAX_MON_MOVES; i++)
-    {
-        enum Move m = moves[i];
-        if (m != MOVE_NONE && m != MOVE_UNAVAILABLE && IsVgcSetupMove(m))
-            return TRUE;
-    }
-    // Giocatore: mosse non ancora viste, ma la specie fa pensare a un setter (scouting).
-    if (IsOnPlayerSide(battler)
-     && (Scout_BattlerRoleChance(battler, SCOUT_TRICK_ROOM) >= 50 || Scout_BattlerRoleChance(battler, SCOUT_TAILWIND) >= 50
-      || Scout_BattlerRoleChance(battler, SCOUT_REDIRECT) >= 60))
-        return TRUE;
-    return FALSE;
-}
-
-// Mossa già scelta dal partner (se ha già deciso in questo turno), MOVE_NONE altrimenti.
-static enum Move PartnerChosenMove(enum BattlerId battler, u32 *moveIndex, enum BattlerId *target)
-{
-    enum BattlerId partner = GetPartnerBattler(battler);
-
-    *moveIndex = 0;
-    *target = partner;
-    if (partner == battler || !IsBattlerAlive(partner))
-        return MOVE_NONE;
-    if (!(gAiLogicData->battlerMovesScored & (1u << partner)))
-        return MOVE_NONE;
-    if (gAiLogicData->shouldSwitch & (1u << partner))
-        return MOVE_NONE;
-    *moveIndex = gAiBattleData->chosenMoveIndex[partner];
-    *target = gAiBattleData->chosenTarget[partner];
-    if (*moveIndex >= MAX_MON_MOVES)
-        return MOVE_NONE;
-    if (gBattleMons[partner].moves[*moveIndex] == MOVE_UNAVAILABLE)
-        return MOVE_NONE;
-    return gBattleMons[partner].moves[*moveIndex];
-}
-
-// Danno mediano che il partner farebbe a `target` con la mossa scelta (0 se non lo colpisce).
-static u32 PartnerDamageTo(enum BattlerId battler, enum BattlerId target)
-{
-    enum BattlerId partner = GetPartnerBattler(battler), chosenTarget;
-    u32 idx;
-    enum Move pMove = PartnerChosenMove(battler, &idx, &chosenTarget);
-
-    if (pMove == MOVE_NONE || IsBattleMoveStatus(pMove))
-        return 0;
-    if (chosenTarget != target && !IsSpreadMove(AI_GetBattlerMoveTargetType(partner, pMove)))
-        return 0;
-    return gAiLogicData->simulatedDmg[partner][target][idx].median;
-}
-
-// Il partner (che ha già deciso) manda KO `target` da solo e prima che `target` si muova.
-static bool32 PartnerKOsFirst(enum BattlerId battler, enum BattlerId target)
-{
-    enum BattlerId partner = GetPartnerBattler(battler), chosenTarget;
-    u32 idx;
-    enum Move pMove = PartnerChosenMove(battler, &idx, &chosenTarget);
-
-    if (pMove == MOVE_NONE || IsBattleMoveStatus(pMove))
-        return FALSE;
-    if (PartnerDamageTo(battler, target) < gBattleMons[target].hp)
-        return FALSE;
-    return AI_IsFaster(partner, target, pMove, MOVE_NONE, CONSIDER_PRIORITY);
-}
-
-static bool32 PartnerIsRedirecting(enum BattlerId battler)
-{
-    enum BattlerId t;
-    u32 idx;
-    enum Move pMove = PartnerChosenMove(battler, &idx, &t);
-    return pMove != MOVE_NONE && GetMoveEffect(pMove) == EFFECT_FOLLOW_ME;
-}
-
-// Il reindirizzamento del partner protegge davvero da questo avversario? Rage Powder è una mossa
-// "polvere": non devia chi è di tipo Erba, ha Copripolvere o Visierantipolvere (se noti);
-// Stalwart / Propeller Tail ignorano qualunque reindirizzamento.
-static bool32 PartnerRedirectCoversFoe(enum BattlerId battler, enum BattlerId foe)
-{
-    enum BattlerId t;
-    u32 idx;
-    enum Move pMove = PartnerChosenMove(battler, &idx, &t);
-    enum Ability foeAbility = gAiLogicData->abilities[foe];
-
-    if (pMove == MOVE_NONE || GetMoveEffect(pMove) != EFFECT_FOLLOW_ME)
-        return FALSE;
-    if (foeAbility == ABILITY_STALWART || foeAbility == ABILITY_PROPELLER_TAIL)
-        return FALSE;
-    if (IsPowderMove(pMove) && !IsAffectedByPowderMove(foe, foeAbility, gAiLogicData->holdEffects[foe]))
-        return FALSE;
-    return TRUE;
-}
-
-// Turno sicuro: nessuno ci manda KO, oppure il partner reindirizza tutti quelli che potrebbero.
-static bool32 IsSafeTurn(enum BattlerId battler, enum BattlerId foeL, bool32 threatL, enum BattlerId foeR, bool32 threatR)
-{
-    if (!threatL && !threatR)
-        return TRUE;
-    if (threatL && !PartnerRedirectCoversFoe(battler, foeL))
-        return FALSE;
-    if (threatR && !PartnerRedirectCoversFoe(battler, foeR))
-        return FALSE;
-    return TRUE;
-}
-
-static bool32 PartnerIsSettingUp(enum BattlerId battler)
-{
-    enum BattlerId t;
-    u32 idx;
-    enum Move pMove = PartnerChosenMove(battler, &idx, &t);
-    return pMove != MOVE_NONE && IsVgcSetupMove(pMove);
 }
 
 // Un avversario vivo ha Fake Out (per quanto ne sappiamo) ed è al primo turno.
@@ -820,13 +611,6 @@ static u32 VgcSwitchChance(enum BattlerId foe)
     return p;
 }
 
-// La lettura si applica solo se "ci crediamo" questo turno: evita che il giocatore impari
-// a sfruttare un'IA che reagisce sempre allo stesso modo.
-static bool32 VgcTrustRead(u32 chance)
-{
-    return chance >= 50 && sVgcReadRoll[AI_GetPerspectiveSide()] < 70;
-}
-
 static s32 VgcMaterialEdge(enum BattlerId battlerAtk);
 
 s32 AI_VgcMaterialEdge(enum BattlerId battler)
@@ -855,779 +639,526 @@ static s32 VgcMaterialEdge(enum BattlerId battlerAtk)
 }
 
 // ---------------------------------------------------------------------
-// Valutazione principale
+// Regole (M8): filtro delle candidate + spinta leggera
 // ---------------------------------------------------------------------
-s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Move move, s32 score)
+// Le regole non scelgono più la mossa: la sceglie il pianificatore (battle_ai_vgc_plan.c), che simula la coppia di
+// azioni per 2-3 turni. Di quello che c'era qui restano due cose:
+//  - il FILTRO (AI_VgcFilterAction): azioni illegali o CERTAMENTE inutili (falliscono, o non possono fare niente di
+//    buono). Lo stesso filtro toglie le azioni dalle candidate del pianificatore e dall'azione delle regole (il
+//    punteggio del motore), così l'azione di riferimento del pianificatore non può essere una mossa scartata;
+//  - la SPINTA (AI_VgcActionPrior): un piccolo bonus documentato, in punti della valutazione del pianificatore
+//    (un KO vale CUSTOM_VGC_EVAL_KO = 160, un cambio CUSTOM_VGC_SWITCH_COST = 100), solo per gli effetti che la
+//    simulazione non modella. Si somma al valore delle coppie (FinishJob) e, diviso per VGC_PRIOR_SCORE_DIV, al
+//    punteggio del motore.
+// Le preferenze strategiche (Fake Out, Protect, setup sicuro, Trick Room/Tailwind, redirect, Helping Hand, fuoco
+// concentrato, letture di Protect e cambio, endgame...) le decide la simulazione: le regole a punteggi magici
+// sono state tolte (inventario: docs/ia_vgc/checklist.md, sezione M8). Ogni filtro e ogni spinta ha un test in
+// test/battle/ai/ai_vgc_rules.c.
+
+#define VGC_FILTER_SCORE_MALUS  20  // punteggio del motore tolto a un'azione filtrata: l'azione delle regole non la sceglie
+#define VGC_PRIOR_SCORE_DIV     10  // spinta nel punteggio del motore: 10 punti della valutazione = 1 punto
+
+// Spinte, in punti della valutazione del pianificatore.
+#define VGC_PRIOR_GRAVITY       30  // Gravity: la simulazione non la modella (precisione, mosse Terra sui Volanti)
+#define VGC_PRIOR_QUICK_GUARD   30  // Quick Guard: la simulazione non blocca le priorità (Fake Out compreso)
+#define VGC_PRIOR_INSTRUCT      40  // Instruct sul compagno che attacca prima di noi: il secondo colpo non è simulato
+#define VGC_PRIOR_AFTER_YOU_HP  40  // After You al compagno lento con Eruption & co. a PS alti: l'ordine non è simulato
+#define VGC_PRIOR_AFTER_YOU     15  // After You al compagno lento che attacca
+#define VGC_PRIOR_WEATHER_BENCH 20  // meteo per chi lo sfrutta ed è in panchina (la simulazione vede solo chi è in campo)
+#define VGC_PRIOR_CONTRARY      30  // mossa che cala le statistiche di chi la usa, con Contrary: le alza (non simulato)
+#define VGC_PRIOR_LOSE_BOOST    20  // (malus) la stessa mossa senza Contrary butta via un potenziamento già preso
+#define VGC_PRIOR_GAS_PROTECT   30  // Protect di chi ha Neutralizing Gas accanto a un compagno con abilità penalizzante
+#define VGC_PRIOR_FAKE_OUT      25  // Fake Out al primo turno: il tentennamento annulla QUALUNQUE azione del bersaglio, anche
+                                    // quelle che la simulazione non prevede (ne guarda due per avversario: setup, Tailwind,
+                                    // Trick Room, cambio di bersaglio restano fuori); Wide Guard o un attacco no
+
+// Chi ha usato Protect & co. con successo al turno prima: il secondo di fila fallisce (o quasi).
+static bool32 ProtectedLastTurn(enum BattlerId battler)
+{
+    enum Move last = gLastResultingMoves[battler];
+
+    return last != MOVE_NONE && last != MOVE_UNAVAILABLE
+        && gBattleMoveEffects[GetMoveEffect(last)].usesProtectCounter
+        && gBattleMons[battler].volatiles.consecutiveMoveUses > 0;
+}
+
+// Priorità della mossa per chi la usa (Prankster sulle mosse di stato, Gale Wings a PS pieni), senza effetti collaterali.
+static s32 VgcMovePriority(enum BattlerId battler, enum Move move)
+{
+    s32 prio = GetMovePriority(move);
+    enum Ability ability = gAiLogicData->abilities[battler];
+
+    if (ability == ABILITY_PRANKSTER && IsBattleMoveStatus(move))
+        prio++;
+    else if (ability == ABILITY_GALE_WINGS && GetMoveType(move) == TYPE_FLYING && gBattleMons[battler].hp == gBattleMons[battler].maxHP)
+        prio++;
+    return prio;
+}
+
+static u32 WeatherFlagsOfMove(enum Move move)
+{
+    switch (GetMoveWeatherType(move))
+    {
+    case BATTLE_WEATHER_SUN:       return B_WEATHER_SUN;
+    case BATTLE_WEATHER_RAIN:      return B_WEATHER_RAIN;
+    case BATTLE_WEATHER_SANDSTORM: return B_WEATHER_SANDSTORM;
+    case BATTLE_WEATHER_HAIL:      return B_WEATHER_HAIL;
+    case BATTLE_WEATHER_SNOW:      return B_WEATHER_SNOW;
+    default:                       return 0;
+    }
+}
+
+static bool32 IgnoresTargetAbility(enum BattlerId battler)
+{
+    enum Ability ability = gAiLogicData->abilities[battler];
+    return ability == ABILITY_MOLD_BREAKER || ability == ABILITY_TERAVOLT || ability == ABILITY_TURBOBLAZE;
+}
+
+// Mossa di stato che sul bersaglio fallisce per quello che si sa: tipo, stato già presente, terreno, Safeguard, abilità e
+// strumento noti o presunti (gAiLogicData: mai quelli nascosti del giocatore), Prankster sul Buio.
+static bool32 StatusMoveBlocked(enum BattlerId battler, enum BattlerId target, enum Move move)
 {
     enum BattleMoveEffects effect = GetMoveEffect(move);
-    enum BattlerId partner = GetPartnerBattler(battlerAtk);
-    enum BattlerId foeL = GetBattlerLeftFoe(battlerAtk);
-    enum BattlerId foeR = GetBattlerRightFoe(battlerAtk);
+    enum Ability tAbility = IgnoresTargetAbility(battler) ? ABILITY_NONE : gAiLogicData->abilities[target];
+    enum HoldEffect tHold = gAiLogicData->holdEffects[target];
+    bool32 grounded;
+
+    if (IsPowderMove(move) && !IsAffectedByPowderMove(target, tAbility, tHold))
+        return TRUE;
+    if (gAiLogicData->abilities[battler] == ABILITY_PRANKSTER && IS_BATTLER_OF_TYPE(target, TYPE_DARK))
+        return TRUE;
+    if (tAbility == ABILITY_GOOD_AS_GOLD || tAbility == ABILITY_MAGIC_BOUNCE)
+        return TRUE;
+    if (effect == EFFECT_TAUNT && (gBattleMons[target].volatiles.tauntTimer || tAbility == ABILITY_OBLIVIOUS || tAbility == ABILITY_AROMA_VEIL))
+        return TRUE;
+    if (effect != EFFECT_NON_VOLATILE_STATUS)
+        return FALSE;
+    if (gBattleMons[target].status1 & STATUS1_ANY)
+        return TRUE;
+    if ((gSideStatuses[GetBattlerSide(target)] & SIDE_STATUS_SAFEGUARD) && gAiLogicData->abilities[battler] != ABILITY_INFILTRATOR)
+        return TRUE;
+    grounded = AI_IsBattlerGrounded(target);
+    if (grounded && gFieldTimers.terrain == B_TERRAIN_MISTY)
+        return TRUE;
+    if (tAbility == ABILITY_PURIFYING_SALT || tAbility == ABILITY_COMATOSE)
+        return TRUE;
+    switch (GetMoveNonVolatileStatus(move))
+    {
+    case MOVE_EFFECT_SLEEP:
+        if (grounded && gFieldTimers.terrain == B_TERRAIN_ELECTRIC)
+            return TRUE;
+        if (tAbility == ABILITY_INSOMNIA || tAbility == ABILITY_VITAL_SPIRIT || tAbility == ABILITY_SWEET_VEIL)
+            return TRUE;
+        break;
+    case MOVE_EFFECT_PARALYSIS:
+        if (IS_BATTLER_OF_TYPE(target, TYPE_ELECTRIC) || tAbility == ABILITY_LIMBER)
+            return TRUE;
+        if (GetMoveType(move) == TYPE_ELECTRIC && IS_BATTLER_OF_TYPE(target, TYPE_GROUND))
+            return TRUE; // Thunder Wave sul Terra
+        break;
+    case MOVE_EFFECT_BURN:
+        if (IS_BATTLER_OF_TYPE(target, TYPE_FIRE)
+         || tAbility == ABILITY_WATER_VEIL || tAbility == ABILITY_WATER_BUBBLE || tAbility == ABILITY_THERMAL_EXCHANGE)
+            return TRUE;
+        break;
+    case MOVE_EFFECT_POISON:
+    case MOVE_EFFECT_TOXIC:
+        if ((IS_BATTLER_OF_TYPE(target, TYPE_POISON) || IS_BATTLER_OF_TYPE(target, TYPE_STEEL))
+         && gAiLogicData->abilities[battler] != ABILITY_CORROSION)
+            return TRUE;
+        if (tAbility == ABILITY_IMMUNITY || tAbility == ABILITY_PASTEL_VEIL)
+            return TRUE;
+        break;
+    default:
+        break;
+    }
+    return FALSE;
+}
+
+// Abilità che penalizzano chi le ha: cambiarle o toglierle al compagno è una combo, non un danno.
+static bool32 IsHinderingAbility(enum Ability ability)
+{
+    return ability == ABILITY_MYCELIUM_MIGHT || ability == ABILITY_TRUANT || ability == ABILITY_SLOW_START
+        || ability == ABILITY_DEFEATIST || ability == ABILITY_KLUTZ || ability == ABILITY_STALL;
+}
+
+// Mossa di stato che sul compagno fa solo danni (stato, Taunt, Encore, Disable, Torment).
+static bool32 IsHostileStatusMove(enum Move move)
+{
+    enum BattleMoveEffects effect = GetMoveEffect(move);
+    return effect == EFFECT_NON_VOLATILE_STATUS || effect == EFFECT_TAUNT || effect == EFFECT_ENCORE
+        || effect == EFFECT_DISABLE || effect == EFFECT_TORMENT || effect == EFFECT_YAWN;
+}
+
+enum VgcFilter AI_VgcFilterAction(enum BattlerId battler, u32 moveIndex, enum BattlerId target)
+{
+    enum Move move;
+    enum BattleMoveEffects effect;
+    enum MoveTarget targetType;
+    enum BattlerId partner = GetPartnerBattler(battler);
+    enum BattleSide side = GetBattlerSide(battler);
+    bool32 hasPartner = IsDoubleBattle() && partner != battler && IsBattlerAlive(partner);
+    bool32 chosenTarget, onPartner, onFoe;
+
+    if (moveIndex >= MAX_MON_MOVES)
+        return VGC_FILTER_ILLEGAL;
+    move = gBattleMons[battler].moves[moveIndex];
+    if (move == MOVE_NONE || move == MOVE_UNAVAILABLE || gBattleMons[battler].pp[moveIndex] == 0
+     || (gAiLogicData->moveLimitations[battler] & (1u << moveIndex)))
+        return VGC_FILTER_ILLEGAL;
+    effect = GetMoveEffect(move);
+    targetType = AI_GetBattlerMoveTargetType(battler, move);
+    chosenTarget = targetType == TARGET_SELECTED || targetType == TARGET_SMART || targetType == TARGET_OPPONENT
+                || targetType == TARGET_USER_OR_ALLY || targetType == TARGET_ALLY;
+    onPartner = chosenTarget && hasPartner && (target == partner || targetType == TARGET_ALLY);
+    onFoe = chosenTarget && !onPartner && target < gBattlersCount && !IsBattlerAlly(battler, target) && IsBattlerAlive(target);
+
+    // Fake Out & co. fuori dal primo turno in campo falliscono sempre.
+    if (effect == EFFECT_FIRST_TURN_ONLY && !IsBattlersFirstTurn(battler))
+        return VGC_FILTER_FIRST_TURN_ONLY;
+    // Protect & co. subito dopo un Protect riuscito.
+    if (gBattleMoveEffects[effect].usesProtectCounter && ProtectedLastTurn(battler))
+        return VGC_FILTER_PROTECT_REPEAT;
+    // Campo Psichico: una mossa con priorità su un avversario a terra fallisce.
+    if (onFoe && gFieldTimers.terrain == B_TERRAIN_PSYCHIC && AI_IsBattlerGrounded(target) && VgcMovePriority(battler, move) > 0)
+        return VGC_FILTER_PSYCHIC_TERRAIN;
+
+    if (!IsBattleMoveStatus(move))
+    {
+        // Immunità nota (tipo, o abilità che l'IA conosce): sul bersaglio scelto, o su tutti gli avversari per le mosse ad area.
+        if (onFoe && gAiLogicData->effectiveness[battler][target][moveIndex] == UQ_4_12(0.0))
+            return VGC_FILTER_IMMUNE;
+        if (IsSpreadMove(targetType))
+        {
+            enum BattlerId foes[2] = { GetBattlerLeftFoe(battler), GetBattlerRightFoe(battler) };
+            u32 k, alive = 0, immune = 0;
+            for (k = 0; k < 2; k++)
+            {
+                if (!IsBattlerAlive(foes[k]))
+                    continue;
+                alive++;
+                if (gAiLogicData->effectiveness[battler][foes[k]][moveIndex] == UQ_4_12(0.0))
+                    immune++;
+            }
+            if (alive > 0 && immune == alive)
+                return VGC_FILTER_IMMUNE;
+        }
+        // Attacco sul compagno: solo se il grafo della squadra ci vede una combo (Beat Up -> Justified...) o se lo cura.
+        // La mossa deve attivare davvero l'abilità/strumento del compagno: Fake Out accanto a un Flash Fire non è una combo.
+        if (onPartner && effect != EFFECT_HIT_ENEMY_HEAL_ALLY
+         && (sVgcTeamGraph.hitPartner[gBattlerPartyIndexes[battler]] != gBattlerPartyIndexes[partner]
+          || !AI_VgcIsPartnerHitCombo(move, battler, partner)))
+            return VGC_FILTER_WRONG_TARGET;
+        return VGC_FILTER_NONE;
+    }
+
+    // Mosse di stato.
+    if (onFoe && StatusMoveBlocked(battler, target, move))
+        return VGC_FILTER_STATUS_BLOCKED;
+    if (onPartner)
+    {
+        if (IsHostileStatusMove(move))
+            return VGC_FILTER_WRONG_TARGET;
+        // Cambiare l'abilità del compagno serve solo se lo penalizza (Mycelium Might, Truant, Slow Start...).
+        if ((effect == EFFECT_OVERWRITE_ABILITY || effect == EFFECT_SKILL_SWAP || effect == EFFECT_GASTRO_ACID || effect == EFFECT_ENTRAINMENT)
+         && !IsHinderingAbility(gAiLogicData->abilities[partner]) && !(VgcRoles(partner) & VGC_ROLE_HINDER_ABILITY))
+            return VGC_FILTER_WRONG_TARGET;
+    }
+    // Instruct e After You su un avversario: gli si regala un'azione.
+    if ((effect == EFFECT_INSTRUCT || effect == EFFECT_AFTER_YOU) && onFoe)
+        return VGC_FILTER_WRONG_TARGET;
+    // Mosse per il compagno senza compagno.
+    if (!hasPartner && (effect == EFFECT_HELPING_HAND || effect == EFFECT_FOLLOW_ME || effect == EFFECT_INSTRUCT || effect == EFFECT_AFTER_YOU))
+        return VGC_FILTER_NO_EFFECT;
+
+    switch (effect)
+    {
+    case EFFECT_TAILWIND:
+        if (gSideStatuses[side] & SIDE_STATUS_TAILWIND)
+            return VGC_FILTER_FIELD_ACTIVE;
+        break;
+    case EFFECT_TRICK_ROOM:
+        // Chiuderebbe il NOSTRO Trick Room (squadra lenta: stessa soglia del controllore dei misplay).
+        if ((gFieldStatuses & STATUS_FIELD_TRICK_ROOM) && gFieldTimers.trickRoomTimer > 1 && AI_VgcTeamIsSlowerThanFoes(battler, 2))
+            return VGC_FILTER_FIELD_ACTIVE;
+        break;
+    case EFFECT_GRAVITY:
+        if (gFieldStatuses & STATUS_FIELD_GRAVITY)
+            return VGC_FILTER_FIELD_ACTIVE;
+        break;
+    case EFFECT_WEATHER:
+        if ((gBattleWeather & WeatherFlagsOfMove(move)) || (gBattleWeather & B_WEATHER_PRIMAL_ANY))
+            return VGC_FILTER_FIELD_ACTIVE;
+        break;
+    case EFFECT_TERRAIN:
+        if (gFieldTimers.terrain != B_TERRAIN_NONE && gFieldTimers.terrain == GetMoveTerrainType(move))
+            return VGC_FILTER_FIELD_ACTIVE;
+        break;
+    case EFFECT_REFLECT:
+        if (gSideStatuses[side] & SIDE_STATUS_REFLECT)
+            return VGC_FILTER_FIELD_ACTIVE;
+        break;
+    case EFFECT_LIGHT_SCREEN:
+        if (gSideStatuses[side] & SIDE_STATUS_LIGHTSCREEN)
+            return VGC_FILTER_FIELD_ACTIVE;
+        break;
+    case EFFECT_AURORA_VEIL:
+        if (gSideStatuses[side] & SIDE_STATUS_AURORA_VEIL)
+            return VGC_FILTER_FIELD_ACTIVE;
+        if (!(gBattleWeather & B_WEATHER_ICY_ANY))
+            return VGC_FILTER_NO_EFFECT;
+        break;
+    case EFFECT_RECYCLE:
+        // Niente da riciclare (nessuno strumento consumato, o lo strumento è ancora in mano).
+        if (GetBattlerPartyState(battler)->usedHeldItem == ITEM_NONE || gBattleMons[battler].item != ITEM_NONE)
+            return VGC_FILTER_NO_EFFECT;
+        break;
+    case EFFECT_BATON_PASS:
+        if (CountUsablePartyMons(battler) == 0)
+            return VGC_FILTER_NO_EFFECT;
+        break;
+    case EFFECT_SUBSTITUTE:
+        if (gBattleMons[battler].volatiles.substitute || gBattleMons[battler].hp <= gBattleMons[battler].maxHP / 4)
+            return VGC_FILTER_NO_EFFECT;
+        break;
+    case EFFECT_BELLY_DRUM:
+        if (gBattleMons[battler].hp <= gBattleMons[battler].maxHP / 2 || gBattleMons[battler].statStages[STAT_ATK] >= MAX_STAT_STAGE)
+            return VGC_FILTER_NO_EFFECT;
+        break;
+    default:
+        break;
+    }
+    return VGC_FILTER_NONE;
+}
+
+// Statistiche offensive che la mossa cala a chi la usa (Superpower, Close Combat, Draco Meteor...): bit 0 Atk, bit 1 AtkSp.
+static u32 SelfLoweredOffense(enum Move move)
+{
+    u32 i, n = GetMoveAdditionalEffectCount(move), mask = 0;
+
+    for (i = 0; i < n; i++)
+    {
+        const struct AdditionalEffect *ae = GetMoveAdditionalEffectById(move, i);
+        if (!ae->self || ae->moveEffect != MOVE_EFFECT_STAT_MINUS)
+            continue;
+        if (ae->attack)
+            mask |= 1;
+        if (ae->spAtk)
+            mask |= 2;
+        if (ae->defense || ae->spDef || ae->speed)
+            mask |= 4;
+    }
+    return mask;
+}
+
+// Il compagno agisce dopo almeno un avversario in campo (ordine di questo turno, Trick Room compreso).
+static bool32 PartnerMovesAfterAFoe(enum BattlerId battler, enum BattlerId partner, enum Move partnerMove)
+{
+    enum BattlerId foes[2] = { GetBattlerLeftFoe(battler), GetBattlerRightFoe(battler) };
+    u32 k;
+
+    for (k = 0; k < 2; k++)
+        if (IsBattlerAlive(foes[k]) && AI_IsSlower(partner, foes[k], partnerMove, MOVE_NONE, CONSIDER_PRIORITY))
+            return TRUE;
+    return FALSE;
+}
+
+// Un Pokémon dell'IA in panchina (non in campo) sfrutta il meteo di questa mossa.
+static bool32 BenchHasWeatherAbuser(enum BattlerId battler, enum Move move)
+{
+    struct Pokemon *party = GetBattlerParty(battler);
+    enum BattlerId partner = GetPartnerBattler(battler);
+    u32 i;
+
+    for (i = 0; i < PARTY_SIZE; i++)
+    {
+        if (i == gBattlerPartyIndexes[battler] || (IsBattlerAlive(partner) && i == gBattlerPartyIndexes[partner]))
+            continue;
+        if (GetMonData(&party[i], MON_DATA_SPECIES) == SPECIES_NONE || GetMonData(&party[i], MON_DATA_HP) == 0)
+            continue;
+        if (MonAbusesWeather(GetMonAbility(&party[i]), move))
+            return TRUE;
+    }
+    return FALSE;
+}
+
+// L'attacco che il compagno userebbe più volentieri con Instruct / After You, quando non si sa ancora cosa farà: una mossa
+// che rende di più a PS pieni (Eruption & co.), altrimenti la più potente.
+static enum Move GuessPartnerAttack(enum BattlerId partner)
+{
+    enum Move best = MOVE_UNAVAILABLE;
+    u32 i, bestPower = 0;
+
+    for (i = 0; i < MAX_MON_MOVES; i++)
+    {
+        enum Move m = gBattleMons[partner].moves[i];
+        u32 power;
+        if (m == MOVE_NONE || m == MOVE_UNAVAILABLE || IsBattleMoveStatus(m) || gBattleMons[partner].pp[i] == 0)
+            continue;
+        power = GetMovePower(m) + (GetMoveEffect(m) == EFFECT_POWER_BASED_ON_USER_HP ? 1000 : 0);
+        if (power > bestPower)
+        {
+            bestPower = power;
+            best = m;
+        }
+    }
+    return best;
+}
+
+s32 AI_VgcActionPrior(enum BattlerId battler, enum Move move, enum BattlerId target, enum Move partnerMove)
+{
+    enum BattleMoveEffects effect;
+    enum BattlerId partner = GetPartnerBattler(battler);
+    bool32 hasPartner = IsDoubleBattle() && partner != battler && IsBattlerAlive(partner);
+    s32 prior = 0;
+
+    if (move == MOVE_NONE || move == MOVE_UNAVAILABLE)
+        return 0;
+    effect = GetMoveEffect(move);
+    // partnerMove: MOVE_NONE = non si sa (si stima), MOVE_UNAVAILABLE = il compagno non attacca.
+    if (partnerMove == MOVE_NONE && hasPartner && (effect == EFFECT_INSTRUCT || effect == EFFECT_AFTER_YOU))
+        partnerMove = GuessPartnerAttack(partner);
+    if (partnerMove == MOVE_UNAVAILABLE)
+        partnerMove = MOVE_NONE;
+
+    // Sonno e paralisi valgono quanto la minaccia del bersaglio (prova in gioco: Spore su Dugtrio accanto a un Tyranitar
+    // Mega). Solo dati leciti: KO stimati dall'IA, forma in campo, stadi visibili.
+    if (target != battler && target != partner && IsBattlerAlive(target) && gBattleMons[target].status1 == STATUS1_NONE
+     && (GetMoveNonVolatileStatus(move) == MOVE_EFFECT_SLEEP || GetMoveNonVolatileStatus(move) == MOVE_EFFECT_PARALYSIS))
+    {
+        s32 threat = 0;
+        if (CanTargetFaintAi(target, battler))
+            threat += 2;
+        if (hasPartner && CanTargetFaintAi(target, partner))
+            threat += 2;
+        if (IsBattlerMegaEvolved(target))
+            threat += 1;
+        if (gBattleMons[target].statStages[STAT_ATK] > DEFAULT_STAT_STAGE
+         || gBattleMons[target].statStages[STAT_SPATK] > DEFAULT_STAT_STAGE)
+            threat += 1;
+        prior += min(threat, 4) * VGC_PRIOR_SCORE_DIV;
+    }
+    switch (effect)
+    {
+    case EFFECT_GRAVITY:
+        // Gravity fa centrare le mosse imprecise (Hypnosis, Sleep Powder...) e porta a terra Volanti e Levitate.
+        if (!(gFieldStatuses & STATUS_FIELD_GRAVITY))
+        {
+            enum BattlerId users[2] = { battler, partner };
+            u32 u, i;
+            bool32 useful = FALSE;
+            for (u = 0; u < 2 && !useful; u++)
+            {
+                if (u == 1 && !hasPartner)
+                    break;
+                for (i = 0; i < MAX_MON_MOVES; i++)
+                {
+                    enum Move m = gBattleMons[users[u]].moves[i];
+                    u32 acc;
+                    if (m == MOVE_NONE || m == MOVE_UNAVAILABLE || GetMoveEffect(m) == EFFECT_GRAVITY)
+                        continue;
+                    acc = GetMoveAccuracy(m);
+                    if ((acc > 0 && acc <= 80) || (GetMoveType(m) == TYPE_GROUND && !IsBattleMoveStatus(m)
+                     && ((IsBattlerAlive(GetBattlerLeftFoe(battler)) && !AI_IsBattlerGrounded(GetBattlerLeftFoe(battler)))
+                      || (IsBattlerAlive(GetBattlerRightFoe(battler)) && !AI_IsBattlerGrounded(GetBattlerRightFoe(battler))))))
+                    {
+                        useful = TRUE;
+                        break;
+                    }
+                }
+            }
+            if (useful)
+                prior += VGC_PRIOR_GRAVITY;
+        }
+        break;
+    case EFFECT_PROTECT:
+        // Quick Guard contro Fake Out (avversari al primo turno) o priorità viste.
+        if (GetMoveProtectMethod(move) == PROTECT_QUICK_GUARD
+         && (FoeThreatensFakeOut(battler) || FoeHasKnownPriorityMove(GetBattlerLeftFoe(battler)) || FoeHasKnownPriorityMove(GetBattlerRightFoe(battler))))
+            prior += VGC_PRIOR_QUICK_GUARD;
+        // Chi tiene spenta l'abilità penalizzante del compagno (Neutralizing Gas accanto a Truant...) va tenuto vivo.
+        if (GetMoveProtectMethod(move) == PROTECT_NORMAL && hasPartner && gAiLogicData->abilities[battler] == ABILITY_NEUTRALIZING_GAS
+         && (VgcRoles(partner) & VGC_ROLE_HINDER_ABILITY)
+         && ((IsBattlerAlive(GetBattlerLeftFoe(battler)) && CanTargetFaintAi(GetBattlerLeftFoe(battler), battler))
+          || (IsBattlerAlive(GetBattlerRightFoe(battler)) && CanTargetFaintAi(GetBattlerRightFoe(battler), battler))))
+            prior += VGC_PRIOR_GAS_PROTECT;
+        break;
+    case EFFECT_INSTRUCT:
+        // Il compagno ripete il suo attacco: serve che attacchi e che si muova prima di noi.
+        if (hasPartner && target == partner && partnerMove != MOVE_NONE && !IsBattleMoveStatus(partnerMove)
+         && !IsMoveInstructBanned(partnerMove) && AI_IsFaster(partner, battler, partnerMove, move, CONSIDER_PRIORITY))
+            prior += VGC_PRIOR_INSTRUCT;
+        break;
+    case EFFECT_AFTER_YOU:
+        // Il compagno lento attacca subito dopo di noi invece che dopo un avversario.
+        if (hasPartner && target == partner && partnerMove != MOVE_NONE && !IsBattleMoveStatus(partnerMove)
+         && PartnerMovesAfterAFoe(battler, partner, partnerMove) && AI_IsFaster(battler, partner, move, partnerMove, CONSIDER_PRIORITY))
+        {
+            if (GetMoveEffect(partnerMove) == EFFECT_POWER_BASED_ON_USER_HP
+             && gBattleMons[partner].hp * 100 / max(gBattleMons[partner].maxHP, 1) >= 70)
+                prior += VGC_PRIOR_AFTER_YOU_HP;
+            else
+                prior += VGC_PRIOR_AFTER_YOU;
+        }
+        break;
+    case EFFECT_FIRST_TURN_ONLY:
+        // Solo sull'avversario che può tentennare (Inner Focus e Shield Dust noti lo impediscono; i Spettro li toglie il filtro).
+        if (IsBattlersFirstTurn(battler) && target != battler && target != partner && target < gBattlersCount && IsBattlerAlive(target)
+         && gAiLogicData->abilities[target] != ABILITY_INNER_FOCUS && gAiLogicData->abilities[target] != ABILITY_SHIELD_DUST)
+            prior += VGC_PRIOR_FAKE_OUT;
+        break;
+    case EFFECT_WEATHER:
+        if (!(gBattleWeather & WeatherFlagsOfMove(move)) && BenchHasWeatherAbuser(battler, move))
+            prior += VGC_PRIOR_WEATHER_BENCH;
+        break;
+    default:
+        break;
+    }
+
+    // Mosse che calano le statistiche di chi le usa (Superpower...): con Contrary sono un potenziamento.
+    if (!IsBattleMoveStatus(move))
+    {
+        u32 lowered = SelfLoweredOffense(move);
+        if (lowered && gAiLogicData->abilities[battler] == ABILITY_CONTRARY)
+            prior += VGC_PRIOR_CONTRARY;
+        else if (((lowered & 1) && gBattleMons[battler].statStages[STAT_ATK] > DEFAULT_STAT_STAGE)
+              || ((lowered & 2) && gBattleMons[battler].statStages[STAT_SPATK] > DEFAULT_STAT_STAGE))
+            prior -= VGC_PRIOR_LOSE_BOOST;
+    }
+    return prior;
+}
+
+// ---------------------------------------------------------------------
+// Valutazione del motore (AI_FLAG_VGC_DOUBLES)
+// ---------------------------------------------------------------------
+#if TESTING
+static s32 AI_VgcDoublesLegacy(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Move move, s32 score);
+
+// Self-play (verifica-regole): il lato con il bit in gVgcTraining.rulesLegacy usa le regole di prima di M8.
+bool32 AI_VgcRulesLegacy(enum BattlerId battler)
+{
+    return (gVgcTraining.rulesLegacy >> GetBattlerSide(battler)) & 1;
+}
+#endif
+
+// Il punteggio del motore decide l'azione delle regole: il termine di paragone del pianificatore (a pari valore resta
+// lei) e la scelta quando il pianificatore non gira. Qui solo il filtro e la spinta, gli stessi del pianificatore.
+s32 AI_VgcDoubles(enum BattlerId battlerAtk, enum BattlerId battlerDef, enum Move move, s32 score)
+{
     u32 moveIndex = gAiThinkingStruct->movesetIndex;
-    bool32 hasPartner = HasPartner(battlerAtk);
-    bool32 targetingPartner = IsTargetingPartner(battlerAtk, battlerDef);
-    bool32 isStatus = IsBattleMoveStatus(move);
-    bool32 firstTurn = IsBattlersFirstTurn(battlerAtk);
-    bool32 foeLAlive = IsBattlerAlive(foeL), foeRAlive = IsBattlerAlive(foeR);
-    bool32 threatL = foeLAlive && CanTargetFaintAi(foeL, battlerAtk);
-    bool32 threatR = foeRAlive && CanTargetFaintAi(foeR, battlerAtk);
-    bool32 threatened = threatL || threatR;
-    bool32 safeTurn = IsSafeTurn(battlerAtk, foeL, threatL, foeR, threatR);
-    u32 hp = gBattleMons[battlerAtk].hp, maxHp = gBattleMons[battlerAtk].maxHP;
-    u32 protectP = 0, switchP = 0;
-    bool32 defProtectLikely = FALSE, defSwitchLikely = FALSE, anyFoeProtectLikely = FALSE;
-    s32 edge;
 
     if (!IsDoubleBattle())
         return score;
-
-    // Letture sul giocatore (solo info lecita + comportamento osservato).
-    if (!targetingPartner && IsBattlerAlive(battlerDef))
+#if TESTING
+    if (AI_VgcRulesLegacy(battlerAtk))
+        return AI_VgcDoublesLegacy(battlerAtk, battlerDef, move, score);
+#endif
+    if (AI_VgcFilterAction(battlerAtk, moveIndex, battlerDef) != VGC_FILTER_NONE)
     {
-        protectP = VgcProtectChance(battlerDef);
-        switchP = VgcSwitchChance(battlerDef);
-        defProtectLikely = VgcTrustRead(protectP);
-        defSwitchLikely = VgcTrustRead(switchP);
+        ADJUST_SCORE(-VGC_FILTER_SCORE_MALUS);
+        return score;
     }
-    anyFoeProtectLikely = (foeLAlive && VgcTrustRead(VgcProtectChance(foeL))) || (foeRAlive && VgcTrustRead(VgcProtectChance(foeR)));
-    edge = VgcMaterialEdge(battlerAtk);
-
-    // Mosse a priorità bloccate da Campo Psichico su bersaglio a terra.
-    if (!targetingPartner && IsBattlerAlive(battlerDef) && (gFieldTimers.terrain == B_TERRAIN_PSYCHIC) && AI_IsBattlerGrounded(battlerDef))
-    {
-        s32 prio = GetMovePriority(move);
-        if (gAiLogicData->abilities[battlerAtk] == ABILITY_PRANKSTER && isStatus)
-            prio++;
-        if (gAiLogicData->abilities[battlerAtk] == ABILITY_GALE_WINGS && GetMoveType(move) == TYPE_FLYING && hp == maxHp)
-            prio++;
-        if (prio > 0)
-            ADJUST_SCORE(-10);
-    }
-
-    // ---------------- 0. Piano di squadra ----------------
-    {
-        const struct VgcGameplan *plan = AI_VgcGetPlan(AI_TrainerIdOfBattler(battlerAtk));
-        u16 trainerId = AI_TrainerIdOfBattler(battlerAtk);
-        bool32 iAmWinCon = AI_VgcPlanIsWinCon(trainerId, gBattleMons[battlerAtk].species);
-        bool32 partnerIsWinCon = hasPartner && AI_VgcPlanIsWinCon(trainerId, gBattleMons[partner].species);
-        bool32 doomed = threatened && !PartnerIsRedirecting(battlerAtk)
-                     && ((threatL && AI_IsSlower(battlerAtk, foeL, move, MOVE_NONE, CONSIDER_PRIORITY) && !CanAIFaintTarget(battlerAtk, foeL, 1))
-                      || (threatR && AI_IsSlower(battlerAtk, foeR, move, MOVE_NONE, CONSIDER_PRIORITY) && !CanAIFaintTarget(battlerAtk, foeR, 1)));
-
-        if (plan != NULL && !targetingPartner)
-        {
-            // Controllo velocità / meteo previsti dal piano: si impostano volentieri (se convengono:
-            // i controlli di convenienza sono nei blocchi 1 e 6, qui solo la preferenza).
-            ADJUST_SCORE(PlanMoveBonus(plan, battlerAtk, move));
-
-            if (iAmWinCon)
-            {
-                // La win condition si conserva e si prepara.
-                if (effect == EFFECT_PROTECT && threatened)
-                    ADJUST_SCORE(1);
-                if (isStatus && IsStatRaisingMove(move) && safeTurn)
-                    ADJUST_SCORE(1);
-            }
-            if (partnerIsWinCon)
-            {
-                // Il partner è la win condition: lo si copre.
-                if (effect == EFFECT_FOLLOW_ME)
-                    ADJUST_SCORE(2);
-                if (effect == EFFECT_HELPING_HAND)
-                    ADJUST_SCORE(1);
-                if (effect == EFFECT_FIRST_TURN_ONLY && firstTurn && IsBattlerAlive(battlerDef) && CanTargetFaintAi(battlerDef, partner))
-                    ADJUST_SCORE(1);
-            }
-        }
-
-        // ---------------- Risposte tattiche ----------------
-        // Provocazione sul setter / supporto prima che si muova.
-        if (effect == EFFECT_TAUNT && !targetingPartner && IsBattlerAlive(battlerDef)
-         && BattlerHasVgcSetupMove(battlerDef) && AI_IsFaster(battlerAtk, battlerDef, move, MOVE_NONE, CONSIDER_PRIORITY)
-         && !gBattleMons[battlerDef].volatiles.tauntTimer)
-            ADJUST_SCORE(3);
-        // Ampioguardia quando un avversario ha una mossa ad area nota (e non ci ha visto usarla di continuo).
-        if (effect == EFFECT_PROTECT && !targetingPartner && GetMoveProtectMethod(move) == PROTECT_WIDE_GUARD
-         && gBattleMons[battlerAtk].volatiles.consecutiveMoveUses == 0
-         && (FoeHasKnownSpreadMove(foeL) || FoeHasKnownSpreadMove(foeR)))
-            ADJUST_SCORE(2);
-        // Anticipo contro Fake Out / priorità note, soprattutto al primo turno (Sceptile Mega ecc.).
-        if (effect == EFFECT_PROTECT && !targetingPartner && GetMoveProtectMethod(move) == PROTECT_QUICK_GUARD
-         && gBattleMons[battlerAtk].volatiles.consecutiveMoveUses == 0
-         && (FoeHasKnownPriorityMove(foeL) || FoeHasKnownPriorityMove(foeR) || FoeThreatensFakeOut(battlerAtk)))
-            ADJUST_SCORE(firstTurn ? 5 : 2);
-        // Pokémon spacciato (più lento, va KO, non ha KO): Ultimascommessa / mossa che vale il turno.
-        if (doomed && effect == EFFECT_FINAL_GAMBIT && !targetingPartner && IsBattlerAlive(battlerDef)
-         && gBattleMons[battlerDef].hp <= hp && (!HasMoveWithEffect(battlerDef, EFFECT_PROTECT) || !defProtectLikely))
-            ADJUST_SCORE(5);
-        // Sonno (Spora, Ipnosi, Sbadiglio) su chi ha setup / controllo velocità: lo si toglie dalla lotta.
-        if (isStatus && !targetingPartner && IsBattlerAlive(battlerDef) && GetMoveNonVolatileStatus(move) == MOVE_EFFECT_SLEEP
-         && BattlerHasVgcSetupMove(battlerDef) && !defSwitchLikely)
-            ADJUST_SCORE(1);
-        // Sonno e paralisi valgono quanto la minaccia del bersaglio: chi può mandare KO uno dei nostri, chi è Mega,
-        // chi ha boost offensivi. Senza, a pari regole Spora finiva sul bersaglio meno pericoloso (Dugtrio accanto a
-        // un Tyranitar Mega). Solo dati leciti: KO stimati dall'IA, forma in campo, stadi visibili.
-        if (isStatus && !targetingPartner && IsBattlerAlive(battlerDef) && gBattleMons[battlerDef].status1 == STATUS1_NONE
-         && (GetMoveNonVolatileStatus(move) == MOVE_EFFECT_SLEEP || GetMoveNonVolatileStatus(move) == MOVE_EFFECT_PARALYSIS))
-        {
-            s32 threat = 0;
-            if (CanTargetFaintAi(battlerDef, battlerAtk))
-                threat += 2;
-            if (hasPartner && CanTargetFaintAi(battlerDef, partner))
-                threat += 2;
-            if (IsBattlerMegaEvolved(battlerDef))
-                threat += 1;
-            if (gBattleMons[battlerDef].statStages[STAT_ATK] > DEFAULT_STAT_STAGE
-             || gBattleMons[battlerDef].statStages[STAT_SPATK] > DEFAULT_STAT_STAGE)
-                threat += 1;
-            if (threat > 0)
-                ADJUST_SCORE(min(threat, 4));
-        }
-        // Ipnosi / Spora sotto Gravity: accuratezza al 100%, valore enorme (Enzo Gravity Hypnosis).
-        if (isStatus && !targetingPartner && IsBattlerAlive(battlerDef) && GetMoveNonVolatileStatus(move) == MOVE_EFFECT_SLEEP
-         && (gFieldStatuses & STATUS_FIELD_GRAVITY) && gBattleMons[battlerDef].status1 == STATUS1_NONE && !defSwitchLikely)
-            ADJUST_SCORE(5);
-
-        // ---------------- 7. Regole delle squadre (docs/vgc_trainers.md, sezione "Linee di gioco") ----------------
-        // Ultimascommessa proattiva (Enzo, Annihilape Scarf): toglie subito il pezzo chiave e crea il 4v3.
-        // Serve: essere più veloci, avere più PS del bersaglio, che il bersaglio non sia immune (Spettro),
-        // non abbia Focus Sash / Vigore a PS pieni e non stia probabilmente proteggendosi.
-        if (effect == EFFECT_FINAL_GAMBIT && !targetingPartner && IsBattlerAlive(battlerDef))
-        {
-            bool32 sashed = gBattleMons[battlerDef].hp == gBattleMons[battlerDef].maxHP
-                         && (gAiLogicData->holdEffects[battlerDef] == HOLD_EFFECT_FOCUS_SASH || gAiLogicData->abilities[battlerDef] == ABILITY_STURDY);
-            if (gAiLogicData->effectiveness[battlerAtk][battlerDef][moveIndex] == UQ_4_12(0.0))
-            {
-                ADJUST_SCORE(-20);
-            }
-            else if (hp >= gBattleMons[battlerDef].hp && !sashed && !defProtectLikely
-                  && AI_IsFaster(battlerAtk, battlerDef, move, MOVE_NONE, CONSIDER_PRIORITY))
-            {
-                ADJUST_SCORE(7); // supera il -5 casuale del motore: è una giocata, non un azzardo
-                if (BattlerHasVgcSetupMove(battlerDef) || CanTargetFaintAi(battlerDef, battlerAtk)
-                 || (hasPartner && CanTargetFaintAi(battlerDef, partner)))
-                    ADJUST_SCORE(2); // il bersaglio è il pezzo chiave
-                if (firstTurn)
-                    ADJUST_SCORE(1);
-                if (CountUsablePartyMons(battlerAtk) == 0)
-                    ADJUST_SCORE(-6); // ultimo Pokémon: sacrificarsi lascia il partner da solo
-            }
-            else if (!doomed)
-            {
-                ADJUST_SCORE(-4);
-            }
-        }
-
-        // Toedscruel con Disinvoltura (dopo Raggio Semplice) è veloce: Distorsione gli toglierebbe il vantaggio.
-        if (effect == EFFECT_TRICK_ROOM && !targetingPartner && gAiLogicData->abilities[battlerAtk] == ABILITY_SIMPLE)
-            ADJUST_SCORE(-6);
-
-        // Staffetta (Malamar con Inversione): passa i potenziamenti quando sta per andare KO.
-        if (effect == EFFECT_BATON_PASS)
-        {
-            if (!AnyUsefulStatIsRaised(battlerAtk) || CountUsablePartyMons(battlerAtk) == 0)
-                ADJUST_SCORE(-6);
-            else if (threatened)
-                ADJUST_SCORE(4);
-        }
-
-        // Gas Reagente accanto a un compagno con abilità penalizzante (Pigrizia, Partenzalenta...): chi lo tiene
-        // spento va tenuto vivo.
-        if (effect == EFFECT_PROTECT && !targetingPartner && threatened && hasPartner
-         && gAiLogicData->abilities[battlerAtk] == ABILITY_NEUTRALIZING_GAS
-         && (VgcRoles(partner) & VGC_ROLE_HINDER_ABILITY))
-            ADJUST_SCORE(3);
-
-        // ---------------- Ruoli dal grafo della squadra (valgono per qualunque squadra) ----------------
-        // Erano le regole scritte a mano per Savarotto e Patatina: ora le dà il ruolo, non il nome.
-        {
-            u32 myRoles = VgcRoles(battlerAtk);
-            u32 partnerRoles = hasPartner ? VgcRoles(partner) : 0;
-            bool32 partnerSlow = (partnerRoles & VGC_ROLE_SLOW) != 0;
-            bool32 partnerSweeper = (partnerRoles & (VGC_ROLE_ATK_SWEEPER | VGC_ROLE_SPA_SWEEPER)) != 0;
-            bool32 trActive = (gFieldStatuses & STATUS_FIELD_TRICK_ROOM) != 0;
-            bool32 twActive = (gSideStatuses[GetBattlerSide(battlerAtk)] & SIDE_STATUS_TAILWIND) != 0;
-
-            // Fake Out al turno 1 per comprare il turno a un compagno che fa setup (es. Espathra).
-            if (firstTurn && (partnerRoles & VGC_ROLE_NEEDS_COVER)
-             && effect == EFFECT_FIRST_TURN_ONLY && !targetingPartner && IsFlinchGuaranteed(battlerAtk, battlerDef, move))
-                ADJUST_SCORE(8);
-
-            // Colpire il compagno per attivargli l'abilità (Beat Up -> Justified...): combo trovata dal grafo.
-            // Solo con la mossa che lo attiva davvero: un altro attacco sul compagno (Fake Out accanto a un Flash
-            // Fire) non è una combo e si scarta.
-            if (targetingPartner && !isStatus && hasPartner)
-            {
-                if (sVgcTeamGraph.hitPartner[gBattlerPartyIndexes[battlerAtk]] == gBattlerPartyIndexes[partner]
-                 && AI_VgcIsPartnerHitCombo(move, battlerAtk, partner))
-                    ADJUST_SCORE(12);
-                else if (!AI_VgcIsPartnerHitCombo(move, battlerAtk, partner))
-                    ADJUST_SCORE(-20);
-            }
-
-            // Tailwind per un compagno attaccante non lento.
-            if (effect == EFFECT_TAILWIND && !twActive && !targetingPartner && (myRoles & VGC_ROLE_TAILWIND)
-             && partnerSweeper && !partnerSlow)
-                ADJUST_SCORE(5);
-
-            // Baton Passer (accumula boost senza attaccare e li passa a chi in panchina li sfrutta).
-            if (myRoles & VGC_ROLE_BATON_PASSER)
-            {
-                bool32 hasSub = gBattleMons[battlerAtk].volatiles.substitute;
-                s8 spatkStage = gBattleMons[battlerAtk].statStages[STAT_SPATK];
-                bool32 hasBoosts = AnyUsefulStatIsRaised(battlerAtk)
-                                || gBattleMons[battlerAtk].statStages[STAT_SPEED] > DEFAULT_STAT_STAGE;
-                bool32 setupMove = isStatus && IsStatRaisingMove(move) && GetMoveTarget(move) == TARGET_USER;
-
-                if (!hasBoosts)
-                {
-                    if (setupMove)
-                        ADJUST_SCORE(firstTurn ? 10 : 8);
-                }
-                else
-                {
-                    if (effect == EFFECT_BATON_PASS && CountUsablePartyMons(battlerAtk) > 0)
-                        ADJUST_SCORE((hasSub || spatkStage >= DEFAULT_STAT_STAGE + 2 || !safeTurn) ? 10 : 5);
-                    if (effect == EFFECT_SUBSTITUTE && !hasSub && hp > gBattleMons[battlerAtk].maxHP / 4)
-                        ADJUST_SCORE(threatened ? -4 : 8);
-                    if (effect == EFFECT_PROTECT && threatened && !hasSub)
-                        ADJUST_SCORE(6);
-                }
-            }
-
-            // Redirect per un compagno attaccante veloce (es. Indeedee + Armarouge); Trick Room lo rallenterebbe.
-            if ((myRoles & VGC_ROLE_REDIRECT) && partnerSweeper && !partnerSlow)
-            {
-                if (effect == EFFECT_FOLLOW_ME)
-                    ADJUST_SCORE(8);
-                else if (effect == EFFECT_TRICK_ROOM)
-                    ADJUST_SCORE(-10);
-            }
-
-            // Trick Room per un compagno lento (es. Indeedee + Copperajah): prima la stanza, poi il redirect.
-            if ((myRoles & VGC_ROLE_TRICK_ROOM) && partnerSlow && !trActive)
-            {
-                if (effect == EFFECT_TRICK_ROOM && !targetingPartner)
-                    ADJUST_SCORE(8);
-                else if (effect == EFFECT_FOLLOW_ME)
-                    ADJUST_SCORE(-8);
-            }
-            // Il Pokémon lento, mentre il compagno piazza Trick Room, si protegge o si potenzia.
-            if ((myRoles & VGC_ROLE_SLOW) && (partnerRoles & VGC_ROLE_TRICK_ROOM) && !trActive && firstTurn)
-            {
-                if (effect == EFFECT_PROTECT && !targetingPartner)
-                    ADJUST_SCORE(4);
-                else if (isStatus && IsStatRaisingMove(move) && GetMoveTarget(move) == TARGET_USER)
-                    ADJUST_SCORE(3);
-            }
-        }
-
-        // Forzespansa sotto Campo Psichico: colpisce entrambi a potenza piena.
-        if (move == MOVE_EXPANDING_FORCE && !targetingPartner && gFieldTimers.terrain == B_TERRAIN_PSYCHIC
-         && AI_IsBattlerGrounded(battlerAtk) && foeLAlive && foeRAlive)
-            ADJUST_SCORE(8);
-
-        // Dopo di te sotto Distorsione: il partner lento si muove già per primo, il turno è sprecato.
-        if (move == MOVE_AFTER_YOU && targetingPartner && (gFieldStatuses & STATUS_FIELD_TRICK_ROOM)
-         && !(gBattleWeather & B_WEATHER_SUN))
-            ADJUST_SCORE(-5);
-
-        // Giornodisole (Sableye Burla) quando il sole manca e in squadra ci sono i Paradox con Protosintesi.
-        if (effect == EFFECT_WEATHER && !targetingPartner && GetMoveWeatherType(move) == BATTLE_WEATHER_SUN
-         && !(gBattleWeather & B_WEATHER_SUN) && TeamHasWeatherAbuser(battlerAtk, move))
-            ADJUST_SCORE(2);
-    }
-
-    // ---------------- 1. Apertura ----------------
-    if (effect == EFFECT_FIRST_TURN_ONLY && firstTurn && !targetingPartner && IsFlinchGuaranteed(battlerAtk, battlerDef, move))
-    {
-        // Fake Out su chi vuole fare setup / controllo velocità: gli si toglie il turno.
-        if (BattlerHasVgcSetupMove(battlerDef))
-            ADJUST_SCORE(4);
-        // Fake Out sulla minaccia: il partner (o noi al turno dopo) ha un turno libero.
-        if (CanTargetFaintAi(battlerDef, battlerAtk) || (hasPartner && CanTargetFaintAi(battlerDef, partner)))
-            ADJUST_SCORE(3);
-        // Il partner sta facendo setup: copriamolo.
-        if (PartnerIsSettingUp(battlerAtk))
-            ADJUST_SCORE(2);
-        // Bersaglio con Focus Sash / Disguise: Fake Out lo rompe senza sprecare un colpo vero.
-        if (gAiLogicData->holdEffects[battlerDef] == HOLD_EFFECT_FOCUS_SASH || gAiLogicData->abilities[battlerDef] == ABILITY_DISGUISE)
-            ADJUST_SCORE(1);
-        // Se probabilmente si protegge, il Fake Out va sull'altro.
-        if (defProtectLikely)
-            ADJUST_SCORE(-3);
-    }
-
-    // Turno "regalato": se un avversario quasi certamente si protegge o cambia, setup e controllo
-    // velocità valgono di più (si usa il turno in cui loro non attaccano).
-    if (isStatus && !targetingPartner && IsVgcSetupMove(move) && (anyFoeProtectLikely || defSwitchLikely))
-        ADJUST_SCORE(2);
-
-    if (effect == EFFECT_TRICK_ROOM && !targetingPartner)
-    {
-        bool32 trUp = (gFieldStatuses & STATUS_FIELD_TRICK_ROOM) != 0;
-        bool32 weAreSlow = AI_VgcTeamIsSlowerThanFoes(battlerAtk, 2);
-
-        if (!trUp)
-        {
-            if (gSideStatuses[GetBattlerSide(battlerAtk)] & SIDE_STATUS_TAILWIND)
-            {
-                ADJUST_SCORE(-8); // Conflitto con Ventoincoda
-            }
-            else if ((gBattleWeather & B_WEATHER_RAIN) && hasPartner && gAiLogicData->abilities[partner] == ABILITY_SWIFT_SWIM)
-            {
-                ADJUST_SCORE(-10); // Swift Swim attivo sotto pioggia
-            }
-            else if (weAreSlow)
-            {
-                ADJUST_SCORE(5);
-                // Ci servono subito: siamo più lenti e sotto minaccia, il partner non risolve da solo.
-                if (threatened && !(foeLAlive && PartnerKOsFirst(battlerAtk, foeL)) && !(foeRAlive && PartnerKOsFirst(battlerAtk, foeR)))
-                    ADJUST_SCORE(2);
-                // Primo turno con Fake Out avversario in vista: Erbamentale o partner che li blocca.
-                if (firstTurn && FoeThreatensFakeOut(battlerAtk) && gAiLogicData->holdEffects[battlerAtk] != HOLD_EFFECT_MENTAL_HERB
-                 && !PartnerIsRedirecting(battlerAtk))
-                    ADJUST_SCORE(-2);
-            }
-            else if (!AI_VgcTeamIsSlowerThanFoes(battlerAtk, 1))
-            {
-                ADJUST_SCORE(-8); // aiuterebbe solo l'avversario
-            }
-        }
-        else if (gFieldTimers.trickRoomTimer > 1)
-        {
-            // Toglierlo conviene solo se è il loro.
-            if (weAreSlow)
-                ADJUST_SCORE(-10);
-            else
-                ADJUST_SCORE(4);
-        }
-    }
-
-    if (effect == EFFECT_TAILWIND && !targetingPartner)
-    {
-        enum BattleSide side = GetBattlerSide(battlerAtk);
-
-        if (gSideStatuses[side] & SIDE_STATUS_TAILWIND)
-        {
-            ADJUST_SCORE(-10);
-        }
-        else if ((gFieldStatuses & STATUS_FIELD_TRICK_ROOM) && gFieldTimers.trickRoomTimer > 1)
-        {
-            ADJUST_SCORE(-8);
-        }
-        else if (AI_VgcTeamBenefitsFromTailwind(battlerAtk, 2))
-        {
-            ADJUST_SCORE(6);
-        }
-        else if (AI_VgcTeamBenefitsFromTailwind(battlerAtk, 1))
-        {
-            ADJUST_SCORE(4);
-        }
-        else if (FoeMaxSpeed(battlerAtk) < gAiLogicData->speedStats[battlerAtk]
-              && (!hasPartner || FoeMaxSpeed(battlerAtk) < gAiLogicData->speedStats[partner]))
-        {
-            ADJUST_SCORE(-4); // siamo già più veloci
-        }
-    }
-
-    // Recycle senza uno strumento consumato da recuperare (o con lo strumento ancora in mano) non fa niente.
-    if (effect == EFFECT_RECYCLE
-     && (GetBattlerPartyState(battlerAtk)->usedHeldItem == ITEM_NONE || gBattleMons[battlerAtk].item != ITEM_NONE))
-        ADJUST_SCORE(-10);
-
-    if (effect == EFFECT_GRAVITY && !targetingPartner)
-    {
-        bool32 gravUp = (gFieldStatuses & STATUS_FIELD_GRAVITY) != 0;
-        if (!gravUp)
-        {
-            if (firstTurn || HasMove(battlerAtk, MOVE_HYPNOSIS) || (hasPartner && HasMove(partner, MOVE_HYPNOSIS)))
-                ADJUST_SCORE(6);
-            else
-                ADJUST_SCORE(3);
-        }
-        else
-        {
-            ADJUST_SCORE(-10);
-        }
-    }
-
-    // ---------------- 6. Meteo con chi lo sfrutta in panchina ----------------
-    if (effect == EFFECT_WEATHER && !targetingPartner && TeamHasWeatherAbuser(battlerAtk, move))
-        ADJUST_SCORE(3);
-
-    // Schermi col primo turno (Prankster): valgono il turno.
-    if ((effect == EFFECT_REFLECT || effect == EFFECT_LIGHT_SCREEN || effect == EFFECT_AURORA_VEIL)
-     && !targetingPartner && firstTurn && gAiLogicData->abilities[battlerAtk] == ABILITY_PRANKSTER)
-        ADJUST_SCORE(2);
-
-    // ---------------- 2. Setup sicuro ----------------
-    if (isStatus && !targetingPartner && AI_GetBattlerMoveTargetType(battlerAtk, move) == TARGET_USER
-     && (IsStatRaisingMove(move) || effect == EFFECT_BELLY_DRUM))
-    {
-        bool32 canKoNow = (foeLAlive && CanAIFaintTarget(battlerAtk, foeL, 1)) || (foeRAlive && CanAIFaintTarget(battlerAtk, foeR, 1));
-        bool32 slowerThanThreat = (threatL && AI_IsSlower(battlerAtk, foeL, move, MOVE_NONE, DONT_CONSIDER_PRIORITY))
-                               || (threatR && AI_IsSlower(battlerAtk, foeR, move, MOVE_NONE, DONT_CONSIDER_PRIORITY));
-
-        if (canKoNow)
-        {
-            ADJUST_SCORE(-4); // c'è un KO sul tavolo: si prende
-        }
-        else if (safeTurn)
-        {
-            ADJUST_SCORE(3);
-            // Nessuno ci manda nemmeno 2HKO: turno regalato.
-            if ((!foeLAlive || GetBestNoOfHitsToKO(foeL, battlerAtk, AI_DEFENDING) > 2)
-             && (!foeRAlive || GetBestNoOfHitsToKO(foeR, battlerAtk, AI_DEFENDING) > 2))
-                ADJUST_SCORE(2);
-            if (effect == EFFECT_BELLY_DRUM && hp * 100 / maxHp > 60)
-                ADJUST_SCORE(2);
-            if (effect == EFFECT_BELLY_DRUM && hasPartner && threatened && hp * 100 / maxHp > 50)
-                ADJUST_SCORE(5); // Snorlax Panciata con Amoonguss Polverabbia
-        }
-        else if (slowerThanThreat)
-        {
-            ADJUST_SCORE(effect == EFFECT_BELLY_DRUM ? -8 : -5); // fare setup e morire = regalare un turno
-        }
-        else
-        {
-            ADJUST_SCORE(threatened ? -4 : -2); // più veloce, ma il colpo arriva lo stesso: il setup non lo regge
-        }
-
-        // Ferrodifesa + Schiacciacorpo è un piano, non un ripiego.
-        if (HasMove(battlerAtk, MOVE_BODY_PRESS) && effect == EFFECT_STAT_CHANGE && IsStatRaisingMove(move)
-         && gBattleMons[battlerAtk].statStages[STAT_DEF] < DEFAULT_STAT_STAGE + 4)
-            ADJUST_SCORE(2);
-
-        // Già potenziato: ora si attacca.
-        if (AnyUsefulStatIsRaised(battlerAtk))
-            ADJUST_SCORE(-3);
-
-        // Primo turno con Fake Out avversario: il setup salta.
-        if (firstTurn && FoeThreatensFakeOut(battlerAtk) && !PartnerIsRedirecting(battlerAtk))
-            ADJUST_SCORE(-3);
-    }
-
-    // Troppopugno con Inversione (Malamar) vs Danzaspada (Armaldo).
-    if (move == MOVE_SUPERPOWER && !targetingPartner)
-    {
-        if (gAiLogicData->abilities[battlerAtk] == ABILITY_CONTRARY)
-            ADJUST_SCORE(4); // Setup offensivo: +1 Atk e +1 Def
-        else if (gBattleMons[battlerAtk].statStages[STAT_ATK] > DEFAULT_STAT_STAGE)
-            ADJUST_SCORE(-3); // Non vanificare Danzaspada
-    }
-
-    // ---------------- 3. Protect "safe" ----------------
-    if (effect == EFFECT_PROTECT && !targetingPartner)
-    {
-        enum ProtectMethod method = GetMoveProtectMethod(move);
-
-        if (method != PROTECT_WIDE_GUARD && method != PROTECT_QUICK_GUARD && method != PROTECT_CRAFTY_SHIELD
-         && method != PROTECT_MAT_BLOCK && gBattleMons[battlerAtk].volatiles.consecutiveMoveUses == 0)
-        {
-            u32 dmgL = foeLAlive ? GetBestDmgFromBattler(foeL, battlerAtk, AI_DEFENDING) : 0;
-            u32 dmgR = foeRAlive ? GetBestDmgFromBattler(foeR, battlerAtk, AI_DEFENDING) : 0;
-            bool32 doubleTargetKO = !threatened && (dmgL + dmgR >= hp) && foeLAlive && foeRAlive;
-
-            if (threatened)
-            {
-                ADJUST_SCORE(2);
-                // Il partner toglie di mezzo la minaccia mentre noi ci copriamo: turno perfetto.
-                if ((threatL && PartnerKOsFirst(battlerAtk, foeL)) || (threatR && PartnerKOsFirst(battlerAtk, foeR)))
-                    ADJUST_SCORE(4);
-                // Siamo più lenti e non abbiamo il KO per primi: senza Protect si muore.
-                if (((threatL && AI_IsSlower(battlerAtk, foeL, move, MOVE_NONE, CONSIDER_PRIORITY) && !CanAIFaintTarget(battlerAtk, foeL, 1))
-                  || (threatR && AI_IsSlower(battlerAtk, foeR, move, MOVE_NONE, CONSIDER_PRIORITY) && !CanAIFaintTarget(battlerAtk, foeR, 1)))
-                 && hp * 100 / maxHp > 35)
-                    ADJUST_SCORE(2);
-                // Primo turno con Fake Out avversario: Protect lo assorbe senza perdere nulla di importante.
-                if (firstTurn && FoeThreatensFakeOut(battlerAtk))
-                    ADJUST_SCORE(1);
-            }
-            else if (doubleTargetKO)
-            {
-                ADJUST_SCORE(3); // insieme ci mandano KO: ragionevole aspettarsi il doppio bersaglio
-            }
-            else if ((!foeLAlive || GetBestNoOfHitsToKO(foeL, battlerAtk, AI_DEFENDING) > 3)
-                  && (!foeRAlive || GetBestNoOfHitsToKO(foeR, battlerAtk, AI_DEFENDING) > 3))
-            {
-                ADJUST_SCORE(-3); // nessuno ci fa male: Protect è un turno buttato
-            }
-
-            // Far scorrere il Trick Room avversario.
-            if (FoeTrickRoomActive(battlerAtk))
-                ADJUST_SCORE(3);
-            // I turni del NOSTRO Tailwind / Trick Room sono preziosi.
-            if (AI_VgcOwnSpeedControlActive(battlerAtk) && !threatened)
-                ADJUST_SCORE(-4);
-            // Il Focus Sash al primo turno copre già.
-            if (firstTurn && hp == maxHp && gAiLogicData->holdEffects[battlerAtk] == HOLD_EFFECT_FOCUS_SASH)
-                ADJUST_SCORE(-2);
-            // Il partner sta cambiando: proteggersi mentre entra il sostituto è sensato.
-            if (hasPartner && gBattleStruct->monToSwitchIntoId[partner] != PARTY_SIZE)
-                ADJUST_SCORE(1);
-        }
-    }
-
-    // ---------------- Risorse: turni di controllo velocità, endgame ----------------
-    {
-        enum BattleSide side = GetBattlerSide(battlerAtk);
-        u32 scLeft = 0;
-
-        if (gSideStatuses[side] & SIDE_STATUS_TAILWIND)
-            scLeft = gSideTimers[side].tailwindTimer;
-        else if ((gFieldStatuses & STATUS_FIELD_TRICK_ROOM) && AI_VgcTeamIsSlowerThanFoes(battlerAtk, 1))
-            scLeft = gFieldTimers.trickRoomTimer;
-        // Ultimi due turni del NOSTRO Tailwind / Distorsione: si spinge. Non è bianco o nero: se un
-        // avversario ci manda KO, Protect resta valido (il blocco 3 lo valuta e può salvare la partita);
-        // il malus cresce solo quanto meno siamo in pericolo.
-        if (scLeft != 0 && scLeft <= 2 && !targetingPartner)
-        {
-            if (!isStatus && IsBattlerAlive(battlerDef))
-            {
-                ADJUST_SCORE(CanIndexMoveFaintTarget(battlerAtk, battlerDef, moveIndex, AI_ATTACKING) ? 2 : 1);
-            }
-            else if (effect == EFFECT_PROTECT)
-            {
-                if (threatened)
-                    ADJUST_SCORE(0);  // sotto KO: decide il blocco 3 (partner che toglie la minaccia, ecc.)
-                else if ((foeLAlive && GetBestNoOfHitsToKO(foeL, battlerAtk, AI_DEFENDING) <= 2)
-                      || (foeRAlive && GetBestNoOfHitsToKO(foeR, battlerAtk, AI_DEFENDING) <= 2))
-                    ADJUST_SCORE(-1); // ci fanno male ma non ci mandano KO: si preferisce attaccare
-                else
-                    ADJUST_SCORE(-3); // nessun pericolo: Protect spreca un turno prezioso
-            }
-            else if (isStatus && effect != EFFECT_TRICK_ROOM && effect != EFFECT_TAILWIND
-                  && effect != EFFECT_HELPING_HAND && effect != EFFECT_FOLLOW_ME && !threatened)
-            {
-                ADJUST_SCORE(-1);
-            }
-        }
-        // Endgame in vantaggio netto: si chiude con quello che c'è in campo, niente riposizionamenti.
-        if (edge >= 2 && !targetingPartner)
-        {
-            if (!isStatus && IsBattlerAlive(battlerDef))
-                ADJUST_SCORE(1);
-            else if (isStatus && effect != EFFECT_PROTECT && !IsVgcSetupMove(move))
-                ADJUST_SCORE(-1);
-        }
-    }
-
-    // ---------------- 4. Fuoco concentrato / scelta del bersaglio ----------------
-    if (!isStatus && !targetingPartner && IsBattlerAlive(battlerDef) && hasPartner)
-    {
-        u32 myDmg = gAiLogicData->simulatedDmg[battlerAtk][battlerDef][moveIndex].median;
-        u32 myMin = gAiLogicData->simulatedDmg[battlerAtk][battlerDef][moveIndex].minimum;
-        u32 myMax = gAiLogicData->simulatedDmg[battlerAtk][battlerDef][moveIndex].maximum;
-        u32 partnerDmg = PartnerDamageTo(battlerAtk, battlerDef);
-        u32 defHp = gBattleMons[battlerDef].hp;
-
-        // KO sicuro (anche col tiro minimo) vale più di un KO "a tiro": un KO al 40% non è un KO.
-        if (myMin >= defHp)
-            ADJUST_SCORE(2);
-        else if (myMax >= defHp && myDmg < defHp)
-            ADJUST_SCORE(-1);
-
-        if (partnerDmg > 0)
-        {
-            if (PartnerKOsFirst(battlerAtk, battlerDef))
-            {
-                // Il partner lo manda KO da solo e prima: non si spreca il colpo.
-                if (HasMoveWithEffect(battlerDef, EFFECT_PROTECT))
-                    ADJUST_SCORE(-1); // ...a meno che possa proteggersi: allora raddoppiare ha senso
-                else if (!IsSpreadMove(AI_GetBattlerMoveTargetType(battlerAtk, move)))
-                    ADJUST_SCORE(-3);
-            }
-            else if (myDmg < defHp && myDmg + partnerDmg >= defHp)
-            {
-                ADJUST_SCORE(4); // insieme lo mandiamo KO
-            }
-        }
-
-        // La minaccia vale di più come bersaglio.
-        if (CanTargetFaintAi(battlerDef, battlerAtk) || CanTargetFaintAi(battlerDef, partner))
-            ADJUST_SCORE(1);
-        // Può ancora megaevolvere (pietra probabile dalla lista del formato): cambierà statistiche e
-        // abilità, meglio toglierlo prima.
-        if (IsOnPlayerSide(battlerDef) && !HasTrainerUsedGimmick(battlerDef, GIMMICK_MEGA)
-         && GET_BASE_SPECIES_ID(gBattleMons[battlerDef].species) == gBattleMons[battlerDef].species
-         && Scout_MegaTargetSpecies(gBattleMons[battlerDef].species) != SPECIES_NONE)
-            ADJUST_SCORE(1);
-        if (BattlerHasVgcSetupMove(battlerDef) && !IsBattlerIncapacitated(battlerDef, gAiLogicData->abilities[battlerDef]))
-            ADJUST_SCORE(1);
-
-        // Mossa ad area che fa male a entrambi: ottimo in VGC.
-        if (IsSpreadMove(AI_GetBattlerMoveTargetType(battlerAtk, move)) && foeLAlive && foeRAlive)
-        {
-            u32 dl = gAiLogicData->simulatedDmg[battlerAtk][foeL][moveIndex].median * 100 / max(gBattleMons[foeL].maxHP, 1);
-            u32 dr = gAiLogicData->simulatedDmg[battlerAtk][foeR][moveIndex].median * 100 / max(gBattleMons[foeR].maxHP, 1);
-            if (dl >= 35 && dr >= 35)
-                ADJUST_SCORE(2);
-        }
-
-        // Sotto Trick Room avversario con il nostro Pokémon veloce: conviene attaccare subito ciò che si può.
-        if (FoeTrickRoomActive(battlerAtk) && CanIndexMoveFaintTarget(battlerAtk, battlerDef, moveIndex, AI_ATTACKING))
-            ADJUST_SCORE(1);
-
-        // Lettura Protect: colpire chi probabilmente si protegge è un turno perso; le mosse ad area
-        // perdono meno (colpiscono comunque l'altro).
-        if (defProtectLikely)
-            ADJUST_SCORE(IsSpreadMove(AI_GetBattlerMoveTargetType(battlerAtk, move)) ? -1 : -3);
-        // Ha protetto il turno scorso ed è di nuovo sotto KO: difficilmente lo rifà, si insiste.
-        else if ((sVgcProtectedLastTurn & (1u << battlerDef)) && (sVgcThreatened & (1u << battlerDef)))
-            ADJUST_SCORE(1);
-        // Lettura cambio: il colpo "da KO" finisce sul sostituto; meglio l'altro bersaglio o una mossa
-        // che punisce l'entrata (Knock Off, mosse ad area, stato).
-        if (defSwitchLikely)
-        {
-            if (CanIndexMoveFaintTarget(battlerAtk, battlerDef, moveIndex, AI_ATTACKING))
-                ADJUST_SCORE(-2);
-            if (move == MOVE_KNOCK_OFF || IsSpreadMove(AI_GetBattlerMoveTargetType(battlerAtk, move)))
-                ADJUST_SCORE(1);
-        }
-
-        // Vantaggio numerico netto: si gioca pulito (KO sicuri, niente mosse imprecise);
-        // in svantaggio si cercano i colpi che ribaltano.
-        if (edge >= 2 && gAiLogicData->moveAccuracy[battlerAtk][battlerDef][moveIndex] < 85)
-            ADJUST_SCORE(-1);
-        if (edge <= -2 && CanIndexMoveFaintTarget(battlerAtk, battlerDef, moveIndex, AI_ATTACKING))
-            ADJUST_SCORE(1);
-
-        // Eruzione cala drasticamente con gli HP persi: sotto 65% meglio Ondacalda / Lanciafiamme (Gigi Pinto).
-        if (move == MOVE_ERUPTION)
-        {
-            if (hp * 100 / maxHp < 65)
-                ADJUST_SCORE(-4);
-            else
-                ADJUST_SCORE(2);
-        }
-
-        // Swift Swim Golduck sotto pioggia: pressione massima (Mario).
-        if ((gBattleWeather & B_WEATHER_RAIN) && gAiLogicData->abilities[battlerAtk] == ABILITY_SWIFT_SWIM
-         && GetMoveType(move) == TYPE_WATER)
-            ADJUST_SCORE(3);
-
-        // Fuoco amico su Terremoto e mosse ad area totali (TARGET_FOES_AND_ALLY - Gerozz).
-        if (AI_GetBattlerMoveTargetType(battlerAtk, move) == TARGET_FOES_AND_ALLY)
-        {
-            bool32 partnerImmune = FALSE;
-            if (gAiLogicData->abilities[partner] == ABILITY_TELEPATHY)
-            {
-                partnerImmune = TRUE;
-            }
-            else if (GetMoveType(move) == TYPE_GROUND && !AI_IsBattlerGrounded(partner))
-            {
-                partnerImmune = TRUE; // Levitazione (Rotom-Heat), Volante, Palloncino
-            }
-            else
-            {
-                u32 pIdx;
-                enum BattlerId pTarget;
-                enum Move pMove = PartnerChosenMove(battlerAtk, &pIdx, &pTarget);
-                if (pMove != MOVE_NONE && GetMoveEffect(pMove) == EFFECT_PROTECT)
-                    partnerImmune = TRUE;
-            }
-            if (!partnerImmune)
-                ADJUST_SCORE(-5);
-        }
-    }
-
-    // Stato / Spore / Encore su chi probabilmente cambia: lo prende il sostituto, non lui.
-    if (isStatus && !targetingPartner && defSwitchLikely && AI_GetBattlerMoveTargetType(battlerAtk, move) == TARGET_SELECTED
-     && (effect == EFFECT_ENCORE || effect == EFFECT_DISABLE || effect == EFFECT_TAUNT))
-        ADJUST_SCORE(-3);
-
-    // In vantaggio netto: Protect sotto minaccia vale un filo di più (si conserva il vantaggio).
-    if (effect == EFFECT_PROTECT && !targetingPartner && edge >= 2 && threatened)
-        ADJUST_SCORE(1);
-
-    // ---------------- 5. Supporto ----------------
-    if (effect == EFFECT_FOLLOW_ME && hasPartner)
-    {
-        if (PartnerIsSettingUp(battlerAtk))
-            ADJUST_SCORE(4);
-        // Il partner deve ancora scegliere ma ha Belly Drum: il redirect è la ragione della coppia.
-        else if (HasMoveWithEffect(partner, EFFECT_BELLY_DRUM))
-            ADJUST_SCORE(3);
-        else if ((foeLAlive && CanTargetFaintAi(foeL, partner)) || (foeRAlive && CanTargetFaintAi(foeR, partner)))
-            ADJUST_SCORE(2); // il partner è la minaccia che vogliono togliere
-        if (hp * 100 / maxHp < 30)
-            ADJUST_SCORE(-3);
-    }
-
-    if (effect == EFFECT_HELPING_HAND && hasPartner)
-    {
-        enum BattlerId pTarget;
-        u32 pIdx;
-        enum Move pMove = PartnerChosenMove(battlerAtk, &pIdx, &pTarget);
-
-        if (pMove != MOVE_NONE && !IsBattleMoveStatus(pMove) && IsBattlerAlive(pTarget) && !IsBattlerAlly(battlerAtk, pTarget))
-        {
-            u32 d = gAiLogicData->simulatedDmg[partner][pTarget][pIdx].median;
-            if (d < gBattleMons[pTarget].hp && d * 3 / 2 >= gBattleMons[pTarget].hp)
-                ADJUST_SCORE(3); // da 2HKO a OHKO
-        }
-    }
-
-    // Instruct (Oranguru): fa ripetere una potente mossa offensiva al partner (Mario).
-    if (effect == EFFECT_INSTRUCT && hasPartner)
-    {
-        if (targetingPartner)
-        {
-            u32 pIdx;
-            enum BattlerId pTarget;
-            enum Move pMove = PartnerChosenMove(battlerAtk, &pIdx, &pTarget);
-            u32 lastMove = gAiLogicData->lastUsedMove[partner];
-            enum Move mToRepeat = (pMove != MOVE_NONE) ? pMove : lastMove;
-            if (mToRepeat != MOVE_NONE && !IsBattleMoveStatus(mToRepeat) && !IsMoveInstructBanned(mToRepeat))
-                ADJUST_SCORE(5);
-        }
-        else
-        {
-            ADJUST_SCORE(-10);
-        }
-    }
-
-    // After You: dà subito il turno al partner lento con una mossa che vale di più a PS pieni
-    // (Eruption / Water Spout / Dragon Energy: es. Torkoal sotto Sole).
-    if (move == MOVE_AFTER_YOU && hasPartner)
-    {
-        if (targetingPartner)
-        {
-            if ((VgcRoles(partner) & VGC_ROLE_SLOW) && HasMoveWithEffect(partner, EFFECT_POWER_BASED_ON_USER_HP)
-             && (gBattleMons[partner].hp * 100 / max(gBattleMons[partner].maxHP, 1) >= 70))
-                ADJUST_SCORE(6);
-            else if (AI_IsFaster(battlerAtk, partner, move, MOVE_NONE, CONSIDER_PRIORITY))
-                ADJUST_SCORE(3);
-        }
-        else
-        {
-            ADJUST_SCORE(-10);
-        }
-    }
-
-    // Cambiare l'abilità del compagno (Simple Beam, Worry Seed, Skill Swap, Gastro Acid, Entrainment) ha senso
-    // solo se la sua abilità lo penalizza (Mycelium Might, Truant, Slow Start...): la combo la trova il grafo
-    // della squadra e se conviene lo decide la simulazione. Togliergli un'abilità utile (Guts...) è un errore.
-    if (targetingPartner && isStatus)
-    {
-        enum BattleMoveEffects eff = GetMoveEffect(move);
-        if (eff == EFFECT_OVERWRITE_ABILITY || eff == EFFECT_SKILL_SWAP || eff == EFFECT_GASTRO_ACID || eff == EFFECT_ENTRAINMENT)
-        {
-            enum Ability ab = hasPartner ? gAiLogicData->abilities[partner] : ABILITY_NONE;
-            if (ab != ABILITY_MYCELIUM_MIGHT && ab != ABILITY_TRUANT && ab != ABILITY_SLOW_START
-             && ab != ABILITY_DEFEATIST && ab != ABILITY_KLUTZ && ab != ABILITY_STALL)
-                ADJUST_SCORE(-20);
-        }
-    }
-
-    // Icy Wind / Electroweb ecc. come controllo velocità "morbido" quando siamo appena più lenti.
-    if (!isStatus && !targetingPartner && foeLAlive && foeRAlive && IsSpreadMove(AI_GetBattlerMoveTargetType(battlerAtk, move))
-     && (move == MOVE_ICY_WIND || move == MOVE_ELECTROWEB || move == MOVE_BULLDOZE)
-     && !(gFieldStatuses & STATUS_FIELD_TRICK_ROOM) && !(gSideStatuses[GetBattlerSide(battlerAtk)] & SIDE_STATUS_TAILWIND)
-     && AI_VgcTeamBenefitsFromTailwind(battlerAtk, 1))
-        ADJUST_SCORE(2);
-
+    ADJUST_SCORE(AI_VgcActionPrior(battlerAtk, move, battlerDef, MOVE_NONE) / VGC_PRIOR_SCORE_DIV);
     return score;
 }
 
@@ -1675,3 +1206,7 @@ bool32 AI_VgcShouldHoldMega(enum BattlerId battler)
         return FALSE;
     return TRUE;
 }
+
+#if TESTING
+#include "battle_ai_vgc_legacy.h"
+#endif

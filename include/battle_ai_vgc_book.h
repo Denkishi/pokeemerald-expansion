@@ -51,6 +51,7 @@ struct VgcTrainingConfig
     u8 exploreEps[2];       // per lato: % di team preview / turni esplorativi
     u8 previewSide;         // lato per cui sta scegliendo la team preview (B_SIDE_*)
     u8 previewExplore;      // la team preview in corso esplora
+    u8 rulesLegacy;         // bit per lato: regole di prima di M8 (verifica-regole)
 };
 extern struct VgcTrainingConfig gVgcTraining;
 #endif

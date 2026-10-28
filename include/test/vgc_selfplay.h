@@ -41,7 +41,7 @@ struct VgcSelfPlayArgs
     u8 quiet;                // 1 = niente diagnostica dell'IA né messaggi della lotta nel log (partite più veloci)
     u8 contextOff;           // bit per lato (1 = G, 2 = A): contesto della squadra avversaria spento (verifica)
     u8 contextAnswerPct;     // peso % delle risposte al piano avversario in team preview (0 = 100, taratura)
-    u8 pad[1];
+    u8 rulesLegacy;          // bit per lato (1 = G, 2 = A): regole di prima di M8 (confronto a specchio, verifica-regole)
 };
 
 extern const struct VgcSelfPlayArgs gVgcSelfPlayArgs;
