@@ -903,6 +903,29 @@ static bool32 ChoiceKOs(enum BattlerId b, enum BattlerId def)
     return DmgMin(b, def, c->moveIndex) >= gBattleMons[def].hp && gAiLogicData->moveAccuracy[b][def][c->moveIndex] >= 100;
 }
 
+// Danno minimo della scelta di `b` su `def` (0 se non lo colpisce o non è un attacco sicuro).
+static u32 ChoiceMinDmgOn(enum BattlerId b, enum BattlerId def)
+{
+    struct VspChoice *c = &sVsp.choice[b];
+    enum MoveTarget tt;
+    if (c->kind != VSP_CHOICE_MOVE || !IsBattlerAlive(b) || !IsBattlerAlive(def) || IsBattleMoveStatus(c->move)
+     || c->moveIndex >= MAX_MON_MOVES || gAiLogicData->moveAccuracy[b][def][c->moveIndex] < 100)
+        return 0;
+    tt = GetBattlerMoveTargetType(b, c->move);
+    if (c->target != def && tt != TARGET_BOTH && tt != TARGET_FOES_AND_ALLY)
+        return 0;
+    return DmgMin(b, def, c->moveIndex);
+}
+
+// La coppia manda KO `def` sommando i danni minimi delle due scelte (focus fire).
+static bool32 PairKOs(enum BattlerId b, enum BattlerId p, enum BattlerId def)
+{
+    if (!IsBattlerAlive(def))
+        return FALSE;
+    return ChoiceMinDmgOn(b, def) + ChoiceMinDmgOn(p, def) >= gBattleMons[def].hp
+        && ChoiceMinDmgOn(b, def) > 0 && ChoiceMinDmgOn(p, def) > 0;
+}
+
 // Il compagno trae vantaggio dall'essere colpito (combo): abilità che assorbe o si potenzia, Weakness Policy...
 static bool32 PartnerHitIsCombo(enum BattlerId b, enum BattlerId p, u32 move, u32 idx)
 {
@@ -1151,7 +1174,9 @@ static void CheckBattlerChoice(enum BattlerId b)
             }
             if (koIdx == MAX_MON_MOVES)
                 continue;
-            covered = ChoiceKOs(b, f) || (pAlive && ChoiceKOs(p, f)) || ChoiceKOs(b, OtherFoe(b, f));
+            // Coperto anche quando la coppia manda KO l'altro avversario sommando i danni (focus fire).
+            covered = ChoiceKOs(b, f) || (pAlive && ChoiceKOs(p, f)) || ChoiceKOs(b, OtherFoe(b, f))
+                   || (pAlive && (PairKOs(b, p, f) || PairKOs(b, p, OtherFoe(b, f))));
             if (covered)
                 continue;
             // I casi dubbi divisi per tipo: lettura di un Protect visto, mossa ad area (danno su entrambi), scelta di
