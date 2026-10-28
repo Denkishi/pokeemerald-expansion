@@ -391,3 +391,5 @@ Nuova base (ROM di GitHub di `ia-vgc`, checker con Protect/immune nei finali blo
 Falsi positivi del checker rimasti:
 - KO non preso quando chi attacca va KO prima di agire (avversario più veloce col suo KO sicuro): la mossa del KO non parte, la priorità sì.
 - KO non preso quando il compagno usa Helping Hand e la coppia manda KO l'altro avversario (il danno di Helping Hand non entra nel KO combinato).
+
+Decisione su `CUSTOM_VGC_PLAN_FOE_VS_IDLE` (dopo il merge di `ia-vgc` c5344eaaf3): flag per lato nel self-play (`CUSTOM_VGC_MIRROR_FOE_IDLE`, variante "tutte le azioni, media 1/2", quella del 285), verifica a specchio con 6 semi: **1727 partite valide, 50,7% per il lato con il flag, IC95 [48,9; 52,5], p = 0,47**. Sotto la soglia (IC sopra 50% o almeno 51% con meno misplay): ❌ resta spento, il test di Altaria Tailwind resta un test normale (verde). Specchio spento di nuovo.

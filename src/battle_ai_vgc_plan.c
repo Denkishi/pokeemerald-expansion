@@ -1975,6 +1975,17 @@ static u32 MaxKoThreat(const struct PlanState *st, enum BattlerId b)
     return best;
 }
 
+// Modello del giocatore "contro di noi fermi" (CUSTOM_VGC_PLAN_FOE_VS_IDLE). Nella verifica a specchio
+// (CUSTOM_VGC_MIRROR_FOE_IDLE, self-play) acceso per il lato senza il bit di verifica-regole, spento per l'altro.
+static bool32 FoeVsIdleOn(void)
+{
+#if TESTING
+    if (CUSTOM_VGC_MIRROR_FOE_IDLE)
+        return !((gVgcTraining.rulesLegacy >> GetBattlerSide(sJob.me)) & 1);
+#endif
+    return CUSTOM_VGC_PLAN_FOE_VS_IDLE && MisplayFixesOn();
+}
+
 // PS di chi è uscito e di chi è entrato con un cambio (o un pivot) nella simulazione. Il valore della posizione conta
 // solo i PS in campo: uscire con un Pokémon al 30% per far prendere il KO a uno al 100% non costava niente (stesso KO in
 // campo, stesso materiale), e il pianificatore sacrificava i Pokémon sani al posto di quelli già consumati. Chi esce
@@ -4184,11 +4195,10 @@ bool32 AI_VgcPlanStep(void)
                 RunTurn(&st, acts, 4);
                 sJob.foeVal[side][idx] = Evaluate(&st);
                 budget--;
-                // Il giocatore non sa cosa faremo: una sua mossa (non Protect né cambio, che contro di noi fermi non servono) vale
-                // anche contro di noi fermi (media dei due casi).
+                // Il giocatore non sa cosa faremo: ogni sua azione vale anche contro di noi fermi (media dei due casi).
                 // Contro la sola azione delle regole un attacco su chi le regole davano KO prima (o in Protect) non
                 // valeva niente e la minaccia sulla win condition spariva dalle risposte previste.
-                if (CUSTOM_VGC_PLAN_FOE_VS_IDLE && MisplayFixesOn() && sJob.foeCand[side][idx].kind == PLAN_ACT_MOVE)
+                if (FoeVsIdleOn())
                 {
                     struct PlanAction idleA = ours, idleB = partner;
                     idleA.kind = PLAN_ACT_NONE;
