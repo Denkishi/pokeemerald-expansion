@@ -2972,6 +2972,21 @@ static u32 PickFoeActions(u32 side, struct PlanAction *out)
         for (i = 0; i < n; i++)
             if (sJob.foeCand[side][i].kind == PLAN_ACT_MOVE && !IsBattleMoveStatus(sJob.foeCand[side][i].move))
                 score[i] += AI_VgcFoeTargetBias(sJob.foeCand[side][i].user, sJob.foeCand[side][i].target);
+    // Il giocatore colpisce chi lo minaccia di più: tra i nostri due in campo, l'attacco sul più pericoloso per lui
+    // (ThreatPct a inizio lavoro: danno in % e KO possibili sul suo lato) è più probabile.
+    if (CUSTOM_VGC_PLAN_FOE_THREAT_FOCUS > 0 && FoeHistoryOn())
+        for (i = 0; i < n; i++)
+        {
+            const struct PlanAction *c = &sJob.foeCand[side][i];
+            enum BattlerId t = c->target, p;
+            if (c->kind != PLAN_ACT_MOVE || IsBattleMoveStatus(c->move) || t >= gBattlersCount || IsOnPlayerSide(t)
+             || !sJob.base.m[t].alive)
+                continue;
+            p = GetPartnerBattler(t);
+            if (!sJob.base.m[p].alive)
+                continue;
+            score[i] += CUSTOM_VGC_PLAN_FOE_THREAT_FOCUS * max(-100, min(100, sJob.threatPct[t] - sJob.threatPct[p])) / 100;
+        }
     while (outN < PLAN_FOE_PER && outN < n)
     {
         u32 bi = 0xFF;
