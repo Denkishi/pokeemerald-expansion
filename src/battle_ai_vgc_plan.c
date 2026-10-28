@@ -3588,17 +3588,32 @@ static u32 TieBreakScore(const struct PlanAction *a)
     return 1;
 }
 
+// Caso peggiore del cambio (CUSTOM_VGC_PLAN_SWITCH_WORST). Nella verifica a specchio (CUSTOM_VGC_MIRROR_SWITCH_WORST,
+// self-play) acceso per il lato senza il bit di verifica-regole, spento per l'altro.
+static bool32 SwitchWorstOn(void)
+{
+#if TESTING
+    if (CUSTOM_VGC_MIRROR_SWITCH_WORST)
+        return !((gVgcTraining.rulesLegacy >> GetBattlerSide(sJob.me)) & 1);
+#endif
+    return CUSTOM_VGC_PLAN_SWITCH_WORST && MisplayFixesOn();
+}
+
 // Rischio di un cambio volontario: chi entra contro le risposte plausibili degli avversari (tutte le candidate del modello
 // del giocatore, non solo le due previste), dirette sul suo slot, con il tiro alto. Un avversario che da solo lo manda
 // KO: 30%; i due insieme: 15%. Il costo è il suo KO (pesato per la win condition). La simulazione vede solo le risposte
 // previste contro chi era in campo: i cambi finivano in KO quando l'avversario colpiva lo slot con un'altra mossa.
-static s32 SwitchKoRisk(const struct PlanAction *sw)
+// Con il caso peggiore (SwitchWorstOn) il danno è quello del caso peggiore plausibile e *single dice se un solo
+// avversario basta: la coppia non può vincere (vedi FinishJob).
+static s32 SwitchKoRisk(const struct PlanAction *sw, bool32 *single)
 {
     struct PlanState tmp;
     enum BattlerId u = sw->user;
     s32 dmg[2] = {0}, hp, pct, roleW = 100;
     u32 side, i;
+    bool32 worst = SwitchWorstOn();
 
+    *single = FALSE;
     if (sw->kind != PLAN_ACT_SWITCH || sw->partyIdx < 0 || u >= MAX_BATTLERS_COUNT)
         return 0;
     tmp = sJob.base;
@@ -3619,16 +3634,19 @@ static s32 SwitchKoRisk(const struct PlanAction *sw)
             if (tt != TARGET_SELECTED && tt != TARGET_SMART && tt != TARGET_BOTH && tt != TARGET_FOES_AND_ALLY && tt != TARGET_OPPONENT)
                 continue;
             a.target = u;
-            d = DamageOf(&tmp, &a, u) * 108 / 100;
+            d = DamageOf(&tmp, &a, u) * (worst ? CUSTOM_VGC_PLAN_SWITCH_WORST_PCT : 108) / 100;
             if (tt == TARGET_BOTH || tt == TARGET_FOES_AND_ALLY)
                 d = d * 3 / 4;
             dmg[side] = max(dmg[side], d);
         }
     }
     if (dmg[0] >= hp || dmg[1] >= hp)
+    {
         pct = 30;
+        *single = worst;
+    }
     else if (dmg[0] + dmg[1] >= hp)
-        pct = 15;
+        pct = worst ? CUSTOM_VGC_PLAN_SWITCH_DOUBLE_PCT : 15;
     else
         return 0;
     if (!IsOnPlayerSide(u) && (sJob.winconParty & (1u << (u32)sw->partyIdx)))
@@ -3643,6 +3661,7 @@ static void FinishJob(void)
 
     u32 chosenIdx = PLAN_ALL_PAIRS;
     enum BattlerId partner = GetPartnerBattler(sJob.me);
+    u32 switchKo = 0; // bit per coppia: un cambio su chi va KO nel caso peggiore (CUSTOM_VGC_PLAN_SWITCH_WORST)
 
     // Costo del cambio: il simulatore vede il Pokémon che entra al meglio (pieno di PS, con le sue mosse il turno
     // dopo) ma non il tempo perso, né che il giocatore può punire chi entra. Pesa di più al primo turno della
@@ -3654,7 +3673,12 @@ static void FinishJob(void)
         if (sJob.partners[i].kind == PLAN_ACT_SWITCH)
             sJob.ev[i] -= IsBattlersFirstTurn(sJob.partners[i].user) ? VW(switchCost) : VW(switchCost) / 2;
         if (CUSTOM_VGC_PLAN_SWITCH_RISK && MisplayFixesOn())
-            sJob.ev[i] -= SwitchKoRisk(&sJob.ours[i]) + SwitchKoRisk(&sJob.partners[i]);
+        {
+            bool32 s1, s2;
+            sJob.ev[i] -= SwitchKoRisk(&sJob.ours[i], &s1) + SwitchKoRisk(&sJob.partners[i], &s2);
+            if (s1 || s2)
+                switchKo |= 1u << i;
+        }
         // Doppio Protect: un turno regalato all'avversario (setup, velocità, cambi gratis) che i tre turni simulati
         // vedono poco; costa come mezzo cambio.
         if (sJob.ours[i].kind == PLAN_ACT_PROTECT && sJob.partners[i].kind == PLAN_ACT_PROTECT)
@@ -3667,6 +3691,28 @@ static void FinishJob(void)
     for (i = 0; i < sJob.nOurs; i++)
         sJob.ev[i] += AI_VgcBookPairBonus(sJob.me, sJob.ours[i].kind <= PLAN_ACT_PROTECT ? sJob.ours[i].move : MOVE_NONE,
                                           partner, sJob.partners[i].kind <= PLAN_ACT_PROTECT ? sJob.partners[i].move : MOVE_NONE);
+    // Caso peggiore del cambio: una coppia con un cambio su chi una risposta plausibile di un solo avversario manda KO
+    // non batte la migliore coppia senza un cambio così (Protect, attacco, un altro Pokémon dalla panchina). Il KO di chi
+    // entra regala un Pokémon sano; lasciare in campo chi era minacciato costa al più lui, e il cambio dopo il KO è gratis.
+    if (switchKo != 0)
+    {
+        s32 bestSafe = INT32_MIN;
+        for (i = 0; i < sJob.nOurs; i++)
+            if (!(switchKo & (1u << i)) && sJob.ev[i] > bestSafe)
+                bestSafe = sJob.ev[i];
+        if (bestSafe != INT32_MIN)
+        {
+            for (i = 0; i < sJob.nOurs; i++)
+                if ((switchKo & (1u << i)) && sJob.ev[i] >= bestSafe - 1)
+                    sJob.ev[i] = bestSafe - 2;
+        }
+#if TESTING
+        {
+            extern s32 Test_MgbaPrintf(const char *fmt, ...);
+            Test_MgbaPrintf("VGCSWKO b%d coppie=%x migliore_sicura=%d", sJob.me, switchKo, bestSafe);
+        }
+#endif
+    }
     for (i = 0; i < sJob.nOurs; i++)
     {
         if (IsOrigAction(&sJob.ours[i], sJob.origMove, sJob.origTarget)
