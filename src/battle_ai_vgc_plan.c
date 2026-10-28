@@ -1950,6 +1950,31 @@ static bool32 LockedIntoStatus(const struct PlanMon *pm)
     return pm->encored > 1 && pm->lastMove != MOVE_NONE && IsBattleMoveStatus(pm->lastMove);
 }
 
+// Correzioni dei misplay accese per chi pensa. Spente solo nella verifica a specchio (CUSTOM_VGC_MIRROR_FIXES, self-play)
+// per il lato con il bit di verifica-regole.
+static bool32 MisplayFixesOn(void)
+{
+#if TESTING
+    if (CUSTOM_VGC_MIRROR_FIXES)
+        return !((gVgcTraining.rulesLegacy >> GetBattlerSide(sJob.me)) & 1);
+#endif
+    return TRUE;
+}
+
+// Probabilità (0..100) che `b` vada KO al turno dopo per mano di un avversario sveglio (la più alta).
+static u32 MaxKoThreat(const struct PlanState *st, enum BattlerId b)
+{
+    enum BattlerId o;
+    u32 best = 0;
+    for (o = 0; o < gBattlersCount; o++)
+    {
+        if (IsBattlerAlly(b, o) || !st->m[o].alive || st->m[o].asleep || st->m[o].species == SPECIES_NONE)
+            continue;
+        best = max(best, CanKoNextTurn(st, o, b));
+    }
+    return best;
+}
+
 // PS di chi è uscito e di chi è entrato con un cambio (o un pivot) nella simulazione. Il valore della posizione conta
 // solo i PS in campo: uscire con un Pokémon al 30% per far prendere il KO a uno al 100% non costava niente (stesso KO in
 // campo, stesso materiale), e il pianificatore sacrificava i Pokémon sani al posto di quelli già consumati. Chi esce
@@ -2008,7 +2033,7 @@ PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st)
     PLAN_COUNT(sCntEval);
     enum BattlerId b, o;
     s32 v = 0;
-    s32 count[NUM_BATTLE_SIDES] = {0};
+    s32 count[NUM_BATTLE_SIDES] = {0}, raceSum = 0;
     u32 spd[MAX_BATTLERS_COUNT], spdRaw[MAX_BATTLERS_COUNT];
 
     // Velocità effettive una volta sola (servono a ogni confronto sotto); spdRaw senza Tailwind.
@@ -2070,7 +2095,11 @@ PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st)
         {
             s32 off = (pm->atk >= pm->spa) ? pm->stage[PS_ATK] : pm->stage[PS_SPA];
             s32 dfn = (pm->stage[PS_DEF] + pm->stage[PS_SPD]) / 2;
-            v += side * (20 * max(-4, min(4, off)) + 12 * max(-4, min(4, pm->stage[PS_SPE])) + 6 * max(-4, min(4, dfn)));
+            s32 sv = 20 * max(-4, min(4, off)) + 12 * max(-4, min(4, pm->stage[PS_SPE])) + 6 * max(-4, min(4, dfn));
+            // Boost di chi può andare KO al turno dopo: valgono solo se sopravvive (setup sotto un KO in arrivo).
+            if (sv > 0 && MisplayFixesOn())
+                sv = sv * (100 - (s32)MaxKoThreat(st, b)) / 100;
+            v += side * sv;
         }
         else if (pm->canPass && sJob.bench[GetBattlerSide(b)] > 0)
         {
@@ -2092,7 +2121,8 @@ PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st)
                             st->m[b].spd, st->m[b].speed, st->m[b].holdEffect, st->m[b].ability);
     }
 #endif
-    v += BenchSwapValue(st);
+    if (MisplayFixesOn())
+        v += BenchSwapValue(st);
     EVAL_DEBUG("pokemon", v);
     // Materiale: Pokémon utilizzabili per lato (in campo + panchina). Lo stesso KO vale di più quando cambia
     // l'equilibrio (2 contro 1 pesa più di 4 contro 3): la differenza si scala sul totale rimasto.
@@ -2143,12 +2173,17 @@ PLAN_HOT static s32 EvaluateImpl(const struct PlanState *st)
                         if (race < 0)
                             race = (s32)CanKoNextTurn(st, b, o) + (s32)CanKoNextTurn(st, o, b); // 0..200
                         // fino a 3 volte il peso della coppia per turno, quando entrambi si mandano KO
-                        v += (ourFirst ? 1 : -1) * VW(speedPair) * (50 + race) / 100 * 3 / 2;
+                        raceSum += (ourFirst ? 1 : -1) * VW(speedPair) * (50 + race) / 100 * 3 / 2;
                     }
                 }
             }
         }
     }
+    // Tetto alla corsa ai KO dei turni futuri: sommata su 4 coppie e fino a 4 turni, con un Trick Room appena messo
+    // arrivava a ~1100 punti (più di due KO) e passava davanti a un KO sicuro. Vinta tutta, vale al massimo un KO.
+    if (CUSTOM_VGC_EVAL_SPEED_RACE_CAP > 0 && MisplayFixesOn())
+        raceSum = max(-CUSTOM_VGC_EVAL_SPEED_RACE_CAP, min(CUSTOM_VGC_EVAL_SPEED_RACE_CAP, raceSum));
+    v += raceSum;
     // Schermi messi nella simulazione: valgono anche nei turni dopo l'orizzonte (5 turni in tutto, 8 con Light Clay;
     // i 2-3 simulati li vedono solo in parte). Per ogni schermo nuovo, per ogni avversario vivo che attacca con quella
     // categoria, un terzo del danno evitato nei turni rimasti, stimato come una coppia di velocità per turno.
@@ -3362,7 +3397,7 @@ static u32 MissPenalty(const struct PlanState *base, const struct PlanState *hit
     }
     // Danno: un colpo che manda KO solo con un tiro alto. Ramo "colpo alto" pesato per la probabilità del tiro, per
     // entrambi i lati (un nostro KO possibile vale un po', un loro KO possibile costa un po').
-    for (k = 0; k < 4 && CUSTOM_VGC_PLAN_HIGH_ROLL; k++)
+    for (k = 0; k < 4 && CUSTOM_VGC_PLAN_HIGH_ROLL && MisplayFixesOn(); k++)
     {
         u32 chance = HighRollKoChance(base, acts4[k]);
         const struct PlanAction *acts[4];
@@ -3591,6 +3626,7 @@ static void FinishJob(void)
     // ...ma tra coppie di valore identico (azione indifferente nella simulazione: chi la usa va KO prima o subisce Fake
     // Out) vince chi attacca, e prima chi manda KO di sicuro: se la previsione sbaglia, il colpo serve; un setup o un
     // Iron Defense di chi sta per cadere no.
+    if (MisplayFixesOn())
     {
         u32 bestTie = TieBreakScore(&sJob.ours[bestIdx]) + TieBreakScore(&sJob.partners[bestIdx]);
         for (i = 0; i < sJob.nOurs; i++)

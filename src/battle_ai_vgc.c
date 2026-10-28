@@ -15,6 +15,7 @@
 #include "battle_ai_scout.h"
 #include "battle_ai_vgc_graph.h"
 #include "battle_ai_vgc_book.h"
+#include "config/custom.h"
 #include "battle_gimmick.h"
 #include "battle_main.h"
 #include "battle_setup.h"
@@ -1112,6 +1113,9 @@ static s32 AI_VgcDoublesLegacy(enum BattlerId battlerAtk, enum BattlerId battler
 // Self-play (verifica-regole): il lato con il bit in gVgcTraining.rulesLegacy usa le regole di prima di M8.
 bool32 AI_VgcRulesLegacy(enum BattlerId battler)
 {
+    // Verifica a specchio delle correzioni dei misplay: il bit spegne quelle, le regole restano M8 per entrambi.
+    if (CUSTOM_VGC_MIRROR_FIXES)
+        return FALSE;
     return (gVgcTraining.rulesLegacy >> GetBattlerSide(battler)) & 1;
 }
 #endif
