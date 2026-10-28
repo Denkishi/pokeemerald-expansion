@@ -879,7 +879,6 @@ static u32 WeatherFactor(u8 weather, enum Type type)
 
 // Stima "da giocatore" per mosse o Pokémon fuori dalla tabella dei danni dell'IA.
 static s32 EstimateDamageImpl(const struct PlanState *st, const struct PlanMon *atk, const struct PlanMon *def, enum Move move);
-static bool32 IsGroundedInSim(const struct PlanMon *pm);
 // Profilo (solo test): righe di schermo passate dentro la funzione, sommate (VGCPROF).
 // Cache della stima per il lavoro in corso: la chiave contiene tutto ciò che la stima legge (chi, quale mossa,
 // stadi, meteo, scottatura, strumento, abilità). Le stesse coppie attaccante/bersaglio tornano in ogni foglia.
@@ -890,9 +889,7 @@ static s32 EstimateDamage(const struct PlanState *st, const struct PlanMon *atk,
            | ((st->weather & 7u) << 26) | ((u32)atk->burned0 << 29);
     u32 k2 = (((u32)(atk->stage[PS_ATK] + 6) & 15)) | (((u32)(atk->stage[PS_SPA] + 6) & 15) << 4) | (((u32)(def->stage[PS_DEF] + 6) & 15) << 8)
            | (((u32)(def->stage[PS_SPD] + 6) & 15) << 12) | (((u32)def->holdEffect & 0xFF) << 16) | (((u32)atk->holdEffect & 0xFF) << 24);
-    // Abilità (10 bit ciascuna) e i fattori nuovi della stima: Campo Psichico, attaccante con uno stato (Guts, Facade).
-    u32 k3 = ((u32)atk->ability & 0x3FF) | (((u32)def->ability & 0x3FF) << 10) | ((u32)(st->terrain == B_TERRAIN_PSYCHIC) << 20)
-           | ((u32)(atk->burned || atk->paralyzed) << 21) | ((u32)atk->def << 22);
+    u32 k3 = ((u32)atk->ability & 0xFFFF) | ((u32)def->ability << 16);
     struct PlanEstCache *e = &sJob.estCache[(k1 * 2654435761u ^ k2 * 40503u ^ k3 * 97u) % PLAN_EST_CACHE];
     s32 r;
 #if TESTING
@@ -920,27 +917,9 @@ static s32 EstimateDamageImpl(const struct PlanState *st, const struct PlanMon *
     u32 a = physical ? ApplyStage(atk->atk, atk->stage[PS_ATK]) : ApplyStage(atk->spa, atk->stage[PS_SPA]);
     u32 d = physical ? ApplyStage(def->def, def->stage[PS_DEF]) : ApplyStage(def->spd, def->stage[PS_SPD]);
     u32 dmg;
-    bool32 statused = atk->burned || atk->paralyzed
-                   || atk->holdEffect == HOLD_EFFECT_FLAME_ORB || atk->holdEffect == HOLD_EFFECT_TOXIC_ORB;
 
     if (power == 0 || IsBattleMoveStatus(move))
         return 0;
-    // Mosse che usano altre statistiche (Body Press: la Difesa di chi attacca; Foul Play: l'Attacco del bersaglio;
-    // Psyshock & co.: la Difesa del bersaglio). Con l'Attacco di chi la usa Body Press di Garganacl valeva la metà.
-    switch (GetMoveEffect(move))
-    {
-    case EFFECT_BODY_PRESS:
-        a = ApplyStage(atk->def, atk->stage[PS_DEF]);
-        break;
-    case EFFECT_FOUL_PLAY:
-        a = ApplyStage(def->atk, def->stage[PS_ATK]);
-        break;
-    case EFFECT_PSYSHOCK:
-        d = ApplyStage(def->def, def->stage[PS_DEF]);
-        break;
-    default:
-        break;
-    }
     // Potenza variabile delle mosse più comuni in VGC (peso, meteo, PS): con 60 fissi Heavy Slam su Gengar o
     // Eruption a PS pieni erano sottostimate di metà.
     switch (GetMoveEffect(move))
@@ -974,31 +953,11 @@ static s32 EstimateDamageImpl(const struct PlanState *st, const struct PlanMon *
         if (power < 2)
             power = 2; // 1 vuol dire "potenza variabile" qui sotto
         break;
-    case EFFECT_FACADE:
-        if (statused)
-            power *= 2;
-        break;
-    case EFFECT_KNOCK_OFF:
-        power = power * 3 / 2; // in VGC tutti portano uno strumento
-        break;
-    case EFFECT_TERRAIN_BOOST:
-        if (st->terrain != B_TERRAIN_NONE && st->terrain == GetMoveTerrainBoost_Terrain(move) && IsGroundedInSim(atk))
-            power = power * GetMoveTerrainBoost_Percent(move) / 100;
-        break;
     default:
         break;
     }
     if (power == 1)
         power = 60;
-    // Abilità che potenziano l'attacco e che la stima ignorava: Guts con uno stato (Flame Orb), Tough Claws sui colpi a
-    // contatto, Protosynthesis/Quark Drive con Booster Energy (la statistica più alta, qui quella che attacca).
-    if (physical && atk->ability == ABILITY_GUTS && statused)
-        a = a * 3 / 2;
-    if (atk->ability == ABILITY_TOUGH_CLAWS && MoveMakesContact(move))
-        power = power * 13 / 10;
-    if ((atk->ability == ABILITY_PROTOSYNTHESIS || atk->ability == ABILITY_QUARK_DRIVE) && atk->holdEffect == HOLD_EFFECT_BOOSTER_ENERGY
-     && (physical ? atk->atk >= atk->spa : atk->spa >= atk->atk))
-        a = a * 13 / 10;
     if (def->holdEffect == HOLD_EFFECT_ASSAULT_VEST && !physical)
         d = d * 3 / 2;
     if (def->holdEffect == HOLD_EFFECT_EVIOLITE)
@@ -2998,44 +2957,6 @@ static u32 PickFoeActions(u32 side, struct PlanAction *out)
         // Peso: la migliore conta di più; una alternativa molto peggiore per lui resta, ma poco probabile.
         out[outN].weight = max(8, 100 - max(best - score[bi], 0) / 4);
         outN++;
-    }
-    // Il KO sicuro (mossa vista, danno minimo, precisione piena) su uno dei nostri resta sempre tra le risposte: se il
-    // modello a 1 turno lo metteva terzo, nessun ramo lo vedeva e Protect o cambio di chi lo subiva (la win condition)
-    // non valevano niente. Al posto della seconda risposta, prima sulla win condition.
-    if (CUSTOM_VGC_PLAN_FOE_KO_REPLY && MisplayFixesOn() && outN > 0)
-    {
-        u32 koIdx = 0xFF, koW = 0;
-        for (i = 0; i < n; i++)
-        {
-            const struct PlanAction *c = &sJob.foeCand[side][i];
-            enum BattlerId t = c->target;
-            u32 w;
-            if (c->kind != PLAN_ACT_MOVE || c->moveIndex >= MAX_MON_MOVES || IsBattleMoveStatus(c->move)
-             || t >= MAX_BATTLERS_COUNT || IsOnPlayerSide(t) || !IsBattlerAlive(t)
-             || gAiLogicData->simulatedDmg[c->user][t][c->moveIndex].minimum < gBattleMons[t].hp
-             || gAiLogicData->moveAccuracy[c->user][t][c->moveIndex] < 100)
-                continue;
-            w = (sJob.winconParty & (1u << gBattlerPartyIndexes[t])) ? 2 : 1;
-            if (w > koW)
-            {
-                koW = w;
-                koIdx = i;
-            }
-        }
-        if (koIdx != 0xFF)
-        {
-            const struct PlanAction *c = &sJob.foeCand[side][koIdx];
-            bool32 present = FALSE;
-            for (k = 0; k < outN; k++)
-                if (out[k].kind == c->kind && out[k].move == c->move && out[k].target == c->target)
-                    present = TRUE;
-            if (!present)
-            {
-                k = (outN < PLAN_FOE_PER) ? outN++ : PLAN_FOE_PER - 1;
-                out[k] = *c;
-                out[k].weight = 50;
-            }
-        }
     }
     return outN;
 }
