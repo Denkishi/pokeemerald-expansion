@@ -26,6 +26,14 @@ Test (test_veloci.ps1, un file alla volta: con più file in `-Tests` il filtro p
 - `ia-vgc-regole`: filtro + spinta (M8), 6 test rotti in correzione (agente al lavoro con il ciclo push → GitHub).
 - Da fare dopo: merge regole, valore di Tailwind/Trick Room/schermi (7 KNOWN_FAILING), libro dei piani rigenerato con la ROM di GitHub, merge in `master` e push.
 
+## Stato al 28/10, 13:15 (unito in master)
+
+- In `ia-vgc` e `master`: regole M8 (filtro + spinta, fase 4 delle coppie simulate insieme, Disguise, mosse di stato su immuni escluse), After You / Yawn / Encore / Light Clay simulati, sonno oltre l'orizzonte, libro dei piani rigenerato.
+- Test su GitHub: tutti verdi (8 KNOWN_FAILING con motivo: Spore, Hatterene, Aerodactyl, Grimmsnarl, Banette, Scream Tail, Lilligant passa, Altaria passa).
+- Verifica regole M8 a specchio: 48,3% (p=0,22, non significativo), misplay per partita dimezzati. Libro dei piani: 52,7% (IC [50,3; 55,1], p=0,026).
+- Campagna finale 432 partite: misplay certi 423 (prima 486); mossa su immune 65 → 18 (16 = Shadow Sneak di Mimikyu su Lickitung, da indagare: probabile cambio di bersaglio del motore dopo un KO).
+- Aperti: KO garantito non preso 173, win condition 102, cambio su chi va KO 80; valore di un Trick Room appena messo (~1100 punti) da misurare; pesi (bassa priorità); prova in gioco di overlay e fine lotta.
+
 Non funzionano (spenti dietro flag in `custom.h`): rollout alla foglia, scala unica delle risposte, sostituzioni dopo KO nel simulatore.
 
 Regole fisse: livello 50 ovunque; WSL solo per compilare; niente dati nascosti del giocatore; prima la decisione giusta, poi quella veloce (nessun tetto ai fotogrammi).
