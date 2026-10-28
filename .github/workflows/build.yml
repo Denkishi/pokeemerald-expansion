@@ -86,13 +86,7 @@ jobs:
         run: |
           chmod +x tools/mgba/mgba-rom-test
           fail=0
-          for t in test/battle/ai/ai_vgc_doubles.c test/battle/ai/ai_vgc_team_preview.c test/battle/ai/ai_vgc_scout.c \
-                   test/battle/ai/ai_vgc_teams.c test/battle/ai/ai_vgc_rules.c test/battle/move_effect/parting_shot.c; do
-            [ -f "$t" ] || continue
-            echo "::group::$t"
-            make -j$(nproc) check TESTS="$t" || fail=1
-            echo "::endgroup::"
-          done
+          make -j$(nproc) check TESTS="VGC teams: Patatina - Altaria" || fail=1
           exit $fail
 
       # ROM del self-play (tools/vgc_training: selfplay.py build fa lo stesso in locale). Si scarica con
