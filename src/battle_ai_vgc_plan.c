@@ -1986,6 +1986,16 @@ static bool32 FoeVsIdleOn(void)
     return CUSTOM_VGC_PLAN_FOE_VS_IDLE && MisplayFixesOn();
 }
 
+// Storia dei bersagli del giocatore (CUSTOM_VGC_PLAN_FOE_HISTORY); verifica a specchio come FoeVsIdleOn.
+static bool32 FoeHistoryOn(void)
+{
+#if TESTING
+    if (CUSTOM_VGC_MIRROR_FOE_HISTORY)
+        return !((gVgcTraining.rulesLegacy >> GetBattlerSide(sJob.me)) & 1);
+#endif
+    return CUSTOM_VGC_PLAN_FOE_HISTORY && MisplayFixesOn();
+}
+
 // PS di chi è uscito e di chi è entrato con un cambio (o un pivot) nella simulazione. Il valore della posizione conta
 // solo i PS in campo: uscire con un Pokémon al 30% per far prendere il KO a uno al 100% non costava niente (stesso KO in
 // campo, stesso materiale), e il pianificatore sacrificava i Pokémon sani al posto di quelli già consumati. Chi esce
@@ -2957,6 +2967,11 @@ static u32 PickFoeActions(u32 side, struct PlanAction *out)
     // Solo l'ordine: la scala delle altre risposte (e di Protect) resta quella di prima.
     for (i = 0; i < n; i++)
         score[i] += 2 * (s32)Scout_BattlerPlanMoveBonus(sJob.foeCand[side][i].user, sJob.foeCand[side][i].move);
+    // Storia dei bersagli di questa lotta: chi colpisce sempre il più danneggiato o la nostra win condition.
+    if (FoeHistoryOn())
+        for (i = 0; i < n; i++)
+            if (sJob.foeCand[side][i].kind == PLAN_ACT_MOVE && !IsBattleMoveStatus(sJob.foeCand[side][i].move))
+                score[i] += AI_VgcFoeTargetBias(sJob.foeCand[side][i].user, sJob.foeCand[side][i].target);
     while (outN < PLAN_FOE_PER && outN < n)
     {
         u32 bi = 0xFF;

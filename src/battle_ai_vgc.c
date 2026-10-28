@@ -379,6 +379,13 @@ struct VgcBehaviour
 
 static EWRAM_DATA struct VgcBehaviour sVgcMem[PARTY_SIZE * NUM_BATTLE_SIDES] = {0}; // (IA contro IA: si osservano entrambi i lati)
 static EWRAM_DATA u8 sVgcMemCount = 0;
+// Storia dei bersagli del giocatore in questa lotta (solo attacchi visti, per lato di chi attacca): con entrambi i nostri
+// in campo, quante volte ha colpito il più danneggiato dei due e, quando uno solo è la win condition, quante volte lei.
+struct VgcTargetHistory
+{
+    u8 attacks, onWeakest, winChoices, onWincon;
+};
+static EWRAM_DATA struct VgcTargetHistory sVgcTargetHist[NUM_BATTLE_SIDES] = {0};
 static EWRAM_DATA u8 sVgcThreatened = 0;        // bitmask battler del giocatore sotto KO questo turno
 static EWRAM_DATA u8 sVgcLosing = 0;            // bitmask battler del giocatore che perdono il matchup
 static EWRAM_DATA u8 sVgcProtectedLastTurn = 0; // bitmask battler che hanno usato Protect al turno scorso
@@ -404,6 +411,79 @@ void AI_VgcResetMemory(void)
     sVgcInferredScarf = 0;
     sVgcMemCount = 0;
     sVgcThreatened = sVgcLosing = sVgcProtectedLastTurn = sVgcProtectedThisTurn = 0;
+    memset(sVgcTargetHist, 0, sizeof(sVgcTargetHist));
+}
+
+static bool32 VgcIsWinCon(enum BattlerId b)
+{
+    return AI_VgcPlanIsWinCon(AI_TrainerIdOfBattler(b), gBattleMons[b].species);
+}
+
+// Registra il bersaglio di un attacco visto (mossa a bersaglio singolo su un avversario, con il suo compagno in campo).
+static void VgcNoteTarget(enum BattlerId atk, enum Move move)
+{
+    struct VgcTargetHistory *h = &sVgcTargetHist[GetBattlerSide(atk)];
+    enum BattlerId t = gBattleStruct->moveTarget[atk], p;
+    enum MoveTarget tt;
+    u32 pt, pp;
+    bool32 wt, wp;
+
+    if (move == MOVE_NONE || IsBattleMoveStatus(move) || t >= gBattlersCount || IsBattlerAlly(atk, t) || !IsBattlerAlive(t))
+        return;
+    tt = GetBattlerMoveTargetType(atk, move);
+    if (tt != TARGET_SELECTED && tt != TARGET_SMART && tt != TARGET_OPPONENT)
+        return;
+    p = GetPartnerBattler(t);
+    if (!IsBattlerAlive(p))
+        return;
+    pt = gBattleMons[t].hp * 100 / max(gBattleMons[t].maxHP, 1);
+    pp = gBattleMons[p].hp * 100 / max(gBattleMons[p].maxHP, 1);
+    if (h->attacks < 255 && pt != pp)
+    {
+        h->attacks++;
+        if (pt < pp)
+            h->onWeakest++;
+    }
+    wt = VgcIsWinCon(t);
+    wp = VgcIsWinCon(p);
+    if (wt != wp && h->winChoices < 255)
+    {
+        h->winChoices++;
+        if (wt)
+            h->onWincon++;
+    }
+}
+
+// Spinta (in punti del modello del giocatore) per un attacco di `atk` su `t`, dalla storia dei bersagli del suo lato: se
+// colpisce di solito il più danneggiato (o la nostra win condition) e `t` lo è, l'attacco è più probabile; altrimenti
+// meno. Almeno 3 osservazioni; 0 senza storia.
+s32 AI_VgcFoeTargetBias(enum BattlerId atk, enum BattlerId t)
+{
+    const struct VgcTargetHistory *h = &sVgcTargetHist[GetBattlerSide(atk)];
+    enum BattlerId p;
+    s32 bias = 0;
+
+    if (t >= gBattlersCount || IsBattlerAlly(atk, t) || !IsBattlerAlive(t))
+        return 0;
+    p = GetPartnerBattler(t);
+    if (!IsBattlerAlive(p))
+        return 0;
+    if (h->attacks >= 3)
+    {
+        u32 pt = gBattleMons[t].hp * 100 / max(gBattleMons[t].maxHP, 1);
+        u32 pp = gBattleMons[p].hp * 100 / max(gBattleMons[p].maxHP, 1);
+        s32 tend = 2 * 100 * h->onWeakest / h->attacks - 100; // -100..100
+        if (pt != pp)
+            bias += CUSTOM_VGC_PLAN_FOE_HISTORY_W * tend * (pt < pp ? 1 : -1) / 100;
+    }
+    if (h->winChoices >= 3)
+    {
+        bool32 wt = VgcIsWinCon(t), wp = VgcIsWinCon(p);
+        s32 tend = 2 * 100 * h->onWincon / h->winChoices - 100;
+        if (wt != wp)
+            bias += CUSTOM_VGC_PLAN_FOE_HISTORY_W * tend * (wt ? 1 : -1) / 100;
+    }
+    return bias;
 }
 
 static struct VgcBehaviour *VgcFindOrAddBehaviour(enum BattlerId battler)
@@ -519,6 +599,7 @@ void AI_VgcNotePlayerMove(enum BattlerId battler, enum Move move)
         gAiPartyData->mons[GetBattlerSide(battler)][gBattlerPartyIndexes[battler]].heldEffect = HOLD_EFFECT_NONE;
     }
     sVgcPlayerLastMove[battler] = move;
+    VgcNoteTarget(battler, move);
     if (GetMoveEffect(move) != EFFECT_PROTECT)
         return;
     sVgcProtectedThisTurn |= 1u << battler;
@@ -1114,7 +1195,7 @@ static s32 AI_VgcDoublesLegacy(enum BattlerId battlerAtk, enum BattlerId battler
 bool32 AI_VgcRulesLegacy(enum BattlerId battler)
 {
     // Verifica a specchio delle correzioni dei misplay: il bit spegne quelle, le regole restano M8 per entrambi.
-    if (CUSTOM_VGC_MIRROR_FIXES || CUSTOM_VGC_MIRROR_FOE_IDLE)
+    if (CUSTOM_VGC_MIRROR_FIXES || CUSTOM_VGC_MIRROR_FOE_IDLE || CUSTOM_VGC_MIRROR_FOE_HISTORY)
         return FALSE;
     return (gVgcTraining.rulesLegacy >> GetBattlerSide(battler)) & 1;
 }
