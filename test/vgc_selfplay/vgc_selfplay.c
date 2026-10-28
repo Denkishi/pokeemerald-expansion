@@ -946,10 +946,17 @@ static u32 ChoiceMinDmgOn(enum BattlerId b, enum BattlerId def)
 // La coppia manda KO `def` sommando i danni minimi delle due scelte (focus fire).
 static bool32 PairKOs(enum BattlerId b, enum BattlerId p, enum BattlerId def)
 {
+    u32 db, dp;
     if (!IsBattlerAlive(def))
         return FALSE;
-    return ChoiceMinDmgOn(b, def) + ChoiceMinDmgOn(p, def) >= gBattleMons[def].hp
-        && ChoiceMinDmgOn(b, def) > 0 && ChoiceMinDmgOn(p, def) > 0;
+    db = ChoiceMinDmgOn(b, def);
+    dp = ChoiceMinDmgOn(p, def);
+    // Helping Hand del compagno: il danno di chi attacca vale x1,5 (e viceversa).
+    if (sVsp.choice[p].kind == VSP_CHOICE_MOVE && GetMoveEffect(sVsp.choice[p].move) == EFFECT_HELPING_HAND)
+        return db * 3 / 2 >= gBattleMons[def].hp && db > 0;
+    if (sVsp.choice[b].kind == VSP_CHOICE_MOVE && GetMoveEffect(sVsp.choice[b].move) == EFFECT_HELPING_HAND)
+        return dp * 3 / 2 >= gBattleMons[def].hp && dp > 0;
+    return db + dp >= gBattleMons[def].hp && db > 0 && dp > 0;
 }
 
 // Il compagno trae vantaggio dall'essere colpito (combo): abilità che assorbe o si potenzia, Weakness Policy...
@@ -1218,6 +1225,11 @@ static void CheckBattlerChoice(enum BattlerId b)
                 }
             }
             if (koIdx == MAX_MON_MOVES)
+                continue;
+            // Chi attacca va KO prima di muoversi (un avversario chiaramente più veloce ha un KO sicuro su di lui):
+            // il KO non partirebbe, una mossa con priorità sì. Non è un errore certo.
+            if (threatMin && GetBattleMovePriority(b, gAiLogicData->abilities[b], gBattleMons[b].moves[koIdx]) <= 0
+             && ClearlyFaster(threatFoe, b))
                 continue;
             // Coperto anche quando la coppia manda KO l'altro avversario sommando i danni (focus fire).
             covered = ChoiceKOs(b, f) || (pAlive && ChoiceKOs(p, f)) || ChoiceKOs(b, OtherFoe(b, f))
