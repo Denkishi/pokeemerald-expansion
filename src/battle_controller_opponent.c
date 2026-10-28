@@ -435,10 +435,15 @@ static void OpponentHandleTrainerSlideBack(enum BattlerId battler)
 static EWRAM_DATA u16 sThinkFrames = 0;
 static EWRAM_DATA u16 sThinkSpriteId = 0;
 static EWRAM_DATA u8 sThinkSpriteActive = 0;
-static EWRAM_DATA u8 sThinkTextShown = FALSE;
 static EWRAM_DATA u8 sThinkPlayerIdleFrames = 0;
 static EWRAM_DATA u8 sThinkPending = 0; // battler in attesa che il partner finisca di pianificare la coppia
-
+// Sequenza del ritratto: entra da destra, poi il testo, resta almeno CUSTOM_VGC_THINKING_MIN_FRAMES, poi il testo
+// sparisce e il ritratto esce a destra. Una volta partita si completa sempre (niente lampeggi): la lotta aspetta.
+enum { THINK_IDLE, THINK_ENTER, THINK_SHOWN, THINK_EXIT };
+static EWRAM_DATA u8 sThinkState = THINK_IDLE;
+static EWRAM_DATA u8 sThinkExitRequested = FALSE;
+static EWRAM_DATA u16 sThinkAnimFrames = 0;
+static EWRAM_DATA u32 sThinkLastUpdate = 0;
 
 static const u8 sText_Thinking[] = _("{STR_VAR_1} sta pensando...");
 
@@ -453,11 +458,8 @@ static bool32 PlayerSideIsIdle(void)
     return TRUE;
 }
 
-static void ShowThinking(void)
+static void PrintThinkingText(void)
 {
-    if (sThinkTextShown)
-        return;
-    sThinkTextShown = TRUE;
     StringCopy(gStringVar1, GetTrainerNameFromId(TRAINER_BATTLE_PARAM.opponentA));
     StringExpandPlaceholders(gStringVar4, sText_Thinking);
     // Un solo testo alla volta nella finestra dei messaggi: due stampe sovrapposte si mescolano e
@@ -469,40 +471,119 @@ static void ShowThinking(void)
     gBattle_BG0_X = 0;
     gBattle_BG0_Y = 0;
     BattlePutTextOnWindow(gStringVar4, B_WIN_MSG);
-    // In mezzo ai suoi due Pokémon: in doppio stanno a x 152 e 200 (sBattlerCoords), quindi al centro x 176.
+}
+
+static void ClearThinkingText(void)
+{
+    DeactivateSingleTextPrinter(B_WIN_MSG, WINDOW_TEXT_PRINTER);
+    BattlePutTextOnWindow(gText_EmptyString3, B_WIN_MSG);
+}
+
+// Posizione x a `f` fotogrammi su `tot` da `from` a `to`: rallenta all'arrivo (entrata) o parte piano (uscita).
+static s16 ThinkSlideX(s16 from, s16 to, u16 f, u16 tot, bool32 easeOut)
+{
+    s32 t = (tot == 0 || f >= tot) ? 256 : (s32)f * 256 / tot;
+    s32 k = easeOut ? (t * (512 - t)) / 256 : (t * t) / 256; // 0..256
+    return from + (s16)(((s32)(to - from) * k) / 256);
+}
+
+static void ShowThinking(void)
+{
+    if (sThinkState != THINK_IDLE)
+        return;
     // Etichetta della palette: deve essere quella del ritratto (GetTrainerPicTag), perché CreatePicSprite carica
     // la palette con quell'etichetta ma dà allo sprite quella passata. Con un'etichetta inventata lo sprite cercava
     // una palette mai caricata e usciva tutto nero.
     {
         enum TrainerPicID pic = GetTrainerPicFromId(TRAINER_BATTLE_PARAM.opponentA);
-        sThinkSpriteId = CreateTrainerPicSprite(pic, TRUE, 176, 44, 0, GetTrainerPicTag(pic, TRUE));
+        sThinkSpriteId = CreateTrainerPicSprite(pic, TRUE, CUSTOM_VGC_THINKING_START_X, CUSTOM_VGC_THINKING_Y, 0, GetTrainerPicTag(pic, TRUE));
     }
     sThinkSpriteActive = (sThinkSpriteId != 0xFFFF);
     if (sThinkSpriteActive)
     {
-        gSprites[sThinkSpriteId].oam.priority = 0;
-        gSprites[sThinkSpriteId].subpriority = 0;
+        // Come un terzo Pokémon avversario: stessa priorità di BG dei Pokémon in campo (sotto i box dei PS) e
+        // sottopriorità tra quella del sinistro (40) e del destro (50).
+        gSprites[sThinkSpriteId].oam.priority = GetBattlerSpriteBGPriority(GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT));
+        gSprites[sThinkSpriteId].subpriority = 45;
+    }
+    sThinkState = THINK_ENTER;
+    sThinkExitRequested = FALSE;
+    sThinkAnimFrames = 0;
+}
+
+// Un passo dell'animazione per fotogramma (anche se la chiamano i due battler nello stesso fotogramma).
+static void UpdateThinking(void)
+{
+    if (sThinkState == THINK_IDLE || sThinkLastUpdate == gMain.vblankCounter1)
+        return;
+    sThinkLastUpdate = gMain.vblankCounter1;
+    sThinkAnimFrames++;
+    switch (sThinkState)
+    {
+    case THINK_ENTER:
+        if (sThinkSpriteActive)
+            gSprites[sThinkSpriteId].x = ThinkSlideX(CUSTOM_VGC_THINKING_START_X, CUSTOM_VGC_THINKING_X, sThinkAnimFrames,
+                                                     CUSTOM_VGC_THINKING_SLIDE_FRAMES, TRUE);
+        if (sThinkAnimFrames >= CUSTOM_VGC_THINKING_SLIDE_FRAMES)
+        {
+            PrintThinkingText();
+            sThinkState = THINK_SHOWN;
+            sThinkAnimFrames = 0;
+        }
+        break;
+    case THINK_SHOWN:
+        if (sThinkExitRequested && sThinkAnimFrames >= CUSTOM_VGC_THINKING_MIN_FRAMES)
+        {
+            ClearThinkingText();
+            sThinkState = THINK_EXIT;
+            sThinkAnimFrames = 0;
+        }
+        break;
+    case THINK_EXIT:
+        if (sThinkSpriteActive)
+            gSprites[sThinkSpriteId].x = ThinkSlideX(CUSTOM_VGC_THINKING_X, CUSTOM_VGC_THINKING_START_X, sThinkAnimFrames,
+                                                     CUSTOM_VGC_THINKING_SLIDE_FRAMES, FALSE);
+        if (sThinkAnimFrames >= CUSTOM_VGC_THINKING_SLIDE_FRAMES)
+        {
+            if (sThinkSpriteActive)
+            {
+                FreeAndDestroyTrainerPicSprite(sThinkSpriteId);
+                sThinkSpriteActive = FALSE;
+            }
+            sThinkState = THINK_IDLE;
+            sThinkExitRequested = FALSE;
+        }
+        break;
     }
 }
 
-static void HideThinking(void)
+// L'IA ha deciso: aspetta che il ritratto sia uscito prima di completare (la lotta non va avanti a metà animazione).
+static void OpponentWaitThinkingThenComplete(enum BattlerId battler)
 {
-    if (!sThinkTextShown)
+    UpdateThinking();
+    if (sThinkState != THINK_IDLE)
         return;
-    sThinkTextShown = FALSE;
-    if (sThinkSpriteActive)
+    AI_TrySwitchOrUseItem(battler);
+    BtlController_Complete(battler);
+}
+
+static void FinishThinkingChoice(enum BattlerId battler, bool32 hide)
+{
+    if (sThinkState != THINK_IDLE && hide)
     {
-        FreeAndDestroyTrainerPicSprite(sThinkSpriteId);
-        sThinkSpriteActive = FALSE;
+        sThinkExitRequested = TRUE;
+        gBattlerControllerFuncs[battler] = OpponentWaitThinkingThenComplete;
+        return;
     }
-    DeactivateSingleTextPrinter(B_WIN_MSG, WINDOW_TEXT_PRINTER);
-    BattlePutTextOnWindow(gText_EmptyString3, B_WIN_MSG);
+    AI_TrySwitchOrUseItem(battler);
+    BtlController_Complete(battler);
 }
 
 static void OpponentThinkThenChooseAction(enum BattlerId battler)
 {
     bool32 done;
 
+    UpdateThinking();
     AI_SetPerspective(battler); // IA contro IA: pensa il lato di `battler`
 
     // Un solo pianificatore alla volta: se sta lavorando per il partner (che decide la coppia), si aspetta.
@@ -514,9 +595,7 @@ static void OpponentThinkThenChooseAction(enum BattlerId battler)
         sThinkPending &= ~(1u << battler);
         if (!AI_VgcPlanBegin(battler))
         {
-            HideThinking();
-            AI_TrySwitchOrUseItem(battler);
-            BtlController_Complete(battler);
+            FinishThinkingChoice(battler, TRUE);
             return;
         }
     }
@@ -538,11 +617,8 @@ static void OpponentThinkThenChooseAction(enum BattlerId battler)
         return;
     }
     AI_VgcPlanApply();
-    // Se il compagno deve ancora pensare, il ritratto resta (toglierlo e rimetterlo lo faceva lampeggiare).
-    if (!(sThinkPending & ~(1u << battler)))
-        HideThinking();
-    AI_TrySwitchOrUseItem(battler);
-    BtlController_Complete(battler);
+    // Se il compagno deve ancora pensare, il ritratto resta (lo farà uscire lui quando avrà deciso).
+    FinishThinkingChoice(battler, !(sThinkPending & ~(1u << battler)));
 }
 
 static void OpponentHandleChooseAction(enum BattlerId battler)

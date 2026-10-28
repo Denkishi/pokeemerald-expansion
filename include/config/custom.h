@@ -118,6 +118,11 @@
 #define CUSTOM_VGC_EVAL_SASH                20  // Focus Sash intatto a PS pieni
 // Ritratto dell'allenatore + "penso..." quando hai già scelto e l'IA sta ancora calcolando.
 #define CUSTOM_VGC_THINKING_OVERLAY         TRUE
+#define CUSTOM_VGC_THINKING_SLIDE_FRAMES    24      // fotogrammi dell'entrata (da destra) e dell'uscita (verso destra) del ritratto
+#define CUSTOM_VGC_THINKING_MIN_FRAMES      60      // il ritratto con "sta pensando..." resta almeno questi fotogrammi (60 = 1 s)
+#define CUSTOM_VGC_THINKING_X               176     // x del centro del ritratto a fine entrata (tra i Pokemon avversari a 152 e 200)
+#define CUSTOM_VGC_THINKING_Y               44      // y del centro del ritratto
+#define CUSTOM_VGC_THINKING_START_X         272     // x di partenza e di uscita, fuori schermo a destra (240 + 32)
 // L'IA dedicata ai doppi si attiva per allenatore con il flag "Vgc Doubles" nella riga AI di
 // src/data/trainers.party (vedi docs/vgc_trainers.md). Niente da configurare qui: il flag è
 // AI_FLAG_VGC_DOUBLES e il codice è in src/battle_ai_vgc.c (mosse) e src/battle_ai_switch.c (cambi).

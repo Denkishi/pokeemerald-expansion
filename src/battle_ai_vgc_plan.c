@@ -2063,6 +2063,7 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
     enum BattlerId foeL = GetBattlerLeftFoe(b), foeR = GetBattlerRightFoe(b);
     enum BattlerId targets[2] = { foeL, foeR };
     enum Move known[MAX_MON_MOVES];
+    u8 knownSlot[MAX_MON_MOVES]; // slot vero della mossa (danni ed efficacia dell'IA sono per slot)
     u32 nKnown = 0;
     bool32 hasProtect = FALSE;
     u8 seenRole[SCOUT_ROLE_COUNT] = {0};
@@ -2078,7 +2079,10 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
             if (moves[i] == MOVE_NONE || moves[i] == MOVE_UNAVAILABLE)
                 continue;
             if (!isOurs || gBattleMons[b].pp[i] > 0)
+            {
+                knownSlot[nKnown] = i;
                 known[nKnown++] = moves[i];
+            }
         }
     }
     else if (isOurs)
@@ -2088,7 +2092,10 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
         {
             enum Move m = GetMonData(mon, MON_DATA_MOVE1 + i);
             if (m != MOVE_NONE)
+            {
+                knownSlot[nKnown] = i;
                 known[nKnown++] = m;
+            }
         }
     }
 
@@ -2096,7 +2103,9 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
     {
         enum Move m = known[i];
         enum BattleMoveEffects eff = GetMoveEffect(m);
-        u8 idx = (bm->partyIdx < 0) ? i : 0xFF;
+        // Slot vero, non la posizione nella lista: con una sola mossa rivelata fuori dal primo slot (o una nostra a
+        // 0 PP saltata) danni ed efficacia venivano letti dallo slot sbagliato.
+        u8 idx = (bm->partyIdx < 0) ? knownSlot[i] : 0xFF;
         u32 r;
 
         for (r = 0; r < SCOUT_ROLE_COUNT; r++)
