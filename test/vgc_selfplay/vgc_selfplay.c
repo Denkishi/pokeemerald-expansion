@@ -1010,6 +1010,10 @@ static void CheckBattlerChoice(enum BattlerId b)
         if (MoveUsable(b, i) && IsProtectMove(gBattleMons[b].moves[i]))
             info->couldProtect = !(prev->turn + 1 == sVsp.turn && prev->kind == VSP_CHOICE_MOVE && IsProtectMove(prev->move) && prev->partyIdx == gBattlerPartyIndexes[b]);
 
+    // Scelte forzate (Encore) o fatte da addormentato: non sono decisioni dell'IA, niente misplay su mossa.
+    if (isMove && (gBattleMons[b].volatiles.encoredMove != MOVE_NONE || (gBattleMons[b].status1 & STATUS1_SLEEP)))
+        isMove = FALSE;
+
     if (isMove)
     {
         // 1. Protect consecutivo.
