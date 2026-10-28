@@ -189,13 +189,23 @@ Branch di lavoro: `ia-vgc-meta`. Fonte dati e rigenerazione: piano, sezione "M1 
     `rulesLegacy` per lato nei parametri del self-play), comando `training.ps1 verifica-regole -- --seeds 3 --parallel 10`.
   - Test: `test/battle/ai/ai_vgc_rules.c` (21 test, squadre vere Lv50; set spostati in `ai_vgc_sets.h`). Il controllo
     "pari punteggio" del test runner è saltato per AI_FLAG_VGC_DOUBLES (decide il pianificatore).
-  - Stato test (filtro "VGC"): 82 PASS, 7 KNOWN_FAILING, 3 FAIL (prima 64/7/0). Da fare:
-    1. `ai_vgc_rules.c` "no Protect twice": TURN 2 incompleto (Dugtrio va KO prima di agire: cambiare le mosse del giocatore);
-    2. regressioni `ai_vgc_teams.c`: Carletto Ludicolo Fake Out turno 1 (Energy Ball) e Tony Charizard Heat Wave
-       (Protect): l'azione delle regole, ora senza bonus, è anche il riferimento del compagno (fase 2) e del modello del
-       giocatore (fase 3) del pianificatore; valutare un riferimento migliore (es. la migliore candidata a 1 turno);
-    3. campagna a specchio 432 coppie (`verifica-regole`, --parallel 10), ROM normale, commit finale e inventario.
-- 🔧 Regole ridotte a filtro di candidate, ogni regola con un test — in corso sul branch `ia-vgc-regole` (WIP, da verificare)
+  - Regressioni chiuse (28/10, CI run 40673139947: test-vgc verde, 115 PASS, 7 KNOWN_FAILING, 0 FAIL):
+    - pianificatore, **fase 4**: le coppie (nostra azione, azione del partner) rimaste dopo `TrimCands` si simulano
+      INSIEME a 1 turno contro le risposte più probabili (stessi costi e spinte di `FinishJob`) e quel valore ordina le
+      coppie da simulare per intero. Prima la stima era la somma dei valori singoli contro un riferimento del compagno:
+      senza i bonus delle regole restavano fuori Eruption + Giga Drain su Great Tusk (Torkoal) ed Earthquake +
+      Thunderbolt su Arcanine (Dugtrio-Alola). Tolta `PairSynergy`;
+    - simulazione: **Disguise** (il primo colpo costa 1/8 dei PS): Mimikyu andava KO al turno 1 e Trick Room perdeva;
+    - modello del giocatore (fase 3): non mette in conto le nostre mosse di stato sui suoi Pokémon (con Taunt sul
+      setter come azione delle regole il suo Trick Room non veniva previsto e Taunt non serviva);
+    - `SimStatusImmune` in `BuildActions` (turno 2, modello del giocatore): niente Spore su un Erba, Will-O-Wisp su un
+      Fuoco & co. con i tipi in lotta (campagna ia-vgc: 65 mosse di stato su immuni; il filtro copre già il turno 1);
+    - spinta **Fake Out al primo turno** +25 (il tentennamento annulla anche le azioni non previste dalla simulazione);
+    - test: Belly Drum con HP(50) (la Sitrus all'entrata portava 100 PS sopra metà: il filtro era giusto), "no Protect
+      twice" e "no second Trick Room" senza panchina del giocatore (KO = SEND_OUT non scritto), nuovi test "no
+      Will-O-Wisp into two Fire types" e spinta Fake Out; tolti i KNOWN_FAILING di Hariyama Fake Out e Altaria Tailwind.
+  - Da fare: campagna a specchio 432 coppie (`verifica-regole`, --parallel 10), ROM normale, commit finale e inventario.
+- 🔧 Regole ridotte a filtro di candidate, ogni regola con un test — branch `ia-vgc-regole`: test verdi, manca la campagna a specchio
 
 ## Test di scenario con le squadre vere (richiesta del 26/10)
 - ✅ **Tutte le 144 combinazioni** squadra VGC contro squadra VGC (12 × 12, set completi da `trainers.party`), IA contro IA:
