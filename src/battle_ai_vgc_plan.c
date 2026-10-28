@@ -4184,10 +4184,11 @@ bool32 AI_VgcPlanStep(void)
                 RunTurn(&st, acts, 4);
                 sJob.foeVal[side][idx] = Evaluate(&st);
                 budget--;
-                // Il giocatore non sa cosa faremo: la sua azione vale anche contro di noi fermi (media dei due casi).
+                // Il giocatore non sa cosa faremo: un suo attacco vale anche contro di noi fermi (media dei due casi).
                 // Contro la sola azione delle regole un attacco su chi le regole davano KO prima (o in Protect) non
                 // valeva niente e la minaccia sulla win condition spariva dalle risposte previste.
-                if (CUSTOM_VGC_PLAN_FOE_VS_IDLE && MisplayFixesOn())
+                if (CUSTOM_VGC_PLAN_FOE_VS_IDLE && MisplayFixesOn() && sJob.foeCand[side][idx].kind == PLAN_ACT_MOVE
+                 && !IsBattleMoveStatus(sJob.foeCand[side][idx].move))
                 {
                     struct PlanAction idleA = ours, idleB = partner;
                     idleA.kind = PLAN_ACT_NONE;
