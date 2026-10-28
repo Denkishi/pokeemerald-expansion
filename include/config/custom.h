@@ -121,7 +121,7 @@
 #define CUSTOM_VGC_MIRROR_FIXES             FALSE // solo self-play: le correzioni dei misplay (PS in panchina, colpo alto, spareggio, tetto alla corsa) spente per il lato col bit di verifica-regole, regole M8 per tutti
 #define CUSTOM_VGC_PLAN_SWITCH_RISK         TRUE // cambio volontario: costo del KO di chi entra se una risposta plausibile degli avversari sul suo slot lo manda KO
 #define CUSTOM_VGC_MIRROR_FOE_IDLE          FALSE // solo self-play: CUSTOM_VGC_PLAN_FOE_VS_IDLE acceso per il lato senza il bit di verifica-regole, spento per l'altro (regole M8 per tutti)
-#define CUSTOM_VGC_PLAN_FOE_HISTORY         FALSE // modello del giocatore: i bersagli che ha scelto finora (il più danneggiato, la nostra win condition) spingono le sue risposte previste. 28/10: campagna 286 -> 258, specchio 1726 partite 50,3% (IC95 [49,1; 51,5], p=0,60): spento
+#define CUSTOM_VGC_PLAN_FOE_HISTORY         TRUE  // modello del giocatore: i bersagli che ha scelto finora (il più danneggiato, la nostra win condition) spingono le sue risposte previste. 28/10: campagna 286 -> 258, specchio 1726 partite 50,3% (IC95 [49,1; 51,5], p=0,60): acceso (misplay giù in tutte le categorie, vittorie invariate)
 #define CUSTOM_VGC_PLAN_FOE_THREAT_FOCUS    0     // modello del giocatore: spinta agli attacchi sul nostro Pokémon più pericoloso per lui (0 = spento). Con 40 (28/10): rompe il test Mario - Hariyama Fake Out su Whimsicott
 #define CUSTOM_VGC_PLAN_FOE_HISTORY_W       60    // spinta massima (punti del modello del giocatore) della storia dei bersagli
 #define CUSTOM_VGC_MIRROR_FOE_HISTORY       FALSE // solo self-play: storia dei bersagli accesa per il lato senza il bit di verifica-regole, spenta per l'altro
