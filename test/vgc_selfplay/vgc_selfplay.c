@@ -345,15 +345,6 @@ static bool32 OrderHas(const u8 *order, u32 n, u32 slot)
     return FALSE;
 }
 
-static bool32 MonHasMoveEffect(struct Pokemon *mon, enum BattleMoveEffects effect)
-{
-    u32 i;
-    for (i = 0; i < MAX_MON_MOVES; i++)
-        if (GetMoveEffect(GetMonData(mon, MON_DATA_MOVE1 + i)) == effect)
-            return TRUE;
-    return FALSE;
-}
-
 static bool32 MonIsType(struct Pokemon *mon, enum Type type)
 {
     u32 species = GetMonData(mon, MON_DATA_SPECIES);
