@@ -18,6 +18,14 @@ Stato dei branch (nessun push, `master` intatto):
 
 Test (test_veloci.ps1, un file alla volta: con più file in `-Tests` il filtro per nome file non trova niente): doubles 20 PASS + 1 KNOWN_FAILING, team_preview 1, scout 14, teams 29 PASS + 7 KNOWN_FAILING (Slither Wing: il giocatore porta solo i due in campo, il KO di Rillaboom chiedeva un cambio).
 
+## Stato al 28/10, 12:00
+
+- **Compilazione e test su GitHub** (in locale le build WSL sono lentissime col disco carico): ogni push su `ia-vgc*` compila la ROM (artifact `pokeemerald-rom`), esegue i test VGC (`test-vgc`) e produce la ROM del self-play (artifact `selfplay-rom`: `gh run download <id> -n selfplay-rom` → `tools/vgc_training/work/selfplay.gba`).
+- `ia-vgc` (276fb95272): test su GitHub tutti verdi (9 KNOWN_FAILING). Dentro: slot vero delle mosse note, IA azzerata a ogni lotta (test stabili, Ludicolo passa), overlay "penso..." come terzo Pokémon, sonno valutato oltre l'orizzonte, contesto squadra, Parting Shot, velocità incerte (Dugtrio).
+- Campagna 432 partite (ROM di GitHub, 28/10): G 204 / A 224, misplay certi 486 (KO garantito non preso 160, win condition 111, cambio su chi va KO 88, mossa su immune 65 = stato su immuni: Spore su Erba, Will-O-Wisp su Fuoco → li toglie il filtro di `ia-vgc-regole`).
+- `ia-vgc-regole`: filtro + spinta (M8), 6 test rotti in correzione (agente al lavoro con il ciclo push → GitHub).
+- Da fare dopo: merge regole, valore di Tailwind/Trick Room/schermi (7 KNOWN_FAILING), libro dei piani rigenerato con la ROM di GitHub, merge in `master` e push.
+
 Non funzionano (spenti dietro flag in `custom.h`): rollout alla foglia, scala unica delle risposte, sostituzioni dopo KO nel simulatore.
 
 Regole fisse: livello 50 ovunque; WSL solo per compilare; niente dati nascosti del giocatore; prima la decisione giusta, poi quella veloce (nessun tetto ai fotogrammi).
