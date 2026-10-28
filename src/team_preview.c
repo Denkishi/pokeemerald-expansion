@@ -2200,9 +2200,20 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                     // penalizzanti, meteo, mosse ad area sul compagno).
                     s += GraphLeadScore(enemy, enemySlots[ea], enemySlots[eb]);
                     // Supporto da turno 1 (schermi) portato ma lasciato in panchina: quasi inutile (prova in gioco:
-                    // Grimmsnarl portato come quarto).
+                    // Grimmsnarl portato come quarto). Dondozo in lead senza il Tatsugiri (Commander) portato: la combo
+                    // è il motivo per cui c'è, da solo vale poco (prova in gioco: Mario Lett, Sinistcha + Dondozo).
                     {
                         u32 cb;
+                        struct Pokemon *la = &enemy[enemySlots[ea]], *lb = &enemy[enemySlots[eb]];
+                        bool32 dozoA = AI_VgcSameSpecies(SPECIES_DONDOZO, GetMonData(la, MON_DATA_SPECIES));
+                        bool32 dozoB = leadCount == 2 && AI_VgcSameSpecies(SPECIES_DONDOZO, GetMonData(lb, MON_DATA_SPECIES));
+                        bool32 cmdLead = GetMonAbility(la) == ABILITY_COMMANDER || (leadCount == 2 && GetMonAbility(lb) == ABILITY_COMMANDER);
+                        bool32 cmdBrought = FALSE;
+                        for (cb = 0; cb < nChosen; cb++)
+                            if (GetMonAbility(&enemy[enemySlots[chosen[cb]]]) == ABILITY_COMMANDER)
+                                cmdBrought = TRUE;
+                        if ((dozoA || dozoB) && cmdBrought && !cmdLead)
+                            s -= 3000;
                         for (cb = 0; cb < nChosen; cb++)
                             if (chosen[cb] != ea && (leadCount < 2 || chosen[cb] != eb)
                              && MonIsLeadOnlySupport(&enemy[enemySlots[chosen[cb]]]))
