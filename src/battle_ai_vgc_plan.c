@@ -3603,8 +3603,8 @@ static bool32 SwitchWorstOn(void)
 // del giocatore, non solo le due previste), dirette sul suo slot, con il tiro alto. Un avversario che da solo lo manda
 // KO: 30%; i due insieme: 15%. Il costo è il suo KO (pesato per la win condition). La simulazione vede solo le risposte
 // previste contro chi era in campo: i cambi finivano in KO quando l'avversario colpiva lo slot con un'altra mossa.
-// Con il caso peggiore (SwitchWorstOn) il danno è quello del caso peggiore plausibile e *single dice se un solo
-// avversario basta: la coppia non può vincere (vedi FinishJob).
+// Con il caso peggiore (SwitchWorstOn) il danno è quello del caso peggiore plausibile; se un solo avversario basta il
+// costo è il KO intero e *single dice se la coppia non può vincere (chi esce ha pochi PS, vedi FinishJob).
 static s32 SwitchKoRisk(const struct PlanAction *sw, bool32 *single)
 {
     struct PlanState tmp;
@@ -3642,8 +3642,11 @@ static s32 SwitchKoRisk(const struct PlanAction *sw, bool32 *single)
     }
     if (dmg[0] >= hp || dmg[1] >= hp)
     {
-        pct = 30;
-        *single = worst;
+        // Caso peggiore: costa il KO intero; e se chi esce vale meno (pochi PS), il cambio regala un Pokémon sano per
+        // salvarne uno quasi finito: non vince mai.
+        const struct PlanMon *out = &sJob.base.m[u];
+        pct = worst ? CUSTOM_VGC_PLAN_SWITCH_WORST_KO_PCT : 30;
+        *single = worst && out->hp * 100 <= out->maxHp * CUSTOM_VGC_PLAN_SWITCH_WORST_CAP_HP;
     }
     else if (dmg[0] + dmg[1] >= hp)
         pct = worst ? CUSTOM_VGC_PLAN_SWITCH_DOUBLE_PCT : 15;

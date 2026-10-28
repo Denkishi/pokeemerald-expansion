@@ -123,8 +123,10 @@
 #define CUSTOM_VGC_MIRROR_FOE_IDLE          FALSE // solo self-play: CUSTOM_VGC_PLAN_FOE_VS_IDLE acceso per il lato senza il bit di verifica-regole, spento per l'altro (regole M8 per tutti)
 #define CUSTOM_VGC_PLAN_FOE_VS_IDLE         FALSE // modello del giocatore: le sue mosse valutate anche contro di noi fermi (media). Provato il 28/10: misplay 303 -> 285 ma rompe il test Altaria Tailwind; a specchio 1727 partite 50,7% (IC95 [48,9; 52,5], p=0,47): spento
 // Cambi su chi va KO all'entrata (branch ia-vgc-cambi).
-#define CUSTOM_VGC_PLAN_SWITCH_WORST        TRUE  // cambio volontario contro il caso peggiore plausibile: se una risposta plausibile di UN avversario (tra tutte le candidate del modello, sullo slot di chi entra, danno x CUSTOM_VGC_PLAN_SWITCH_WORST_PCT) manda KO chi entra, la coppia non può battere la migliore coppia senza un cambio così
+#define CUSTOM_VGC_PLAN_SWITCH_WORST        TRUE  // cambio volontario contro il caso peggiore plausibile: se una risposta plausibile di UN avversario (tra tutte le candidate del modello, sullo slot di chi entra, danno x CUSTOM_VGC_PLAN_SWITCH_WORST_PCT) manda KO chi entra, costa il KO intero (vedi sotto)
 #define CUSTOM_VGC_PLAN_SWITCH_WORST_PCT    117   // danno del caso peggiore in % della stima media (tiro alto ~108% + incertezza su statistiche e strumento del giocatore)
+#define CUSTOM_VGC_PLAN_SWITCH_WORST_KO_PCT 100   // con il caso peggiore acceso: costo (% del KO di chi entra) se basta un solo avversario (prima 30%)
+#define CUSTOM_VGC_PLAN_SWITCH_WORST_CAP_HP 40    // ...e se chi esce ha al più questa % di PS, la coppia non batte la migliore coppia senza un cambio così
 #define CUSTOM_VGC_PLAN_SWITCH_DOUBLE_PCT   50    // con il caso peggiore acceso: costo (% del KO) se servono entrambi gli avversari per il KO di chi entra (prima 15%)
 #define CUSTOM_VGC_MIRROR_SWITCH_WORST      TRUE  // solo self-play: CUSTOM_VGC_PLAN_SWITCH_WORST acceso per il lato senza il bit di verifica-regole, spento per l'altro (regole M8 per tutti)
 #define CUSTOM_VGC_PLAN_HIGH_ROLL           TRUE // ramo "colpo alto": un colpo che manda KO solo con un tiro alto (sopra la mediana) pesa per la sua probabilità
