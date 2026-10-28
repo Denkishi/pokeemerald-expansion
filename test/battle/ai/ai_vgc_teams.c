@@ -458,7 +458,7 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Mario - rain Golduck uses Hydro Pump on the Fi
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Enzo - Aerodactyl sets Tailwind for Rillaboom against Tony")
 {
-    KNOWN_FAILING; // Rock Slide + Fake Out su Roaring Moon (628) batte Tailwind + Fake Out su Charizard (496): Mega Aerodactyl è
+    // KNOWN_FAILING; // Rock Slide + Fake Out su Roaring Moon (628) batte Tailwind + Fake Out su Charizard (496): Mega Aerodactyl è
                    // già il più veloce, Rock Slide manda KO Charizard Y (4x) prima del suo Heat Wave (che manderebbe KO Rillaboom)
                    // e Fake Out ferma il Tailwind di Roaring Moon. Scelta difendibile (il rischio è il Protect di Charizard).
     // Roaring Moon e Charizard superano Rillaboom (150): Tailwind (lead del piano Aerodactyl + Rillaboom) lo
