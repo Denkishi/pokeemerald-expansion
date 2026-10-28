@@ -320,3 +320,42 @@ Branch `ia-vgc-m9` (27/10). Guida e numeri: [training.md](training.md#allenament
 - ❌ Seconda prova (27/10 sera): scala unica con costo del tempo più alto (Protect = un cambio, cambio = 1,5) e rollout più leggero (2 turni, peso 1/3): 4 test rotti (Slaking, Arcanine Extreme Speed, mossa precisa, Savarotto). Restano spenti; il codice delle due varianti è in battle_ai_vgc_plan.c dietro i flag
 - ✅ Merge di `ia-vgc-m9` (libro dei piani validato) in ia-vgc: 64 PASS / 7 KNOWN_FAILING / 0 FAIL, campagna 373 partite con misplay (rumore come prima)
 - ➡️ Assert savedAttackerCount (Parting Shot rimbalzato da Magic Bounce, Chatot su Hatterene): diagnosi passata all'agente `ia-vgc-bug` — Magic Bounce salva l'attaccante (battle_move_resolution.c:3962), chi rimbalza esce con BattleScript_PartingShotEscape e il ripristino in MoveEndClearBits (5190) non arriva; nel gioco senza assert il contatore a 4 bit cresce e scrive fuori da savedBattlerAttacker
+
+## Misplay rimasti (28/10, branch `ia-vgc-misplay`)
+Base: `ia-vgc` 1e15bb49c2 (checker con "mossa su immune" corretto), campagna 432 partite rifatta con la stessa ROM: **404 misplay certi** (la stessa ROM ridà quasi gli stessi numeri: 423 → 404 è tutto il checker su IMMUNE 18 → 0).
+
+Cause trovate (log VGCPLAN/VGCLINE/VGCFOE delle campagne, script in scratchpad):
+- **KO garantito non preso (173)**: in 81 casi un avversario va KO comunque nello stesso turno — 50 sono scambi (la coppia manda KO l'*altro* avversario con danno combinato, Helping Hand o Fake Out + attacco: il checker guarda solo la mossa singola) e 31 sul bersaglio stesso. Negli altri la coppia KO è sempre simulata (171/173) e perde per letture (Fake Out previsto su chi attacca, Protect/cambio del bersaglio, Rage Powder) o perché il KO dell'altro avversario vale di più (Copperajah contro Indeedee).
+- **Win condition persa (102)**: 45 casi in cui il pianificatore *sa* che va KO ma Protect/cambio costano un altro Pokémon (Expanding Force ad area, cambio che fa morire il compagno); il resto è previsione degli avversari (doppio attacco sulla win condition non previsto, Choice Scarf non ancora dedotta). Il checker non guarda l'ordine di velocità: un KO "prevedibile" da chi si muove dopo il nostro KO non è una minaccia.
+- **Cambio su chi va KO (80)**: 16-20 sacrifici voluti (il Pokémon consumato esce, quello sano prende il colpo: la valutazione contava solo i PS in campo, i PS portati in panchina valevano zero), ~25 Pokémon lasciati a pochi PS dalla mediana del danno (nessun ramo "tiro alto"), il resto previsioni sbagliate dei bersagli.
+- **Setup con KO in arrivo (30)**: Pokémon già condannati (azioni a pari valore, vinceva la prima) o boost che valevano pieni anche su chi va KO al turno dopo.
+- **Protect consecutivo (16)**: quasi tutti falsi positivi del checker — Protect forzato da Encore (Chatot), Protect precedente fallito, Protect scelto da addormentato.
+- **Trick Room appena messo**: misurato sui log (VGCCAND, valori a 1 turno): TR vale 700-1400 punti più di un attacco (fino a ~1600 di escursione: 4 coppie × 3-4 turni × corsa ai KO). Con un KO a ~450, TR valeva 2-3 KO: 49 casi dubbi "Trick Room invece di un KO sicuro".
+
+Correzioni (src/battle_ai_vgc_plan.c, interruttori in custom.h):
+- ✅ PS in panchina (`CUSTOM_VGC_EVAL_BENCH_HP_PCT`): chi esce con un cambio/pivot porta i suoi PS, chi entra lascia i suoi (con il peso della win condition).
+- ✅ Ramo "colpo alto" (`CUSTOM_VGC_PLAN_HIGH_ROLL`) simmetrico al "colpo basso": un KO possibile solo con un tiro sopra la mediana pesa per la sua probabilità, per entrambi i lati.
+- ✅ Spareggio tra coppie di valore identico: vince l'attacco, prima il KO sicuro.
+- ✅ Tetto alla corsa ai KO dei turni futuri (`CUSTOM_VGC_EVAL_SPEED_RACE_CAP` = 200, un KO).
+- ✅ Boost scontati per la probabilità di andare KO al turno dopo.
+- ✅ `CUSTOM_VGC_MIRROR_FIXES` (spento): spegne le correzioni per il lato col bit di verifica-regole, per il confronto a specchio.
+
+Risultati (432 partite, misplay certi):
+
+| Categoria | Base | Lotto 1 (PS panchina, colpo alto, spareggio) | Lotto 2 (+ tetto corsa, boost) |
+|---|---|---|---|
+| KO garantito non preso | 173 | 169 | 153 |
+| Win condition persa | 101 | 102 | 91 |
+| Cambio su chi va KO | 80 | 76 | 81 |
+| Setup con KO in arrivo | 30 | 34 | 30 |
+| Protect consecutivo | 16 | 21 | 17 |
+| Bersaglio già KO | 4 | 2 | 3 |
+| Altri (Fake Out tardivo = Encore, velocità, cambi) | 0 | 2 | 3 |
+| **Totale** | **404** | **406** | **378** |
+| Dubbi | 1525 | 1500 | 1395 (KO non preso per supporto 769 → 681) |
+
+Test su GitHub: 116 PASS / 6 KNOWN_FAILING a ogni lotto (come la base).
+
+Falsi positivi del checker da valutare (owner: coordinatore): KO non preso quando la coppia manda KO l'altro avversario (danno combinato/Helping Hand) o quando chi attacca subisce Fake Out; Protect consecutivo con Encore, Protect precedente fallito o chi dorme; Fake Out tardivo sotto Encore; minaccia di KO "prevedibile" senza guardare chi si muove prima.
+
+Verifica a specchio (ROM con `CUSTOM_VGC_MIRROR_FIXES` acceso, `verifica-regole`, 864 partite, correzioni accese contro spente sugli stessi semi): **51,0% di vittorie, IC95 [48,4; 53,7], p = 0,44** — non peggiora (miglioramento non dimostrato). Il report `report/verifica_regole.md` è di questa prova (correzioni dei misplay, non regole M8). Report `riepilogo.md`: campagna del lotto 2.
