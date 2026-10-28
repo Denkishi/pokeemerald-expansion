@@ -158,6 +158,7 @@ struct PlanMon
     s8 stage0[PS_COUNT];    // stadi all'inizio (già compresi in velocità e danni della tabella dell'IA)
     u8 canAttack:1;         // ha mosse d'attacco (i boost offensivi servono a qualcosa)
     u8 canPass:1;           // ha Baton Pass (i boost valgono per chi li riceve)
+    u8 disguise:1;          // Disguise intatto (Mimikyu): il primo colpo toglie solo 1/8 dei PS
 };
 
 struct PlanState
@@ -219,6 +220,13 @@ struct PlanJob
     struct PlanAction foeCand[2][PLAN_FOE_CAND];
     s32 foeVal[2][PLAN_FOE_CAND];
     u8 nFoeCand[2], pmSide, pmIdx;
+    // Coppie a 1 turno (fase 4): le azioni rimaste dei due lati (TrimCands), simulate INSIEME contro le risposte più
+    // probabili. Ordinano le coppie da simulare per intero: la somma dei valori singoli (ognuno contro un solo
+    // riferimento del compagno) non vedeva le coppie che funzionano solo insieme (Eruption + Giga Drain su chi la
+    // minaccia, Earthquake + Thunderbolt sullo stesso bersaglio).
+    struct PlanAction trim[2][PLAN_MAX_OURS];
+    s32 pairVal[PLAN_MAX_OURS][PLAN_MAX_OURS];
+    u8 nTrim[2], pi, pj;
     // livello 1
     u8 i, a, b, phase;
     s32 sum, wsum, worst;
@@ -480,6 +488,7 @@ static void LoadFieldMon(struct PlanMon *pm, enum BattlerId b)
     memcpy(pm->stage0, pm->stage, sizeof(pm->stage));
     pm->canAttack = TRUE;
     pm->canPass = FALSE;
+    pm->disguise = pm->ability == ABILITY_DISGUISE && IsMimikyuDisguised(b); // forma visibile a entrambi
     if (!IsOnPlayerSide(b))
     {
         u32 i;
@@ -609,6 +618,9 @@ static void LoadPartyMon(struct PlanState *st, enum BattlerId b, u32 partyIdx)
     memset(pm->stage0, 0, sizeof(pm->stage0));
     pm->canAttack = TRUE;
     pm->canPass = FALSE;
+    // Chi entra dalla panchina ha il Disguise intatto (la forma Busted torna normale col cambio).
+    pm->disguise = pm->ability == ABILITY_DISGUISE
+                && (species == SPECIES_MIMIKYU_DISGUISED || species == SPECIES_MIMIKYU_TOTEM_DISGUISED);
     if (!IsOnPlayerSide(b))
     {
         u32 i;
@@ -1589,6 +1601,16 @@ static void ApplyActionImpl(struct PlanState *st, const struct PlanAction *a)
                 tm->flinched = TRUE;
             if (a->move == MOVE_ICY_WIND || a->move == MOVE_ELECTROWEB || a->move == MOVE_BULLDOZE)
                 tm->stage[PS_SPE] = max(-6, tm->stage[PS_SPE] - 1);
+            // Disguise: il primo colpo rompe il travestimento e costa solo 1/8 dei PS (Gen 8+), qualunque fosse il
+            // danno. Senza, Mimikyu andava KO al turno 1 nella simulazione e Trick Room sembrava una perdita.
+            if (tm->disguise && tm->ability == ABILITY_DISGUISE && um->ability != ABILITY_MOLD_BREAKER
+             && um->ability != ABILITY_TERAVOLT && um->ability != ABILITY_TURBOBLAZE)
+            {
+                tm->disguise = FALSE;
+                dmg = (GetConfig(B_DISGUISE_HP_LOSS) >= GEN_8) ? max(tm->maxHp / 8, 1) : 0;
+                if (dmg == 0)
+                    continue;
+            }
             TakeDamage(tm, dmg);
         }
         if (effect == EFFECT_FINAL_GAMBIT)
@@ -2739,31 +2761,6 @@ static bool32 IsPairIllegal(const struct PlanAction *x, const struct PlanAction 
     return FALSE;
 }
 
-// Stima rapida (senza simulare) di quanto la coppia lavora bene insieme sui bersagli: due colpi che
-// insieme mandano KO valgono di più; un secondo colpo su chi va già KO col primo vale meno (viene
-// rediretto sull'altro avversario, che può resisterlo o esserne immune).
-static s32 PairSynergy(const struct PlanState *st, const struct PlanAction *x, const struct PlanAction *y)
-{
-    s32 dx, dy, hp;
-    enum BattlerId t;
-
-    if (x->kind != PLAN_ACT_MOVE || y->kind != PLAN_ACT_MOVE || IsBattleMoveStatus(x->move) || IsBattleMoveStatus(y->move))
-        return 0;
-    if (x->target != y->target || IsBattlerAlly(x->user, x->target))
-        return 0;
-    if (IsSpreadMove(GetMoveTarget(x->move)) || IsSpreadMove(GetMoveTarget(y->move)))
-        return 0;
-    t = x->target;
-    hp = st->m[t].hp;
-    dx = DamageOf(st, x, t);
-    dy = DamageOf(st, y, t);
-    if (dx >= hp || dy >= hp)
-        return -15;
-    if (dx + dy >= hp)
-        return 15;
-    return 0;
-}
-
 // Azione rivolta al proprio compagno (combo: Simple Beam, Beat Up...).
 static bool32 IsComboAction(const struct PlanAction *a)
 {
@@ -2884,20 +2881,48 @@ static u32 TrimCands(u32 side, struct PlanAction *out, u8 origMove, enum Battler
     return outN;
 }
 
-// Coppie candidate per il primo turno: azioni nostre x azioni del partner (le migliori a 1 turno), senza le coppie
-// impossibili, ordinate per stima rapida; la coppia scelta dalle regole è sempre tra quelle simulate.
-static u32 BuildPairs(enum BattlerId me, const struct PlanState *st)
+// Costo a priori di una coppia, lo stesso di FinishJob: il cambio (tempo perso, di più al primo turno della lead) e il
+// doppio Protect (un turno regalato).
+static s32 PairCost(const struct PlanAction *x, const struct PlanAction *y)
 {
-    struct PlanAction mine[PLAN_MAX_OURS], theirs[PLAN_MAX_OURS];
+    s32 cost = 0;
+    if (x->kind == PLAN_ACT_SWITCH)
+        cost += IsBattlersFirstTurn(x->user) ? VW(switchCost) : VW(switchCost) / 2;
+    if (y->kind == PLAN_ACT_SWITCH)
+        cost += IsBattlersFirstTurn(y->user) ? VW(switchCost) : VW(switchCost) / 2;
+    if (x->kind == PLAN_ACT_PROTECT && y->kind == PLAN_ACT_PROTECT)
+        cost += VW(switchCost) / 2;
+    return cost;
+}
+
+// Fase 4: le candidate rimaste dei due lati (TrimCands); FALSE se si pianifica da soli (niente coppie da stimare).
+static bool32 StartPairRanking(void)
+{
+    enum BattlerId p = GetPartnerBattler(sJob.me);
+
+    sJob.nTrim[0] = TrimCands(0, sJob.trim[0], sJob.origMove, sJob.origTarget);
+    sJob.nTrim[1] = 0;
+    sJob.pi = sJob.pj = 0;
+    if (p == sJob.me || !IsBattlerAlive(p) || sJob.nCand[1] == 0)
+        return FALSE;
+    sJob.nTrim[1] = TrimCands(1, sJob.trim[1], sJob.origPMove, sJob.origPTarget);
+    return sJob.nTrim[0] > 0 && sJob.nTrim[1] > 0;
+}
+
+// Coppie candidate per il primo turno: azioni nostre x azioni del partner (le migliori a 1 turno, fase 4), senza le
+// coppie impossibili, ordinate per valore a 1 turno della coppia simulata insieme; la coppia scelta dalle regole è
+// sempre tra quelle simulate.
+static u32 BuildPairs(enum BattlerId me)
+{
+    const struct PlanAction *mine = sJob.trim[0], *theirs = sJob.trim[1];
     s32 pre[PLAN_MAX_PAIRS];
     s32 raw[PLAN_MAX_OURS][PLAN_MAX_OURS];
     u8 tier[PLAN_MAX_OURS][PLAN_MAX_OURS];
     u8 bestJ[PLAN_MAX_OURS], bestI[PLAN_MAX_OURS];
     enum BattlerId p = GetPartnerBattler(me);
-    u32 nMine, nTheirs, i, j, k, n = 0;
+    u32 nMine = sJob.nTrim[0], nTheirs = sJob.nTrim[1], i, j, k, n = 0;
 
-    nMine = TrimCands(0, mine, sJob.origMove, sJob.origTarget);
-    if (p == me || !IsBattlerAlive(p) || sJob.nCand[1] == 0)
+    if (p == me || !IsBattlerAlive(p) || nTheirs == 0)
     {
         // Da solo: le coppie sono le nostre azioni con il partner che non fa niente.
         struct PlanAction none = { PLAN_ACT_NONE, 0, -1, MOVE_NONE, p, p, 0 };
@@ -2908,9 +2933,8 @@ static u32 BuildPairs(enum BattlerId me, const struct PlanState *st)
         }
         return min(nMine, PLAN_MAX_PAIRS);
     }
-    nTheirs = TrimCands(1, theirs, sJob.origPMove, sJob.origPTarget);
 
-    // Stima rapida di tutte le coppie legali, poi scelta a livelli: (1) la coppia delle regole, termine di
+    // Valore di tutte le coppie legali (fase 4), poi scelta a livelli: (1) la coppia delle regole, termine di
     // paragone; (2) le coppie con una combo sul compagno; (3) per ogni azione, nostra o del partner, la sua
     // coppia migliore (così nessuna mossa resta fuori solo perché le regole la valutano poco); (4) il resto.
     for (i = 0; i < nMine; i++)
@@ -2924,7 +2948,7 @@ static u32 BuildPairs(enum BattlerId me, const struct PlanState *st)
             tier[i][j] = 0xFF; // 0xFF = illegale
             if (IsPairIllegal(&mine[i], &theirs[j]))
                 continue;
-            raw[i][j] = mine[i].weight + theirs[j].weight + PairSynergy(st, &mine[i], &theirs[j]);
+            raw[i][j] = sJob.pairVal[i][j];
             tier[i][j] = 0;
             if (IsOrigAction(&mine[i], sJob.origMove, sJob.origTarget) && IsOrigAction(&theirs[j], sJob.origPMove, sJob.origPTarget))
                 tier[i][j] = 3;
@@ -3744,6 +3768,15 @@ bool32 AI_VgcPlanStep(void)
 
                 if (p == sJob.me)
                     partner.kind = PLAN_ACT_NONE;
+                // Il giocatore sceglie senza sapere cosa facciamo: non mette in conto la nostra mossa di stato su un suo
+                // Pokémon (Taunt, Encore, sonno...). Con l'azione delle regole Taunt sul setter, il suo Trick Room "falliva"
+                // nel modello, non veniva previsto e Taunt non serviva più a niente: una profezia che si annulla da sola.
+                if (ours.kind == PLAN_ACT_MOVE && IsBattleMoveStatus(ours.move) && ours.target < gBattlersCount
+                 && !IsBattlerAlly(ours.user, ours.target))
+                    ours.kind = PLAN_ACT_NONE;
+                if (partner.kind == PLAN_ACT_MOVE && IsBattleMoveStatus(partner.move) && partner.target < gBattlersCount
+                 && !IsBattlerAlly(partner.user, partner.target))
+                    partner.kind = PLAN_ACT_NONE;
                 acts[0] = &ours;
                 acts[1] = &partner;
                 acts[2] = &sJob.foeCand[side][idx];
@@ -3836,7 +3869,58 @@ bool32 AI_VgcPlanStep(void)
                                         sJob.cand[sd][ci].target, sJob.candVal[sd][ci]);
             }
 #endif
-            sJob.nOurs = BuildPairs(sJob.me, &sJob.base);
+            if (StartPairRanking())
+            {
+                sJob.phase = 4;
+                continue;
+            }
+            sJob.phase = 5;
+            continue;
+        }
+        if (sJob.phase == 4)
+        {
+            // Valore a 1 turno di ogni coppia (nostra azione, azione del partner) simulata insieme, contro le risposte
+            // più probabili, con gli stessi costi e spinte di FinishJob. Ordina le coppie da simulare per intero.
+            u32 i = sJob.pi, j = sJob.pj;
+            if (i < sJob.nTrim[0])
+            {
+                const struct PlanAction *x = &sJob.trim[0][i], *y = &sJob.trim[1][j];
+                if (!IsPairIllegal(x, y))
+                {
+                    const struct PlanAction *acts[4], *acts4[4];
+                    struct PlanState st = sJob.base;
+                    s32 pen;
+
+                    acts4[0] = acts[0] = x;
+                    acts4[1] = acts[1] = y;
+                    acts4[2] = acts[2] = &sJob.foeA[0];
+                    acts4[3] = acts[3] = &sJob.foeB[0];
+                    RunTurn(&st, acts, 4);
+                    budget -= 1 + MissPenalty(&sJob.base, &st, acts4, &pen);
+                    sJob.pairVal[i][j] = Evaluate(&st) - pen - PairCost(x, y)
+                                       + ActionPrior(x, y, TRUE) + ActionPrior(y, x, TRUE);
+#if TESTING
+                    {
+                        extern s32 Test_MgbaPrintf(const char *fmt, ...);
+                        Test_MgbaPrintf("VGCPAIR1 k%d m%d t%d + k%d m%d t%d = %d", x->kind, x->move, x->target,
+                                        y->kind, y->move, y->target, sJob.pairVal[i][j]);
+                    }
+#endif
+                }
+                sJob.pj++;
+                if (sJob.pj >= sJob.nTrim[1])
+                {
+                    sJob.pj = 0;
+                    sJob.pi++;
+                }
+                continue;
+            }
+            sJob.phase = 5;
+            continue;
+        }
+        if (sJob.phase == 5)
+        {
+            sJob.nOurs = BuildPairs(sJob.me);
             sJob.phase = 0;
             if (sJob.nOurs == 0)
             {

@@ -392,7 +392,6 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Tatore - Scream Tail Encores Espathra after a 
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Mario - Hariyama uses Fake Out on Whimsicott")
 {
-    KNOWN_FAILING; // Heavy Slam invece di Fake Out su Whimsicott (Prankster Tailwind / Beat Up)
     // Whimsicott (Savarotto) con Prankster alza Tailwind o usa Beat Up su Gallade (Justified): entrambe le cose
     // rovinano Hariyama e Iron Hands, lenti. Fake Out (+3) arriva prima della Prankster (+1).
     GIVEN {

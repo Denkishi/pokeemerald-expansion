@@ -37,14 +37,12 @@ AI_DOUBLE_BATTLE_TEST("VGC rules: filter - no Fake Out after the first turn on t
 AI_DOUBLE_BATTLE_TEST("VGC rules: filter - no Protect twice in a row (Gerozz's Dugtrio-Alola)")
 {
     // Dugtrio a pochi PS (Focus Sash inutile) va KO da entrambi: al turno 1 si protegge, al turno 2 un secondo Protect
-    // fallirebbe. Il turno 1 è la premessa del test; niente panchina (niente cambio al turno 2) e avversari robusti
-    // (Vaporeon e Miltank di Elia: Tyranitar non li manda KO, il TURN resta quello scritto).
+    // fallirebbe. Il turno 1 è la premessa del test; niente panchina da nessuna parte (niente cambi né SEND_OUT al
+    // turno 2: se Dugtrio e Tyranitar mandano KO Vaporeon insieme, il TURN resta quello scritto).
     GIVEN {
         AI_FLAGS(VGC_TRAINER_AI_FLAGS);
         PLAYER(SPECIES_VAPOREON) { ELIA_VAPOREON; }
         PLAYER(SPECIES_MILTANK) { ELIA_MILTANK; }
-        PLAYER(SPECIES_LICKITUNG) { ELIA_LICKITUNG; }
-        PLAYER(SPECIES_GOODRA_HISUI) { ELIA_GOODRA_H; }
         OPPONENT(SPECIES_DUGTRIO_ALOLA) { GEROZZ_DUGTRIO_A; HP(20); }
         OPPONENT(SPECIES_TYRANITAR) { GEROZZ_TYRANITAR; }
     } WHEN {
@@ -204,14 +202,15 @@ AI_DOUBLE_BATTLE_TEST("VGC rules: filter - no Recycle with the berry still held 
 
 AI_DOUBLE_BATTLE_TEST("VGC rules: filter - no Belly Drum at half HP or less (Carletto's Snorlax)")
 {
-    // A metà PS Belly Drum fallisce.
+    // A metà PS Belly Drum fallisce. La Sitrus Berry si attiva all'entrata (sotto metà PS: +1/4): con 50 PS su 251
+    // ne restano 112, ancora sotto metà (con 100 diventavano 162 e Belly Drum tornava legale).
     GIVEN {
         AI_FLAGS(VGC_TRAINER_AI_FLAGS);
         PLAYER(SPECIES_TORKOAL) { GIGI_TORKOAL; }
         PLAYER(SPECIES_VENUSAUR) { GIGI_VENUSAUR; }
         PLAYER(SPECIES_HATTERENE) { GIGI_HATTERENE; }
         PLAYER(SPECIES_LILLIGANT) { GIGI_LILLIGANT; }
-        OPPONENT(SPECIES_SNORLAX) { CARLETTO_SNORLAX; HP(100); }
+        OPPONENT(SPECIES_SNORLAX) { CARLETTO_SNORLAX; HP(50); }
         OPPONENT(SPECIES_AMOONGUSS) { CARLETTO_AMOONGUSS; }
         OPPONENT(SPECIES_KINGAMBIT) { CARLETTO_KINGAMBIT; }
         OPPONENT(SPECIES_PELIPPER) { CARLETTO_PELIPPER; }
