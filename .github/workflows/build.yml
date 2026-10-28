@@ -86,10 +86,7 @@ jobs:
           sudo apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends -o Acquire::Retries=3 -o Acquire::http::Timeout="20" binutils-arm-none-eabi gcc-arm-none-eabi libnewlib-arm-none-eabi libpng-dev python3 git-restore-mtime
 
-      # TEMP (ia-vgc-misplay): cache spenta, con restore-keys prendeva oggetti più nuovi dei sorgenti cambiati
-      # (date da git) e la ROM non veniva ricompilata (ELF identica al commit prima).
       - name: Restore build cache
-        if: false
         uses: actions/cache/restore@v4
         with:
           path: gen-cache.tar
