@@ -903,6 +903,22 @@ static bool32 ChoiceKOs(enum BattlerId b, enum BattlerId def)
     return DmgMin(b, def, c->moveIndex) >= gBattleMons[def].hp && gAiLogicData->moveAccuracy[b][def][c->moveIndex] >= 100;
 }
 
+// Almeno un attacco usabile di `b` colpisce un avversario in campo (altrimenti è un finale bloccato).
+static bool32 AnyAttackHitsFoe(enum BattlerId b)
+{
+    u32 k;
+    enum BattlerId f;
+    for (k = 0; k < MAX_MON_MOVES; k++)
+    {
+        if (!MoveUsable(b, k) || IsBattleMoveStatus(gBattleMons[b].moves[k]))
+            continue;
+        for (f = 0; f < gBattlersCount; f++)
+            if (!IsBattlerAlly(b, f) && IsBattlerAlive(f) && gAiLogicData->effectiveness[b][f][k] != UQ_4_12(0.0))
+                return TRUE;
+    }
+    return FALSE;
+}
+
 // Danno minimo della scelta di `b` su `def` (0 se non lo colpisce o non è un attacco sicuro).
 static u32 ChoiceMinDmgOn(enum BattlerId b, enum BattlerId def)
 {
@@ -1039,10 +1055,10 @@ static void CheckBattlerChoice(enum BattlerId b)
 
     if (isMove)
     {
-        // 1. Protect consecutivo.
+        // 1. Protect consecutivo. Non certo nei finali bloccati (nessun attacco che colpisca un avversario).
         if (IsProtectMove(move) && prev->turn + 1 == sVsp.turn && prev->kind == VSP_CHOICE_MOVE
          && IsProtectMove(prev->move) && prev->partyIdx == gBattlerPartyIndexes[b])
-            ReportMisplay(TRUE, "PROTECT_CONSECUTIVO", b, "%s dopo %s al turno prima", A(MoveName(move)), A(MoveName(prev->move)));
+            ReportMisplay(AnyAttackHitsFoe(b), "PROTECT_CONSECUTIVO", b, "%s dopo %s al turno prima", A(MoveName(move)), A(MoveName(prev->move)));
 
         // 2. Fake Out dopo il primo turno in campo.
         if (eff == EFFECT_FIRST_TURN_ONLY && !IsBattlersFirstTurn(b))
@@ -1093,7 +1109,9 @@ static void CheckBattlerChoice(enum BattlerId b)
         {
             if (!spread && t == p && !PartnerHitIsCombo(b, p, move, idx))
                 ReportMisplay(TRUE, "ATTACCO_COMPAGNO", b, "%s sul compagno %s senza combo", A(MoveName(move)), A(GetSpeciesName(gBattleMons[p].species)));
-            else if (tt == TARGET_FOES_AND_ALLY && !ChoiceIsProtect(p) && !PartnerHitIsCombo(b, p, move, idx))
+            // Il compagno che esce con un cambio non viene colpito; una mossa bloccata da Choice non è una scelta.
+            else if (tt == TARGET_FOES_AND_ALLY && !ChoiceIsProtect(p) && !PartnerHitIsCombo(b, p, move, idx)
+                  && sVsp.choice[p].kind != VSP_CHOICE_SWITCH && gBattleStruct->choicedMove[b] != move)
             {
                 if (DmgMin(b, p, idx) >= gBattleMons[p].hp)
                     ReportMisplay(TRUE, "ATTACCO_COMPAGNO", b, "%s manda KO il compagno %s", A(MoveName(move)), A(GetSpeciesName(gBattleMons[p].species)));
