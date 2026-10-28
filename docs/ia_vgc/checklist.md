@@ -359,3 +359,19 @@ Test su GitHub: 116 PASS / 6 KNOWN_FAILING a ogni lotto (come la base).
 Falsi positivi del checker da valutare (owner: coordinatore): KO non preso quando la coppia manda KO l'altro avversario (danno combinato/Helping Hand) o quando chi attacca subisce Fake Out; Protect consecutivo con Encore, Protect precedente fallito o chi dorme; Fake Out tardivo sotto Encore; minaccia di KO "prevedibile" senza guardare chi si muove prima.
 
 Verifica a specchio (ROM con `CUSTOM_VGC_MIRROR_FIXES` acceso, `verifica-regole`, 864 partite, correzioni accese contro spente sugli stessi semi): **51,0% di vittorie, IC95 [48,4; 53,7], p = 0,44** — non peggiora (miglioramento non dimostrato). Il report `report/verifica_regole.md` è di questa prova (correzioni dei misplay, non regole M8). Report `riepilogo.md`: campagna del lotto 2.
+
+### Secondo giro (28/10 pomeriggio, dopo il merge di `ia-vgc` 39407f9c72)
+Nuova base (ROM di GitHub di `ia-vgc`, checker con KO combinati della coppia e mosse forzate da Encore/sonno escluse): **318 misplay certi** (KO non preso 102, win condition 92, cambio su chi va KO 81, setup 30, Protect di fila 10, bersaglio già KO 3).
+
+- **Cambio su chi va KO**: tutti gli 81 cambi sono scelti dal pianificatore (VGCPLAN con `k2` nella coppia scelta), nessuno dalle regole di battle_ai_switch.c né dalle sostituzioni dopo un KO (quelle il checker non le conta). In ~55 casi la simulazione dava chi entra vivo: le risposte previste colpivano lo slot con un'altra mossa (o una sola delle due), oppure la stima del danno su chi entra era bassa.
+  - ❌ Stima dei danni più completa per chi entra (Body Press con la Difesa, Foul Play, Psyshock, Facade/Guts con Flame Orb, Knock Off, Expanding Force sul terreno, Tough Claws, Booster Energy) + KO sicuro sempre tra le risposte avversarie: 318 → 354; senza la seconda parte 340 (cambi 89, win condition 99). Tolte entrambe (`CUSTOM_VGC_PLAN_FOE_KO_REPLY` resta in custom.h spento nel commit della prova, codice poi rimosso).
+  - ✅ Rischio del cambio (`CUSTOM_VGC_PLAN_SWITCH_RISK`): un cambio paga il KO di chi entra (30% se una risposta plausibile di un solo avversario, tra tutte le candidate del modello e col tiro alto, lo manda KO sul suo slot; 15% se servono entrambi; peso della win condition). **Cambio su chi va KO 81 → 61**, totale 318 → 321 (setup 30 → 23, KO non preso 102 → 113, win condition 92 → 99: dentro il rumore tra build di ±40).
+- **Win condition persa**: nei casi con Protect disponibile il pianificatore sceglie l'attacco con margini ampi (es. Sucker Punch di Kingambit 1414 contro Protect 380): non è il costo di Protect ma la previsione (l'avversario che manda KO è previsto KO prima o su un altro bersaglio; Choice Scarf non dedotta). Tentata la risposta "KO sicuro" sempre tra quelle previste: peggiora (sopra). Non risolto.
+- Test su GitHub: 116 PASS / 6 KNOWN_FAILING a ogni build.
+- Verifica a specchio finale (tutte le correzioni accese contro spente, 864 partite): **52,3%, IC95 [49,7; 54,9], p = 0,084**.
+
+Falsi positivi del checker rimasti:
+- Protect consecutivo in finali bloccati senza mosse utili (02_02_s27: Banette/Mimikyu contro Lickitung a +6 Def, 9 casi in una partita; Banette decide con le sole regole perché il compagno ha già il suo lavoro).
+- Attacco sul compagno con una mossa ad area forzata da Choice Scarf (Rotom Discharge, 3 casi) contato sul compagno che sta uscendo con un cambio.
+- Win condition: minaccia "prevedibile" senza guardare se la nostra mossa più veloce manda KO prima chi minaccia.
+- Cambio su chi va KO: i sacrifici voluti (chi esce sarebbe andato KO comunque e la coppia rimasta salva l'altro Pokémon) restano certi.
