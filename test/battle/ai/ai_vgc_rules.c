@@ -126,6 +126,25 @@ AI_DOUBLE_BATTLE_TEST("VGC rules: filter - no Sleep Powder into two Grass types 
     }
 }
 
+AI_DOUBLE_BATTLE_TEST("VGC rules: filter - no Will-O-Wisp into two Fire types (Gerozz's Rotom-Heat against Patatina)")
+{
+    // Ceruledge e Armarouge sono Fuoco: la scottatura non li tocca (campagna ia-vgc: 27 Will-O-Wisp su un Fuoco).
+    // Il tipo è quello in lotta (Rotom-Heat stesso è Elettro/Fuoco, non Elettro/Spettro).
+    GIVEN {
+        AI_FLAGS(VGC_TRAINER_AI_FLAGS);
+        PLAYER(SPECIES_CERULEDGE) { PATATINA_CERULEDGE; }
+        PLAYER(SPECIES_ARMAROUGE) { PATATINA_ARMAROUGE; }
+        PLAYER(SPECIES_COPPERAJAH) { PATATINA_COPPERAJAH; }
+        PLAYER(SPECIES_ALTARIA) { PATATINA_ALTARIA; }
+        OPPONENT(SPECIES_ROTOM_HEAT) { GEROZZ_ROTOM_HEAT; }
+        OPPONENT(SPECIES_DUGTRIO_ALOLA) { GEROZZ_DUGTRIO_A; }
+        OPPONENT(SPECIES_TYRANITAR) { GEROZZ_TYRANITAR; }
+        OPPONENT(SPECIES_GHOLDENGO) { GEROZZ_GHOLDENGO; }
+    } WHEN {
+        TURN { MOVE(playerLeft, MOVE_PROTECT); MOVE(playerRight, MOVE_PROTECT); NOT_EXPECT_MOVE(opponentLeft, MOVE_WILL_O_WISP); }
+    }
+}
+
 AI_DOUBLE_BATTLE_TEST("VGC rules: filter - no Prankster Taunt into two Dark types (Enzo's Grimmsnarl against Carletto)")
 {
     // Kingambit e Malamar sono Buio: le mosse di stato potenziate da Prankster falliscono su di loro.
@@ -165,13 +184,12 @@ AI_DOUBLE_BATTLE_TEST("VGC rules: filter - no Sunny Day while the sun is already
 AI_DOUBLE_BATTLE_TEST("VGC rules: filter - no second Trick Room that would end our own (Elia's Mimikyu against Tony)")
 {
     // Turno 1: Mimikyu apre la stanza (premessa, come nel test della linea di Elia). Turno 2: un altro Trick Room la
-    // chiuderebbe mentre la squadra lenta ne ha bisogno.
+    // chiuderebbe mentre la squadra lenta ne ha bisogno. Il giocatore senza panchina: al turno 2 il suo secondo Protect
+    // fallisce e un suo KO chiederebbe un SEND_OUT non scritto.
     GIVEN {
         AI_FLAGS(VGC_TRAINER_AI_FLAGS);
         PLAYER(SPECIES_ROARING_MOON) { TONY_ROARING_MOON; }
         PLAYER(SPECIES_CHARIZARD) { TONY_CHARIZARD; }
-        PLAYER(SPECIES_SABLEYE) { TONY_SABLEYE; }
-        PLAYER(SPECIES_GYARADOS) { TONY_GYARADOS; }
         OPPONENT(SPECIES_MIMIKYU) { ELIA_MIMIKYU; }
         OPPONENT(SPECIES_GOODRA_HISUI) { ELIA_GOODRA_H; }
         OPPONENT(SPECIES_LICKITUNG) { ELIA_LICKITUNG; }
@@ -296,6 +314,26 @@ AI_DOUBLE_BATTLE_TEST("VGC rules: prior - Gravity is worth something next to Hyp
         TURN { MOVE(playerLeft, MOVE_PROTECT); MOVE(playerRight, MOVE_PROTECT); }
     } THEN {
         EXPECT_EQ(AI_VgcPlanTestPrior(GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT), MOVE_GRAVITY), 30);
+    }
+}
+
+AI_DOUBLE_BATTLE_TEST("VGC rules: prior - Fake Out on turn 1 (Carletto's Ludicolo against Tony)")
+{
+    // Il tentennamento annulla qualunque azione di Charizard, anche quelle fuori dalle due previste dalla simulazione.
+    GIVEN {
+        AI_FLAGS(VGC_TRAINER_AI_FLAGS);
+        PLAYER(SPECIES_CHARIZARD) { TONY_CHARIZARD; }
+        PLAYER(SPECIES_SABLEYE) { TONY_SABLEYE; }
+        PLAYER(SPECIES_ROARING_MOON) { TONY_ROARING_MOON; }
+        PLAYER(SPECIES_GYARADOS) { TONY_GYARADOS; }
+        OPPONENT(SPECIES_PELIPPER) { CARLETTO_PELIPPER; }
+        OPPONENT(SPECIES_LUDICOLO) { CARLETTO_LUDICOLO; }
+        OPPONENT(SPECIES_KINGAMBIT) { CARLETTO_KINGAMBIT; }
+        OPPONENT(SPECIES_AMOONGUSS) { CARLETTO_AMOONGUSS; }
+    } WHEN {
+        TURN { MOVE(playerLeft, MOVE_PROTECT); MOVE(playerRight, MOVE_SUNNY_DAY); }
+    } THEN {
+        EXPECT_EQ(AI_VgcPlanTestPrior(GetBattlerAtPosition(B_POSITION_OPPONENT_RIGHT), MOVE_FAKE_OUT), 25);
     }
 }
 

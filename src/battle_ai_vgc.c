@@ -668,6 +668,9 @@ static s32 VgcMaterialEdge(enum BattlerId battlerAtk)
 #define VGC_PRIOR_CONTRARY      30  // mossa che cala le statistiche di chi la usa, con Contrary: le alza (non simulato)
 #define VGC_PRIOR_LOSE_BOOST    20  // (malus) la stessa mossa senza Contrary butta via un potenziamento già preso
 #define VGC_PRIOR_GAS_PROTECT   30  // Protect di chi ha Neutralizing Gas accanto a un compagno con abilità penalizzante
+#define VGC_PRIOR_FAKE_OUT      25  // Fake Out al primo turno: il tentennamento annulla QUALUNQUE azione del bersaglio, anche
+                                    // quelle che la simulazione non prevede (ne guarda due per avversario: setup, Tailwind,
+                                    // Trick Room, cambio di bersaglio restano fuori); Wide Guard o un attacco no
 
 // Chi ha usato Protect & co. con successo al turno prima: il secondo di fila fallisce (o quasi).
 static bool32 ProtectedLastTurn(enum BattlerId battler)
@@ -1097,6 +1100,12 @@ s32 AI_VgcActionPrior(enum BattlerId battler, enum Move move, enum BattlerId tar
             else
                 prior += VGC_PRIOR_AFTER_YOU;
         }
+        break;
+    case EFFECT_FIRST_TURN_ONLY:
+        // Solo sull'avversario che può tentennare (Inner Focus e Shield Dust noti lo impediscono; i Spettro li toglie il filtro).
+        if (IsBattlersFirstTurn(battler) && target != battler && target != partner && target < gBattlersCount && IsBattlerAlive(target)
+         && gAiLogicData->abilities[target] != ABILITY_INNER_FOCUS && gAiLogicData->abilities[target] != ABILITY_SHIELD_DUST)
+            prior += VGC_PRIOR_FAKE_OUT;
         break;
     case EFFECT_WEATHER:
         if (!(gBattleWeather & WeatherFlagsOfMove(move)) && BenchHasWeatherAbuser(battler, move))

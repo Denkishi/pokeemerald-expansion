@@ -2074,6 +2074,41 @@ static s32 AttackWeight(const struct PlanState *st, const struct PlanAction *a, 
     return w * (s32)ActionAccuracy(st, a) / 100;
 }
 
+// Mossa di stato (sonno, scottatura, paralisi, Taunt) che sul bersaglio non fa niente, con i tipi e le abilità della
+// simulazione (tipi in lotta: Rotom-Heat è Fuoco). Le stesse immunità di ApplyAction: qui servono a non sprecare i posti
+// delle azioni plausibili (turno 2, modello del giocatore) su Spore contro un Erba o Will-O-Wisp contro un Fuoco.
+static bool32 SimStatusImmune(const struct PlanState *st, const struct PlanMon *um, const struct PlanMon *tm, enum Move m)
+{
+    enum Ability tAb = (um->ability == ABILITY_MYCELIUM_MIGHT || um->ability == ABILITY_MOLD_BREAKER) ? ABILITY_NONE : tm->ability;
+    u32 status = GetMoveNonVolatileStatus(m);
+
+    if (tAb == ABILITY_GOOD_AS_GOLD || tAb == ABILITY_MAGIC_BOUNCE)
+        return TRUE;
+    if (um->ability == ABILITY_PRANKSTER && (tm->t1 == TYPE_DARK || tm->t2 == TYPE_DARK))
+        return TRUE;
+    if (GetMoveEffect(m) == EFFECT_TAUNT)
+        return tm->taunted || tAb == ABILITY_OBLIVIOUS || tAb == ABILITY_AROMA_VEIL;
+    if (status != MOVE_EFFECT_SLEEP && status != MOVE_EFFECT_BURN && status != MOVE_EFFECT_PARALYSIS)
+        return FALSE;
+    if (tAb == ABILITY_PURIFYING_SALT || tAb == ABILITY_COMATOSE)
+        return TRUE;
+    if (IsPowderMove(m) && (tm->t1 == TYPE_GRASS || tm->t2 == TYPE_GRASS || tAb == ABILITY_OVERCOAT
+                          || tm->holdEffect == HOLD_EFFECT_SAFETY_GOGGLES))
+        return TRUE;
+    switch (status)
+    {
+    case MOVE_EFFECT_SLEEP:
+        return tAb == ABILITY_INSOMNIA || tAb == ABILITY_VITAL_SPIRIT || tAb == ABILITY_SWEET_VEIL
+            || ((st->terrain == B_TERRAIN_ELECTRIC || st->terrain == B_TERRAIN_MISTY) && IsGroundedInSim(tm));
+    case MOVE_EFFECT_BURN:
+        return tm->t1 == TYPE_FIRE || tm->t2 == TYPE_FIRE || tAb == ABILITY_WATER_VEIL || tAb == ABILITY_WATER_BUBBLE
+            || tAb == ABILITY_THERMAL_EXCHANGE;
+    default: // paralisi
+        return tm->t1 == TYPE_ELECTRIC || tm->t2 == TYPE_ELECTRIC || tAb == ABILITY_LIMBER
+            || TypeEff(GetMoveType(m), tm) == UQ_4_12(0.0);
+    }
+}
+
 // Azioni plausibili di un battler nello stato `st`. isOurs: le nostre mosse sono tutte note.
 // Per il giocatore: mosse viste + mosse probabili dalla specie (peso ridotto), Protect e cambio con probabilità.
 static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct PlanAction *out, u32 maxOut, bool32 isOurs, bool32 allowSwitch)
@@ -2163,14 +2198,15 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
             if (eff == EFFECT_TAUNT)
             {
                 for (k = 0; k < 2; k++)
-                    if (st->m[targets[k]].alive && !st->m[targets[k]].taunted)
+                    if (st->m[targets[k]].alive && !SimStatusImmune(st, bm, &st->m[targets[k]], m))
                         AddCand(cand, &n, PLAN_CAND_MAX, PLAN_ACT_MOVE, idx, -1, m, b, targets[k], w);
             }
             else if (GetMoveNonVolatileStatus(m) == MOVE_EFFECT_SLEEP || GetMoveNonVolatileStatus(m) == MOVE_EFFECT_BURN
              || GetMoveNonVolatileStatus(m) == MOVE_EFFECT_PARALYSIS)
             {
                 for (k = 0; k < 2; k++)
-                    if (st->m[targets[k]].alive && !st->m[targets[k]].asleep && !st->m[targets[k]].burned && !st->m[targets[k]].paralyzed)
+                    if (st->m[targets[k]].alive && !st->m[targets[k]].asleep && !st->m[targets[k]].burned && !st->m[targets[k]].paralyzed
+                     && !SimStatusImmune(st, bm, &st->m[targets[k]], m))
                         AddCand(cand, &n, PLAN_CAND_MAX, PLAN_ACT_MOVE, idx, -1, m, b, targets[k],
                                 (GetMoveNonVolatileStatus(m) == MOVE_EFFECT_SLEEP) ? w * SleepValue(st, targets[k]) / CUSTOM_VGC_EVAL_SLEEP : w);
             }
@@ -2277,7 +2313,7 @@ static u32 BuildActions(const struct PlanState *st, enum BattlerId b, struct Pla
             AddCand(cand, &n, PLAN_CAND_MAX, PLAN_ACT_MOVE, 0xFF, -1, MOVE_FOLLOW_ME, b, b, prof.role[SCOUT_REDIRECT] * 50 / 100 * scale / 100);
         if (!seenRole[SCOUT_SLEEP] && prof.role[SCOUT_SLEEP] >= 60)
             for (k = 0; k < 2; k++)
-                if (st->m[targets[k]].alive && !st->m[targets[k]].asleep)
+                if (st->m[targets[k]].alive && !st->m[targets[k]].asleep && !SimStatusImmune(st, bm, &st->m[targets[k]], MOVE_SPORE))
                     AddCand(cand, &n, PLAN_CAND_MAX, PLAN_ACT_MOVE, 0xFF, -1, MOVE_SPORE, b, targets[k], prof.role[SCOUT_SLEEP] * 60 / 100 * scale / 100);
     }
 

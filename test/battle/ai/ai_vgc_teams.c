@@ -162,7 +162,6 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Patatina - Armarouge uses Expanding Force on P
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Patatina - Altaria sets Tailwind for Ceruledge against Tony's fast lead")
 {
-    KNOWN_FAILING; // Dragon Pulse invece di Tailwind contro Roaring Moon + Charizard
     // Roaring Moon (171) e Charizard (167) superano Ceruledge (150): con Tailwind Ceruledge e Armarouge
     // tornano davanti per quattro turni. È la modalità di riserva del piano (Altaria + Ceruledge).
     GIVEN {
