@@ -919,6 +919,16 @@ static bool32 AnyAttackHitsFoe(enum BattlerId b)
     return FALSE;
 }
 
+// `a` si muove chiaramente prima di `d` (10% di margine, Trick Room compreso; priorità ignorate).
+static bool32 ClearlyFaster(enum BattlerId a, enum BattlerId d)
+{
+    u32 sa = GetBattlerTotalSpeedStat(a, gBattleMons[a].ability, GetBattlerHoldEffect(a));
+    u32 sd = GetBattlerTotalSpeedStat(d, gBattleMons[d].ability, GetBattlerHoldEffect(d));
+    if (gFieldStatuses & STATUS_FIELD_TRICK_ROOM)
+        return sa * 11 < sd * 10;
+    return sa * 10 > sd * 11;
+}
+
 // Danno minimo della scelta di `b` su `def` (0 se non lo colpisce o non è un attacco sicuro).
 static u32 ChoiceMinDmgOn(enum BattlerId b, enum BattlerId def)
 {
@@ -1008,6 +1018,7 @@ static void CheckBattlerChoice(enum BattlerId b)
     bool32 spread = tt == TARGET_BOTH || tt == TARGET_FOES_AND_ALLY;
     enum BattlerId t = c->target;
     bool32 threatMin = FALSE, threatMax = FALSE;
+    bool32 threatFrom[2] = {FALSE, FALSE};
     enum BattlerId threatFoe = foes[0];
 
     // Tutto da qui in poi con gli occhi di chi ha scelto.
@@ -1028,6 +1039,7 @@ static void CheckBattlerChoice(enum BattlerId b)
             if (DmgMin(f, b, i) >= gBattleMons[b].hp && gAiLogicData->moveAccuracy[f][b][i] >= 100)
             {
                 threatMin = TRUE;
+                threatFrom[k] = TRUE;
                 threatFoe = f;
             }
             if (DmgMax(f, b, i) >= gBattleMons[b].hp)
@@ -1037,6 +1049,21 @@ static void CheckBattlerChoice(enum BattlerId b)
     // Focus Sash a PS pieni: non è un KO.
     if (gBattleMons[b].hp == gBattleMons[b].maxHP && gAiLogicData->holdEffects[b] == HOLD_EFFECT_FOCUS_SASH)
         threatMin = threatMax = FALSE;
+    // La minaccia non è "prevedibile" se la coppia manda KO chi minaccia prima che agisca (chiaramente più veloce).
+    if (threatMin)
+    {
+        bool32 allStopped = TRUE;
+        for (k = 0; k < 2; k++)
+        {
+            enum BattlerId f = foes[k];
+            if (threatFrom[k] && !(( ChoiceKOs(b, f) && ClearlyFaster(b, f))
+                                 || (pAlive && ChoiceKOs(p, f) && ClearlyFaster(p, f))
+                                 || (pAlive && PairKOs(b, p, f) && ClearlyFaster(b, f) && ClearlyFaster(p, f))))
+                allStopped = FALSE;
+        }
+        if (allStopped)
+            threatMin = FALSE;
+    }
 
     info->valid = TRUE;
     info->partyIdx = gBattlerPartyIndexes[b];
