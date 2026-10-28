@@ -3002,7 +3002,7 @@ static u32 PickFoeActions(u32 side, struct PlanAction *out)
     // Il KO sicuro (mossa vista, danno minimo, precisione piena) su uno dei nostri resta sempre tra le risposte: se il
     // modello a 1 turno lo metteva terzo, nessun ramo lo vedeva e Protect o cambio di chi lo subiva (la win condition)
     // non valevano niente. Al posto della seconda risposta, prima sulla win condition.
-    if (MisplayFixesOn() && outN > 0)
+    if (CUSTOM_VGC_PLAN_FOE_KO_REPLY && MisplayFixesOn() && outN > 0)
     {
         u32 koIdx = 0xFF, koW = 0;
         for (i = 0; i < n; i++)
