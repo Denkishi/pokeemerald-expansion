@@ -1,34 +1,34 @@
 # Verifica libro
 
-Aggiornato: 2026-10-27 17:03:26 (finita).
+Aggiornato: 2026-10-28 13:02:15 (finita).
 
 ```
 {
  "tipo": "verifica_libro",
- "semi": 8,
+ "semi": 4,
  "seme_base": 900001,
  "scontri": "all",
- "parallelo": 28,
+ "parallelo": 16,
  "cartella": "verifica_libro",
- "creato": "2026-10-27 16:44:37",
+ "creato": "2026-10-28 12:48:03",
  "stato": "finita",
- "rom": "C:\\Users\\Antonio Grillo\\Documents\\GitHub\\pokeemerald-expansion-m9\\tools\\vgc_training\\work\\esperimento.gba",
+ "rom": "C:\\Users\\Antonio Grillo\\Documents\\GitHub\\pokeemerald-expansion\\tools\\vgc_training\\work\\esperimento.gba",
  "risultato": {
-  "coppie": 1151,
-  "partite": 2303,
+  "coppie": 575,
+  "partite": 1151,
   "non_valide": 1,
-  "vittorie": 0.5267,
-  "es": 0.0082,
+  "vittorie": 0.527,
+  "es": 0.0121,
   "ic95": [
-   0.5106,
-   0.5428
+   0.5033,
+   0.5506
   ],
-  "z": 3.25,
-  "p": 0.00115,
-  "misplay_partita": 0.496,
-  "fitness": 0.5267
+  "z": 2.23,
+  "p": 0.02572,
+  "misplay_partita": 0.459,
+  "fitness": 0.527
  }
 }
 ```
 
-Tasso di vittoria del trattamento: **0.5267** su 1151 coppie a specchio (IC 95% [0.5106, 0.5428], z=3.25, p=0.00115).
+Tasso di vittoria del trattamento: **0.527** su 575 coppie a specchio (IC 95% [0.5033, 0.5506], z=2.23, p=0.02572).
