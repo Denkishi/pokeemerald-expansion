@@ -4,6 +4,7 @@
 #include "battle_ai_main.h"
 #include "team_preview.h"
 #include "battle_ai_record.h"
+#include "battle_ai_vgc.h"
 #include "battle_arena.h"
 #include "battle_controllers.h"
 #include "battle_end_turn.h"
@@ -2967,6 +2968,11 @@ static void BattleStartClearSetData(void)
 {
     s32 i;
 
+    // IA VGC: niente stato rimasto dalla lotta precedente (memoria di comportamento, lavoro del pianificatore
+    // interrotto a metà, decisioni del partner). Nei test non c'è la team preview che lo azzerava: lo stato passava
+    // da un test all'altro e il risultato dipendeva dall'ordine (Ludicolo/Carletto, Trick Room di Mimikyu...).
+    AI_VgcResetMemory();
+    AI_VgcPlanResetTurn();
     TurnValuesCleanUp(FALSE);
     memset(&gSpecialStatuses, 0, sizeof(gSpecialStatuses));
 
