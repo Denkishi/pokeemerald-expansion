@@ -3599,6 +3599,36 @@ static bool32 SwitchWorstOn(void)
     return CUSTOM_VGC_PLAN_SWITCH_WORST && MisplayFixesOn();
 }
 
+// Caso peggiore del colpo su chi entra: quello che la stima "da giocatore" (EstimateDamage, usata per chi viene dalla
+// panchina) non vede, solo da informazioni pubbliche: spinta di Protosynthesis/Quark Drive già annunciata, Body Press
+// (usa la Difesa), abilità che potenziano la mossa. In % del danno stimato.
+static u32 WorstCaseAtkPct(const struct PlanState *st, enum BattlerId b, enum Move move)
+{
+    const struct PlanMon *am = &st->m[b];
+    bool32 physical = GetMoveCategory(move) == DAMAGE_CATEGORY_PHYSICAL;
+    u32 pct = 100;
+    enum Stat boosted = gBattleMons[b].volatiles.paradoxBoostedStat;
+
+    if ((am->ability == ABILITY_PROTOSYNTHESIS || am->ability == ABILITY_QUARK_DRIVE)
+     && ((physical && boosted == STAT_ATK) || (!physical && boosted == STAT_SPATK)))
+        pct = pct * 13 / 10;
+    if (GetMoveEffect(move) == EFFECT_BODY_PRESS && am->atk > 0)
+        pct = pct * ApplyStage(am->def, am->stage[PS_DEF]) / max(ApplyStage(am->atk, am->stage[PS_ATK]), 1u);
+    switch (am->ability)
+    {
+    case ABILITY_TOUGH_CLAWS:   if (MoveMakesContact(move)) pct = pct * 13 / 10; break;
+    case ABILITY_IRON_FIST:     if (IsPunchingMove(move)) pct = pct * 12 / 10; break;
+    case ABILITY_STRONG_JAW:    if (IsBitingMove(move)) pct = pct * 15 / 10; break;
+    case ABILITY_SHARPNESS:     if (IsSlicingMove(move)) pct = pct * 15 / 10; break;
+    case ABILITY_MEGA_LAUNCHER: if (IsPulseMove(move)) pct = pct * 15 / 10; break;
+    case ABILITY_PUNK_ROCK:     if (IsSoundMove(move)) pct = pct * 13 / 10; break;
+    case ABILITY_RECKLESS:      if (GetMoveRecoil(move) > 0) pct = pct * 12 / 10; break;
+    case ABILITY_SHEER_FORCE:   if (MoveIsAffectedBySheerForce(move)) pct = pct * 13 / 10; break;
+    default: break;
+    }
+    return pct;
+}
+
 // Rischio di un cambio volontario: chi entra contro le risposte plausibili degli avversari (tutte le candidate del modello
 // del giocatore, non solo le due previste), dirette sul suo slot, con il tiro alto. Un avversario che da solo lo manda
 // KO: 30%; i due insieme: 15%. Il costo è il suo KO (pesato per la win condition). La simulazione vede solo le risposte
@@ -3635,6 +3665,8 @@ static s32 SwitchKoRisk(const struct PlanAction *sw, bool32 *single)
                 continue;
             a.target = u;
             d = DamageOf(&tmp, &a, u) * (worst ? CUSTOM_VGC_PLAN_SWITCH_WORST_PCT : 108) / 100;
+            if (worst)
+                d = d * (s32)WorstCaseAtkPct(&tmp, a.user, a.move) / 100;
             if (tt == TARGET_BOTH || tt == TARGET_FOES_AND_ALLY)
                 d = d * 3 / 4;
             dmg[side] = max(dmg[side], d);
