@@ -228,6 +228,7 @@ struct PlanJob
     u8 winconParty;     // bit per indice di squadra: le win condition del piano del nostro allenatore
     u8 repaired;        // seconda passata delle coppie già fatta
     s16 sleepW[MAX_BATTLERS_COUNT];   // valore del sonno di chi è in campo a inizio lavoro: cresce con la sua minaccia
+    s16 threatPct[MAX_BATTLERS_COUNT]; // minaccia (ThreatPct) di chi è in campo a inizio lavoro: danno evitato per turno di sonno
     u32 speedAlt[MAX_BATTLERS_COUNT]; // Velocità alternativa (in campo) dei Pokémon del giocatore la cui stima è incerta, 0 = nessuna
     u8 alpha;           // peso (decimi) della media contro il caso peggiore: dinamico, più rischio quando si è sotto
     struct PlanState s1;
@@ -1796,6 +1797,10 @@ static s32 SleepValue(const struct PlanState *st, enum BattlerId b)
     s32 off = max(pm->stage[PS_ATK], pm->stage[PS_SPA]);
     if (off > 0)
         w = w * (100 + 25 * min(off, 4)) / 100;
+    // Oltre l'orizzonte: ogni turno di sonno rimasto evita un turno della sua minaccia (danno in % sul nostro lato,
+    // + KO possibili). Metà peso (si sveglia a caso, può cambiare), al massimo 2 turni.
+    if (pm->partyIdx < 0 && sJob.sleepW[b] > 0 && pm->sleepTurns > 0)
+        w = max(w, sJob.threatPct[b] * min(pm->sleepTurns, 2) / 2);
     return w;
 }
 
@@ -3507,7 +3512,10 @@ bool32 AI_VgcPlanBegin(enum BattlerId me)
             sJob.sleepW[q] = 0;
         for (q = 0; q < gBattlersCount; q++)
             if (sJob.base.m[q].alive)
-                sJob.sleepW[q] = CUSTOM_VGC_EVAL_SLEEP * (25 + ThreatPct(&sJob.base, q)) / 100;
+            {
+                sJob.threatPct[q] = ThreatPct(&sJob.base, q);
+                sJob.sleepW[q] = CUSTOM_VGC_EVAL_SLEEP * (25 + sJob.threatPct[q]) / 100;
+            }
     }
     // Velocità incerta (onesta: solo l'intervallo pubblico della specie o quello del belief, mai la vera): se la
     // stima di un avversario e una Velocità plausibile dall'altra parte dell'intervallo danno ordini diversi con
