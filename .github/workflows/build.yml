@@ -22,38 +22,41 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install binutils
         run: |
           sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            -o Acquire::Retries=3 -o Acquire::http::Timeout="20" \
-            binutils-arm-none-eabi gcc-arm-none-eabi libnewlib-arm-none-eabi libpng-dev python3
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends -o Acquire::Retries=3 -o Acquire::http::Timeout="20" binutils-arm-none-eabi gcc-arm-none-eabi libnewlib-arm-none-eabi libpng-dev python3 git-restore-mtime
 
-      - name: Cache build tools
-        uses: actions/cache@v4
+      # Stessa cache della ROM di test (vedi build-test): si ricompila solo ciò che è cambiato.
+      - name: Restore build cache
+        uses: actions/cache/restore@v4
         with:
-          path: |
-            tools/bin2c/bin2c
-            tools/gbafix/gbafix
-            tools/gbagfx/gbagfx
-            tools/jsonproc/jsonproc
-            tools/mapjson/mapjson
-            tools/mid2agb/mid2agb
-            tools/preproc/preproc
-            tools/ramscrgen/ramscrgen
-            tools/rsfont/rsfont
-            tools/scaninc/scaninc
-            tools/trainerproc/trainerproc
-            tools/compresSmol/compresSmol
-            tools/compresSmol/compresSmolTilemap
-            tools/wav2agb/wav2agb
-          key: tools-${{ runner.os }}-${{ hashFiles('tools/*/Makefile', 'tools/**/*.c', 'tools/**/*.cpp', 'tools/**/*.h') }}
+          path: gen-cache.tar
+          key: rom-gen-${{ github.sha }}
+          restore-keys: rom-gen-
+
+      - name: Unpack cache, restore file dates
+        run: |
+          git ls-files -z | xargs -0 touch -h -d '2000-01-01 00:00:00'
+          git restore-mtime --quiet 2>/dev/null || true
+          if [ -f gen-cache.tar ]; then tar -xpf gen-cache.tar && rm gen-cache.tar; fi
 
       - name: ROM (Emerald)
         env:
           GAME_VERSION: EMERALD
         run: make -j$(nproc) -O all
+
+      - name: Pack build cache
+        run: git ls-files -o -i --exclude-standard -z | grep -zv '^gen-cache.tar$' | tar --null -T - -cpf gen-cache.tar
+
+      - name: Save build cache
+        uses: actions/cache/save@v4
+        with:
+          path: gen-cache.tar
+          key: rom-gen-${{ github.sha }}
 
       - name: Upload ROM Artifact
         uses: actions/upload-artifact@v4
