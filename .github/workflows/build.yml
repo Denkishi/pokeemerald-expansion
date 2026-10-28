@@ -61,13 +61,81 @@ jobs:
           name: pokeemerald-rom
           path: pokeemerald.gba
 
-  # Test dell'IA VGC (stessi file di tools/vgc_training/test_veloci.ps1), in parallelo con mgba-rom-test-hydra.
-  test-vgc:
+  # Test dell'IA VGC, veloci:
+  # 1) build-test compila UNA volta la ROM di test (tutti i test) con la cache della compilazione precedente
+  #    (date dei file da git: si ricompila solo ciò che è cambiato) e produce anche la ROM del self-play;
+  # 2) test-vgc esegue ogni file di test in un job parallelo sulla stessa ELF (filtro gTestRunnerArgv).
+  build-test:
     runs-on: ubuntu-latest
-    # Come la compilazione locale dei test: i test usano ancora gPlayerPartyPtr/gEnemyPartyPtr (deprecati).
     env:
       DEPRECATED_ERROR: 0
       UNUSED_ERROR: 0
+      GAME_VERSION: EMERALD
+      TEST: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install binutils
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends -o Acquire::Retries=3 -o Acquire::http::Timeout="20" binutils-arm-none-eabi gcc-arm-none-eabi libnewlib-arm-none-eabi libpng-dev python3 git-restore-mtime
+
+      - name: Restore build cache
+        uses: actions/cache/restore@v4
+        with:
+          path: gen-cache.tar
+          key: test-gen-${{ github.sha }}
+          restore-keys: test-gen-
+
+      - name: Unpack cache, restore file dates
+        run: |
+          git restore-mtime --quiet
+          if [ -f gen-cache.tar ]; then tar -xpf gen-cache.tar && rm gen-cache.tar; fi
+
+      - name: Build test ELF
+        run: make -j$(nproc) pokeemerald-test.elf TESTS='test/battle/ai/ai_vgc_doubles.c'
+
+      - name: Self-play ROM
+        run: |
+          mkdir -p build/vgc_selfplay
+          cp pokeemerald-test.elf build/vgc_selfplay/selfplay.elf
+          tools/patchelf/patchelf build/vgc_selfplay/selfplay.elf gTestRunnerHeadless '\x01' gTestRunnerSkipIsFail '\x00' gTestRunnerArgv 'test/vgc_selfplay/vgc_selfplay.c\0'
+          arm-none-eabi-objcopy -O binary build/vgc_selfplay/selfplay.elf build/vgc_selfplay/selfplay.gba
+
+      - name: Pack build cache
+        run: git ls-files -o -i --exclude-standard -z | grep -zv '^gen-cache.tar$' | tar --null -T - -cpf gen-cache.tar
+
+      - name: Save build cache
+        uses: actions/cache/save@v4
+        with:
+          path: gen-cache.tar
+          key: test-gen-${{ github.sha }}
+
+      - name: Upload test ELF
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-elf
+          path: pokeemerald-test.elf
+          retention-days: 2
+
+      # Si scarica con gh run download <id> -n selfplay-rom e si copia in tools/vgc_training/work/selfplay.gba.
+      - name: Upload self-play ROM
+        uses: actions/upload-artifact@v4
+        with:
+          name: selfplay-rom
+          path: build/vgc_selfplay/selfplay.gba
+
+  test-vgc:
+    needs: build-test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test: [test/battle/ai/ai_vgc_doubles.c, test/battle/ai/ai_vgc_team_preview.c, test/battle/ai/ai_vgc_scout.c,
+               test/battle/ai/ai_vgc_teams.c, test/battle/ai/ai_vgc_rules.c, test/battle/move_effect/parting_shot.c]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -75,43 +143,21 @@ jobs:
       - name: Install binutils
         run: |
           sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            -o Acquire::Retries=3 -o Acquire::http::Timeout="20" \
-            binutils-arm-none-eabi gcc-arm-none-eabi libnewlib-arm-none-eabi libpng-dev python3
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends binutils-arm-none-eabi
 
-      - name: Test VGC
-        env:
-          GAME_VERSION: EMERALD
-          TEST: 1
+      - name: Tools
         run: |
+          make -C tools/patchelf
+          make -C tools/mgba-rom-test-hydra
           chmod +x tools/mgba/mgba-rom-test
-          fail=0
-          for t in test/battle/ai/ai_vgc_doubles.c test/battle/ai/ai_vgc_team_preview.c test/battle/ai/ai_vgc_scout.c \
-                   test/battle/ai/ai_vgc_teams.c test/battle/ai/ai_vgc_rules.c test/battle/move_effect/parting_shot.c; do
-            [ -f "$t" ] || continue
-            echo "::group::$t"
-            make -j$(nproc) check TESTS="$t" || fail=1
-            echo "::endgroup::"
-          done
-          exit $fail
 
-      # ROM del self-play (tools/vgc_training: selfplay.py build fa lo stesso in locale). Si scarica con
-      # gh run download <id> -n selfplay-rom e si copia in tools/vgc_training/work/selfplay.gba.
-      - name: ROM self-play
-        if: always()
-        env:
-          GAME_VERSION: EMERALD
-          TEST: 1
-        run: |
-          make -j$(nproc) pokeemerald-test.elf TESTS='test/vgc_selfplay/vgc_selfplay.c'
-          mkdir -p build/vgc_selfplay
-          cp pokeemerald-test.elf build/vgc_selfplay/selfplay.elf
-          tools/patchelf/patchelf build/vgc_selfplay/selfplay.elf gTestRunnerHeadless '\x01' gTestRunnerSkipIsFail '\x00' gTestRunnerArgv 'test/vgc_selfplay/vgc_selfplay.c\0'
-          arm-none-eabi-objcopy -O binary build/vgc_selfplay/selfplay.elf build/vgc_selfplay/selfplay.gba
-
-      - name: Upload self-play ROM
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: Download test ELF
+        uses: actions/download-artifact@v4
         with:
-          name: selfplay-rom
-          path: build/vgc_selfplay/selfplay.gba
+          name: test-elf
+
+      - name: Test ${{ matrix.test }}
+        run: |
+          cp pokeemerald-test.elf headless.elf
+          tools/patchelf/patchelf headless.elf gTestRunnerHeadless '\x01' gTestRunnerSkipIsFail '\x00' gTestRunnerArgv '${{ matrix.test }}\0'
+          tools/mgba-rom-test-hydra/mgba-rom-test-hydra tools/mgba/mgba-rom-test arm-none-eabi-objcopy headless.elf
