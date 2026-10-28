@@ -92,7 +92,11 @@ jobs:
 
       - name: Unpack cache, restore file dates
         run: |
-          git restore-mtime --quiet
+          # Prima una data vecchia a tutti i file tracciati (quelli che restore-mtime non trova nella storia
+          # restano così), poi la data dell'ultimo commit che li ha toccati: gli strumenti e gli oggetti in cache
+          # non risultano più vecchi dei sorgenti e si ricompila solo ciò che è cambiato.
+          git ls-files -z | xargs -0 touch -h -d '2000-01-01 00:00:00'
+          git restore-mtime --quiet 2>/dev/null || true
           if [ -f gen-cache.tar ]; then tar -xpf gen-cache.tar && rm gen-cache.tar; fi
 
       - name: Build test ELF
