@@ -123,6 +123,15 @@
 #define CUSTOM_VGC_MIRROR_FOE_IDLE          FALSE // solo self-play: CUSTOM_VGC_PLAN_FOE_VS_IDLE acceso per il lato senza il bit di verifica-regole, spento per l'altro (regole M8 per tutti)
 #define CUSTOM_VGC_PLAN_FOE_VS_IDLE         FALSE // modello del giocatore: le sue mosse valutate anche contro di noi fermi (media). Provato il 28/10: misplay 303 -> 285 ma rompe il test Altaria Tailwind; a specchio 1727 partite 50,7% (IC95 [48,9; 52,5], p=0,47): spento
 #define CUSTOM_VGC_PLAN_HIGH_ROLL           TRUE // ramo "colpo alto": un colpo che manda KO solo con un tiro alto (sopra la mediana) pesa per la sua probabilità
+// ---- KO sicuri (ia-vgc-ko) ----
+#define CUSTOM_VGC_PLAN_SURE_KO_PCT         75    // premio (% del valore di un KO) alle coppie con un KO garantito nei rami in cui va a segno (0 = spento)
+#define CUSTOM_VGC_PLAN_KO_CALIB_PROTECT    65    // Protect del bersaglio: % reale rispetto alla probabilità del modello (misurato sui log VGCFOE)
+#define CUSTOM_VGC_PLAN_KO_CALIB_SWITCH     45    // cambio del bersaglio: idem
+#define CUSTOM_VGC_PLAN_KO_CALIB_FAKE_OUT   80    // Fake Out su chi attacca: idem
+#define CUSTOM_VGC_PLAN_KO_PAIRS            TRUE  // la coppia migliore di ogni azione con un KO garantito è sempre simulata
+#define CUSTOM_VGC_PLAN_LOW_ROLL_EXACT      TRUE  // ramo "colpo basso" con il rapporto esatto minimo/mediana (un KO sicuro non perde PS per arrotondamento)
+#define CUSTOM_VGC_MIRROR_KO                FALSE // solo self-play: correzioni dei KO sicuri spente per il lato col bit di verifica-regole (regole M8 per tutti)
+// ---- fine KO sicuri ----
 // Ritratto dell'allenatore + "penso..." quando hai già scelto e l'IA sta ancora calcolando.
 #define CUSTOM_VGC_THINKING_OVERLAY         TRUE
 #define CUSTOM_VGC_THINKING_SLIDE_FRAMES    24      // fotogrammi dell'entrata (da destra) e dell'uscita (verso destra) del ritratto

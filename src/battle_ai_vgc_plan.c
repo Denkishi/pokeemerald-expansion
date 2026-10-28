@@ -235,6 +235,7 @@ struct PlanJob
     u8 i, a, b, phase;
     s32 sum, wsum, worst;
     s32 ev[PLAN_ALL_PAIRS];
+    s32 koSum[PLAN_ALL_PAIRS], koWsum[PLAN_ALL_PAIRS]; // KO sicuri (ia-vgc-ko): credito pesato sui rami del turno 1
     s32 bestSoFar;      // miglior valore di coppia già finito (potatura)
     const struct VgcEvalWeights *w; // pesi della valutazione del lato di chi pensa
     u8 winconParty;     // bit per indice di squadra: le win condition del piano del nostro allenatore
@@ -1109,6 +1110,21 @@ static u32 HighRollPct(const struct PlanState *st, const struct PlanAction *a, e
     return 108;
 }
 
+// ---- KO sicuri (ia-vgc-ko): tiro basso esatto ----
+// Il tiro basso dalla tabella dell'IA in proporzione esatta (minimo / mediana). Con la percentuale troncata un KO sicuro
+// (minimo = PS) restava a 1 PS nel ramo "colpo basso" e pagava una penalità che non esiste.
+static s32 LowRollDmg(const struct PlanState *st, const struct PlanAction *a, enum BattlerId t, s32 dmg)
+{
+    if (CUSTOM_VGC_PLAN_LOW_ROLL_EXACT && a->moveIndex < MAX_MON_MOVES && st->m[a->user].partyIdx < 0 && st->m[t].partyIdx < 0)
+    {
+        const struct SimulatedDamage *sd = &gAiLogicData->simulatedDmg[a->user][t][a->moveIndex];
+        if (sd->median > 0)
+            return (s32)(((s64)dmg * sd->minimum + sd->median - 1) / sd->median);
+    }
+    return dmg * (s32)LowRollPct(st, a, t) / 100;
+}
+// ---- fine KO sicuri ----
+
 static s32 DamageOf(const struct PlanState *st, const struct PlanAction *a, enum BattlerId t)
 {
     const struct PlanMon *am = &st->m[a->user], *dm = &st->m[t];
@@ -1158,7 +1174,7 @@ static s32 DamageOf(const struct PlanState *st, const struct PlanAction *a, enum
     if (am->helping)
         dmg = dmg * 3 / 2;
     if (a->user + 1 == sLowRollBattler)
-        dmg = dmg * LowRollPct(st, a, t) / 100;
+        dmg = LowRollDmg(st, a, t, dmg);
     else if (a->user + 1 == sHighRollBattler)
         dmg = dmg * HighRollPct(st, a, t) / 100;
     // Niente precisione qui: il danno è quello di un colpo andato a segno. La probabilità di mancare la
@@ -3084,6 +3100,110 @@ static void AddComboCands(enum BattlerId b, enum BattlerId ally, struct PlanActi
     }
 }
 
+// ---- KO sicuri (ia-vgc-ko) ----
+// Un KO garantito (danno minimo della tabella dell'IA >= PS, precisione piena) preso ora toglie al giocatore tutte le
+// azioni future: l'albero a 3 turni lo vede solo in parte, e lo azzera nei rami in cui il modello del giocatore prevede
+// una lettura (Protect o cambio del bersaglio, Fake Out su chi attacca). Misurato sui log delle campagne (VGCFOE contro
+// le azioni vere): Protect previsto al 16-28% avviene al 7-22% (x0,65), il cambio previsto al 27% avviene al 13% (x0,45),
+// Fake Out x0,8. Ogni coppia con un KO sicuro riceve: nei rami in cui il bersaglio va KO un premio (una parte del valore
+// del KO, CUSTOM_VGC_PLAN_SURE_KO_PCT); nei rami bloccati da una lettura la parte della lettura che il modello
+// sopravvaluta (lì il KO passa, con il suo premio).
+static bool32 KoFixesOn(void)
+{
+#if TESTING
+    if (CUSTOM_VGC_MIRROR_KO)
+        return !((gVgcTraining.rulesLegacy >> GetBattlerSide(sJob.me)) & 1);
+#endif
+    return MisplayFixesOn();
+}
+
+// L'azione `a` manda KO di sicuro l'avversario `f` (stessi criteri del controllore: niente Final Gambit/Explosion, niente
+// Focus Sash/Sturdy a PS pieni, niente priorità sul Campo Psichico contro chi è a terra).
+static bool32 SureKoOn(const struct PlanAction *a, enum BattlerId f)
+{
+    enum MoveTarget tt;
+    enum BattlerId u = a->user;
+
+    if (a->kind != PLAN_ACT_MOVE || a->moveIndex >= MAX_MON_MOVES || IsBattleMoveStatus(a->move) || u >= gBattlersCount
+     || f >= gBattlersCount || IsBattlerAlly(u, f) || !IsBattlerAlive(f) || !IsBattlerAlive(u))
+        return FALSE;
+    tt = GetBattlerMoveTargetType(u, a->move);
+    if (a->target != f && tt != TARGET_BOTH && tt != TARGET_FOES_AND_ALLY)
+        return FALSE;
+    if (GetMoveEffect(a->move) == EFFECT_FINAL_GAMBIT || IsExplosionMove(a->move))
+        return FALSE;
+    if (gBattleMons[f].hp == gBattleMons[f].maxHP
+     && (gAiLogicData->holdEffects[f] == HOLD_EFFECT_FOCUS_SASH || gAiLogicData->abilities[f] == ABILITY_STURDY))
+        return FALSE;
+    if (gFieldTimers.terrain == B_TERRAIN_PSYCHIC && GetBattleMovePriority(u, gAiLogicData->abilities[u], a->move) > 0
+     && IsBattlerGrounded(f, gAiLogicData->abilities[f], gAiLogicData->holdEffects[f]))
+        return FALSE;
+    return gAiLogicData->simulatedDmg[u][f][a->moveIndex].minimum >= gBattleMons[f].hp
+        && gAiLogicData->moveAccuracy[u][f][a->moveIndex] >= 100;
+}
+
+static bool32 SureKoAny(const struct PlanAction *a)
+{
+    enum BattlerId u = a->user;
+    if (a->kind != PLAN_ACT_MOVE || u >= gBattlersCount)
+        return FALSE;
+    return SureKoOn(a, GetBattlerLeftFoe(u)) || SureKoOn(a, GetBattlerRightFoe(u));
+}
+
+// Fake Out (e simili) di `fa` su `b`.
+static bool32 IsFakeOutOn(const struct PlanAction *fa, enum BattlerId b)
+{
+    return fa->kind == PLAN_ACT_MOVE && fa->target == b && GetMoveEffect(fa->move) == EFFECT_FIRST_TURN_ONLY;
+}
+
+// Credito KO di un ramo del turno 1 (coppia sJob.i, risposte fa/fb, stato dopo il turno s1), in centesimi del valore di un
+// KO, pesato `w` come il ramo.
+static void KoCreditBranch(const struct PlanState *s1, const struct PlanAction *x, const struct PlanAction *y,
+                           const struct PlanAction *fa, const struct PlanAction *fb, s32 w)
+{
+    enum BattlerId foes[2] = { GetBattlerLeftFoe(sJob.me), GetBattlerRightFoe(sJob.me) };
+    s32 credit = 0;
+    u32 k;
+
+    if (CUSTOM_VGC_PLAN_SURE_KO_PCT == 0 || !KoFixesOn())
+        return;
+    for (k = 0; k < 2; k++)
+    {
+        enum BattlerId f = foes[k];
+        const struct PlanAction *ko = SureKoOn(x, f) ? x : SureKoOn(y, f) ? y : NULL;
+        const struct PlanAction *ff;
+        u32 c = 100;
+
+        if (ko == NULL || !sJob.base.m[f].alive)
+            continue;
+        if (!s1->m[f].alive)
+        {
+            credit += CUSTOM_VGC_PLAN_SURE_KO_PCT;
+            continue;
+        }
+        ff = (fa->user == f) ? fa : (fb->user == f) ? fb : NULL;
+        if (ff != NULL && ff->kind == PLAN_ACT_PROTECT)
+            c = CUSTOM_VGC_PLAN_KO_CALIB_PROTECT;
+        else if (ff != NULL && ff->kind == PLAN_ACT_SWITCH)
+            c = CUSTOM_VGC_PLAN_KO_CALIB_SWITCH;
+        else if (IsFakeOutOn(fa, ko->user) || IsFakeOutOn(fb, ko->user))
+            c = CUSTOM_VGC_PLAN_KO_CALIB_FAKE_OUT;
+        // La lettura avviene nel c% dei casi che il modello le dà: nel resto il KO passa (con il premio).
+        credit += (s32)(100 - c) * (100 + CUSTOM_VGC_PLAN_SURE_KO_PCT) / 100;
+    }
+    sJob.koSum[sJob.i] += credit * w;
+    sJob.koWsum[sJob.i] += w;
+}
+
+// Premio della coppia i, in punti.
+static s32 KoBonus(u32 i)
+{
+    if (CUSTOM_VGC_PLAN_SURE_KO_PCT == 0 || !KoFixesOn() || sJob.koWsum[i] <= 0)
+        return 0;
+    return (VW(ko) + VW(alive)) * (sJob.koSum[i] / sJob.koWsum[i]) / 100;
+}
+// ---- fine KO sicuri ----
+
 // Le migliori PLAN_MAX_OURS azioni di un lato per valore a 1 turno, tenendo sempre: l'azione delle regole
 // (termine di paragone), le combo sul compagno, la migliore azione "utile" (setup, Protect, velocità, Baton Pass).
 static u32 TrimCands(u32 side, struct PlanAction *out, u8 origMove, enum BattlerId origTarget)
@@ -3275,6 +3395,17 @@ static u32 BuildPairs(enum BattlerId me)
                 tier[topI][j] = 2;
     }
 
+    // KO sicuri (ia-vgc-ko): la coppia migliore di ogni azione con un KO garantito è sempre simulata per intero.
+    if (CUSTOM_VGC_PLAN_KO_PAIRS && KoFixesOn())
+    {
+        for (i = 0; i < nMine; i++)
+            if (bestJ[i] != 0xFF && tier[i][bestJ[i]] < 2 && SureKoAny(&mine[i]))
+                tier[i][bestJ[i]] = 2;
+        for (j = 0; j < nTheirs; j++)
+            if (bestI[j] != 0xFF && tier[bestI[j]][j] < 2 && SureKoAny(&theirs[j]))
+                tier[bestI[j]][j] = 2;
+    }
+
     for (i = 0; i < nMine; i++)
     {
         for (j = 0; j < nTheirs; j++)
@@ -3330,7 +3461,7 @@ static u32 LowRollFailChance(const struct PlanState *st, const struct PlanAction
     hp = st->m[t].hp;
     if (med < hp)
         return 0;
-    lo = med * (s32)LowRollPct(st, a, t) / 100;
+    lo = LowRollDmg(st, a, t, med);
     if (lo >= hp)
         return 0;
     return (u32)(50 * (hp - lo) / max(med - lo, 1));
@@ -3471,7 +3602,7 @@ static bool32 AdvanceLevel1(void)
     // non vale la pena finire le altre (le coppie vanno in ordine di promessa: la migliore arriva presto). Il suo
     // valore resta quello parziale, comunque peggiore.
     bool32 prune = sJob.bestSoFar != INT32_MIN && sJob.wsum > 0
-                && (sJob.alpha * (sJob.sum / sJob.wsum) + (10 - sJob.alpha) * sJob.worst) / 10 < sJob.bestSoFar - CUSTOM_VGC_PLAN_PRUNE;
+                && (sJob.alpha * (sJob.sum / sJob.wsum) + (10 - sJob.alpha) * sJob.worst) / 10 + KoBonus(sJob.i) < sJob.bestSoFar - CUSTOM_VGC_PLAN_PRUNE;
     sJob.b++;
     if (prune)
     {
@@ -3486,8 +3617,8 @@ static bool32 AdvanceLevel1(void)
         {
             sJob.a = 0;
             sJob.ev[sJob.i] = (sJob.alpha * (sJob.sum / max(sJob.wsum, 1)) + (10 - sJob.alpha) * sJob.worst) / 10;
-            if (sJob.ev[sJob.i] > sJob.bestSoFar)
-                sJob.bestSoFar = sJob.ev[sJob.i];
+            if (sJob.ev[sJob.i] + KoBonus(sJob.i) > sJob.bestSoFar)
+                sJob.bestSoFar = sJob.ev[sJob.i] + KoBonus(sJob.i);
             sJob.sum = sJob.wsum = 0;
             sJob.worst = INT32_MAX;
             sJob.i++;
@@ -3667,6 +3798,9 @@ static void FinishJob(void)
     for (i = 0; i < sJob.nOurs; i++)
         sJob.ev[i] += AI_VgcBookPairBonus(sJob.me, sJob.ours[i].kind <= PLAN_ACT_PROTECT ? sJob.ours[i].move : MOVE_NONE,
                                           partner, sJob.partners[i].kind <= PLAN_ACT_PROTECT ? sJob.partners[i].move : MOVE_NONE);
+    // KO sicuri (ia-vgc-ko): premio delle coppie con un KO garantito.
+    for (i = 0; i < sJob.nOurs; i++)
+        sJob.ev[i] += KoBonus(i);
     for (i = 0; i < sJob.nOurs; i++)
     {
         if (IsOrigAction(&sJob.ours[i], sJob.origMove, sJob.origTarget)
@@ -4368,6 +4502,7 @@ bool32 AI_VgcPlanStep(void)
             RunTurn(&sJob.s1, acts, 4);
             budget--;
             budget -= MissPenalty(&sJob.base, &sJob.s1, acts4, &sJob.missPen);
+            KoCreditBranch(&sJob.s1, acts[0], acts[1], acts[2], acts[3], PairWeight(&sJob.foeA[sJob.a], &sJob.foeB[sJob.b]));
             if (CUSTOM_VGC_PLAN_DEPTH >= 2)
             {
                 StartLookAhead();
