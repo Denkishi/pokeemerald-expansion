@@ -380,10 +380,11 @@ AI_DOUBLE_BATTLE_TEST("VGC rules: prior - Instruct repeats the partner's attack 
     }
 }
 
-AI_DOUBLE_BATTLE_TEST("VGC rules: prior - After You lets Torkoal Erupt first (Gigi Pinto's Lilligant)")
+AI_DOUBLE_BATTLE_TEST("VGC rules: prior - After You has no prior, the turn order after it is simulated (Gigi Pinto's Lilligant)")
 {
     // Torkoal a PS pieni sotto il sole è più lento di Roaring Moon: After You lo fa muovere subito, prima di prendere
-    // danni (Eruption cala con i PS). L'ordine dei turni dopo After You non è simulato: lo dice la spinta.
+    // danni (Eruption cala con i PS). La simulazione sposta l'azione del compagno subito dopo After You (RunTurn):
+    // la spinta che ne faceva le veci (40) è stata tolta per non contare due volte lo stesso effetto.
     GIVEN {
         AI_FLAGS(VGC_TRAINER_AI_FLAGS);
         PLAYER(SPECIES_ROARING_MOON) { TONY_ROARING_MOON; }
@@ -397,7 +398,7 @@ AI_DOUBLE_BATTLE_TEST("VGC rules: prior - After You lets Torkoal Erupt first (Gi
     } WHEN {
         TURN { MOVE(playerLeft, MOVE_PROTECT); MOVE(playerRight, MOVE_PROTECT); }
     } THEN {
-        EXPECT_EQ(AI_VgcPlanTestPrior(GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT), MOVE_AFTER_YOU), 40);
+        EXPECT_EQ(AI_VgcPlanTestPrior(GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT), MOVE_AFTER_YOU), 0);
     }
 }
 
