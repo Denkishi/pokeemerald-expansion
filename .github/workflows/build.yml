@@ -64,6 +64,10 @@ jobs:
   # Test dell'IA VGC (stessi file di tools/vgc_training/test_veloci.ps1), in parallelo con mgba-rom-test-hydra.
   test-vgc:
     runs-on: ubuntu-latest
+    # Come la compilazione locale dei test: i test usano ancora gPlayerPartyPtr/gEnemyPartyPtr (deprecati).
+    env:
+      DEPRECATED_ERROR: 0
+      UNUSED_ERROR: 0
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -90,3 +94,24 @@ jobs:
             echo "::endgroup::"
           done
           exit $fail
+
+      # ROM del self-play (tools/vgc_training: selfplay.py build fa lo stesso in locale). Si scarica con
+      # gh run download <id> -n selfplay-rom e si copia in tools/vgc_training/work/selfplay.gba.
+      - name: ROM self-play
+        if: always()
+        env:
+          GAME_VERSION: EMERALD
+          TEST: 1
+        run: |
+          make -j$(nproc) pokeemerald-test.elf TESTS='test/vgc_selfplay/vgc_selfplay.c'
+          mkdir -p build/vgc_selfplay
+          cp pokeemerald-test.elf build/vgc_selfplay/selfplay.elf
+          tools/patchelf/patchelf build/vgc_selfplay/selfplay.elf gTestRunnerHeadless '\x01' gTestRunnerSkipIsFail '\x00' gTestRunnerArgv 'test/vgc_selfplay/vgc_selfplay.c\0'
+          arm-none-eabi-objcopy -O binary build/vgc_selfplay/selfplay.elf build/vgc_selfplay/selfplay.gba
+
+      - name: Upload self-play ROM
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selfplay-rom
+          path: build/vgc_selfplay/selfplay.gba
