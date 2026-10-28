@@ -64,6 +64,10 @@ jobs:
   # Test dell'IA VGC (stessi file di tools/vgc_training/test_veloci.ps1), in parallelo con mgba-rom-test-hydra.
   test-vgc:
     runs-on: ubuntu-latest
+    # Come la compilazione locale dei test: i test usano ancora gPlayerPartyPtr/gEnemyPartyPtr (deprecati).
+    env:
+      DEPRECATED_ERROR: 0
+      UNUSED_ERROR: 0
     steps:
       - name: Checkout
         uses: actions/checkout@v4
