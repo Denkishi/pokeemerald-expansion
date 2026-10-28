@@ -124,7 +124,7 @@
 #define CUSTOM_VGC_PLAN_FOE_VS_IDLE         FALSE // modello del giocatore: le sue mosse valutate anche contro di noi fermi (media). Provato il 28/10: misplay 303 -> 285 ma rompe il test Altaria Tailwind; a specchio 1727 partite 50,7% (IC95 [48,9; 52,5], p=0,47): spento
 #define CUSTOM_VGC_PLAN_HIGH_ROLL           TRUE // ramo "colpo alto": un colpo che manda KO solo con un tiro alto (sopra la mediana) pesa per la sua probabilità
 // ---- KO sicuri (ia-vgc-ko) ----
-#define CUSTOM_VGC_PLAN_SURE_KO_PCT         75    // premio (% del valore di un KO) alle coppie con un KO garantito nei rami in cui va a segno (0 = spento)
+#define CUSTOM_VGC_PLAN_SURE_KO_PCT         35    // premio (% del valore di un KO) alle coppie con un KO garantito nei rami in cui va a segno (0 = spento)
 #define CUSTOM_VGC_PLAN_KO_CALIB_PROTECT    65    // Protect del bersaglio: % reale rispetto alla probabilità del modello (misurato sui log VGCFOE)
 #define CUSTOM_VGC_PLAN_KO_CALIB_SWITCH     45    // cambio del bersaglio: idem
 #define CUSTOM_VGC_PLAN_KO_CALIB_FAKE_OUT   80    // Fake Out su chi attacca: idem
