@@ -40,9 +40,18 @@ jobs:
 
       - name: Unpack cache, restore file dates
         run: |
+          # Tutti i sorgenti tracciati con una data vecchia, poi la cache (oggetti con la data della loro build);
+          # infine "adesso" ai file cambiati dal commit da cui è stata fatta la cache (o a tutti se non si sa):
+          # così si ricompila esattamente ciò che è cambiato, anche se la cache viene da un altro branch.
           git ls-files -z | xargs -0 touch -h -d '2000-01-01 00:00:00'
-          git restore-mtime --quiet 2>/dev/null || true
-          if [ -f gen-cache.tar ]; then tar -xpf gen-cache.tar && rm gen-cache.tar; fi
+          if [ -f gen-cache.tar ]; then
+            tar -xpf gen-cache.tar && rm gen-cache.tar
+            if [ -f .cache-sha ] && git cat-file -e "$(cat .cache-sha)^{commit}" 2>/dev/null; then
+              git diff --name-only -z "$(cat .cache-sha)" HEAD | xargs -0 -r touch -h
+            else
+              git ls-files -z | xargs -0 touch -h
+            fi
+          fi
 
       - name: ROM (Emerald)
         env:
@@ -50,7 +59,9 @@ jobs:
         run: make -j$(nproc) -O all
 
       - name: Pack build cache
-        run: git ls-files -o -i --exclude-standard -z | grep -zv '^gen-cache.tar$' | tar --null -T - -cpf gen-cache.tar
+        run: |
+          git rev-parse HEAD > .cache-sha
+          { git ls-files -o -i --exclude-standard -z | grep -zv '^gen-cache.tar$'; printf '.cache-sha\0'; } | tar --null -T - -cpf gen-cache.tar
 
       - name: Save build cache
         uses: actions/cache/save@v4
@@ -98,9 +109,18 @@ jobs:
           # Prima una data vecchia a tutti i file tracciati (quelli che restore-mtime non trova nella storia
           # restano così), poi la data dell'ultimo commit che li ha toccati: gli strumenti e gli oggetti in cache
           # non risultano più vecchi dei sorgenti e si ricompila solo ciò che è cambiato.
+          # Tutti i sorgenti tracciati con una data vecchia, poi la cache (oggetti con la data della loro build);
+          # infine "adesso" ai file cambiati dal commit da cui è stata fatta la cache (o a tutti se non si sa):
+          # così si ricompila esattamente ciò che è cambiato, anche se la cache viene da un altro branch.
           git ls-files -z | xargs -0 touch -h -d '2000-01-01 00:00:00'
-          git restore-mtime --quiet 2>/dev/null || true
-          if [ -f gen-cache.tar ]; then tar -xpf gen-cache.tar && rm gen-cache.tar; fi
+          if [ -f gen-cache.tar ]; then
+            tar -xpf gen-cache.tar && rm gen-cache.tar
+            if [ -f .cache-sha ] && git cat-file -e "$(cat .cache-sha)^{commit}" 2>/dev/null; then
+              git diff --name-only -z "$(cat .cache-sha)" HEAD | xargs -0 -r touch -h
+            else
+              git ls-files -z | xargs -0 touch -h
+            fi
+          fi
 
       - name: Build test ELF
         run: make -j$(nproc) pokeemerald-test.elf TESTS='test/battle/ai/ai_vgc_doubles.c'
@@ -113,7 +133,9 @@ jobs:
           arm-none-eabi-objcopy -O binary build/vgc_selfplay/selfplay.elf build/vgc_selfplay/selfplay.gba
 
       - name: Pack build cache
-        run: git ls-files -o -i --exclude-standard -z | grep -zv '^gen-cache.tar$' | tar --null -T - -cpf gen-cache.tar
+        run: |
+          git rev-parse HEAD > .cache-sha
+          { git ls-files -o -i --exclude-standard -z | grep -zv '^gen-cache.tar$'; printf '.cache-sha\0'; } | tar --null -T - -cpf gen-cache.tar
 
       - name: Save build cache
         uses: actions/cache/save@v4
