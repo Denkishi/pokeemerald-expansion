@@ -135,8 +135,8 @@ struct SeriesMonMemory
     struct ScoutBeliefSnapshot belief; // Velocità ristretta, strumenti esclusi, abilità d'ingresso escluse
 };
 
-// EWRAM quasi piena: la memoria per Pokémon non deve crescere (protectHabit sta nel byte di padding).
-STATIC_ASSERT(sizeof(struct SeriesMonMemory) <= 32, SeriesMonMemorySize)
+// EWRAM quasi piena: la memoria per Pokémon non deve crescere (protectHabit sta nel byte di padding prima di belief).
+STATIC_ASSERT(__builtin_offsetof(struct SeriesMonMemory, belief) == __builtin_offsetof(struct SeriesMonMemory, protectHabit) + 1, SeriesMonMemoryPadding)
 
 static EWRAM_DATA struct SeriesState sSeries = {0};
 static EWRAM_DATA struct Pokemon sSeriesEnemyParty[PARTY_SIZE] = {0}; // squadra avversaria completa
