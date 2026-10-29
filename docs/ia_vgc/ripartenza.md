@@ -34,6 +34,13 @@ Test (test_veloci.ps1, un file alla volta: con più file in `-Tests` il filtro p
 - Campagna finale 432 partite: misplay certi 423 (prima 486); mossa su immune 65 → 18 (16 = Shadow Sneak di Mimikyu su Lickitung, da indagare: probabile cambio di bersaglio del motore dopo un KO).
 - Aperti: KO garantito non preso 173, win condition 102, cambio su chi va KO 80; valore di un Trick Room appena messo (~1100 punti) da misurare; pesi (bassa priorità); prova in gioco di overlay e fine lotta.
 
+## Stato al 29/10, 04:00 (master a4ab1d6dcf)
+
+Campagna 432 partite con tutte le correzioni: **203 misplay certi** (0,47 a partita; il 28/10 mattina erano 423).
+Win condition persa 90, KO garantito non preso 76, cambio su chi va KO 20, bersaglio già KO 9, setup sotto KO 7,
+immune 0, Protect di fila 0. In lavoro: lato difensivo della win condition (branch `ia-vgc-cambi`).
+Logger delle partite umane: `docs/ia_vgc/logger.md`.
+
 Non funzionano (spenti dietro flag in `custom.h`): rollout alla foglia, scala unica delle risposte, sostituzioni dopo KO nel simulatore.
 
 Regole fisse: livello 50 ovunque; WSL solo per compilare; niente dati nascosti del giocatore; prima la decisione giusta, poi quella veloce (nessun tetto ai fotogrammi).
