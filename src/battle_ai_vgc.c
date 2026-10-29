@@ -1199,7 +1199,7 @@ bool32 AI_VgcRulesLegacy(enum BattlerId battler)
 {
     // Verifica a specchio delle correzioni dei misplay: il bit spegne quelle, le regole restano M8 per entrambi.
     if (CUSTOM_VGC_MIRROR_FIXES || CUSTOM_VGC_MIRROR_FOE_IDLE || CUSTOM_VGC_MIRROR_FOE_HISTORY || CUSTOM_VGC_MIRROR_KO
-     || CUSTOM_VGC_MIRROR_SWITCH_WORST || CUSTOM_VGC_MIRROR_ROUND5 || CUSTOM_VGC_MIRROR_WINCON_GUARD)
+     || CUSTOM_VGC_MIRROR_SWITCH_WORST || CUSTOM_VGC_MIRROR_ROUND5 || CUSTOM_VGC_MIRROR_TUNE || CUSTOM_VGC_MIRROR_WINCON_GUARD)
         return FALSE;
     return (gVgcTraining.rulesLegacy >> GetBattlerSide(battler)) & 1;
 }

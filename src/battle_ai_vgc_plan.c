@@ -1969,6 +1969,18 @@ static bool32 LockedIntoStatus(const struct PlanMon *pm)
 
 // Correzioni dei misplay accese per chi pensa. Spente solo nella verifica a specchio (CUSTOM_VGC_MIRROR_FIXES, self-play)
 // per il lato con il bit di verifica-regole.
+// Taratura dei pesi a specchio (CUSTOM_VGC_MIRROR_TUNE, self-play): il lato con il bit di verifica-regole usa i pesi
+// di partenza (CUSTOM_VGC_TUNE_BASE_*), l'altro quelli di custom.h.
+static bool32 TuneBaseSide(void)
+{
+#if TESTING
+    if (CUSTOM_VGC_MIRROR_TUNE)
+        return (gVgcTraining.rulesLegacy >> GetBattlerSide(sJob.me)) & 1;
+#endif
+    return FALSE;
+}
+#define TUNE(name) (TuneBaseSide() ? CUSTOM_VGC_TUNE_BASE_##name : CUSTOM_VGC_PLAN_##name)
+
 static bool32 MisplayFixesOn(void)
 {
 #if TESTING
@@ -3234,7 +3246,7 @@ static void KoCreditBranch(const struct PlanState *s1, const struct PlanAction *
     s32 credit = 0, scale = 100, prem;
     u32 k, q;
 
-    if (CUSTOM_VGC_PLAN_SURE_KO_PCT == 0 || !KoFixesOn())
+    if (TUNE(SURE_KO_PCT) == 0 || !KoFixesOn())
         return;
     // Il premio vale solo se il KO non costa un nostro Pokémon: se nel ramo uno dei nostri va KO il premio scende
     // (CUSTOM_VGC_PLAN_KO_LOSS_PCT), se è la win condition sparisce; e sparisce anche se la win condition attacca
@@ -3265,7 +3277,7 @@ static void KoCreditBranch(const struct PlanState *s1, const struct PlanAction *
             }
         }
     }
-    prem = CUSTOM_VGC_PLAN_SURE_KO_PCT * scale / 100;
+    prem = TUNE(SURE_KO_PCT) * scale / 100;
     for (k = 0; k < 2; k++)
     {
         enum BattlerId f = foes[k];
@@ -3297,7 +3309,7 @@ static void KoCreditBranch(const struct PlanState *s1, const struct PlanAction *
 // Premio della coppia i, in punti.
 static s32 KoBonus(u32 i)
 {
-    if (CUSTOM_VGC_PLAN_SURE_KO_PCT == 0 || !KoFixesOn() || sJob.koWsum[i] <= 0)
+    if (TUNE(SURE_KO_PCT) == 0 || !KoFixesOn() || sJob.koWsum[i] <= 0)
         return 0;
     return (VW(ko) + VW(alive)) * (sJob.koSum[i] / sJob.koWsum[i]) / 100;
 }
@@ -3937,7 +3949,7 @@ static s32 SwitchKoRisk(const struct PlanAction *sw, bool32 *single)
     if (dmg[0] >= hp || dmg[1] >= hp)
     {
         // Caso peggiore: costa il KO intero; con chi esce a pochi PS non vince mai.
-        pct = worst ? CUSTOM_VGC_PLAN_SWITCH_WORST_KO_PCT : 30;
+        pct = worst ? TUNE(SWITCH_WORST_KO_PCT) : 30;
         *single = worst && outLow;
     }
     else if (dmg[0] + dmg[1] >= hp)
@@ -3978,7 +3990,7 @@ static s32 SetupUnderKoPenalty(const struct PlanAction *a, const struct PlanActi
             if (moves[i] == MOVE_NONE || moves[i] == MOVE_UNAVAILABLE || IsBattleMoveStatus(moves[i]))
                 continue;
             if (gAiLogicData->simulatedDmg[f][u][i].minimum >= gBattleMons[u].hp && gAiLogicData->moveAccuracy[f][u][i] >= 100)
-                return CUSTOM_VGC_PLAN_SETUP_KO_PENALTY;
+                return TUNE(SETUP_KO_PENALTY);
         }
     }
     return 0;
@@ -4085,9 +4097,9 @@ static s32 WinconExposedRisk(const struct PlanAction *a, const struct PlanAction
     for (side = 0; side < 2; side++)
         worst = max(worst, max(dmgS[side], dmgA[side]));
     if (worst >= hp)
-        pct = CUSTOM_VGC_PLAN_WINCON_GUARD_PCT;
+        pct = TUNE(WINCON_GUARD_PCT);
     else if (max(dmgS[0], dmgA[0]) + max(dmgS[1], dmgA[1]) >= hp)
-        pct = CUSTOM_VGC_PLAN_WINCON_GUARD_PCT / 2;
+        pct = TUNE(WINCON_GUARD_PCT) / 2;
     else
         return 0;
     return pct * (VW(ko) + VW(alive) + um->hp * 100 / max(um->maxHp, 1)) * VW(wincon) / 10000;
@@ -4118,7 +4130,7 @@ static void FinishJob(void)
             if (s1 || s2)
                 switchKo |= 1u << i;
         }
-        if (CUSTOM_VGC_PLAN_SETUP_KO_PENALTY > 0 && Round5On())
+        if (TUNE(SETUP_KO_PENALTY) > 0 && Round5On())
             sJob.ev[i] -= SetupUnderKoPenalty(&sJob.ours[i], &sJob.partners[i]) + SetupUnderKoPenalty(&sJob.partners[i], &sJob.ours[i]);
         if (WinconGuardOn())
             sJob.ev[i] -= WinconExposedRisk(&sJob.ours[i], &sJob.partners[i]) + WinconExposedRisk(&sJob.partners[i], &sJob.ours[i]);
