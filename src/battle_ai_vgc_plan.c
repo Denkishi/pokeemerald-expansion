@@ -3884,6 +3884,115 @@ static s32 SwitchKoRisk(const struct PlanAction *sw, bool32 *single)
     return pct * (VW(ko) + VW(alive) + 100) * roleW / 10000;
 }
 
+// Difesa della win condition (CUSTOM_VGC_PLAN_WINCON_GUARD). Nella verifica a specchio (CUSTOM_VGC_MIRROR_WINCON_GUARD,
+// self-play) acceso per il lato senza il bit di verifica-regole, spento per l'altro.
+static bool32 WinconGuardOn(void)
+{
+#if TESTING
+    if (CUSTOM_VGC_MIRROR_WINCON_GUARD)
+        return !((gVgcTraining.rulesLegacy >> GetBattlerSide(sJob.me)) & 1);
+#endif
+    return CUSTOM_VGC_PLAN_WINCON_GUARD && MisplayFixesOn();
+}
+
+// La nostra azione `a` manda KO di sicuro (tiro basso) l'avversario `f` prima che agisca.
+static bool32 StopsFoeFirst(const struct PlanAction *a, enum BattlerId f)
+{
+    const struct PlanState *st = &sJob.base;
+    enum MoveTarget tt;
+    if (a->kind != PLAN_ACT_MOVE || IsBattleMoveStatus(a->move) || !st->m[a->user].alive)
+        return FALSE;
+    tt = GetMoveTarget(a->move);
+    if (a->target != f && tt != TARGET_BOTH && tt != TARGET_FOES_AND_ALLY)
+        return FALSE;
+    if (GetMovePriority(a->move) <= 0
+     && (st->trickRoom ? st->m[a->user].speed >= st->m[f].speed : st->m[a->user].speed <= st->m[f].speed))
+        return FALSE;
+    return DamageOf(st, a, f) * (s32)LowRollPct(st, a, f) / 100 >= st->m[f].hp + st->m[f].subHp;
+}
+
+// Win condition lasciata esposta: la coppia (a = azione della win condition, o = del compagno) non la protegge né la
+// cambia, e una risposta plausibile di un avversario (candidate del modello, mosse viste e probabili, caso peggiore come
+// per i cambi) la manda KO dal suo slot, senza che la coppia mandi KO prima quell'avversario. Wide Guard del compagno
+// ferma le mosse ad area, Follow Me/Rage Powder quelle a bersaglio singolo. Costo: una parte del KO della win condition
+// (la simulazione la pesa solo con le due risposte previste e la stima media del danno).
+static s32 WinconExposedRisk(const struct PlanAction *a, const struct PlanAction *o)
+{
+    enum BattlerId u = a->user, f;
+    const struct PlanMon *um;
+    s32 hp, dmgS[2] = {0}, dmgA[2] = {0}, worst = 0, pct;
+    u32 side, i, pIdx;
+    bool32 wideGuard, redirect;
+
+    if (u >= gBattlersCount || a->kind == PLAN_ACT_SWITCH || a->kind == PLAN_ACT_NONE)
+        return 0;
+    if (a->kind == PLAN_ACT_PROTECT && GetMoveProtectMethod(a->move) != PROTECT_WIDE_GUARD && GetMoveProtectMethod(a->move) != PROTECT_QUICK_GUARD)
+        return 0;
+    um = &sJob.base.m[u];
+    pIdx = gBattlerPartyIndexes[u];
+    if (!um->alive || pIdx >= PARTY_SIZE || !(sJob.winconParty & (1u << pIdx)))
+        return 0;
+    hp = um->hp + um->subHp;
+    if (hp <= 0 || (um->holdEffect == HOLD_EFFECT_FOCUS_SASH && um->hp == um->maxHp && !um->berryUsed))
+        return 0;
+    wideGuard = (o->kind == PLAN_ACT_PROTECT && GetMoveProtectMethod(o->move) == PROTECT_WIDE_GUARD)
+             || (a->kind == PLAN_ACT_PROTECT && GetMoveProtectMethod(a->move) == PROTECT_WIDE_GUARD);
+    redirect = o->kind == PLAN_ACT_MOVE && GetMoveEffect(o->move) == EFFECT_FOLLOW_ME;
+    for (side = 0; side < 2; side++)
+    {
+        struct PlanAction c = { PLAN_ACT_MOVE, 0xFF, -1, MOVE_NONE, 0, u, 0 };
+        enum Move *seen;
+        f = side == 0 ? GetBattlerLeftFoe(sJob.me) : GetBattlerRightFoe(sJob.me);
+        if (f >= gBattlersCount || !sJob.base.m[f].alive || sJob.base.m[f].asleep || StopsFoeFirst(a, f) || StopsFoeFirst(o, f))
+            continue;
+        c.user = f;
+        for (i = 0; i < sJob.nFoeCand[side] + MAX_MON_MOVES + sJob.nLikely[f]; i++)
+        {
+            s32 d;
+            if (i < sJob.nFoeCand[side])
+                c = sJob.foeCand[side][i];
+            else if (i < sJob.nFoeCand[side] + MAX_MON_MOVES)
+            {
+                seen = GetMovesArray(f);
+                c.kind = PLAN_ACT_MOVE;
+                c.moveIndex = 0xFF;
+                c.move = seen[i - sJob.nFoeCand[side]];
+                if (c.move == MOVE_UNAVAILABLE)
+                    continue;
+            }
+            else
+            {
+                u32 k = i - sJob.nFoeCand[side] - MAX_MON_MOVES;
+                if (sJob.likelyP[f][k] < CUSTOM_VGC_PLAN_SWITCH_WORST_LIKELY_P)
+                    continue;
+                c.kind = PLAN_ACT_MOVE;
+                c.moveIndex = 0xFF;
+                c.move = sJob.likelyMove[f][k];
+            }
+            if (c.move == MOVE_NONE)
+                continue;
+            d = SwitchHitDamage(&sJob.base, c, u, TRUE);
+            if (IsSpreadMove(GetMoveTarget(c.move)))
+                dmgA[side] = max(dmgA[side], d);
+            else
+                dmgS[side] = max(dmgS[side], d);
+        }
+        if (wideGuard)
+            dmgA[side] = 0;
+        if (redirect)
+            dmgS[side] = 0;
+    }
+    for (side = 0; side < 2; side++)
+        worst = max(worst, max(dmgS[side], dmgA[side]));
+    if (worst >= hp)
+        pct = CUSTOM_VGC_PLAN_WINCON_GUARD_PCT;
+    else if (max(dmgS[0], dmgA[0]) + max(dmgS[1], dmgA[1]) >= hp)
+        pct = CUSTOM_VGC_PLAN_WINCON_GUARD_PCT / 2;
+    else
+        return 0;
+    return pct * (VW(ko) + VW(alive) + um->hp * 100 / max(um->maxHp, 1)) * VW(wincon) / 10000;
+}
+
 static void FinishJob(void)
 {
     s32 bestEv = INT32_MIN, chosenEv = INT32_MIN;
@@ -3909,6 +4018,8 @@ static void FinishJob(void)
             if (s1 || s2)
                 switchKo |= 1u << i;
         }
+        if (WinconGuardOn())
+            sJob.ev[i] -= WinconExposedRisk(&sJob.ours[i], &sJob.partners[i]) + WinconExposedRisk(&sJob.partners[i], &sJob.ours[i]);
         // Doppio Protect: un turno regalato all'avversario (setup, velocità, cambi gratis) che i tre turni simulati
         // vedono poco; costa come mezzo cambio.
         if (sJob.ours[i].kind == PLAN_ACT_PROTECT && sJob.partners[i].kind == PLAN_ACT_PROTECT)
