@@ -138,12 +138,12 @@
 #define CUSTOM_VGC_PLAN_SWITCH_WORST_MOVES  TRUE  // caso peggiore anche con le mosse già viste dell'avversario e quelle probabili del belief, non solo le 5 candidate del modello
 #define CUSTOM_VGC_PLAN_SWITCH_WORST_LIKELY_P 30  // probabilità minima (%) di una mossa del belief non vista per entrare nel caso peggiore
 #define CUSTOM_VGC_PLAN_WINCON_GUARD        TRUE  // win condition lasciata esposta (né Protect né cambio) a una risposta plausibile che la manda KO (caso peggiore come per i cambi, se la coppia non manda KO prima chi minaccia; Wide Guard/Follow Me del compagno contano): costo
-#define CUSTOM_VGC_PLAN_WINCON_GUARD_PCT    75    // ...in % del KO della win condition (metà se servono entrambi gli avversari)
+#define CUSTOM_VGC_PLAN_WINCON_GUARD_PCT    100    // ...in % del KO della win condition (metà se servono entrambi gli avversari)
 #define CUSTOM_VGC_MIRROR_WINCON_GUARD      FALSE // solo self-play: CUSTOM_VGC_PLAN_WINCON_GUARD acceso per il lato senza il bit di verifica-regole, spento per l'altro (regole M8 per tutti)
 #define CUSTOM_VGC_MIRROR_SWITCH_WORST      FALSE // solo self-play: CUSTOM_VGC_PLAN_SWITCH_WORST acceso per il lato senza il bit di verifica-regole, spento per l'altro (regole M8 per tutti)
 #define CUSTOM_VGC_PLAN_HIGH_ROLL           TRUE // ramo "colpo alto": un colpo che manda KO solo con un tiro alto (sopra la mediana) pesa per la sua probabilità
 // ---- KO sicuri (ia-vgc-ko) ----
-#define CUSTOM_VGC_PLAN_SURE_KO_PCT         35    // premio (% del valore di un KO) alle coppie con un KO garantito nei rami in cui va a segno (0 = spento)
+#define CUSTOM_VGC_PLAN_SURE_KO_PCT         50    // premio (% del valore di un KO) alle coppie con un KO garantito nei rami in cui va a segno (0 = spento)
 #define CUSTOM_VGC_PLAN_KO_CALIB_PROTECT    65    // Protect del bersaglio: % reale rispetto alla probabilità del modello (misurato sui log VGCFOE)
 #define CUSTOM_VGC_PLAN_KO_CALIB_SWITCH     45    // cambio del bersaglio: idem
 #define CUSTOM_VGC_PLAN_KO_CALIB_FAKE_OUT   80    // Fake Out su chi attacca: idem
