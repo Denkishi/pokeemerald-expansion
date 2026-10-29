@@ -44,6 +44,7 @@
 #include "constants/moves.h"
 #include "constants/rgb.h"
 #include "constants/songs.h"
+#include "vgc_battle_log.h"
 
 // ---------------------------------------------------------------------
 // Stato
@@ -1622,6 +1623,7 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
     const struct ScoutTeamContext *ctx;
 
     AI_VgcBuildTeamGraph(enemy, &sTPGraph);
+    VgcLog_TeamPreviewBegin(enemy, player); // logger VGC (src/vgc_battle_log.c)
     // Contesto della squadra del giocatore: calcolato una volta dalle sue 6 specie, vale da qui a tutta la lotta.
     ctx = Scout_SetTeamContextFromParty(player);
     if (gScoutContextPreviewOff)
@@ -2035,6 +2037,7 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
             Test_MgbaPrintf("VGCTP gruppo %d %d", slotMask, score);
         }
 #endif
+        VgcLog_TeamPreviewGroup(mask, enemySlots, nEnemy, score); // logger VGC
         if (score > bestScore)
         {
             bestScore = score;
@@ -2416,6 +2419,9 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                 }
             }
         }
+        // Logger VGC (src/vgc_battle_log.c): gruppi e lead migliori, lead previste del giocatore, scelta finale.
+        VgcLog_TeamPreviewAi(enemy, player, outOrder, order, nCand, candS, candWorst, candA, candB, chosen, enemySlots,
+                             nPred, predJ, predK, predW, playerSlots, sMegaDesignate);
     }
     sTP.enemyPicks = order;
 }
@@ -3168,6 +3174,7 @@ static void ApplyPartySelections(void)
             if (sTP.pickOrder[i] == k)
                 sSavedOrder[k - 1] = i;
     sLastPickCount = sSavedPicks;
+    VgcLog_TeamPreviewPlayer(sSeries.game, sSeries.bestOf, sSavedParty, sSavedOrder, sSavedPicks); // logger VGC
     for (k = 0; k < sSavedPicks; k++)
         sLastPickPersonality[k] = GetMonData(&sSavedParty[sSavedOrder[k]], MON_DATA_PERSONALITY);
 

@@ -35,6 +35,7 @@
 #include "constants/songs.h"
 #include "constants/items.h"
 #include "caps.h"
+#include "vgc_battle_log.h"
 
 #define HEALTHBOX_BG_INDEX 2
 
@@ -2708,6 +2709,7 @@ void CreateAbilityPopUp(enum BattlerId battler, enum Ability ability, bool32 isD
     if (gBattleScripting.abilityPopupOverwrite)
         ability = gBattleScripting.abilityPopupOverwrite;
 
+    VgcLog_AbilityPopUp(battler, ability); // logger VGC (src/vgc_battle_log.c)
     if (gTestRunnerEnabled)
     {
         TestRunner_Battle_RecordAbilityPopUp(battler, ability);

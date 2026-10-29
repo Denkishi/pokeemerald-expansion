@@ -127,6 +127,11 @@
 #define CUSTOM_VGC_MIRROR_FOE_HISTORY       FALSE // solo self-play: storia dei bersagli accesa per il lato senza il bit di verifica-regole, spenta per l'altro
 #define CUSTOM_VGC_PLAN_FOE_VS_IDLE         FALSE // modello del giocatore: le sue mosse valutate anche contro di noi fermi (media). Provato il 28/10: misplay 303 -> 285 ma rompe il test Altaria Tailwind; a specchio 1727 partite 50,7% (IC95 [48,9; 52,5], p=0,47): spento
 #define CUSTOM_VGC_PLAN_HIGH_ROLL           TRUE // ramo "colpo alto": un colpo che manda KO solo con un tiro alto (sopra la mediana) pesa per la sua probabilità
+// Logger delle lotte VGC (src/vgc_battle_log.c): nelle lotte contro gli allenatori con "Vgc Doubles" scrive nel log
+// di mGBA (righe "VGCLOG ...") squadre, team preview, stato del campo, decisioni del pianificatore, scelte e
+// cronaca di ogni turno. Su console vera o in un emulatore senza registri di debug di mGBA non fa nulla.
+// Istruzioni: docs/ia_vgc/logger.md; analisi: tools/vgc_training/analizza_log.py.
+#define CUSTOM_VGC_BATTLE_LOG               TRUE
 // Ritratto dell'allenatore + "penso..." quando hai già scelto e l'IA sta ancora calcolando.
 #define CUSTOM_VGC_THINKING_OVERLAY         TRUE
 #define CUSTOM_VGC_THINKING_SLIDE_FRAMES    24      // fotogrammi dell'entrata (da destra) e dell'uscita (verso destra) del ritratto
