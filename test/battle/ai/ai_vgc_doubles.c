@@ -343,3 +343,21 @@ AI_DOUBLE_BATTLE_TEST("VGC filter: no Fake Out on the partner (real team Savarot
         EXPECT(!(gChosenMoveByBattler[incineroar] == MOVE_FAKE_OUT && gBattleStruct->moveTarget[incineroar] == chandelure));
     }
 }
+
+// Prova in gioco (Carletto, 29/10): Kingambit usò due volte Sucker Punch su Lilligant che usava solo After You e falliva.
+// Contro un bersaglio che ha solo mosse di stato Sucker Punch non parte: il colpo va dato con una mossa che riesce.
+AI_DOUBLE_BATTLE_TEST("VGC: Sucker Punch is not used on a foe that only has status moves")
+{
+    GIVEN {
+        AI_FLAGS(VGC_AI_FLAGS);
+        PLAYER(SPECIES_LILLIGANT) { HP(2); Moves(MOVE_AFTER_YOU, MOVE_ENCORE, MOVE_SLEEP_POWDER, MOVE_PROTECT); Speed(100); }
+        PLAYER(SPECIES_WOBBUFFET) { Moves(MOVE_COUNTER, MOVE_MIRROR_COAT); Speed(10); }
+        OPPONENT(SPECIES_KINGAMBIT) { Moves(MOVE_SUCKER_PUNCH, MOVE_IRON_HEAD); Speed(50); }
+        OPPONENT(SPECIES_WOBBUFFET) { Moves(MOVE_SPLASH); Speed(5); }
+    } WHEN {
+        TURN {
+            MOVE(playerLeft, MOVE_AFTER_YOU, target: playerRight);
+            NOT_EXPECT_MOVE(opponentLeft, MOVE_SUCKER_PUNCH);
+        }
+    }
+}
