@@ -399,3 +399,36 @@ Decisione su `CUSTOM_VGC_PLAN_FOE_VS_IDLE` (dopo il merge di `ia-vgc` c5344eaaf3
 - ✅/❌ **Storia dei bersagli** (`CUSTOM_VGC_PLAN_FOE_HISTORY`, battle_ai_vgc.c `VgcNoteTarget` + `AI_VgcFoeTargetBias`, spinta in PickFoeActions): per lato, con entrambi i nostri in campo, quante volte il giocatore colpisce il più danneggiato e (quando una sola lo è) la nostra win condition; fino a 60 punti agli attacchi coerenti con la tendenza (≥3 osservazioni). Protect e cambi avevano già la loro memoria (`VgcBehaviour`). Campagna **286 → 258** (KO non preso 96 → 81, win condition 89 → 85, cambi 64 → 60, setup 23 → 20); verifica a specchio 6 semi (1726 partite): **50,3%, IC95 [49,1; 51,5], p = 0,60**. Sotto la soglia (≥51% o IC sopra 50%): **spento**.
 - ❌ Spinta sugli attacchi verso il nostro Pokémon più pericoloso per il giocatore (`CUSTOM_VGC_PLAN_FOE_THREAT_FOCUS`, ThreatPct): rompe il test "Mario - Hariyama uses Fake Out on Whimsicott" (bersaglio sbagliato); spenta (0).
 - ⚠️ CI con cache (fab509a2e9): la cache presa con restore-keys da un'altra build aveva oggetti più nuovi dei sorgenti cambiati e la ROM non si ricompilava (ELF identica al commit prima: test e campagna su codice vecchio). Corretto su ia-vgc (af8c260c93).
+## KO garantiti non presi (29/10, branch `ia-vgc-ko`)
+Base: ROM di GitHub di `ia-vgc` af8c260c93, campagna 432 partite: **286 misplay certi, KO non preso 96** (win condition 89, cambio su chi va KO 64, setup 23, bersaglio già KO 8).
+
+Misure sui log (VGCFOE = le 2 risposte previste per avversario, contro le azioni vere; ~12 000 previsioni):
+- **Protect previsto** al 16% avviene all'8-9%, al 23-28% avviene al 18-21%, al 33% al 25-29%: sopravvalutato x0,65.
+- **Cambio previsto** al 27% avviene al 13% (x0,45).
+- **Fake Out previsto** al 50% avviene al 45%, al 90% al 66% (x0,8, contando solo la mossa).
+- Il modello è troppo sicuro in generale: le 2 risposte previste coprono circa metà delle azioni vere (mossa prevista al 50% avviene al 25%).
+- KO non preso: la coppia con il KO è simulata in 95/96 casi; il distacco dalla coppia scelta ha mediana 61 punti (38 casi entro 50, 78 entro 200). Circa un quarto dei casi perde per una lettura (Fake Out su chi attacca, cambio del bersaglio), il resto perché l'albero valuta di più un'altra linea (danno sull'altro avversario, U-turn, Trick Room).
+
+Correzioni (src/battle_ai_vgc_plan.c, blocchi "KO sicuri (ia-vgc-ko)"; interruttori in custom.h):
+- ✅ Premio alle coppie con un KO garantito (stessi criteri del controllore) nei rami del turno 1 in cui il bersaglio va KO (`CUSTOM_VGC_PLAN_SURE_KO_PCT` = 35% del valore di un KO).
+- ✅ Letture tarate: nei rami in cui il KO è bloccato da Protect/cambio del bersaglio o da Fake Out su chi attacca, la parte che il modello sopravvaluta (`CUSTOM_VGC_PLAN_KO_CALIB_PROTECT/SWITCH/FAKE_OUT` = 65/45/80) conta come KO riuscito. Il modello del giocatore (PickFoeActions) non è toccato.
+- ✅ La coppia migliore di ogni azione con un KO garantito è sempre simulata per intero (`CUSTOM_VGC_PLAN_KO_PAIRS`); la potatura tiene conto del premio.
+- ✅ Ramo "colpo basso" con il rapporto esatto minimo/mediana (`CUSTOM_VGC_PLAN_LOW_ROLL_EXACT`): con la percentuale troncata un KO con minimo = PS restava a 1 PS e pagava una penalità.
+- ✅ `CUSTOM_VGC_MIRROR_KO` (spento): correzioni spente per il lato col bit di verifica-regole, per lo specchio.
+
+| | Base | Premio 75% | **Premio 35% (tenuto)** |
+|---|---|---|---|
+| KO garantito non preso | 96 | 59 | **71** |
+| Win condition persa | 89 | 106 | 103 |
+| Cambio su chi va KO | 64 | 56 | 56 |
+| Setup con KO in arrivo | 23 | 27 | 24 |
+| Bersaglio già KO | 8 | 13 | 10 |
+| Altri | 6 | 3 | 8 |
+| **Totale certi** | **286** | **264** | **272** |
+| Dubbi | 1034 | 890 | — |
+| Specchio (correzioni accese contro spente) | — | 48,0% su 864, IC95 [45,5; 50,5], p = 0,12 | **49,4% su 1728, IC95 [47,6; 51,2], p = 0,50** |
+
+CI verde a ogni build. Il premio al 75% toglie più KO ma lo specchio scende (win condition persa +17: attacca invece di proteggere): tenuto il 35%, neutro allo specchio.
+
+KO non presi rimasti (71): distacco mediano 126 punti, scelte che l'albero preferisce di molto (U-turn/Close Combat di Slither Wing, Trick Room, attacco sull'altro avversario). Falsi positivi del controllore visti: Focus Sash nota al pianificatore e non al controllore (Kecleon contro Hariyama al turno 1, 3 casi per seme), Mega evoluzione nello stesso turno (Malamar), Reflect con Prankster prima dell'attacco (Grimmsnarl). Da capire: Dondozo contro Incineroar al turno 1 (Fake Out + cambio previsti), dove il KO sicuro non riceve il premio (il pianificatore non lo vede come garantito).
+Il branch `ia-vgc-ko-specchio` serve solo alla verifica a specchio: non va unito.
