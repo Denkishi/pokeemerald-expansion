@@ -132,7 +132,7 @@
 #define CUSTOM_VGC_PLAN_MIXED_LAMBDA        50    // % di equilibrio nel misto dell'avversario (il resto: risposte previste dal modello)
 #define CUSTOM_VGC_PLAN_MIXED_MIN_PCT       10    // probabilità minima (%) perché una coppia sia giocabile
 #define CUSTOM_VGC_PLAN_MIXED_MARGIN        120   // distacco massimo dal valore della migliore coppia
-#define CUSTOM_VGC_MIRROR_MIXED             TRUE  // solo self-play: strategia mista accesa per il lato senza il bit di verifica-regole
+#define CUSTOM_VGC_MIRROR_MIXED             FALSE // solo self-play: strategia mista accesa per il lato senza il bit di verifica-regole
 #define CUSTOM_VGC_PLAN_FOE_HISTORY_W       60    // spinta massima (punti del modello del giocatore) della storia dei bersagli
 #define CUSTOM_VGC_MIRROR_FOE_HISTORY       FALSE // solo self-play: storia dei bersagli accesa per il lato senza il bit di verifica-regole, spenta per l'altro
 #define CUSTOM_VGC_PLAN_FOE_VS_IDLE         FALSE // modello del giocatore: le sue mosse valutate anche contro di noi fermi (media). Provato il 28/10: misplay 303 -> 285 ma rompe il test Altaria Tailwind; a specchio 1727 partite 50,7% (IC95 [48,9; 52,5], p=0,47): spento
