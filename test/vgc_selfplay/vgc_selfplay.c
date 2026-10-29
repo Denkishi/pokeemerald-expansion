@@ -903,6 +903,27 @@ static bool32 ChoiceKOs(enum BattlerId b, enum BattlerId def)
     return DmgMin(b, def, c->moveIndex) >= gBattleMons[def].hp && gAiLogicData->moveAccuracy[b][def][c->moveIndex] >= 100;
 }
 
+// `b` ha eseguito davvero un Protect riuscito al turno prima (stato del motore, non la scelta: niente falsi positivi
+// per tentennamento, sonno o Protect fallito). Stessa prova di ProtectedLastTurn in battle_ai_vgc.c.
+static bool32 ProtectedLastTurnReal(enum BattlerId b)
+{
+    enum Move last = gLastResultingMoves[b];
+    return last != MOVE_NONE && last != MOVE_UNAVAILABLE && gBattleMoveEffects[GetMoveEffect(last)].usesProtectCounter
+        && gBattleMons[b].volatiles.consecutiveMoveUses > 0;
+}
+
+// Focus Sash presunta (vista, o la più probabile della specie per il belief, come nel pianificatore).
+static bool32 PresumedSash(enum BattlerId f)
+{
+    struct ScoutItemGuess g;
+    if (gAiLogicData->holdEffects[f] == HOLD_EFFECT_FOCUS_SASH)
+        return TRUE;
+    if (gBattleMons[f].item != ITEM_NONE && gAiLogicData->holdEffects[f] != HOLD_EFFECT_NONE)
+        return FALSE;
+    Scout_GuessItem(gBattleMons[f].species, &g);
+    return g.effect == HOLD_EFFECT_FOCUS_SASH && g.chance >= 50;
+}
+
 // Almeno un attacco usabile di `b` colpisce un avversario in campo (altrimenti è un finale bloccato).
 static bool32 AnyAttackHitsFoe(enum BattlerId b)
 {
@@ -1081,7 +1102,7 @@ static void CheckBattlerChoice(enum BattlerId b)
     info->couldProtect = FALSE;
     for (i = 0; i < MAX_MON_MOVES; i++)
         if (MoveUsable(b, i) && IsProtectMove(gBattleMons[b].moves[i]))
-            info->couldProtect = !(prev->turn + 1 == sVsp.turn && prev->kind == VSP_CHOICE_MOVE && IsProtectMove(prev->move) && prev->partyIdx == gBattlerPartyIndexes[b]);
+            info->couldProtect = !ProtectedLastTurnReal(b);
 
     // Scelte forzate (Encore) o fatte da addormentato: non sono decisioni dell'IA, niente misplay su mossa.
     if (isMove && (gBattleMons[b].volatiles.encoredMove != MOVE_NONE || (gBattleMons[b].status1 & STATUS1_SLEEP)))
@@ -1090,9 +1111,8 @@ static void CheckBattlerChoice(enum BattlerId b)
     if (isMove)
     {
         // 1. Protect consecutivo. Non certo nei finali bloccati (nessun attacco che colpisca un avversario).
-        if (IsProtectMove(move) && prev->turn + 1 == sVsp.turn && prev->kind == VSP_CHOICE_MOVE
-         && IsProtectMove(prev->move) && prev->partyIdx == gBattlerPartyIndexes[b])
-            ReportMisplay(AnyAttackHitsFoe(b), "PROTECT_CONSECUTIVO", b, "%s dopo %s al turno prima", A(MoveName(move)), A(MoveName(prev->move)));
+        if (IsProtectMove(move) && ProtectedLastTurnReal(b))
+            ReportMisplay(AnyAttackHitsFoe(b), "PROTECT_CONSECUTIVO", b, "%s dopo %s al turno prima", A(MoveName(move)), A(MoveName(gLastResultingMoves[b])));
 
         // 2. Fake Out dopo il primo turno in campo.
         if (eff == EFFECT_FIRST_TURN_ONLY && !IsBattlersFirstTurn(b))
@@ -1217,7 +1237,7 @@ static void CheckBattlerChoice(enum BattlerId b)
                     continue;
                 // Focus Sash / Sturdy (presunti) a PS pieni: non è un KO.
                 if (gBattleMons[f].hp == gBattleMons[f].maxHP
-                 && (gAiLogicData->holdEffects[f] == HOLD_EFFECT_FOCUS_SASH || gAiLogicData->abilities[f] == ABILITY_STURDY))
+                 && (PresumedSash(f) || gAiLogicData->abilities[f] == ABILITY_STURDY))
                     continue;
                 if (DmgMin(b, f, i) >= gBattleMons[f].hp && gAiLogicData->moveAccuracy[b][f][i] >= 100)
                 {
@@ -1231,6 +1251,11 @@ static void CheckBattlerChoice(enum BattlerId b)
             // il KO non partirebbe, una mossa con priorità sì. Non è un errore certo.
             if (threatMin && GetBattleMovePriority(b, gAiLogicData->abilities[b], gBattleMons[b].moves[koIdx]) <= 0
              && ClearlyFaster(threatFoe, b))
+                continue;
+            // Il bersaglio usa lui stesso Follow Me/Rage Powder: il nostro attacco a bersaglio singolo, ovunque diretto,
+            // finisce su di lui; coperto se basta il danno minimo di quell'attacco su di lui.
+            if (damaging && !spread && sVsp.choice[f].kind == VSP_CHOICE_MOVE
+             && GetMoveEffect(sVsp.choice[f].move) == EFFECT_FOLLOW_ME && DmgMin(b, f, idx) >= gBattleMons[f].hp)
                 continue;
             // Coperto anche quando la coppia manda KO l'altro avversario sommando i danni (focus fire).
             covered = ChoiceKOs(b, f) || (pAlive && ChoiceKOs(p, f)) || ChoiceKOs(b, OtherFoe(b, f))
