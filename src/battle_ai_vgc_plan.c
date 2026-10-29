@@ -3982,6 +3982,8 @@ static s32 SetupUnderKoPenalty(const struct PlanAction *a, const struct PlanActi
         }
     }
     return 0;
+}
+
 // Difesa della win condition (CUSTOM_VGC_PLAN_WINCON_GUARD). Nella verifica a specchio (CUSTOM_VGC_MIRROR_WINCON_GUARD,
 // self-play) acceso per il lato senza il bit di verifica-regole, spento per l'altro.
 static bool32 WinconGuardOn(void)
