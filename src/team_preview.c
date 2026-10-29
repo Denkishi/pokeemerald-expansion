@@ -136,7 +136,12 @@ struct SeriesMonMemory
 };
 
 // EWRAM quasi piena: la memoria per Pokémon non deve crescere (protectHabit sta nel byte di padding prima di belief).
-STATIC_ASSERT(__builtin_offsetof(struct SeriesMonMemory, belief) == __builtin_offsetof(struct SeriesMonMemory, protectHabit) + 1, SeriesMonMemoryPadding)
+// (belief cade dove cadeva senza protectHabit: subito dopo kos, arrotondato al suo allineamento.)
+#define SERIES_BELIEF_ALIGN __alignof__(struct ScoutBeliefSnapshot)
+STATIC_ASSERT(__builtin_offsetof(struct SeriesMonMemory, belief)
+              == ((__builtin_offsetof(struct SeriesMonMemory, kos) + 1 + SERIES_BELIEF_ALIGN - 1) & ~(SERIES_BELIEF_ALIGN - 1)),
+              SeriesMonMemoryPadding)
+#undef SERIES_BELIEF_ALIGN
 
 static EWRAM_DATA struct SeriesState sSeries = {0};
 static EWRAM_DATA struct Pokemon sSeriesEnemyParty[PARTY_SIZE] = {0}; // squadra avversaria completa
