@@ -668,6 +668,46 @@ static enum Ability MonWeatherAbility(struct Pokemon *mon)
     return GetMonAbility(mon);
 }
 
+// Guerra del meteo in lead (prova in gioco: Carletto mise Amoonguss contro il Torkoal al sole e lasciò Pelipper dietro).
+// Se una lead probabile del giocatore porta un meteo (abilità presunta onestamente), la nostra lead paga i Pokémon
+// deboli al tipo che quel meteo potenzia (Fuoco al sole, Acqua alla pioggia), a meno che parta accanto un nostro
+// meteo diverso che lo sovrascrive (chi porta il meteo entra dopo e lo cambia).
+static enum Type WeatherBoostedType(enum Ability setter)
+{
+    if (setter == ABILITY_DROUGHT || setter == ABILITY_ORICHALCUM_PULSE)
+        return TYPE_FIRE;
+    if (setter == ABILITY_DRIZZLE)
+        return TYPE_WATER;
+    return TYPE_NONE;
+}
+
+static bool32 IsWeatherAbility(enum Ability a)
+{
+    return a == ABILITY_DROUGHT || a == ABILITY_ORICHALCUM_PULSE || a == ABILITY_DRIZZLE || a == ABILITY_SAND_STREAM
+        || a == ABILITY_SNOW_WARNING;
+}
+
+static s32 WeatherWarLead(struct Pokemon *a, struct Pokemon *b, struct Pokemon *pa, struct Pokemon *pb)
+{
+    enum Ability wPl = IsWeatherAbility(PreviewAbility(pa)) ? PreviewAbility(pa) : PreviewAbility(pb);
+    enum Ability wA = MonWeatherAbility(a), wB = (b != NULL) ? MonWeatherAbility(b) : ABILITY_NONE;
+    enum Type boosted;
+    s32 s = 0;
+
+    if (!IsWeatherAbility(wPl))
+        return 0;
+    if ((IsWeatherAbility(wA) && wA != wPl) || (IsWeatherAbility(wB) && wB != wPl))
+        return 250; // il nostro meteo in lead annulla il loro
+    boosted = WeatherBoostedType(wPl);
+    if (boosted == TYPE_NONE)
+        return 0;
+    if (TypeVsMonPct(boosted, a) >= 200)
+        s -= 300;
+    if (b != NULL && TypeVsMonPct(boosted, b) >= 200)
+        s -= 300;
+    return s;
+}
+
 static bool32 MonKnowsSetupMove(struct Pokemon *mon)
 {
     u32 i;
@@ -2260,7 +2300,9 @@ void TeamPreview_AiSelectEnemyTeam(u32 picks, bool32 isDouble, u8 *outOrder)
                         u32 pj = predJ[p], pk = predK[p];
                         s32 mu = max(sMatch[ea][pj], sMatch[eb][pj]) + max(sMatch[ea][pk], sMatch[eb][pk]);
                         s32 v = LeadVsLead(&enemy[enemySlots[ea]], &enemy[enemySlots[eb]], &enProf[ea], &enProf[eb],
-                                           &plProf[pj], &plProf[pk], mu);
+                                           &plProf[pj], &plProf[pk], mu)
+                              + WeatherWarLead(&enemy[enemySlots[ea]], &enemy[enemySlots[eb]],
+                                               &player[playerSlots[pj]], &player[playerSlots[pk]]);
                         ev += v * predW[p];
                         wsum += predW[p];
                         if (v < worst)

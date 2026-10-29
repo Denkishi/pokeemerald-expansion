@@ -2736,6 +2736,20 @@ static void RunTurn(struct PlanState *st, const struct PlanAction **acts, u32 n)
 #endif
 }
 
+// Sucker Punch & co.: falliscono se il bersaglio, nel turno, non usa un attacco o ha già agito (prova in gioco: Kingambit
+// di Carletto due volte su Lilligant che usava After You). Senza, la simulazione dava il colpo per riuscito.
+static bool32 SuckerPunchFails(const struct PlanAction **acts, u32 i, u32 n)
+{
+    u32 k;
+    const struct PlanAction *a = acts[i];
+    if (a->kind != PLAN_ACT_MOVE || GetMoveEffect(a->move) != EFFECT_SUCKER_PUNCH)
+        return FALSE;
+    for (k = i + 1; k < n; k++)
+        if (acts[k]->user == a->target)
+            return !(acts[k]->kind == PLAN_ACT_MOVE && !IsBattleMoveStatus(acts[k]->move));
+    return TRUE; // il bersaglio ha già agito (o non agisce)
+}
+
 static void RunTurnImpl(struct PlanState *st, const struct PlanAction **acts, u32 n)
 {
     u32 i, j, forced = n;
@@ -2751,7 +2765,8 @@ static void RunTurnImpl(struct PlanState *st, const struct PlanAction **acts, u3
         // After You: l'azione del compagno è già stata messa qui, salta l'ordinamento.
         if (i == forced)
         {
-            ApplyAction(st, acts[i]);
+            if (!SuckerPunchFails(acts, i, n))
+                ApplyAction(st, acts[i]);
             continue;
         }
         for (j = i; j < n; j++)
@@ -2779,7 +2794,8 @@ static void RunTurnImpl(struct PlanState *st, const struct PlanAction **acts, u3
             const struct PlanAction *t = acts[i]; acts[i] = acts[first]; acts[first] = t;
         }
         sAfterYou = 0;
-        ApplyAction(st, acts[i]);
+        if (!SuckerPunchFails(acts, i, n))
+            ApplyAction(st, acts[i]);
         if (sAfterYou)
         {
             // After You riuscito: il compagno, se deve ancora agire, agisce subito dopo (prima degli avversari più veloci).
@@ -4283,6 +4299,15 @@ static void FinishJob(void)
             sJob.ev[i] -= SetupUnderKoPenalty(&sJob.ours[i], &sJob.partners[i]) + SetupUnderKoPenalty(&sJob.partners[i], &sJob.ours[i]);
         if (WinconGuardOn())
             sJob.ev[i] -= WinconExposedRisk(&sJob.ours[i], &sJob.partners[i]) + WinconExposedRisk(&sJob.partners[i], &sJob.ours[i]);
+        // Baton Pass senza boost da passare è un cambio (prova in gioco: Mega Malamar al turno 1): stesso costo.
+        if (sJob.ours[i].kind == PLAN_ACT_MOVE && GetMoveEffect(sJob.ours[i].move) == EFFECT_BATON_PASS
+         && sJob.base.m[sJob.ours[i].user].stage[PS_ATK] <= 0 && sJob.base.m[sJob.ours[i].user].stage[PS_SPA] <= 0
+         && sJob.base.m[sJob.ours[i].user].stage[PS_SPE] <= 0)
+            sJob.ev[i] -= IsBattlersFirstTurn(sJob.ours[i].user) ? VW(switchCost) : VW(switchCost) / 2;
+        if (sJob.partners[i].kind == PLAN_ACT_MOVE && GetMoveEffect(sJob.partners[i].move) == EFFECT_BATON_PASS
+         && sJob.base.m[sJob.partners[i].user].stage[PS_ATK] <= 0 && sJob.base.m[sJob.partners[i].user].stage[PS_SPA] <= 0
+         && sJob.base.m[sJob.partners[i].user].stage[PS_SPE] <= 0)
+            sJob.ev[i] -= IsBattlersFirstTurn(sJob.partners[i].user) ? VW(switchCost) : VW(switchCost) / 2;
         // Doppio Protect: un turno regalato all'avversario (setup, velocità, cambi gratis) che i tre turni simulati
         // vedono poco; costa come mezzo cambio.
         if (sJob.ours[i].kind == PLAN_ACT_PROTECT && sJob.partners[i].kind == PLAN_ACT_PROTECT)
