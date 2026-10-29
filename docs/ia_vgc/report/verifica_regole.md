@@ -1,6 +1,6 @@
 # Verifica regole
 
-Aggiornato: 2026-10-29 04:38:11 (finita).
+Aggiornato: 2026-10-29 06:34:00 (finita).
 
 ```
 {
@@ -9,25 +9,25 @@ Aggiornato: 2026-10-29 04:38:11 (finita).
  "seme_base": 700001,
  "scontri": "all",
  "parallelo": 8,
- "creato": "2026-10-29 04:15:50",
+ "creato": "2026-10-29 06:05:34",
  "stato": "finita",
- "rom": "C:\\Users\\Antonio Grillo\\Documents\\GitHub\\pokeemerald-expansion-cambi\\tools\\vgc_training\\work\\esperimento.gba",
+ "rom": "C:\\Users\\Antonio Grillo\\Documents\\GitHub\\pokeemerald-expansion-misplay\\tools\\vgc_training\\work\\esperimento.gba",
  "risultato": {
   "coppie": 432,
   "partite": 864,
   "non_valide": 0,
-  "vittorie": 0.4878,
-  "es": 0.011,
+  "vittorie": 0.4997,
+  "es": 0.0034,
   "ic95": [
-   0.4664,
-   0.5093
+   0.4931,
+   0.5064
   ],
-  "z": -1.11,
-  "p": 0.26759,
-  "misplay_partita": 0.199,
-  "fitness": 0.4878
+  "z": -0.09,
+  "p": 0.93195,
+  "misplay_partita": 0.215,
+  "fitness": 0.4997
  }
 }
 ```
 
-Tasso di vittoria del trattamento: **0.4878** su 432 coppie a specchio (IC 95% [0.4664, 0.5093], z=-1.11, p=0.26759).
+Tasso di vittoria del trattamento: **0.4997** su 864 coppie a specchio (IC 95% [0.4931, 0.5064], z=-0.09, p=0.93195).

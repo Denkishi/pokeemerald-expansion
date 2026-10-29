@@ -518,3 +518,18 @@ Domanda: il rialzo 16 → 25 con `CUSTOM_VGC_PLAN_WINCON_GUARD` viene da win con
 - ❌ Protect preferito al cambio su chi va KO (`CUSTOM_VGC_PLAN_SWITCH_PREFER_PROTECT`, spento): se chi entra va KO per un solo avversario nel caso peggiore, la coppia col cambio non batte la migliore in cui lo stesso Pokémon usa Protect. Campagna: cambi su chi va KO 26 (contro 25 senza), totale 178 (177 senza). Nessun effetto misurabile: i cambi rimasti non sono quelli segnalati dal caso peggiore.
 - Specchio di tutto il caso peggiore dei cambi (acceso contro spento, con win condition esposta e setup accesi per entrambi): con Protect preferito **48,8%, IC95 [46,6; 50,9], p = 0,27**; senza **48,6%, IC95 [46,6; 50,6], p = 0,18** (misplay del lato acceso 179 contro 212). Prima della win condition esposta era 49,8% e 50,4%. Insieme ~48,7% su 1728 partite: sotto il 50%, non significativo; da tenere d'occhio (il pacchetto toglie misplay ma con la win condition esposta potrebbe essere troppo prudente).
 - Campagna 432 del codice attivo (v7 = `ia-vgc` cb3edc8a0f): **177 misplay certi** — KO non preso 74, win condition persa 63, cambio su chi va KO 25, setup 9, bersaglio già KO 5, cambi ripetuti 1. Specchio spento di nuovo.
+### Taratura dei pesi delle correzioni (29/10 mattina)
+Base `ia-vgc` bb1115f1d2 (184 misplay certi). Campagne 432 (8 istanze), una build per configurazione (guardia della win condition % / premio KO sicuro % / costo setup sotto KO / costo del caso peggiore del cambio %):
+
+| Config | Guardia | KO sicuro | Setup | Cambio peggiore | Totale | KO non preso | Win condition | Cambio in KO | Setup |
+|---|---|---|---|---|---|---|---|---|---|
+| g0 (attuale) | 50 | 35 | 80 | 100 | 184 | 72 | 64 | 25 | 13 |
+| g1 | 75 | 35 | 80 | 100 | **179** | 72 | 57 | 32 | 10 |
+| g2 | 100 | 50 | 80 | 100 | 182 | 68 | 40 | 52 | 11 |
+| g3 | 75 | 50 | 120 | 100 | 181 | 68 | 51 | 44 | 9 |
+| g4 | 50 | 25 | 80 | 75 | 181 | 74 | 53 | 33 | 13 |
+| g5 | 35 | 35 | 80 | 100 | 185 | 73 | 71 | 19 | 14 |
+
+- Il totale è piatto (179-185, dentro il rumore): la guardia sposta i misplay tra "win condition persa" e "cambio su chi va KO" (40 ↔ 52 con 100, 71 ↔ 19 con 35), senza abbassarli.
+- Specchio 6 semi della migliore (g1) contro i pesi attuali (`CUSTOM_VGC_MIRROR_TUNE`, il lato col bit usa `CUSTOM_VGC_TUNE_BASE_*`): **49,97%, IC95 [49,3; 50,6], p = 0,93** → sotto la soglia del 50%: **restano i pesi attuali** (guardia 50, KO sicuro 35, setup 80, cambio peggiore 100).
+- Specchio 6 semi **tutte le correzioni accese contro tutte spente** (stato "prima dei misplay", `CUSTOM_VGC_MIRROR_FIXES`): **49,9%, IC95 [48,1; 51,7], p = 0,90** — l'IA vince quanto prima, con 0,22 misplay certi per partita.

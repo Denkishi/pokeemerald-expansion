@@ -47,6 +47,17 @@ Campagna 432 partite con anche la difesa della win condition: **184 misplay cert
 64, KO garantito non preso 72, cambio su chi va KO 25, setup sotto KO 13, bersaglio già KO 8, immune 0, Protect di fila 0.
 In lavoro: cambi su chi va KO risaliti con la difesa della win condition (`ia-vgc-cambi`, v6).
 
+## Stato al 29/10, mattina (fine del lavoro sui misplay)
+
+- Misplay certi su 432 partite: **177-184** (0,41-0,43 a partita; il 28/10 mattina erano 423). Win condition persa ~63,
+  KO garantito non preso ~73, cambio su chi va KO ~25, setup sotto KO ~10, immune 0, Protect di fila 0.
+- Specchio di TUTTE le correzioni dei misplay accese contro spente (1728 partite): **49,9%** — l'IA vince quanto prima,
+  con molti meno errori. Il guadagno è in qualità di gioco, non in vittorie contro se stessa.
+- Taratura dei pesi delle correzioni (6 configurazioni): totale piatto 179-185, i pesi spostano errori tra "win condition"
+  e "cambio su chi va KO". Restano i pesi attuali.
+- Prossimo passo utile: partite umane con il logger (`docs/ia_vgc/logger.md`) e analisi dei log con
+  `tools/vgc_training/analizza_log.py`: gli errori che restano vanno cercati contro un giocatore vero.
+
 Non funzionano (spenti dietro flag in `custom.h`): rollout alla foglia, scala unica delle risposte, sostituzioni dopo KO nel simulatore.
 
 Regole fisse: livello 50 ovunque; WSL solo per compilare; niente dati nascosti del giocatore; prima la decisione giusta, poi quella veloce (nessun tetto ai fotogrammi).
