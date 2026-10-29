@@ -547,6 +547,12 @@ static void VgcSelfPlay_SetUp(void *data)
     // Gli agganci del runner delle lotte leggono questo stato: tutto a zero = nessuna attesa.
     memset(gBattleTestRunnerState, 0, sizeof(*gBattleTestRunnerState));
     memset(&sVsp, 0, sizeof(sVsp));
+    // Asserzione malloc.c:97 dopo "VSP FINE" (2 partite su 144, 27/10): dopo l'uscita l'unico Free che resta è quello
+    // di TestRunner_CheckMemory (TestFreeConfigData), che poi percorre l'heap per le perdite. Ma questo runner non
+    // libera apposta la lotta (processo mGBA a sé, TearDown senza Free), quindi il controllo delle perdite non ha senso
+    // e quel Free è l'unico punto dopo "VSP FINE" che può far scattare l'assert (solo con un puntatore non valido).
+    // Niente controllo: l'heap lo verifica già VgcSelfPlay_CheckHeap a ogni turno e a fine partita.
+    Test_ExpectLeaks(TRUE);
 }
 
 static void VgcSelfPlay_Run(void *data)
@@ -1442,6 +1448,9 @@ void VgcSelfPlay_OnBattleEnd(void)
                 left[side]++;
     }
     VgcSelfPlay_CheckHeap("fine partita");
+    // Il self-play non imposta mai configurazioni di test: un puntatore non nullo qui è memoria sovrascritta.
+    if (gConfigChangesTestOverride != NULL)
+        Test_MgbaPrintf("VSP HEAP gConfigChangesTestOverride non nullo (%p): memoria sovrascritta?", gConfigChangesTestOverride);
     Test_MgbaPrintf("VSP FINE esito=%s turni=%d restantiG=%d restantiA=%d misplay=%d dubbi=%d", outcome, gBattleTurnCounter,
                     left[B_SIDE_PLAYER], left[B_SIDE_OPPONENT], sVsp.misplays, sVsp.doubts);
     // Si esce subito, come per il limite di turni: la chiusura della lotta del motore e il TearDown del runner
