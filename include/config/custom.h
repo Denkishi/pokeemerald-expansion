@@ -132,6 +132,8 @@
 #define CUSTOM_VGC_PLAN_KO_CALIB_PROTECT    65    // Protect del bersaglio: % reale rispetto alla probabilità del modello (misurato sui log VGCFOE)
 #define CUSTOM_VGC_PLAN_KO_CALIB_SWITCH     45    // cambio del bersaglio: idem
 #define CUSTOM_VGC_PLAN_KO_CALIB_FAKE_OUT   80    // Fake Out su chi attacca: idem
+#define CUSTOM_VGC_PLAN_KO_LOSS_PCT         50    // premio (%) nei rami in cui uno dei nostri va KO (la win condition: 0)
+#define CUSTOM_VGC_PLAN_KO_WINCON_GUARD     TRUE  // niente premio se la win condition attacca sotto un KO sicuro di un avversario che resta in campo
 #define CUSTOM_VGC_PLAN_KO_PAIRS            TRUE  // la coppia migliore di ogni azione con un KO garantito è sempre simulata
 #define CUSTOM_VGC_PLAN_LOW_ROLL_EXACT      TRUE  // ramo "colpo basso" con il rapporto esatto minimo/mediana (un KO sicuro non perde PS per arrotondamento)
 #define CUSTOM_VGC_MIRROR_KO                FALSE // solo self-play: correzioni dei KO sicuri spente per il lato col bit di verifica-regole (regole M8 per tutti)
