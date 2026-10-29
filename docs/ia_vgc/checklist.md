@@ -453,3 +453,13 @@ Cause dei 64 casi (log VGCPLAN/VGCFOE della base, classificati con la mossa che 
 
   v3 (codice attivo): cambio su chi va KO **64 → 23** (−64%), totale 286 → 248; altre categorie nel rumore (bersaglio già KO 8 → 9, Protect di fila 5 → 3, immune 1 → 10 tutti in una partita bloccata: Spore su Brute Bonnet ripetuto, Fake Out tardivo 3 in una partita). Specchio alla pari (49,8%, nessuna differenza misurabile). Specchio spento di nuovo.
 - Rimasti (23): mossa non tra le candidate del modello (~8), prevista sullo slot ma stima ancora bassa (~9, spesso con i due avversari insieme), critici 3, chi esce con pochi PS 3 (nessuna coppia senza cambio migliore).
+
+### Stato combinato 29/10 (`ia-vgc` c7d2a11e2e: cambi + KO + storia dei bersagli + logger)
+Campagna 432 partite, ROM di GitHub della run 40797191255: **264 misplay certi** — win condition 104, KO non preso 75, immune 36 (tutti in due partite bloccate: Spore su Brute Bonnet ripetuto, 04_04_s53 e s2053), cambio su chi va KO 21, setup 19, bersaglio già KO 7, Protect di fila 1, attacco al compagno 1. Esiti G 210 / A 221 / limite turni 1.
+
+### Cambi su chi va KO, secondo giro (29/10, `ia-vgc-cambi` 3a5874c999)
+- ✅ Caso peggiore anche con le mosse già viste dell'avversario e quelle probabili del belief (≥30%, `CUSTOM_VGC_PLAN_SWITCH_WORST_MOVES`, `..._LIKELY_P`), non solo le 5 candidate del modello (prima ~1/3 dei casi rimasti: Heavy Slam, Earthquake, Body Press fuori lista).
+- ✅ KO dei due avversari insieme: costo 50 → 75% del KO, e blocco se chi esce ha al più il 40% dei PS (`CUSTOM_VGC_PLAN_SWITCH_DOUBLE_CAP`).
+- Campagna 432 (contro lo stato combinato): **cambio su chi va KO 21 → 16**, totale 264 → 264 (KO non preso 75 → 89, win condition 104 → 83, setup 19 → 28, immune 36 → 29 sempre dalla partita bloccata, Protect di fila 1 → 7, Fake Out tardivo 0 → 4): il resto nel rumore tra build.
+- Specchio (tutto il caso peggiore del cambio acceso contro spento, 864 partite): **50,4%, IC95 [48,3; 52,5], p = 0,71** — non peggiora. Specchio spento di nuovo.
+- Rimasti (16): 6 con la mossa prevista sullo slot ma la stima ancora bassa, 5 con mossa non vista né probabile, 3 non classificati; nessun critico, nessuno con chi esce a pochi PS.

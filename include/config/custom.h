@@ -131,7 +131,10 @@
 #define CUSTOM_VGC_PLAN_SWITCH_WORST_PCT    112   // danno del caso peggiore in % della stima media (tiro alto ~108% + incertezza sulle statistiche del giocatore), più le spinte pubbliche che la stima non vede (Protosynthesis/Quark Drive, Body Press, abilità)
 #define CUSTOM_VGC_PLAN_SWITCH_WORST_KO_PCT 100   // con il caso peggiore acceso: costo (% del KO di chi entra) se basta un solo avversario (prima 30%)
 #define CUSTOM_VGC_PLAN_SWITCH_WORST_CAP_HP 40    // ...e se chi esce ha al più questa % di PS, la coppia non batte la migliore coppia senza un cambio così
-#define CUSTOM_VGC_PLAN_SWITCH_DOUBLE_PCT   50    // con il caso peggiore acceso: costo (% del KO) se servono entrambi gli avversari per il KO di chi entra (prima 15%)
+#define CUSTOM_VGC_PLAN_SWITCH_DOUBLE_PCT   75    // con il caso peggiore acceso: costo (% del KO) se servono entrambi gli avversari per il KO di chi entra (prima 15%, poi 50%)
+#define CUSTOM_VGC_PLAN_SWITCH_DOUBLE_CAP   TRUE  // ...e anche con i due avversari insieme la coppia non vince se chi esce ha pochi PS (CUSTOM_VGC_PLAN_SWITCH_WORST_CAP_HP)
+#define CUSTOM_VGC_PLAN_SWITCH_WORST_MOVES  TRUE  // caso peggiore anche con le mosse già viste dell'avversario e quelle probabili del belief, non solo le 5 candidate del modello
+#define CUSTOM_VGC_PLAN_SWITCH_WORST_LIKELY_P 30  // probabilità minima (%) di una mossa del belief non vista per entrare nel caso peggiore
 #define CUSTOM_VGC_MIRROR_SWITCH_WORST      FALSE // solo self-play: CUSTOM_VGC_PLAN_SWITCH_WORST acceso per il lato senza il bit di verifica-regole, spento per l'altro (regole M8 per tutti)
 #define CUSTOM_VGC_PLAN_HIGH_ROLL           TRUE // ramo "colpo alto": un colpo che manda KO solo con un tiro alto (sopra la mediana) pesa per la sua probabilità
 // ---- KO sicuri (ia-vgc-ko) ----

@@ -3797,6 +3797,25 @@ static u32 WorstCaseAtkPct(const struct PlanState *st, enum BattlerId b, enum Mo
 // previste contro chi era in campo: i cambi finivano in KO quando l'avversario colpiva lo slot con un'altra mossa.
 // Con il caso peggiore (SwitchWorstOn) il danno è quello del caso peggiore plausibile; se un solo avversario basta il
 // costo è il KO intero e *single dice se la coppia non può vincere (chi esce ha pochi PS, vedi FinishJob).
+// Danno del colpo `a` (di un avversario) su chi entra `u`, diretto sul suo slot; -1 se la mossa non può colpirlo.
+static s32 SwitchHitDamage(const struct PlanState *tmp, struct PlanAction a, enum BattlerId u, bool32 worst)
+{
+    enum MoveTarget tt;
+    s32 d;
+    if (a.kind != PLAN_ACT_MOVE || IsBattleMoveStatus(a.move) || !tmp->m[a.user].alive)
+        return -1;
+    tt = SimMoveTarget(tmp, a.user, a.move);
+    if (tt != TARGET_SELECTED && tt != TARGET_SMART && tt != TARGET_BOTH && tt != TARGET_FOES_AND_ALLY && tt != TARGET_OPPONENT)
+        return -1;
+    a.target = u;
+    d = DamageOf(tmp, &a, u) * (worst ? CUSTOM_VGC_PLAN_SWITCH_WORST_PCT : 108) / 100;
+    if (worst)
+        d = d * (s32)WorstCaseAtkPct(tmp, a.user, a.move) / 100;
+    if (tt == TARGET_BOTH || tt == TARGET_FOES_AND_ALLY)
+        d = d * 3 / 4;
+    return d;
+}
+
 static s32 SwitchKoRisk(const struct PlanAction *sw, bool32 *single)
 {
     struct PlanState tmp;
@@ -3804,6 +3823,8 @@ static s32 SwitchKoRisk(const struct PlanAction *sw, bool32 *single)
     s32 dmg[2] = {0}, hp, pct, roleW = 100;
     u32 side, i;
     bool32 worst = SwitchWorstOn();
+    const struct PlanMon *out = &sJob.base.m[u];
+    bool32 outLow;
 
     *single = FALSE;
     if (sw->kind != PLAN_ACT_SWITCH || sw->partyIdx < 0 || u >= MAX_BATTLERS_COUNT)
@@ -3816,34 +3837,46 @@ static s32 SwitchKoRisk(const struct PlanAction *sw, bool32 *single)
     for (side = 0; side < 2; side++)
     {
         for (i = 0; i < sJob.nFoeCand[side]; i++)
+            dmg[side] = max(dmg[side], SwitchHitDamage(&tmp, sJob.foeCand[side][i], u, worst));
+        // Caso peggiore: anche le mosse già viste dell'avversario e quelle probabili del belief (statistiche d'uso),
+        // non solo le 5 candidate del modello: chi entra finiva KO per Heavy Slam, Earthquake, Body Press fuori lista.
+        if (worst && CUSTOM_VGC_PLAN_SWITCH_WORST_MOVES)
         {
-            struct PlanAction a = sJob.foeCand[side][i];
-            enum MoveTarget tt;
-            s32 d;
-            if (a.kind != PLAN_ACT_MOVE || IsBattleMoveStatus(a.move) || !tmp.m[a.user].alive)
-                continue;
-            tt = SimMoveTarget(&tmp, a.user, a.move);
-            if (tt != TARGET_SELECTED && tt != TARGET_SMART && tt != TARGET_BOTH && tt != TARGET_FOES_AND_ALLY && tt != TARGET_OPPONENT)
-                continue;
-            a.target = u;
-            d = DamageOf(&tmp, &a, u) * (worst ? CUSTOM_VGC_PLAN_SWITCH_WORST_PCT : 108) / 100;
-            if (worst)
-                d = d * (s32)WorstCaseAtkPct(&tmp, a.user, a.move) / 100;
-            if (tt == TARGET_BOTH || tt == TARGET_FOES_AND_ALLY)
-                d = d * 3 / 4;
-            dmg[side] = max(dmg[side], d);
+            enum BattlerId f = side == 0 ? GetBattlerLeftFoe(sJob.me) : GetBattlerRightFoe(sJob.me);
+            struct PlanAction a = { PLAN_ACT_MOVE, 0xFF, -1, MOVE_NONE, f, u, 0 };
+            if (f < gBattlersCount && tmp.m[f].alive && tmp.m[f].partyIdx < 0)
+            {
+                enum Move *seen = GetMovesArray(f);
+                for (i = 0; i < MAX_MON_MOVES; i++)
+                {
+                    if (seen[i] == MOVE_NONE || seen[i] == MOVE_UNAVAILABLE)
+                        continue;
+                    a.move = seen[i];
+                    dmg[side] = max(dmg[side], SwitchHitDamage(&tmp, a, u, worst));
+                }
+                for (i = 0; i < sJob.nLikely[f]; i++)
+                {
+                    if (sJob.likelyP[f][i] < CUSTOM_VGC_PLAN_SWITCH_WORST_LIKELY_P)
+                        continue;
+                    a.move = sJob.likelyMove[f][i];
+                    dmg[side] = max(dmg[side], SwitchHitDamage(&tmp, a, u, worst));
+                }
+            }
         }
     }
+    // Chi esce vale meno (pochi PS): il cambio regala un Pokémon sano per salvarne uno quasi finito.
+    outLow = out->hp * 100 <= out->maxHp * CUSTOM_VGC_PLAN_SWITCH_WORST_CAP_HP;
     if (dmg[0] >= hp || dmg[1] >= hp)
     {
-        // Caso peggiore: costa il KO intero; e se chi esce vale meno (pochi PS), il cambio regala un Pokémon sano per
-        // salvarne uno quasi finito: non vince mai.
-        const struct PlanMon *out = &sJob.base.m[u];
+        // Caso peggiore: costa il KO intero; con chi esce a pochi PS non vince mai.
         pct = worst ? CUSTOM_VGC_PLAN_SWITCH_WORST_KO_PCT : 30;
-        *single = worst && out->hp * 100 <= out->maxHp * CUSTOM_VGC_PLAN_SWITCH_WORST_CAP_HP;
+        *single = worst && outLow;
     }
     else if (dmg[0] + dmg[1] >= hp)
+    {
         pct = worst ? CUSTOM_VGC_PLAN_SWITCH_DOUBLE_PCT : 15;
+        *single = worst && CUSTOM_VGC_PLAN_SWITCH_DOUBLE_CAP && outLow;
+    }
     else
         return 0;
     if (!IsOnPlayerSide(u) && (sJob.winconParty & (1u << (u32)sw->partyIdx)))
