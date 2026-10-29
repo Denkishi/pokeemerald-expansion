@@ -511,3 +511,19 @@ Classificazione dei 104 casi dello stato combinato (`camp_comb`, log VGCPLAN/VGC
 - Campagna 432 (contro il secondo giro dei cambi, stesso codice di `ia-vgc` 600e09fc05): **win condition persa 83 → 66**, **totale 264 → 201** (KO non preso 89 → 69, immune 29 → 0 — nessuna partita bloccata —, setup 28 → 24, bersaglio già KO 8 → 10, Protect di fila 7 → 7, Fake Out tardivo 4 → 0), **cambio su chi va KO 16 → 25** (nel rumore? da tenere d'occhio: una win condition che esce è ora "sicura").
 - Specchio (solo questa correzione accesa contro spenta, 863 partite): **50,6%, IC95 [48,3; 52,9], p = 0,63** — non peggiora. Specchio spento di nuovo.
 - Rimasti (66): 55 ancora con la difesa valutata e persa (31 di molto), 5 con minaccia non prevista, 5 senza coppie difensive.
+
+### Taratura dei pesi delle correzioni (29/10 mattina)
+Base `ia-vgc` bb1115f1d2 (184 misplay certi). Campagne 432 (8 istanze), una build per configurazione (guardia della win condition % / premio KO sicuro % / costo setup sotto KO / costo del caso peggiore del cambio %):
+
+| Config | Guardia | KO sicuro | Setup | Cambio peggiore | Totale | KO non preso | Win condition | Cambio in KO | Setup |
+|---|---|---|---|---|---|---|---|---|---|
+| g0 (attuale) | 50 | 35 | 80 | 100 | 184 | 72 | 64 | 25 | 13 |
+| g1 | 75 | 35 | 80 | 100 | **179** | 72 | 57 | 32 | 10 |
+| g2 | 100 | 50 | 80 | 100 | 182 | 68 | 40 | 52 | 11 |
+| g3 | 75 | 50 | 120 | 100 | 181 | 68 | 51 | 44 | 9 |
+| g4 | 50 | 25 | 80 | 75 | 181 | 74 | 53 | 33 | 13 |
+| g5 | 35 | 35 | 80 | 100 | 185 | 73 | 71 | 19 | 14 |
+
+- Il totale è piatto (179-185, dentro il rumore): la guardia sposta i misplay tra "win condition persa" e "cambio su chi va KO" (40 ↔ 52 con 100, 71 ↔ 19 con 35), senza abbassarli.
+- Specchio 6 semi della migliore (g1) contro i pesi attuali (`CUSTOM_VGC_MIRROR_TUNE`, il lato col bit usa `CUSTOM_VGC_TUNE_BASE_*`): **49,97%, IC95 [49,3; 50,6], p = 0,93** → sotto la soglia del 50%: **restano i pesi attuali** (guardia 50, KO sicuro 35, setup 80, cambio peggiore 100).
+- Specchio 6 semi **tutte le correzioni accese contro tutte spente** (stato "prima dei misplay", `CUSTOM_VGC_MIRROR_FIXES`): **49,9%, IC95 [48,1; 51,7], p = 0,90** — l'IA vince quanto prima, con 0,22 misplay certi per partita.

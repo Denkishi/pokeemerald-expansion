@@ -138,7 +138,7 @@
 #define CUSTOM_VGC_PLAN_SWITCH_WORST_MOVES  TRUE  // caso peggiore anche con le mosse già viste dell'avversario e quelle probabili del belief, non solo le 5 candidate del modello
 #define CUSTOM_VGC_PLAN_SWITCH_WORST_LIKELY_P 30  // probabilità minima (%) di una mossa del belief non vista per entrare nel caso peggiore
 #define CUSTOM_VGC_PLAN_WINCON_GUARD        TRUE  // win condition lasciata esposta (né Protect né cambio) a una risposta plausibile che la manda KO (caso peggiore come per i cambi, se la coppia non manda KO prima chi minaccia; Wide Guard/Follow Me del compagno contano): costo
-#define CUSTOM_VGC_PLAN_WINCON_GUARD_PCT    75    // ...in % del KO della win condition (metà se servono entrambi gli avversari)
+#define CUSTOM_VGC_PLAN_WINCON_GUARD_PCT    50    // ...in % del KO della win condition (metà se servono entrambi gli avversari)
 #define CUSTOM_VGC_MIRROR_TUNE              FALSE // solo self-play: il lato col bit di verifica-regole usa i pesi CUSTOM_VGC_TUNE_BASE_* (taratura a specchio)
 #define CUSTOM_VGC_TUNE_BASE_WINCON_GUARD_PCT    50
 #define CUSTOM_VGC_TUNE_BASE_SURE_KO_PCT         35
