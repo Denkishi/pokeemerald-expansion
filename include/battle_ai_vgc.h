@@ -97,7 +97,17 @@ bool32 AI_VgcShouldHoldMega(enum BattlerId battler);
 // Lettura del giocatore senza imbrogli: memoria di comportamento (Protect sotto KO, cambi quando
 // perde il matchup), per Pokémon, mantenuta tra le gare del Bo3.
 void AI_VgcResetMemory(void);                                   // nuova serie / nuovo avversario
-s32 AI_VgcFoeTargetBias(enum BattlerId atk, enum BattlerId t);         // storia dei bersagli del giocatore in questa lotta
+s32 AI_VgcFoeTargetBias(enum BattlerId atk, enum BattlerId t);         // storia dei bersagli del giocatore (lotta + gare prima nel Bo3)
+// Storia dei bersagli di un lato: con entrambi i nostri in campo, quante volte ha colpito il più danneggiato dei due e,
+// quando uno solo è la win condition, quante volte lei. Nel Bo3 quella del giocatore passa alla gara dopo.
+struct VgcTargetHistory
+{
+    u8 attacks, onWeakest, winChoices, onWincon;
+};
+void AI_VgcSeriesExportTargets(struct VgcTargetHistory *out);
+void AI_VgcSeriesImportTargets(const struct VgcTargetHistory *in);
+u8 AI_VgcSeriesExportProtect(u32 personality);                  // turni sotto KO / Protect (4+4 bit) di un Pokémon del giocatore
+void AI_VgcSeriesImportProtect(u32 personality, u8 packed);
 void AI_VgcTurnStart(void);                                     // dopo SetAiLogicDataForTurn
 void AI_VgcNotePlayerMove(enum BattlerId battler, enum Move move); // quando il giocatore esegue una mossa
 void AI_VgcNotePlayerSwitch(enum BattlerId battler);            // quando il giocatore cambia

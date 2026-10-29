@@ -2,6 +2,7 @@
 #include "test/battle.h"
 #include "battle_ai_util.h"
 #include "battle_ai_scout.h"
+#include "battle_ai_vgc.h"
 
 // Base di conoscenza VGC (src/data/vgc_meta.h, statistiche d'uso Showdown) e belief sui Pokémon del
 // giocatore (src/battle_ai_scout.c). Vedi docs/ia_vgc/piano_implementazione.md (M1).
@@ -155,6 +156,30 @@ TEST("VGC scout: Bo3 belief snapshot round trip")
     EXPECT_EQ(out.abilityExcluded, in.abilityExcluded);
     EXPECT_EQ(out.heldEffect, in.heldEffect);
     Scout_BeliefReset();
+}
+
+TEST("VGC: Bo3 player target history and Protect habit round trip")
+{
+    struct VgcTargetHistory in = {.attacks = 7, .onWeakest = 5, .winChoices = 4, .onWincon = 1}, out = {0};
+
+    AI_VgcResetMemory();
+    AI_VgcSeriesImportTargets(&in);
+    AI_VgcSeriesExportTargets(&out);
+    EXPECT_EQ(out.attacks, in.attacks);
+    EXPECT_EQ(out.onWeakest, in.onWeakest);
+    EXPECT_EQ(out.winChoices, in.winChoices);
+    EXPECT_EQ(out.onWincon, in.onWincon);
+    // Protect: 9 turni sotto KO, 6 Protect; un Pokémon mai visto non ha storia.
+    AI_VgcSeriesImportProtect(0x12345678, (9 << 4) | 6);
+    EXPECT_EQ(AI_VgcSeriesExportProtect(0x12345678), (9 << 4) | 6);
+    EXPECT_EQ(AI_VgcSeriesExportProtect(0x0BADF00D), 0);
+    // Una seconda importazione sovrascrive (non duplica la voce).
+    AI_VgcSeriesImportProtect(0x12345678, (15 << 4) | 3);
+    EXPECT_EQ(AI_VgcSeriesExportProtect(0x12345678), (15 << 4) | 3);
+    AI_VgcResetMemory();
+    AI_VgcSeriesExportTargets(&out);
+    EXPECT_EQ(out.attacks, 0);
+    EXPECT_EQ(AI_VgcSeriesExportProtect(0x12345678), 0);
 }
 
 // --- Belief in lotta ---------------------------------------------------------------------------

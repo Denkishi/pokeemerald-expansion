@@ -116,6 +116,8 @@ struct SeriesState
         u8 enemyLead[2];    // slot originali (nel party completo) dei due lead dell'AI
         u8 enemyMask;       // bitmask degli slot originali portati
     } history[3];
+    // Storia dei bersagli del giocatore (attacchi visti nelle gare prima): riparte da qui nella gara dopo.
+    struct VgcTargetHistory foeTargets;
 };
 
 // Ciò che l'AI ricorda di un nostro Pokémon dalle gare precedenti (riconosciuto dalla personalità).
@@ -129,8 +131,12 @@ struct SeriesMonMemory
     u8 timesBrought;
     u8 timesLead;
     u8 kos;                     // quanti Pokémon dell'AI ha mandato KO
+    u8 protectHabit;            // turni sotto KO / Protect usati (4+4 bit, AI_VgcSeriesExportProtect); occupa il padding
     struct ScoutBeliefSnapshot belief; // Velocità ristretta, strumenti esclusi, abilità d'ingresso escluse
 };
+
+// EWRAM quasi piena: la memoria per Pokémon non deve crescere (protectHabit sta nel byte di padding).
+STATIC_ASSERT(sizeof(struct SeriesMonMemory) <= 32, SeriesMonMemorySize)
 
 static EWRAM_DATA struct SeriesState sSeries = {0};
 static EWRAM_DATA struct Pokemon sSeriesEnemyParty[PARTY_SIZE] = {0}; // squadra avversaria completa
@@ -3270,6 +3276,7 @@ void TeamPreview_SeriesCaptureAiKnowledge(void)
 
     if (!SeriesIsBestOfThree() || gAiPartyData == NULL || !sPartyReduced)
         return;
+    AI_VgcSeriesExportTargets(&sSeries.foeTargets); // chi colpisce il giocatore: passa alla gara dopo
     for (slot = 0; slot < PARTY_SIZE; slot++)
     {
         struct Pokemon *mon = &gPlayerParty[slot];
@@ -3286,6 +3293,7 @@ void TeamPreview_SeriesCaptureAiKnowledge(void)
         if (known->ability != ABILITY_NONE)
             mem->ability = known->ability;
         Scout_BeliefExport(slot, &mem->belief); // belief dell'IA (M1): passa alla gara dopo
+        mem->protectHabit = AI_VgcSeriesExportProtect(mem->personality);
         if (known->heldEffect != HOLD_EFFECT_NONE)
         {
             u16 real = GetMonData(mon, MON_DATA_HELD_ITEM);
@@ -3304,6 +3312,8 @@ void TeamPreview_SeriesInjectAiKnowledge(void)
 
     if (!SeriesIsBestOfThree() || gAiPartyData == NULL)
         return;
+    // La memoria di comportamento è azzerata a ogni lotta (BattleStartClearSetData): si riprende quella della serie.
+    AI_VgcSeriesImportTargets(&sSeries.foeTargets);
     for (slot = 0; slot < PARTY_SIZE; slot++)
     {
         struct Pokemon *mon = &gPlayerParty[slot];
@@ -3338,6 +3348,7 @@ void TeamPreview_SeriesInjectAiKnowledge(void)
         if (mem->timesBrought != 0)
             known->species = GetMonData(mon, MON_DATA_SPECIES);
         Scout_BeliefImport(slot, &mem->belief);
+        AI_VgcSeriesImportProtect(mem->personality, mem->protectHabit);
 
         // Senza questo, la prima volta che il Pokémon entra in campo l'IA azzerava la sua storia
         // (lo considerava "mai visto") e le mosse ricordate dalla gara precedente andavano perse.

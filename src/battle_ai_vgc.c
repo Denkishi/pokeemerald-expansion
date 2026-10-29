@@ -381,10 +381,7 @@ static EWRAM_DATA struct VgcBehaviour sVgcMem[PARTY_SIZE * NUM_BATTLE_SIDES] = {
 static EWRAM_DATA u8 sVgcMemCount = 0;
 // Storia dei bersagli del giocatore in questa lotta (solo attacchi visti, per lato di chi attacca): con entrambi i nostri
 // in campo, quante volte ha colpito il più danneggiato dei due e, quando uno solo è la win condition, quante volte lei.
-struct VgcTargetHistory
-{
-    u8 attacks, onWeakest, winChoices, onWincon;
-};
+// (struct VgcTargetHistory è in battle_ai_vgc.h: nel Bo3 passa alla gara dopo con la memoria della serie.)
 static EWRAM_DATA struct VgcTargetHistory sVgcTargetHist[NUM_BATTLE_SIDES] = {0};
 static EWRAM_DATA u8 sVgcThreatened = 0;        // bitmask battler del giocatore sotto KO questo turno
 static EWRAM_DATA u8 sVgcLosing = 0;            // bitmask battler del giocatore che perdono il matchup
@@ -504,6 +501,63 @@ static struct VgcBehaviour *VgcFindOrAddBehaviour(enum BattlerId battler)
     memset(&sVgcMem[sVgcMemCount], 0, sizeof(struct VgcBehaviour));
     sVgcMem[sVgcMemCount].personality = personality;
     return &sVgcMem[sVgcMemCount++];
+}
+
+// Bo3: la storia dei bersagli del giocatore e le sue abitudini di Protect passano alla gara dopo (team_preview.c,
+// memoria della serie). Solo dati osservati in lotta: attacchi visti, turni sotto KO e Protect eseguiti.
+void AI_VgcSeriesExportTargets(struct VgcTargetHistory *out)
+{
+    *out = sVgcTargetHist[B_SIDE_PLAYER];
+}
+
+void AI_VgcSeriesImportTargets(const struct VgcTargetHistory *in)
+{
+    sVgcTargetHist[B_SIDE_PLAYER] = *in;
+}
+
+// Turni sotto KO (4 bit alti) e Protect usati in quei turni (4 bit bassi) di un Pokémon del giocatore. Oltre 15 turni si
+// riscala tenendo la proporzione: la storia vecchia pesa al massimo come 15 turni (decadimento tra le gare).
+u8 AI_VgcSeriesExportProtect(u32 personality)
+{
+    u32 i, t, q;
+
+    for (i = 0; i < sVgcMemCount; i++)
+    {
+        if (sVgcMem[i].personality != personality) // lato del giocatore: chiave = personalità (bit del lato a 0)
+            continue;
+        t = sVgcMem[i].threatenedTurns;
+        q = min(sVgcMem[i].protectsWhenThreatened, t);
+        if (t > 15)
+        {
+            q = (q * 15 + t / 2) / t;
+            t = 15;
+        }
+        return (t << 4) | q;
+    }
+    return 0;
+}
+
+void AI_VgcSeriesImportProtect(u32 personality, u8 packed)
+{
+    u32 i;
+
+    if (packed == 0)
+        return;
+    for (i = 0; i < sVgcMemCount; i++)
+    {
+        if (sVgcMem[i].personality == personality)
+            break;
+    }
+    if (i == sVgcMemCount)
+    {
+        if (sVgcMemCount >= ARRAY_COUNT(sVgcMem))
+            return;
+        memset(&sVgcMem[i], 0, sizeof(struct VgcBehaviour));
+        sVgcMem[i].personality = personality;
+        sVgcMemCount++;
+    }
+    sVgcMem[i].threatenedTurns = packed >> 4;
+    sVgcMem[i].protectsWhenThreatened = min(packed & 0xF, packed >> 4);
 }
 
 static bool32 VgcAnyAiBattlerCanKo(enum BattlerId playerBattler)
