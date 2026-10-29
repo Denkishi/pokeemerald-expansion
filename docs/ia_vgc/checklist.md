@@ -470,3 +470,19 @@ Base: `ia-vgc` 5c5469d1de (storia dei bersagli accesa), campagna 432: **264 misp
 - ❌ **Spinta sulla minaccia** (idea c) solo senza Fake Out & co. in gioco al primo turno: il test di Hariyama passa, ma insieme al costo del setup 264 → 270 (cambi 57 → 79, win condition 82 → 87), specchio 49,0%. Spenta (`CUSTOM_VGC_PLAN_FOE_THREAT_FOCUS` = 0).
 - ⬜ **Storia nel Bo3**: non fatta. Il self-play gioca partite singole, quindi non si può misurare; la memoria di serie (`SeriesMonMemory.belief`) porta già Velocità, strumenti e abilità esclusi. Aggiungerci bersagli e Protect è facile, ma senza misura resta un'ipotesi.
 - Protect consecutivo certo: 3 casi nella base, in due il Protect "precedente" non compare nei messaggi (scelto ma non eseguito, es. tentennamento o sonno): probabili falsi positivi del checker, che confronta la scelta del turno prima e non la mossa eseguita.
+
+### Secondo giro KO (29/10 notte, dopo il merge di `ia-vgc` 8aad2170ac)
+- ✅ Win condition e premio: nei rami del turno 1 in cui uno dei nostri va KO il premio scende al 50% (`CUSTOM_VGC_PLAN_KO_LOSS_PCT`), a 0 se è la win condition; niente premio se la win condition attacca mentre un avversario che resta in campo (non quello che mandiamo KO) ha un KO sicuro su di lei (`CUSTOM_VGC_PLAN_KO_WINCON_GUARD`). Misurato prima: nei casi di win condition persa il distacco dalla miglior coppia con Protect/cambio ha mediana 174-228 punti (solo 13-24 casi su ~85 entro 70, il premio): l'aumento 89 -> 103 era in buona parte rumore tra build.
+- ✅ Diagnostica `VGCKO` nei test: per ogni coppia simulata danno minimo, PS, precisione, KO sicuro e premio.
+- Dondozo contro Incineroar al turno 1: non si ripresenta (Dondozo non parte più in lead senza Tatsugiri, team preview di `ia-vgc`); nelle 432 partite i KO con minimo >= PS e precisione piena senza premio sono solo esclusioni volute (Final Gambit, Focus Sash, Campo Psichico).
+
+| 432 partite | Base (ia-vgc 8aad2170ac, premio senza guardia) | Con la guardia |
+|---|---|---|
+| KO garantito non preso | 86 | 83 |
+| Win condition persa | 92 | 86 |
+| Cambio su chi va KO | 55 | 48 |
+| Setup con KO in arrivo | 27 | 29 |
+| Bersaglio già KO | 9 | 11 |
+| **Totale certi** | **269** | **260** |
+
+Specchio (tutte le correzioni dei KO accese contro spente, `ia-vgc-ko-specchio2`, 1728 partite): **49,4%, IC95 [47,7; 51,1], p = 0,49** — neutro, con meno misplay. CI verde. Rumore tra build sulla stessa categoria: ±15 (KO non preso 71 e 86 con lo stesso codice del premio).

@@ -3229,11 +3229,43 @@ static void KoCreditBranch(const struct PlanState *s1, const struct PlanAction *
                            const struct PlanAction *fa, const struct PlanAction *fb, s32 w)
 {
     enum BattlerId foes[2] = { GetBattlerLeftFoe(sJob.me), GetBattlerRightFoe(sJob.me) };
-    s32 credit = 0;
-    u32 k;
+    enum BattlerId ours[2] = { sJob.me, GetPartnerBattler(sJob.me) };
+    const struct PlanAction *oa[2] = { x, y };
+    s32 credit = 0, scale = 100, prem;
+    u32 k, q;
 
     if (CUSTOM_VGC_PLAN_SURE_KO_PCT == 0 || !KoFixesOn())
         return;
+    // Il premio vale solo se il KO non costa un nostro Pokémon: se nel ramo uno dei nostri va KO il premio scende
+    // (CUSTOM_VGC_PLAN_KO_LOSS_PCT), se è la win condition sparisce; e sparisce anche se la win condition attacca
+    // mentre un avversario che resta in campo (non quello che mandiamo KO) ha un KO sicuro su di lei: lì Protect o il
+    // cambio vanno valutati senza il premio contro (win condition persa 89 -> 103 con il premio).
+    for (q = 0; q < 2; q++)
+    {
+        enum BattlerId u = ours[q];
+        u32 pIdx;
+        bool32 win;
+        if ((q == 1 && u == sJob.me) || u >= gBattlersCount || !sJob.base.m[u].alive)
+            continue;
+        pIdx = gBattlerPartyIndexes[u];
+        win = pIdx < PARTY_SIZE && (sJob.winconParty & (1u << pIdx));
+        if (!s1->m[u].alive)
+        {
+            scale = min(scale, win ? 0 : CUSTOM_VGC_PLAN_KO_LOSS_PCT);
+            continue;
+        }
+        if (CUSTOM_VGC_PLAN_KO_WINCON_GUARD && win && oa[q]->kind != PLAN_ACT_PROTECT && oa[q]->kind != PLAN_ACT_SWITCH)
+        {
+            for (k = 0; k < 2; k++)
+            {
+                enum BattlerId o = foes[k];
+                if (o < gBattlersCount && sJob.base.m[o].alive && s1->m[o].alive && !s1->m[o].asleep
+                 && CanKoNextTurn(&sJob.base, o, u) >= 50)
+                    scale = 0;
+            }
+        }
+    }
+    prem = CUSTOM_VGC_PLAN_SURE_KO_PCT * scale / 100;
     for (k = 0; k < 2; k++)
     {
         enum BattlerId f = foes[k];
@@ -3245,7 +3277,7 @@ static void KoCreditBranch(const struct PlanState *s1, const struct PlanAction *
             continue;
         if (!s1->m[f].alive)
         {
-            credit += CUSTOM_VGC_PLAN_SURE_KO_PCT;
+            credit += prem;
             continue;
         }
         ff = (fa->user == f) ? fa : (fb->user == f) ? fb : NULL;
@@ -3256,7 +3288,7 @@ static void KoCreditBranch(const struct PlanState *s1, const struct PlanAction *
         else if (IsFakeOutOn(fa, ko->user) || IsFakeOutOn(fb, ko->user))
             c = CUSTOM_VGC_PLAN_KO_CALIB_FAKE_OUT;
         // La lettura avviene nel c% dei casi che il modello le dà: nel resto il KO passa (con il premio).
-        credit += (s32)(100 - c) * (100 + CUSTOM_VGC_PLAN_SURE_KO_PCT) / 100;
+        credit += (s32)(100 - c) * (100 + prem) / 100;
     }
     sJob.koSum[sJob.i] += credit * w;
     sJob.koWsum[sJob.i] += w;
@@ -4075,6 +4107,21 @@ static void FinishJob(void)
                             sJob.ours[i].kind, sJob.ours[i].move, sJob.ours[i].target,
                             sJob.partners[i].kind, sJob.partners[i].move, sJob.partners[i].target,
                             sJob.ev[i], i == bestIdx ? " <==" : (i == chosenIdx ? " (regole)" : ""));
+        for (i = 0; i < sJob.nOurs; i++)
+        {
+            // KO sicuri (ia-vgc-ko): premio e danno minimo della tabella per le due azioni della coppia.
+            const struct PlanAction *pa2[2] = { &sJob.ours[i], &sJob.partners[i] };
+            u32 h;
+            for (h = 0; h < 2; h++)
+            {
+                const struct PlanAction *a = pa2[h];
+                if (a->kind != PLAN_ACT_MOVE || a->moveIndex >= MAX_MON_MOVES || a->target >= gBattlersCount || IsBattlerAlly(a->user, a->target))
+                    continue;
+                Test_MgbaPrintf("VGCKO pair%d b%d m%d t%d min=%d hp=%d acc=%d sicuro=%d premio=%d", i, a->user, a->move, a->target,
+                                gAiLogicData->simulatedDmg[a->user][a->target][a->moveIndex].minimum, gBattleMons[a->target].hp,
+                                gAiLogicData->moveAccuracy[a->user][a->target][a->moveIndex], SureKoOn(a, a->target), KoBonus(i));
+            }
+        }
         for (i = 0; i < sJob.nOurs; i++)
         {
             const struct PlanAction *a = &sJob.ours[i];
