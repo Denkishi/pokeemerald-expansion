@@ -393,3 +393,25 @@ Falsi positivi del checker rimasti:
 - KO non preso quando il compagno usa Helping Hand e la coppia manda KO l'altro avversario (il danno di Helping Hand non entra nel KO combinato).
 
 Decisione su `CUSTOM_VGC_PLAN_FOE_VS_IDLE` (dopo il merge di `ia-vgc` c5344eaaf3): flag per lato nel self-play (`CUSTOM_VGC_MIRROR_FOE_IDLE`, variante "tutte le azioni, media 1/2", quella del 285), verifica a specchio con 6 semi: **1727 partite valide, 50,7% per il lato con il flag, IC95 [48,9; 52,5], p = 0,47**. Sotto la soglia (IC sopra 50% o almeno 51% con meno misplay): ❌ resta spento, il test di Altaria Tailwind resta un test normale (verde). Specchio spento di nuovo.
+
+### Cambi su chi va KO all'entrata (29/10, branch `ia-vgc-cambi` da `ia-vgc` af8c260c93)
+Base (ROM di GitHub di af8c260c93, 432 partite): **286 misplay certi**, di cui **cambio su chi va KO 64** (KO non preso 96, win condition 89, setup 23, bersaglio già KO 8, Protect di fila 5, immune 1).
+
+Cause dei 64 casi (log VGCPLAN/VGCFOE della base, classificati con la mossa che ha mandato KO): ~19 la mossa prevista proprio sullo slot di chi entra ma la stima la dava sopravvissuto (danno su chi entra sottostimato: spinte di abilità, Body Press, tiro alto); ~15 mossa non tra le due previste (Heavy Slam, Earthquake, Body Press); ~12 chi esce aveva ≤25% PS (il cambio salvava un Pokémon quasi finito e regalava uno sano); ~10 KO solo con i due avversari insieme; 3 critici; il resto non classificato (nome della mossa).
+
+- ✅ Caso peggiore del cambio (`CUSTOM_VGC_PLAN_SWITCH_WORST`, dentro `SwitchKoRisk`/`FinishJob`): per ogni coppia con un cambio, chi entra contro tutte le risposte plausibili degli avversari (le 5 candidate del modello per avversario, dirette sul suo slot) con il danno del caso peggiore (`CUSTOM_VGC_PLAN_SWITCH_WORST_PCT` 112% della stima + spinte pubbliche che la stima non vede: Protosynthesis/Quark Drive annunciata, Body Press con la Difesa, Tough Claws, Iron Fist, Strong Jaw, Sharpness, Mega Launcher, Punk Rock, Reckless, Sheer Force).
+  - un solo avversario basta: costo = KO intero di chi entra (`CUSTOM_VGC_PLAN_SWITCH_WORST_KO_PCT` 100, prima 30%);
+  - e se chi esce ha al più il 40% dei PS (`CUSTOM_VGC_PLAN_SWITCH_WORST_CAP_HP`), la coppia non batte la migliore coppia senza un cambio così (Protect, attacco o l'altro Pokémon della panchina): diagnostica `VGCSWKO` nei log;
+  - servono entrambi gli avversari: 50% del KO (`CUSTOM_VGC_PLAN_SWITCH_DOUBLE_PCT`, prima 15%).
+  - Scelta del Pokémon dalla panchina e confronto con Protect: vengono da soli, il costo è per coppia (il cambio verso l'altro Pokémon della panchina o il Protect diventano la coppia migliore).
+- Prove (432 partite ciascuna; specchio = `verifica-regole` con `CUSTOM_VGC_MIRROR_SWITCH_WORST`, 862 partite, trattamento contro base sugli stessi semi):
+
+| Versione | Cambio su chi va KO | Totale certi | KO non preso | Win condition | Setup | Specchio |
+|---|---:|---:|---:|---:|---:|---|
+| base | 64 | 286 | 96 | 89 | 23 | — |
+| v1: blocco sempre, 117% | 27 | 257 | 99 | 82 | 23 | 48,8% [47,1; 50,4], p = 0,15 |
+| v2: KO intero, blocco solo se chi esce ≤40% | 30 | 253 | 98 | 79 | 20 | 49,4% [47,9; 51,0], p = 0,46 |
+| **v3: v2 + spinte pubbliche, 112%** | **23** | **248** | 95 | 89 | 15 | **49,8% [48,0; 51,7], p = 0,85** |
+
+  v3 (codice attivo): cambio su chi va KO **64 → 23** (−64%), totale 286 → 248; altre categorie nel rumore (bersaglio già KO 8 → 9, Protect di fila 5 → 3, immune 1 → 10 tutti in una partita bloccata: Spore su Brute Bonnet ripetuto, Fake Out tardivo 3 in una partita). Specchio alla pari (49,8%, nessuna differenza misurabile). Specchio spento di nuovo.
+- Rimasti (23): mossa non tra le candidate del modello (~8), prevista sullo slot ma stima ancora bassa (~9, spesso con i due avversari insieme), critici 3, chi esce con pochi PS 3 (nessuna coppia senza cambio migliore).
