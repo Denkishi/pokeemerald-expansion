@@ -235,6 +235,11 @@ struct PlanJob
     // livello 1
     u8 i, a, b, phase;
     s32 sum, wsum, worst;
+    // Strategia mista per turno (CUSTOM_VGC_PLAN_MIXED): valore di ogni coppia contro ogni risposta congiunta degli
+    // avversari (riga i, colonna a * PLAN_FOE_PER + b), valore grezzo della coppia prima dei costi/premi di FinishJob.
+    s16 mixU[PLAN_ALL_PAIRS][PLAN_FOE_PER * PLAN_FOE_PER];
+    s32 mixRaw[PLAN_ALL_PAIRS];
+    u8 mixFilled[PLAN_ALL_PAIRS]; // bit per colonna
     s32 ev[PLAN_ALL_PAIRS];
     s32 koSum[PLAN_ALL_PAIRS], koWsum[PLAN_ALL_PAIRS]; // KO sicuri (ia-vgc-ko): credito pesato sui rami del turno 1
     s32 bestSoFar;      // miglior valore di coppia già finito (potatura)
@@ -3695,6 +3700,11 @@ static u32 MissPenalty(const struct PlanState *base, const struct PlanState *hit
 }
 static void Accumulate(s32 v, s32 w)
 {
+    if (sJob.i < PLAN_ALL_PAIRS && sJob.a < PLAN_FOE_PER && sJob.b < PLAN_FOE_PER)
+    {
+        sJob.mixU[sJob.i][sJob.a * PLAN_FOE_PER + sJob.b] = (s16)max(-32000, min(32000, v));
+        sJob.mixFilled[sJob.i] |= 1u << (sJob.a * PLAN_FOE_PER + sJob.b);
+    }
     sJob.sum += v * w;
     sJob.wsum += w;
     if (v < sJob.worst)
@@ -3728,6 +3738,7 @@ static bool32 AdvanceLevel1(void)
         {
             sJob.a = 0;
             sJob.ev[sJob.i] = (sJob.alpha * (sJob.sum / max(sJob.wsum, 1)) + (10 - sJob.alpha) * sJob.worst) / 10;
+            sJob.mixRaw[sJob.i] = sJob.ev[sJob.i];
             if (sJob.ev[sJob.i] + KoBonus(sJob.i) > sJob.bestSoFar)
                 sJob.bestSoFar = sJob.ev[sJob.i] + KoBonus(sJob.i);
             sJob.sum = sJob.wsum = 0;
@@ -4110,6 +4121,133 @@ static s32 WinconExposedRisk(const struct PlanAction *a, const struct PlanAction
     return pct * (VW(ko) + VW(alive) + um->hp * 100 / max(um->maxHp, 1)) * VW(wincon) / 10000;
 }
 
+// ---------------------------------------------------------------------
+// Strategia mista per turno (CUSTOM_VGC_PLAN_MIXED)
+// ---------------------------------------------------------------------
+// Ogni turno è un gioco a mosse simultanee: le nostre coppie (righe) contro le risposte congiunte degli avversari
+// (colonne), con i valori della simulazione (mixU) più i costi/premi di FinishJob della riga. Regret matching+ con
+// media pesata (il CFR di PokaiTrainer, arXiv 2608.29197, in piccolo); l'avversario gioca un misto tra il suo
+// equilibrio e il modello del giocatore (le risposte previste con i loro pesi: un umano non è all'equilibrio).
+// La coppia si estrae dalla strategia media, solo tra quelle con probabilità e valore vicini alla migliore: niente
+// coppie chiaramente peggiori, ma nemmeno una scelta sempre uguale e leggibile (Protect o attacco, quale bersaglio).
+static bool32 MixedOn(void)
+{
+    if (!CUSTOM_VGC_PLAN_MIXED)
+        return FALSE;
+#if TESTING
+    {
+        extern bool32 VgcSelfPlay_IsActive(void);
+        // Nei test di scenario la scelta resta deterministica (la migliore); nel self-play il misto è acceso.
+        if (!VgcSelfPlay_IsActive())
+            return FALSE;
+        if (CUSTOM_VGC_MIRROR_MIXED)
+            return !((gVgcTraining.rulesLegacy >> GetBattlerSide(sJob.me)) & 1);
+    }
+#endif
+    return TRUE;
+}
+
+#define MIX_ONE 1024
+#define MIX_COLS (PLAN_FOE_PER * PLAN_FOE_PER)
+static u32 MixedPick(u32 bestIdx)
+{
+    u32 n = sJob.nOurs, m = (u32)sJob.nA * sJob.nB, i, j, t;
+    s32 u[PLAN_ALL_PAIRS][MIX_COLS];
+    s32 regOur[PLAN_ALL_PAIRS] = {0}, regFoe[MIX_COLS] = {0}, avg[PLAN_ALL_PAIRS] = {0};
+    s32 sig[PLAN_ALL_PAIRS], ui[PLAN_ALL_PAIRS], tau[MIX_COLS], tauEq[MIX_COLS], prior[MIX_COLS], wj[MIX_COLS];
+    s32 priorSum = 0, total = 0, keep = 0, roll, w[PLAN_ALL_PAIRS];
+
+    if (n > PLAN_ALL_PAIRS || m == 0 || m > MIX_COLS)
+        return bestIdx;
+    // Matrice: valore della cella + (valore finale della coppia - valore grezzo) = costi/premi della riga.
+    for (i = 0; i < n; i++)
+    {
+        s32 delta = sJob.ev[i] - sJob.mixRaw[i];
+        for (j = 0; j < m; j++)
+        {
+            u32 col = (j / sJob.nB) * PLAN_FOE_PER + (j % sJob.nB);
+            u[i][j] = (sJob.mixFilled[i] & (1u << col)) ? sJob.mixU[i][col] + delta : sJob.ev[i];
+        }
+    }
+    for (j = 0; j < m; j++)
+    {
+        prior[j] = PairWeight(&sJob.foeA[j / sJob.nB], &sJob.foeB[j % sJob.nB]);
+        priorSum += prior[j];
+    }
+    for (j = 0; j < m; j++)
+        prior[j] = prior[j] * MIX_ONE / max(priorSum, 1);
+
+    for (t = 1; t <= CUSTOM_VGC_PLAN_MIXED_ITERS; t++)
+    {
+        s32 pos = 0, v = 0, vf = 0;
+        // Strategie correnti dai rimpianti positivi (uniformi se nessuno).
+        for (i = 0; i < n; i++)
+            pos += regOur[i];
+        for (i = 0; i < n; i++)
+            sig[i] = pos > 0 ? regOur[i] * MIX_ONE / pos : MIX_ONE / (s32)n;
+        pos = 0;
+        for (j = 0; j < m; j++)
+            pos += regFoe[j];
+        for (j = 0; j < m; j++)
+        {
+            tauEq[j] = pos > 0 ? regFoe[j] * MIX_ONE / pos : MIX_ONE / (s32)m;
+            tau[j] = (CUSTOM_VGC_PLAN_MIXED_LAMBDA * tauEq[j] + (100 - CUSTOM_VGC_PLAN_MIXED_LAMBDA) * prior[j]) / 100;
+        }
+        // Nostri rimpianti contro il misto dell'avversario.
+        for (i = 0; i < n; i++)
+        {
+            ui[i] = 0;
+            for (j = 0; j < m; j++)
+                ui[i] += u[i][j] * tau[j] / MIX_ONE;
+            v += ui[i] * sig[i] / MIX_ONE;
+        }
+        for (i = 0; i < n; i++)
+            regOur[i] = max(0, regOur[i] + ui[i] - v);
+        // Rimpianti dell'avversario (minimizza il nostro valore) contro la nostra strategia corrente.
+        for (j = 0; j < m; j++)
+        {
+            wj[j] = 0;
+            for (i = 0; i < n; i++)
+                wj[j] += u[i][j] * sig[i] / MIX_ONE;
+            vf += wj[j] * tauEq[j] / MIX_ONE;
+        }
+        for (j = 0; j < m; j++)
+            regFoe[j] = max(0, regFoe[j] + vf - wj[j]);
+        // Media pesata per iterazione (CFR+).
+        for (i = 0; i < n; i++)
+            avg[i] += sig[i] * (s32)t / 16;
+    }
+    for (i = 0; i < n; i++)
+        total += avg[i];
+    if (total <= 0)
+        return bestIdx;
+    // Supporto: probabilità almeno la soglia e valore vicino alla migliore coppia.
+    for (i = 0; i < n; i++)
+    {
+        s32 pct = avg[i] * 100 / total;
+        w[i] = (pct >= CUSTOM_VGC_PLAN_MIXED_MIN_PCT && sJob.ev[i] >= sJob.ev[bestIdx] - CUSTOM_VGC_PLAN_MIXED_MARGIN) ? avg[i] : 0;
+        keep += w[i];
+#if TESTING
+        {
+            extern s32 Test_MgbaPrintf(const char *fmt, ...);
+            Test_MgbaPrintf("VGCMIX b%d pair%d p=%d ev=%d%s", sJob.me, i, pct, sJob.ev[i], w[i] ? " *" : "");
+        }
+#endif
+    }
+    if (keep <= 0)
+        return bestIdx;
+    roll = (s32)(Random() % (u32)keep);
+    for (i = 0; i < n; i++)
+    {
+        if (roll < w[i])
+            return i;
+        roll -= w[i];
+    }
+    return bestIdx;
+}
+#undef MIX_COLS
+#undef MIX_ONE
+
 static void FinishJob(void)
 {
     s32 bestEv = INT32_MIN, chosenEv = INT32_MIN;
@@ -4244,6 +4382,9 @@ static void FinishJob(void)
             }
         }
     }
+    // Strategia mista per turno (CUSTOM_VGC_PLAN_MIXED): equilibrio approssimato del gioco a mosse simultanee.
+    if (MixedOn() && sJob.nOurs > 1)
+        bestIdx = MixedPick(bestIdx);
     // Esplorazione del self-play (M9, solo test): a volte una coppia vicina alla migliore.
     bestIdx = AI_VgcExplorePick(sJob.me, bestIdx, sJob.ev, sJob.nOurs);
     // --- Logger VGC (src/vgc_battle_log.c): coppie simulate e risposte previste. Solo righe di log. ---
@@ -4696,6 +4837,8 @@ bool32 AI_VgcPlanBegin(enum BattlerId me)
     }
     sJob.phase = (sJob.nFoeCand[0] + sJob.nFoeCand[1] > 0) ? 3 : 2;
     sJob.worst = INT32_MAX;
+    memset(sJob.mixFilled, 0, sizeof(sJob.mixFilled));
+    memset(sJob.mixRaw, 0, sizeof(sJob.mixRaw));
     sJob.active = TRUE;
     sJob.finished = FALSE;
     return TRUE;

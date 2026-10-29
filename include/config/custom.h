@@ -125,6 +125,14 @@
 #define CUSTOM_VGC_PLAN_FOE_THREAT_FOCUS    0     // 29/10 con il setup sotto KO: 264 -> 270 (cambi 57 -> 79), specchio 49,0%. modello del giocatore: spinta agli attacchi sul nostro Pokémon più pericoloso per lui (0 = spento); non con Fake Out & co. in gioco al primo turno
 #define CUSTOM_VGC_PLAN_SETUP_KO_PENALTY    80    // costo di un setup di chi un avversario manda KO di sicuro con una mossa vista, senza copertura del compagno (0 = spento)
 #define CUSTOM_VGC_MIRROR_ROUND5            FALSE // solo self-play: spinta sulla minaccia e costo del setup sotto KO accesi per il lato senza il bit di verifica-regole
+// Strategia mista per turno (src/battle_ai_vgc_plan.c, MixedPick): regret matching sulla tabella "nostre coppie x risposte
+// degli avversari"; la coppia si estrae dalla strategia media tra quelle con probabilità e valore vicini alla migliore.
+#define CUSTOM_VGC_PLAN_MIXED               TRUE
+#define CUSTOM_VGC_PLAN_MIXED_ITERS         128   // iterazioni di regret matching
+#define CUSTOM_VGC_PLAN_MIXED_LAMBDA        50    // % di equilibrio nel misto dell'avversario (il resto: risposte previste dal modello)
+#define CUSTOM_VGC_PLAN_MIXED_MIN_PCT       10    // probabilità minima (%) perché una coppia sia giocabile
+#define CUSTOM_VGC_PLAN_MIXED_MARGIN        120   // distacco massimo dal valore della migliore coppia
+#define CUSTOM_VGC_MIRROR_MIXED             FALSE // solo self-play: strategia mista accesa per il lato senza il bit di verifica-regole
 #define CUSTOM_VGC_PLAN_FOE_HISTORY_W       60    // spinta massima (punti del modello del giocatore) della storia dei bersagli
 #define CUSTOM_VGC_MIRROR_FOE_HISTORY       FALSE // solo self-play: storia dei bersagli accesa per il lato senza il bit di verifica-regole, spenta per l'altro
 #define CUSTOM_VGC_PLAN_FOE_VS_IDLE         FALSE // modello del giocatore: le sue mosse valutate anche contro di noi fermi (media). Provato il 28/10: misplay 303 -> 285 ma rompe il test Altaria Tailwind; a specchio 1727 partite 50,7% (IC95 [48,9; 52,5], p=0,47): spento
