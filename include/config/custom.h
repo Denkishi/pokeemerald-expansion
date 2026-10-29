@@ -123,7 +123,7 @@
 #define CUSTOM_VGC_MIRROR_FOE_IDLE          FALSE // solo self-play: CUSTOM_VGC_PLAN_FOE_VS_IDLE acceso per il lato senza il bit di verifica-regole, spento per l'altro (regole M8 per tutti)
 #define CUSTOM_VGC_PLAN_FOE_HISTORY         TRUE  // modello del giocatore: i bersagli che ha scelto finora (il più danneggiato, la nostra win condition) spingono le sue risposte previste. 28/10: campagna 286 -> 258, specchio 1726 partite 50,3% (IC95 [49,1; 51,5], p=0,60): acceso (misplay giù in tutte le categorie, vittorie invariate)
 #define CUSTOM_VGC_PLAN_FOE_THREAT_FOCUS    0     // 29/10 con il setup sotto KO: 264 -> 270 (cambi 57 -> 79), specchio 49,0%. modello del giocatore: spinta agli attacchi sul nostro Pokémon più pericoloso per lui (0 = spento); non con Fake Out & co. in gioco al primo turno
-#define CUSTOM_VGC_PLAN_SETUP_KO_PENALTY    80    // costo di un setup di chi un avversario manda KO di sicuro con una mossa vista, senza copertura del compagno (0 = spento)
+#define CUSTOM_VGC_PLAN_SETUP_KO_PENALTY    120    // costo di un setup di chi un avversario manda KO di sicuro con una mossa vista, senza copertura del compagno (0 = spento)
 #define CUSTOM_VGC_MIRROR_ROUND5            FALSE // solo self-play: spinta sulla minaccia e costo del setup sotto KO accesi per il lato senza il bit di verifica-regole
 #define CUSTOM_VGC_PLAN_FOE_HISTORY_W       60    // spinta massima (punti del modello del giocatore) della storia dei bersagli
 #define CUSTOM_VGC_MIRROR_FOE_HISTORY       FALSE // solo self-play: storia dei bersagli accesa per il lato senza il bit di verifica-regole, spenta per l'altro
@@ -138,7 +138,7 @@
 #define CUSTOM_VGC_PLAN_SWITCH_WORST_MOVES  TRUE  // caso peggiore anche con le mosse già viste dell'avversario e quelle probabili del belief, non solo le 5 candidate del modello
 #define CUSTOM_VGC_PLAN_SWITCH_WORST_LIKELY_P 30  // probabilità minima (%) di una mossa del belief non vista per entrare nel caso peggiore
 #define CUSTOM_VGC_PLAN_WINCON_GUARD        TRUE  // win condition lasciata esposta (né Protect né cambio) a una risposta plausibile che la manda KO (caso peggiore come per i cambi, se la coppia non manda KO prima chi minaccia; Wide Guard/Follow Me del compagno contano): costo
-#define CUSTOM_VGC_PLAN_WINCON_GUARD_PCT    100    // ...in % del KO della win condition (metà se servono entrambi gli avversari)
+#define CUSTOM_VGC_PLAN_WINCON_GUARD_PCT    75    // ...in % del KO della win condition (metà se servono entrambi gli avversari)
 #define CUSTOM_VGC_MIRROR_WINCON_GUARD      FALSE // solo self-play: CUSTOM_VGC_PLAN_WINCON_GUARD acceso per il lato senza il bit di verifica-regole, spento per l'altro (regole M8 per tutti)
 #define CUSTOM_VGC_MIRROR_SWITCH_WORST      FALSE // solo self-play: CUSTOM_VGC_PLAN_SWITCH_WORST acceso per il lato senza il bit di verifica-regole, spento per l'altro (regole M8 per tutti)
 #define CUSTOM_VGC_PLAN_HIGH_ROLL           TRUE // ramo "colpo alto": un colpo che manda KO solo con un tiro alto (sopra la mediana) pesa per la sua probabilità
