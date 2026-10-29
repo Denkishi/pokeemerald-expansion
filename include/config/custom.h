@@ -118,7 +118,7 @@
 #define CUSTOM_VGC_EVAL_SASH                20  // Focus Sash intatto a PS pieni
 #define CUSTOM_VGC_EVAL_BENCH_HP_PCT        100 // peso (%) dei PS portati in panchina da chi esce con un cambio (e lasciati da chi entra)
 #define CUSTOM_VGC_EVAL_SPEED_RACE_CAP      200 // tetto (+/-) alla parte "corsa ai KO" dell'ordine di velocità nei turni futuri (0 = nessuno): un Trick Room appena messo valeva ~1100 punti, più di due KO
-#define CUSTOM_VGC_MIRROR_FIXES             TRUE // solo self-play: le correzioni dei misplay (PS in panchina, colpo alto, spareggio, tetto alla corsa) spente per il lato col bit di verifica-regole, regole M8 per tutti
+#define CUSTOM_VGC_MIRROR_FIXES             FALSE // solo self-play: le correzioni dei misplay (PS in panchina, colpo alto, spareggio, tetto alla corsa) spente per il lato col bit di verifica-regole, regole M8 per tutti
 #define CUSTOM_VGC_PLAN_SWITCH_RISK         TRUE // cambio volontario: costo del KO di chi entra se una risposta plausibile degli avversari sul suo slot lo manda KO
 #define CUSTOM_VGC_MIRROR_FOE_IDLE          FALSE // solo self-play: CUSTOM_VGC_PLAN_FOE_VS_IDLE acceso per il lato senza il bit di verifica-regole, spento per l'altro (regole M8 per tutti)
 #define CUSTOM_VGC_PLAN_FOE_HISTORY         TRUE  // modello del giocatore: i bersagli che ha scelto finora (il più danneggiato, la nostra win condition) spingono le sue risposte previste. 28/10: campagna 286 -> 258, specchio 1726 partite 50,3% (IC95 [49,1; 51,5], p=0,60): acceso (misplay giù in tutte le categorie, vittorie invariate)
@@ -139,7 +139,7 @@
 #define CUSTOM_VGC_PLAN_SWITCH_WORST_LIKELY_P 30  // probabilità minima (%) di una mossa del belief non vista per entrare nel caso peggiore
 #define CUSTOM_VGC_PLAN_WINCON_GUARD        TRUE  // win condition lasciata esposta (né Protect né cambio) a una risposta plausibile che la manda KO (caso peggiore come per i cambi, se la coppia non manda KO prima chi minaccia; Wide Guard/Follow Me del compagno contano): costo
 #define CUSTOM_VGC_PLAN_WINCON_GUARD_PCT    75    // ...in % del KO della win condition (metà se servono entrambi gli avversari)
-#define CUSTOM_VGC_MIRROR_TUNE              FALSE // solo self-play: il lato col bit di verifica-regole usa i pesi CUSTOM_VGC_TUNE_BASE_* (taratura a specchio)
+#define CUSTOM_VGC_MIRROR_TUNE              TRUE // solo self-play: il lato col bit di verifica-regole usa i pesi CUSTOM_VGC_TUNE_BASE_* (taratura a specchio)
 #define CUSTOM_VGC_TUNE_BASE_WINCON_GUARD_PCT    50
 #define CUSTOM_VGC_TUNE_BASE_SURE_KO_PCT         35
 #define CUSTOM_VGC_TUNE_BASE_SETUP_KO_PENALTY    80
