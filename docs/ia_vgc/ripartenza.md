@@ -41,6 +41,12 @@ Win condition persa 90, KO garantito non preso 76, cambio su chi va KO 20, bersa
 immune 0, Protect di fila 0. In lavoro: lato difensivo della win condition (branch `ia-vgc-cambi`).
 Logger delle partite umane: `docs/ia_vgc/logger.md`.
 
+## Stato al 29/10, 04:20 (master cb3edc8a0f)
+
+Campagna 432 partite con anche la difesa della win condition: **184 misplay certi** (0,43 a partita). Win condition persa
+64, KO garantito non preso 72, cambio su chi va KO 25, setup sotto KO 13, bersaglio già KO 8, immune 0, Protect di fila 0.
+In lavoro: cambi su chi va KO risaliti con la difesa della win condition (`ia-vgc-cambi`, v6).
+
 Non funzionano (spenti dietro flag in `custom.h`): rollout alla foglia, scala unica delle risposte, sostituzioni dopo KO nel simulatore.
 
 Regole fisse: livello 50 ovunque; WSL solo per compilare; niente dati nascosti del giocatore; prima la decisione giusta, poi quella veloce (nessun tetto ai fotogrammi).
