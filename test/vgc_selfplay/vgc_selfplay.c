@@ -1121,7 +1121,8 @@ static void CheckBattlerChoice(enum BattlerId b)
         }
         else if (!damaging && t < MAX_BATTLERS_COUNT && !IsBattlerAlly(b, t) && IsBattlerAlive(t) && StatusMoveBlocked(b, t, move))
         {
-            ReportMisplay(TRUE, "IMMUNE", b, "%s su %s (immunita' nota)", A(MoveName(move)), A(GetSpeciesName(gBattleMons[t].species)));
+            // Non certo nei finali bloccati (nessun attacco che colpisca un avversario: es. solo Spore contro Erba).
+            ReportMisplay(AnyAttackHitsFoe(b), "IMMUNE", b, "%s su %s (immunita' nota)", A(MoveName(move)), A(GetSpeciesName(gBattleMons[t].species)));
         }
 
         // 4. Bersaglio che il compagno manda già KO prima, e la mossa non serve sull'altro.
