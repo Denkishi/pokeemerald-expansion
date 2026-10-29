@@ -105,6 +105,7 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Elia - Banette Mega Evolves and sets Trick Roo
     KNOWN_FAILING; // Protect + Muddy Water (255) batte Trick Room + Muddy Water (-29): il modello del giocatore manda Bitter Blade
                    // e Armor Cannon su Banette, che va KO prima di Trick Room (-6 anche con Prankster); il turno dopo Sucker Punch
                    // + Muddy Water chiudono. Scelta difendibile. (Prima vinceva Protect + Yawn: Yawn addormentava subito.)
+                   // Verificato il 29/10 (ia-vgc-ko, diagnostica VGCKO): stessi valori, nessun KO sicuro in gioco.
     // Ceruledge e Armarouge (Patatina) sono veloci, la squadra di Elia è lenta. Mega Banette ha Prankster:
     // la Mega va fatta subito (statistiche e abilità servono dal turno 1) e la stanza va alzata.
     GIVEN {
@@ -368,9 +369,10 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Tatore - Dusclops sets Trick Room next to Lapr
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Tatore - Scream Tail Encores Espathra after a Calm Mind")
 {
-    KNOWN_FAILING; // Helping Hand + Rock Slide di Armaldo (751) batte Encore + Rock Slide (638): sotto Trick Room Armaldo manda KO
-                   // Incineroar prima del suo Flare Blitz e porta Espathra al 25% (il turno dopo cade prima di muovere). Encore ora
-                   // è simulato (blocco su Calm Mind, vale come il sonno), ma il Baton Pass di Espathra non si è visto. Difendibile.
+    KNOWN_FAILING; // Helping Hand + Rock Slide di Armaldo (786) batte Encore + Superpower (500-511): sotto Trick Room Armaldo manda
+                   // KO Incineroar prima del suo Flare Blitz e porta Espathra al 25% (il turno dopo cade prima di muovere). Encore
+                   // è simulato (blocco su Calm Mind, vale come il sonno), ma il Baton Pass di Espathra non si è visto. Difendibile:
+                   // un KO e mezzo subito contro un blocco di tre turni su chi cade comunque (verificato il 29/10, ia-vgc-ko).
     // Savarotto prepara Espathra (Calm Mind + Speed Boost) per passare i boost a Chandelure. Dopo un Calm Mind,
     // Encore la blocca sulla mossa di setup per tre turni: niente Baton Pass. È la risposta da manuale.
     GIVEN {
@@ -461,6 +463,7 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Enzo - Aerodactyl sets Tailwind for Rillaboom 
     KNOWN_FAILING; // Rock Slide + Fake Out su Roaring Moon (628) batte Tailwind + Fake Out su Charizard (496): Mega Aerodactyl è
                    // già il più veloce, Rock Slide manda KO Charizard Y (4x) prima del suo Heat Wave (che manderebbe KO Rillaboom)
                    // e Fake Out ferma il Tailwind di Roaring Moon. Scelta difendibile (il rischio è il Protect di Charizard).
+                   // Verificato il 29/10 (ia-vgc-ko): stessi valori; il KO di Charizard viene dal danno medio (Protect previsto al 33%).
     // Roaring Moon e Charizard superano Rillaboom (150): Tailwind (lead del piano Aerodactyl + Rillaboom) lo
     // porta davanti a tutti per quattro turni.
     GIVEN {
@@ -498,9 +501,11 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Enzo - Smeargle does not Spore two Grass types
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Enzo - Grimmsnarl sets up a screen on turn 1")
 {
-    KNOWN_FAILING; // Spirit Break + Fake Out su Charizard (128) batte Light Screen + Fake Out (-232): Spirit Break (Folletto, 4x)
-                   // manda KO Roaring Moon al turno 1 nella stima (la Roseli Berry è nascosta). Con l'informazione onesta è la
-                   // giocata migliore; gli schermi ora contano gli 8 turni della Light Clay oltre l'orizzonte.
+    KNOWN_FAILING; // Spirit Break + Fake Out su Charizard (155) batte Light Screen + Fake Out (-191): Spirit Break (Folletto, 4x)
+                   // manda KO Roaring Moon al turno 1 con il danno minimo (280 su 165 PS, VGCKO: KO sicuro; la Roseli Berry è
+                   // nascosta). Con l'informazione onesta togliere subito il più veloce dei due attaccanti è la giocata migliore;
+                   // gli schermi contano gli 8 turni della Light Clay oltre l'orizzonte. Il premio dei KO sicuri qui è 0 (guardia:
+                   // Charizard resta in campo con un KO sicuro): la scelta viene dalla simulazione, non dal premio.
     // Roaring Moon (fisico) e Charizard (speciale): con Prankster e Light Clay uno schermo al turno 1 è la
     // ragione d'essere di Grimmsnarl. Taunt non ha bersagli utili (nessun setter di velocità o stanza in campo
     // tranne il Tailwind di Roaring Moon, che Grimmsnarl non può comunque fermare prima).
@@ -668,9 +673,10 @@ AI_DOUBLE_BATTLE_TEST("VGC teams: Gigi Pinto - Torkoal uses Eruption at full HP 
 
 AI_DOUBLE_BATTLE_TEST("VGC teams: Gigi Pinto - Hatterene sets Trick Room next to Torkoal against Tony")
 {
-    KNOWN_FAILING; // Protect di Hatterene + Eruption (-185) batte Trick Room + Protect di Torkoal (-259): nel ramo più probabile
+    KNOWN_FAILING; // Protect di Hatterene + Eruption (-264) batte Trick Room + Protect di Torkoal (-373): nel ramo più probabile
                    // (Crunch di Roaring Moon + Heat Wave di Charizard Y su Hatterene) Hatterene va KO prima di Trick Room (-7).
-                   // Il turno dopo mette Trick Room con Torkoal sotto tiro. Scelta difendibile, non un errore netto.
+                   // Il turno dopo mette Trick Room con Torkoal sotto tiro. Scelta difendibile, non un errore netto. Dazzling Gleam
+                   // sarebbe un KO sicuro su Roaring Moon (234 su 165) ma Hatterene cade prima di muoversi: niente premio (29/10).
     // Roaring Moon e Charizard sono veloci; Torkoal (base 20) e Hatterene (29) sono i più lenti del formato:
     // Trick Room (lead di riserva del piano) li fa muovere per primi.
     GIVEN {

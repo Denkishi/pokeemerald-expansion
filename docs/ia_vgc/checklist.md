@@ -486,3 +486,10 @@ Base: `ia-vgc` 5c5469d1de (storia dei bersagli accesa), campagna 432: **264 misp
 | **Totale certi** | **269** | **260** |
 
 Specchio (tutte le correzioni dei KO accese contro spente, `ia-vgc-ko-specchio2`, 1728 partite): **49,4%, IC95 [47,7; 51,1], p = 0,49** — neutro, con meno misplay. CI verde. Rumore tra build sulla stessa categoria: ±15 (KO non preso 71 e 86 con lo stesso codice del premio).
+
+### KNOWN_FAILING rivisti con la diagnostica VGCKO (29/10, `ia-vgc-ko` dopo il merge di `ia-vgc` 77390c634b)
+Valori dai log della CI (coppie VGCPLAN, KO sicuri VGCKO, risposte VGCFOE). Nessuno è un errore del pianificatore nell'area KO/valutazione: tutti difendibili, motivo aggiornato nel test, codice dell'IA invariato.
+- Spore su Tyranitar Mega (ai_vgc_doubles.c): Sludge Bomb + Flare Blitz su Dugtrio (-179) batte Spore su Tyranitar + Darkest Lariat (-382). Flare Blitz fa 148 minimo su 95 PS ma Dugtrio a PS pieni ha la Focus Sash presunta: la coppia rompe la Sash e manda KO di sicuro il Pokémon con Arena Trap + Earthquake. Spore su Tyranitar resta sopra Spore su Dugtrio.
+- Hatterene Trick Room: Protect + Eruption (-264) batte Trick Room + Protect (-373); Hatterene cade prima di muoversi nel ramo più probabile (anche Dazzling Gleam, KO sicuro su Roaring Moon, non parte: niente premio).
+- Grimmsnarl schermi: Spirit Break + Fake Out (155) batte Light Screen + Fake Out (-191): Spirit Break è un KO sicuro su Roaring Moon (280 su 165) con l'informazione onesta.
+- Aerodactyl Tailwind (628 contro 496), Banette Trick Room (255 contro -29), Scream Tail Encore (786 contro 500-511): valori come nel motivo già scritto (Scream Tail aggiornato).

@@ -305,10 +305,12 @@ AI_DOUBLE_BATTLE_TEST("VGC: Spore goes on the bigger threat (Mega Tyranitar, not
 {
     // Prova in gioco: Amoonguss addormentava Dugtrio accanto a un Tyranitar Mega. Il valore del sonno cresce con la
     // minaccia del bersaglio (danno atteso sul nostro lato, KO possibili, Mega, boost), non è uguale per tutti.
-    // KNOWN_FAILING: con il valore del sonno scalato dalla minaccia (Dugtrio 52 -> Tyranitar Mega 63 nel primo
-    // tentativo) Spore su Tyranitar (-463) resta sotto Spore su Dugtrio (-424), e sopra a tutto vince Sludge Bomb
-    // + Flare Blitz su Dugtrio (-197, KO in due). La simulazione a 2-3 turni non vede abbastanza il danno evitato
-    // dal sonno nei turni dopo: serve una stima del danno risparmiato per turno di sonno, non solo un termine fisso.
+    // KNOWN_FAILING, difendibile (verificato il 29/10, ia-vgc-ko, diagnostica VGCKO): Sludge Bomb + Flare Blitz su
+    // Dugtrio (-179) batte Spore su Tyranitar + Darkest Lariat su Dugtrio (-382) e Spore su Tyranitar + Flare Blitz
+    // (-445). Flare Blitz da solo fa 148 minimo su 95 PS ma non è un KO sicuro: per il belief Dugtrio porta la Focus
+    // Sash (la più usata, a PS pieni). Sludge Bomb rompe la Sash e Flare Blitz chiude: il KO certo del Pokémon che con
+    // Arena Trap ed Earthquake tiene in trappola e colpisce entrambi, contro un sonno di 1-3 turni su Tyranitar con
+    // Dugtrio ancora in piedi. Spore su Tyranitar resta sopra Spore su Dugtrio (-382/-445 contro -404).
     KNOWN_FAILING;
     GIVEN {
         AI_FLAGS(VGC_AI_FLAGS);
