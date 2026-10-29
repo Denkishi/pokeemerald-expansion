@@ -3884,6 +3884,9 @@ static s32 SwitchHitDamage(const struct PlanState *tmp, struct PlanAction a, enu
     return d;
 }
 
+// Ultimo SwitchKoRisk: un solo avversario manda KO chi entra nel caso peggiore (qualunque siano i PS di chi esce).
+static EWRAM_DATA bool8 sSwitchKoIn = FALSE;
+
 static s32 SwitchKoRisk(const struct PlanAction *sw, bool32 *single)
 {
     struct PlanState tmp;
@@ -3895,6 +3898,7 @@ static s32 SwitchKoRisk(const struct PlanAction *sw, bool32 *single)
     bool32 outLow;
 
     *single = FALSE;
+    sSwitchKoIn = FALSE;
     if (sw->kind != PLAN_ACT_SWITCH || sw->partyIdx < 0 || u >= MAX_BATTLERS_COUNT)
         return 0;
     tmp = sJob.base;
@@ -3939,6 +3943,7 @@ static s32 SwitchKoRisk(const struct PlanAction *sw, bool32 *single)
         // Caso peggiore: costa il KO intero; con chi esce a pochi PS non vince mai.
         pct = worst ? CUSTOM_VGC_PLAN_SWITCH_WORST_KO_PCT : 30;
         *single = worst && outLow;
+        sSwitchKoIn = worst;
     }
     else if (dmg[0] + dmg[1] >= hp)
     {
@@ -4099,6 +4104,7 @@ static void FinishJob(void)
     u32 chosenIdx = PLAN_ALL_PAIRS;
     enum BattlerId partner = GetPartnerBattler(sJob.me);
     u32 switchKo = 0; // bit per coppia: un cambio su chi va KO nel caso peggiore (CUSTOM_VGC_PLAN_SWITCH_WORST)
+    u8 switchKoUser[PLAN_ALL_PAIRS] = {0}; // per coppia, bit per battler: esce con un cambio su chi un solo avversario manda KO
 
     // Costo del cambio: il simulatore vede il Pokémon che entra al meglio (pieno di PS, con le sue mosse il turno
     // dopo) ma non il tempo perso, né che il giocatore può punire chi entra. Pesa di più al primo turno della
@@ -4112,7 +4118,12 @@ static void FinishJob(void)
         if (CUSTOM_VGC_PLAN_SWITCH_RISK && MisplayFixesOn())
         {
             bool32 s1, s2;
-            sJob.ev[i] -= SwitchKoRisk(&sJob.ours[i], &s1) + SwitchKoRisk(&sJob.partners[i], &s2);
+            sJob.ev[i] -= SwitchKoRisk(&sJob.ours[i], &s1);
+            if (sSwitchKoIn)
+                switchKoUser[i] |= 1u << sJob.ours[i].user;
+            sJob.ev[i] -= SwitchKoRisk(&sJob.partners[i], &s2);
+            if (sSwitchKoIn)
+                switchKoUser[i] |= 1u << sJob.partners[i].user;
             if (s1 || s2)
                 switchKo |= 1u << i;
         }
@@ -4156,6 +4167,32 @@ static void FinishJob(void)
             Test_MgbaPrintf("VGCSWKO b%d coppie=%x migliore_sicura=%d", sJob.me, switchKo, bestSafe);
         }
 #endif
+    }
+    // Cambio su chi va KO contro Protect dello stesso Pokémon (CUSTOM_VGC_PLAN_SWITCH_PREFER_PROTECT): se chi entra va KO
+    // per una risposta plausibile di un solo avversario, la coppia non batte la migliore in cui chi doveva uscire usa
+    // Protect (stesso turno salvato, nessun Pokémon regalato). Con la win condition esposta, "farla uscire" sembrava sicuro.
+    if (CUSTOM_VGC_PLAN_SWITCH_PREFER_PROTECT && SwitchWorstOn())
+    {
+        u32 j;
+        for (i = 0; i < sJob.nOurs; i++)
+        {
+            enum BattlerId b;
+            for (b = 0; b < MAX_BATTLERS_COUNT; b++)
+            {
+                s32 bestProt = INT32_MIN;
+                if (!(switchKoUser[i] & (1u << b)))
+                    continue;
+                for (j = 0; j < sJob.nOurs; j++)
+                {
+                    bool32 prot = (sJob.ours[j].user == b && sJob.ours[j].kind == PLAN_ACT_PROTECT)
+                               || (sJob.partners[j].user == b && sJob.partners[j].kind == PLAN_ACT_PROTECT);
+                    if (prot && switchKoUser[j] == 0 && sJob.ev[j] > bestProt)
+                        bestProt = sJob.ev[j];
+                }
+                if (bestProt != INT32_MIN && sJob.ev[i] >= bestProt - 1)
+                    sJob.ev[i] = bestProt - 2;
+            }
+        }
     }
     for (i = 0; i < sJob.nOurs; i++)
     {
