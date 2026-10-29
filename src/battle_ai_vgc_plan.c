@@ -927,6 +927,22 @@ static s32 EstimateDamageImpl(const struct PlanState *st, const struct PlanMon *
 
     if (power == 0 || IsBattleMoveStatus(move))
         return 0;
+    // Statistiche diverse dal solito: Body Press usa la Difesa di chi attacca, Foul Play l'Attacco del bersaglio, Psyshock &
+    // co. la Difesa del bersaglio (prova in gioco: il Body Press di Garganacl stimato con l'Attacco, Kingambit cambiato in KO).
+    switch (GetMoveEffect(move))
+    {
+    case EFFECT_BODY_PRESS:
+        a = ApplyStage(atk->def, atk->stage[PS_DEF]);
+        break;
+    case EFFECT_FOUL_PLAY:
+        a = ApplyStage(def->atk, def->stage[PS_ATK]);
+        break;
+    case EFFECT_PSYSHOCK:
+        d = ApplyStage(def->def, def->stage[PS_DEF]);
+        break;
+    default:
+        break;
+    }
     // Potenza variabile delle mosse più comuni in VGC (peso, meteo, PS): con 60 fissi Heavy Slam su Gengar o
     // Eruption a PS pieni erano sottostimate di metà.
     switch (GetMoveEffect(move))
@@ -3881,8 +3897,7 @@ static u32 WorstCaseAtkPct(const struct PlanState *st, enum BattlerId b, enum Mo
     if ((am->ability == ABILITY_PROTOSYNTHESIS || am->ability == ABILITY_QUARK_DRIVE)
      && ((physical && boosted == STAT_ATK) || (!physical && boosted == STAT_SPATK)))
         pct = pct * 13 / 10;
-    if (GetMoveEffect(move) == EFFECT_BODY_PRESS && am->atk > 0)
-        pct = pct * ApplyStage(am->def, am->stage[PS_DEF]) / max(ApplyStage(am->atk, am->stage[PS_ATK]), 1u);
+    // (Body Press con la Difesa: già nella stima, EstimateDamageImpl.)
     switch (am->ability)
     {
     case ABILITY_TOUGH_CLAWS:   if (MoveMakesContact(move)) pct = pct * 13 / 10; break;
