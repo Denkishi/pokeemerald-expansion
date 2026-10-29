@@ -136,6 +136,11 @@
 #define CUSTOM_VGC_PLAN_LOW_ROLL_EXACT      TRUE  // ramo "colpo basso" con il rapporto esatto minimo/mediana (un KO sicuro non perde PS per arrotondamento)
 #define CUSTOM_VGC_MIRROR_KO                FALSE // solo self-play: correzioni dei KO sicuri spente per il lato col bit di verifica-regole (regole M8 per tutti)
 // ---- fine KO sicuri ----
+// Logger delle lotte VGC (src/vgc_battle_log.c): nelle lotte contro gli allenatori con "Vgc Doubles" scrive nel log
+// di mGBA (righe "VGCLOG ...") squadre, team preview, stato del campo, decisioni del pianificatore, scelte e
+// cronaca di ogni turno. Su console vera o in un emulatore senza registri di debug di mGBA non fa nulla.
+// Istruzioni: docs/ia_vgc/logger.md; analisi: tools/vgc_training/analizza_log.py.
+#define CUSTOM_VGC_BATTLE_LOG               TRUE
 // Ritratto dell'allenatore + "penso..." quando hai già scelto e l'IA sta ancora calcolando.
 #define CUSTOM_VGC_THINKING_OVERLAY         TRUE
 #define CUSTOM_VGC_THINKING_SLIDE_FRAMES    24      // fotogrammi dell'entrata (da destra) e dell'uscita (verso destra) del ritratto

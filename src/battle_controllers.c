@@ -37,6 +37,7 @@
 #include "constants/songs.h"
 #include "test/battle.h"
 #include "test/test.h"
+#include "vgc_battle_log.h"
 
 static EWRAM_DATA u8 sLinkSendTaskId = 0;
 static EWRAM_DATA u8 sLinkReceiveTaskId = 0;
@@ -2688,6 +2689,7 @@ void BtlController_HandlePrintString(enum BattlerId battler)
     stringId = (u16 *)(&gBattleResources->bufferA[battler][2]);
     BufferStringBattle(*stringId, battler);
     BattleInfo_LogMessage(gDisplayedStringBattle);
+    VgcLog_Message(gDisplayedStringBattle); // logger VGC (src/vgc_battle_log.c)
 
     if (gTestRunnerEnabled)
     {
@@ -2748,6 +2750,7 @@ void BtlController_HandleHealthBarUpdate(enum BattlerId battler)
     if (hpVal != INSTANT_HP_BAR_DROP)
     {
         SetBattleBarStruct(battler, gHealthboxSpriteIds[battler], maxHP, curHP, hpVal);
+        VgcLog_HP(battler, curHP, min(maxHP, max(0, curHP - hpVal)), maxHP); // logger VGC
         TestRunner_Battle_RecordHP(battler, curHP, min(maxHP, max(0, curHP - hpVal)));
     }
     else
@@ -2759,6 +2762,7 @@ void BtlController_HandleHealthBarUpdate(enum BattlerId battler)
          || IsControllerOakOldMan(battler)
          || IsControllerWally(battler))
             UpdateHpTextInHealthbox(gHealthboxSpriteIds[battler], HP_CURRENT, 0, maxHP);
+        VgcLog_HP(battler, curHP, 0, maxHP); // logger VGC
         TestRunner_Battle_RecordHP(battler, curHP, 0);
     }
 

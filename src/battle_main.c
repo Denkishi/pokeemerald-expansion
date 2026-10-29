@@ -11,6 +11,7 @@
 #include "battle_hold_effects.h"
 #include "battle_interface.h"
 #include "battle_main.h"
+#include "vgc_battle_log.h"
 #include "battle_info.h"
 #include "config/custom.h"
 #include "battle_message.h"
@@ -3765,6 +3766,7 @@ static void TryDoEventsBeforeFirstTurn(void)
         if (gTestRunnerEnabled)
             TestRunner_Battle_BeforeTurnSelection();
         SetAiLogicDataForTurn(gAiLogicData); // get assumed abilities, hold effects, etc of all battlers
+        VgcLog_TurnStart(); // logger VGC (src/vgc_battle_log.c)
         gBattleMainFunc = HandleTurnActionSelectionState;
         ResetSentPokesToOpponentValue();
 
@@ -3881,6 +3883,7 @@ bool32 EndTurnEvents(void) // Called from Battle Script
     if (gTestRunnerEnabled)
         TestRunner_Battle_BeforeTurnSelection();
     SetAiLogicDataForTurn(gAiLogicData); // get assumed abilities, hold effects, etc of all battlers
+    VgcLog_TurnStart(); // logger VGC (src/vgc_battle_log.c)
     SetBattleCallback(HandleTurnActionSelectionState);
 
     return FALSE;
@@ -4958,6 +4961,7 @@ static void SetActionsAndBattlersTurnOrder(void)
             }
         }
     }
+    VgcLog_ActionsChosen(); // logger VGC (src/vgc_battle_log.c): scelte di tutti e ordine del turno
     gBattleMainFunc = CheckChangingTurnOrderEffects;
     gBattleScripting.battler = 0;
 }
@@ -5518,6 +5522,7 @@ static void HandleEndTurn_FinishBattle(void)
                 CalculateMonStats(&gParties[B_TRAINER_PLAYER][i]);
         }
         RecordedBattle_SetPlaybackFinished();
+        VgcLog_BattleEnd(); // logger VGC (src/vgc_battle_log.c)
         if (gTestRunnerEnabled)
             TestRunner_Battle_AfterLastTurn();
 

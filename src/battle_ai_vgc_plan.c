@@ -39,6 +39,7 @@
 #include "constants/hold_effects.h"
 #include "constants/moves.h"
 #include "battle_ai_perspective.h"
+#include "vgc_battle_log.h"
 
 // IA contro IA (B_FLAG_AI_VS_AI_BATTLE): il "giocatore" di questo file è il lato avversario di chi sta
 // pianificando (battle_ai_perspective.h). Fuori da IA contro IA è identico a IsOnPlayerSide.
@@ -3869,6 +3870,18 @@ static void FinishJob(void)
     }
     // Esplorazione del self-play (M9, solo test): a volte una coppia vicina alla migliore.
     bestIdx = AI_VgcExplorePick(sJob.me, bestIdx, sJob.ev, sJob.nOurs);
+    // --- Logger VGC (src/vgc_battle_log.c): coppie simulate e risposte previste. Solo righe di log. ---
+    VgcLog_PlanHead(sJob.me, sJob.nOurs, bestIdx, chosenIdx, sJob.frames, sJob.sims);
+    for (i = 0; i < sJob.nOurs; i++)
+        VgcLog_PlanPair(sJob.me, i, sJob.ours[i].kind, sJob.ours[i].move, sJob.ours[i].user, sJob.ours[i].target, sJob.ours[i].partyIdx,
+                        sJob.partners[i].kind, sJob.partners[i].move, sJob.partners[i].user, sJob.partners[i].target,
+                        sJob.partners[i].partyIdx, sJob.ev[i], (i == bestIdx) | ((i == chosenIdx) << 1));
+    for (i = 0; i < sJob.nA + sJob.nB; i++)
+    {
+        const struct PlanAction *f = (i < sJob.nA) ? &sJob.foeA[i] : &sJob.foeB[i - sJob.nA];
+        VgcLog_PlanFoe(sJob.me, i >= sJob.nA, i < sJob.nA ? i : i - sJob.nA, f->kind, f->move, f->user, f->target, f->partyIdx, f->weight);
+    }
+    // --- fine logger VGC ---
 #if TESTING
     {
         // Diagnostica nei test: valore di ogni coppia simulata (mossa/bersaglio nostra e del partner).
