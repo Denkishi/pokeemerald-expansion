@@ -487,6 +487,12 @@ const u16 gTrainerPalette_Mario[] = INCGFX_U16("graphics/trainers/palettes/mario
 const u32 gTrainerFrontPic_Simone[] = INCGFX_U32("graphics/trainers/front_pics/simone.png", ".4bpp.smol");
 const u16 gTrainerPalette_Simone[] = INCGFX_U16("graphics/trainers/palettes/simone.pal", ".gbapal");
 
+const u32 gTrainerFrontPic_GigiPinto[] = INCGFX_U32("graphics/trainers/front_pics/gigi_pinto.png", ".4bpp.smol");
+const u16 gTrainerPalette_GigiPinto[] = INCGFX_U16("graphics/trainers/palettes/gigi_pinto.pal", ".gbapal");
+
+const u32 gTrainerFrontPic_Carletto[] = INCGFX_U32("graphics/trainers/front_pics/carletto.png", ".4bpp.smol");
+const u16 gTrainerPalette_Carletto[] = INCGFX_U16("graphics/trainers/palettes/carletto.pal", ".gbapal");
+
 static const u8 gTrainerBackPic_None[] = INCGFX_U8("graphics/trainers/back_pics/none.png", ".4bpp");
 const u8 gTrainerBackPic_Brendan[] = INCGFX_U8("graphics/trainers/back_pics/brendan.png", ".4bpp");
 const u8 gTrainerBackPic_May[] = INCGFX_U8("graphics/trainers/back_pics/may.png", ".4bpp");
@@ -1267,5 +1273,13 @@ const struct TrainerPicInfo gTrainerPicInfo[TRAINER_PIC_COUNT] =
     [TRAINER_PIC_SIMONE] =
     {
         .frontPic = TRAINER_FRONT_PIC(gTrainerFrontPic_Simone, gTrainerPalette_Simone),
+    },
+    [TRAINER_PIC_GIGI_PINTO] =
+    {
+        .frontPic = TRAINER_FRONT_PIC(gTrainerFrontPic_GigiPinto, gTrainerPalette_GigiPinto),
+    },
+    [TRAINER_PIC_CARLETTO] =
+    {
+        .frontPic = TRAINER_FRONT_PIC(gTrainerFrontPic_Carletto, gTrainerPalette_Carletto),
     },
 };
