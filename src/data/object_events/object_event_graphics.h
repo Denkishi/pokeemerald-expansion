@@ -639,4 +639,28 @@ const u16 gObjectEventPal_Elia[] = INCGFX_U16("graphics/object_events/palettes/e
 const u32 gObjectEventPic_Tatore[] = INCGFX_U32("graphics/object_events/pics/people/tatore.png", ".4bpp", "-mwidth 2 -mheight 4");
 const u16 gObjectEventPal_Tatore[] = INCGFX_U16("graphics/object_events/palettes/tatore.pal", ".gbapal");
 
+const u32 gObjectEventPic_Carletto[] = INCGFX_U32("graphics/object_events/pics/people/carletto.png", ".4bpp", "-mwidth 2 -mheight 4");
+const u16 gObjectEventPal_Carletto[] = INCGFX_U16("graphics/object_events/palettes/carletto.pal", ".gbapal");
+
+const u32 gObjectEventPic_Rafel[] = INCGFX_U32("graphics/object_events/pics/people/rafel.png", ".4bpp", "-mwidth 2 -mheight 4");
+const u16 gObjectEventPal_Rafel[] = INCGFX_U16("graphics/object_events/palettes/rafel.pal", ".gbapal");
+
+const u32 gObjectEventPic_Simone[] = INCGFX_U32("graphics/object_events/pics/people/simone.png", ".4bpp", "-mwidth 2 -mheight 4");
+const u16 gObjectEventPal_Simone[] = INCGFX_U16("graphics/object_events/palettes/simone.pal", ".gbapal");
+
+const u32 gObjectEventPic_Mario[] = INCGFX_U32("graphics/object_events/pics/people/mario.png", ".4bpp", "-mwidth 2 -mheight 4");
+const u16 gObjectEventPal_Mario[] = INCGFX_U16("graphics/object_events/palettes/mario.pal", ".gbapal");
+
+const u32 gObjectEventPic_GigiPinto[] = INCGFX_U32("graphics/object_events/pics/people/gigi_pinto.png", ".4bpp", "-mwidth 2 -mheight 4");
+const u16 gObjectEventPal_GigiPinto[] = INCGFX_U16("graphics/object_events/palettes/gigi_pinto.pal", ".gbapal");
+
+const u32 gObjectEventPic_Gerozz[] = INCGFX_U32("graphics/object_events/pics/people/gerozz.png", ".4bpp", "-mwidth 2 -mheight 4");
+const u16 gObjectEventPal_Gerozz[] = INCGFX_U16("graphics/object_events/palettes/gerozz.pal", ".gbapal");
+
+const u32 gObjectEventPic_Tony[] = INCGFX_U32("graphics/object_events/pics/people/tony.png", ".4bpp", "-mwidth 2 -mheight 4");
+const u16 gObjectEventPal_Tony[] = INCGFX_U16("graphics/object_events/palettes/tony.pal", ".gbapal");
+
+const u32 gObjectEventPic_MarioLett[] = INCGFX_U32("graphics/object_events/pics/people/mario_lett.png", ".4bpp", "-mwidth 2 -mheight 4");
+const u16 gObjectEventPal_MarioLett[] = INCGFX_U16("graphics/object_events/palettes/mario_lett.pal", ".gbapal");
+
 

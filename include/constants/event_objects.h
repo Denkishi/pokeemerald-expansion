@@ -416,6 +416,14 @@ enum
     OBJ_EVENT_GFX_ENZO,
     OBJ_EVENT_GFX_ELIA,
     OBJ_EVENT_GFX_TATORE,
+    OBJ_EVENT_GFX_CARLETTO,
+    OBJ_EVENT_GFX_RAFEL,
+    OBJ_EVENT_GFX_SIMONE,
+    OBJ_EVENT_GFX_MARIO,
+    OBJ_EVENT_GFX_GIGI_PINTO,
+    OBJ_EVENT_GFX_GEROZZ,
+    OBJ_EVENT_GFX_TONY,
+    OBJ_EVENT_GFX_MARIO_LETT,
     NUM_OBJ_EVENT_GFX,
 };
 
@@ -574,6 +582,14 @@ enum
 #define OBJ_EVENT_PAL_TAG_ENZO                    0x1134
 #define OBJ_EVENT_PAL_TAG_ELIA                    0x1135
 #define OBJ_EVENT_PAL_TAG_TATORE                  0x1136
+#define OBJ_EVENT_PAL_TAG_CARLETTO                0x1137
+#define OBJ_EVENT_PAL_TAG_RAFEL                   0x1138
+#define OBJ_EVENT_PAL_TAG_SIMONE                  0x1139
+#define OBJ_EVENT_PAL_TAG_MARIO                   0x113A
+#define OBJ_EVENT_PAL_TAG_GIGI_PINTO              0x113B
+#define OBJ_EVENT_PAL_TAG_GEROZZ                  0x113C
+#define OBJ_EVENT_PAL_TAG_TONY                    0x113D
+#define OBJ_EVENT_PAL_TAG_MARIO_LETT              0x113E
 
 #if OW_FOLLOWERS_POKEBALLS
 // Vanilla

@@ -2503,4 +2503,36 @@ static const struct SpriteFrameImage sPicTable_Tatore[] = {
     overworld_ascending_frames(gObjectEventPic_Tatore, 2, 4),
 };
 
+static const struct SpriteFrameImage sPicTable_Carletto[] = {
+    overworld_ascending_frames(gObjectEventPic_Carletto, 2, 4),
+};
+
+static const struct SpriteFrameImage sPicTable_Rafel[] = {
+    overworld_ascending_frames(gObjectEventPic_Rafel, 2, 4),
+};
+
+static const struct SpriteFrameImage sPicTable_Simone[] = {
+    overworld_ascending_frames(gObjectEventPic_Simone, 2, 4),
+};
+
+static const struct SpriteFrameImage sPicTable_Mario[] = {
+    overworld_ascending_frames(gObjectEventPic_Mario, 2, 4),
+};
+
+static const struct SpriteFrameImage sPicTable_GigiPinto[] = {
+    overworld_ascending_frames(gObjectEventPic_GigiPinto, 2, 4),
+};
+
+static const struct SpriteFrameImage sPicTable_Gerozz[] = {
+    overworld_ascending_frames(gObjectEventPic_Gerozz, 2, 4),
+};
+
+static const struct SpriteFrameImage sPicTable_Tony[] = {
+    overworld_ascending_frames(gObjectEventPic_Tony, 2, 4),
+};
+
+static const struct SpriteFrameImage sPicTable_MarioLett[] = {
+    overworld_ascending_frames(gObjectEventPic_MarioLett, 2, 4),
+};
+
 

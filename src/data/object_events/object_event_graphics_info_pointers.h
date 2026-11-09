@@ -403,6 +403,14 @@ extern const struct ObjectEventGraphicsInfo gObjectEventGraphicsInfo_ApricornTre
 extern const struct ObjectEventGraphicsInfo gObjectEventGraphicsInfo_Enzo;
 extern const struct ObjectEventGraphicsInfo gObjectEventGraphicsInfo_Elia;
 extern const struct ObjectEventGraphicsInfo gObjectEventGraphicsInfo_Tatore;
+extern const struct ObjectEventGraphicsInfo gObjectEventGraphicsInfo_Carletto;
+extern const struct ObjectEventGraphicsInfo gObjectEventGraphicsInfo_Rafel;
+extern const struct ObjectEventGraphicsInfo gObjectEventGraphicsInfo_Simone;
+extern const struct ObjectEventGraphicsInfo gObjectEventGraphicsInfo_Mario;
+extern const struct ObjectEventGraphicsInfo gObjectEventGraphicsInfo_GigiPinto;
+extern const struct ObjectEventGraphicsInfo gObjectEventGraphicsInfo_Gerozz;
+extern const struct ObjectEventGraphicsInfo gObjectEventGraphicsInfo_Tony;
+extern const struct ObjectEventGraphicsInfo gObjectEventGraphicsInfo_MarioLett;
 
 const struct ObjectEventGraphicsInfo *const gObjectEventGraphicsInfoPointers[NUM_OBJ_EVENT_GFX] = {
     [OBJ_EVENT_GFX_BRENDAN_NORMAL] =           &gObjectEventGraphicsInfo_BrendanNormal,
@@ -795,6 +803,14 @@ const struct ObjectEventGraphicsInfo *const gObjectEventGraphicsInfoPointers[NUM
     [OBJ_EVENT_GFX_ENZO]                     = &gObjectEventGraphicsInfo_Enzo,
     [OBJ_EVENT_GFX_ELIA]                     = &gObjectEventGraphicsInfo_Elia,
     [OBJ_EVENT_GFX_TATORE]                   = &gObjectEventGraphicsInfo_Tatore,
+    [OBJ_EVENT_GFX_CARLETTO]                 = &gObjectEventGraphicsInfo_Carletto,
+    [OBJ_EVENT_GFX_RAFEL]                    = &gObjectEventGraphicsInfo_Rafel,
+    [OBJ_EVENT_GFX_SIMONE]                   = &gObjectEventGraphicsInfo_Simone,
+    [OBJ_EVENT_GFX_MARIO]                    = &gObjectEventGraphicsInfo_Mario,
+    [OBJ_EVENT_GFX_GIGI_PINTO]               = &gObjectEventGraphicsInfo_GigiPinto,
+    [OBJ_EVENT_GFX_GEROZZ]                   = &gObjectEventGraphicsInfo_Gerozz,
+    [OBJ_EVENT_GFX_TONY]                     = &gObjectEventGraphicsInfo_Tony,
+    [OBJ_EVENT_GFX_MARIO_LETT]               = &gObjectEventGraphicsInfo_MarioLett,
 };
 
 const struct ObjectEventGraphicsInfo *const gMauvilleOldManGraphicsInfoPointers[] = {
