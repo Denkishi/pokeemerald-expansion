@@ -52,7 +52,7 @@ static void CB2_GoToClearSaveDataScreen(void);
 static void CB2_GoToResetRtcScreen(void);
 static void CB2_GoToBerryFixScreen(void);
 static void CB2_GoToCopyrightScreen(void);
-static void UpdateLegendaryMarkingColor(u8);
+static void UpdateLegendaryMarkingColor(u16);
 
 static void SpriteCB_VersionBannerLeft(struct Sprite *sprite);
 static void SpriteCB_VersionBannerRight(struct Sprite *sprite);
@@ -755,7 +755,7 @@ static void Task_TitleScreenPhase2(u8 taskId)
                                     | DISPCNT_BG1_ON
                                     | DISPCNT_BG2_ON
                                     | DISPCNT_OBJ_ON);
-        CreatePressStartBanner(START_BANNER_X, 108);
+        CreatePressStartBanner(START_BANNER_X, 134);
         CreateCopyrightBanner(START_BANNER_X, 148);
         if (QUICKSTART && QUICKSTART_HUD)
             CreateQuickstartHud();
@@ -858,16 +858,74 @@ static void CB2_GoToBerryFixScreen(void)
     }
 }
 
-static void UpdateLegendaryMarkingColor(u8 frameNum)
+static void UpdateLegendaryMarkingColor(u16 frameNum)
 {
-    if ((frameNum % 4) == 0) // Change color every 4th frame
-    {
-        s32 intensity = Cos(frameNum, Q_8_8(0.5)) + Q_8_8(0.5);
-        u32 r = 31 - Q_8_8_TO_INT(intensity * 31);
-        u32 g = 31 - Q_8_8_TO_INT(intensity * 22);
-        u32 b = 12;
+    u16 cycle;
 
-        u16 color = RGB(r, g, b);
-        LoadPalette(&color, BG_PLTT_ID(14) + 15, sizeof(color));
-   }
+    // Pulse the glowing eyes continuously
+    if ((frameNum % 4) == 0)
+    {
+        s32 intensity = Cos((u8)frameNum, Q_8_8(0.5)) + Q_8_8(0.5);
+        u32 r = 24 + Q_8_8_TO_INT(intensity * 7);
+        u32 gb = Q_8_8_TO_INT(intensity * 12);
+        u16 pupil = RGB(r, gb, gb);
+        u16 glow = RGB(16 + Q_8_8_TO_INT(intensity * 8), 2, 2);
+
+        LoadPalette(&pupil, BG_PLTT_ID(14) + 15, sizeof(pupil));
+        LoadPalette(&glow, BG_PLTT_ID(14) + 14, sizeof(glow));
+    }
+
+    // Occasional lightning flash ("vedo non vedo")
+    // Every 420 frames (~7 seconds), a brief double-flash illuminates the trainers
+    cycle = frameNum % 420;
+    if (cycle < 12)
+    {
+        static const u8 sFlashIntensity[12] = { 8, 13, 4, 16, 14, 10, 7, 4, 2, 1, 0, 0 };
+        u8 boost = sFlashIntensity[cycle];
+
+        if (boost > 0)
+        {
+            u16 flashPal[14];
+            u8 i;
+            static const u16 sBasePal[14] = {
+                RGB( 1,  2,  3), RGB( 1,  1,  2), RGB( 1,  2,  3), RGB( 1,  2,  3),
+                RGB( 2,  2,  4), RGB( 2,  3,  5), RGB( 3,  4,  5), RGB( 3,  4,  6),
+                RGB( 3,  5,  7), RGB( 4,  5,  7), RGB( 5,  6,  9), RGB( 6,  7, 10),
+                RGB( 7,  9, 12), RGB(10, 12, 16)
+            };
+            static const u16 sPeakPal[14] = {
+                RGB(24, 27, 30), RGB(10, 12, 16), RGB(12, 14, 18), RGB(14, 16, 20),
+                RGB(16, 19, 23), RGB(18, 21, 25), RGB(20, 23, 27), RGB(22, 25, 29),
+                RGB(24, 26, 30), RGB(26, 28, 31), RGB(28, 29, 31), RGB(29, 30, 31),
+                RGB(30, 31, 31), RGB(31, 31, 31)
+            };
+
+            for (i = 0; i < 14; i++)
+            {
+                u32 r0 = (sBasePal[i] >> 0) & 0x1F;
+                u32 g0 = (sBasePal[i] >> 5) & 0x1F;
+                u32 b0 = (sBasePal[i] >> 10) & 0x1F;
+                u32 r1 = (sPeakPal[i] >> 0) & 0x1F;
+                u32 g1 = (sPeakPal[i] >> 5) & 0x1F;
+                u32 b1 = (sPeakPal[i] >> 10) & 0x1F;
+
+                u32 r = (r0 * (16 - boost) + r1 * boost) / 16;
+                u32 g = (g0 * (16 - boost) + g1 * boost) / 16;
+                u32 b = (b0 * (16 - boost) + b1 * boost) / 16;
+
+                flashPal[i] = RGB(r, g, b);
+            }
+            LoadPalette(flashPal, BG_PLTT_ID(14), sizeof(flashPal));
+        }
+        else if (cycle == 10)
+        {
+            static const u16 sBasePal[14] = {
+                RGB( 1,  2,  3), RGB( 1,  1,  2), RGB( 1,  2,  3), RGB( 1,  2,  3),
+                RGB( 2,  2,  4), RGB( 2,  3,  5), RGB( 3,  4,  5), RGB( 3,  4,  6),
+                RGB( 3,  5,  7), RGB( 4,  5,  7), RGB( 5,  6,  9), RGB( 6,  7, 10),
+                RGB( 7,  9, 12), RGB(10, 12, 16)
+            };
+            LoadPalette(sBasePal, BG_PLTT_ID(14), sizeof(sBasePal));
+        }
+    }
 }
